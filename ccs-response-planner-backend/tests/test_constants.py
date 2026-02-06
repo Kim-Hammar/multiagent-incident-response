@@ -1,5 +1,5 @@
 """Tests for backend constants."""
-from ccs_response_planner_backend.constants import (
+from ccs_response_planner_backend.constants.constants import (
     API_PREFIX,
     APP_NAME,
     DEFAULT_HOST,

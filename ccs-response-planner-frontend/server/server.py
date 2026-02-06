@@ -1,6 +1,6 @@
 import os
 
-import ccs_response_planner_backend.rest_api as rest_api
+import ccs_response_planner_backend.rest_api.rest_api as rest_api
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.abspath(__file__))

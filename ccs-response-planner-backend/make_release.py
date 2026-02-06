@@ -42,23 +42,22 @@ if __name__ == "__main__":
     old_version = read_current_version()
 
     if old_version == new_version:
-        print(f"Error: version {old_version} is already the current version")
-        sys.exit(1)
+        print(f"Releasing {LIB_NAME}: {old_version} (current version)")
+    else:
+        print(f"Releasing {LIB_NAME}: {old_version} -> {new_version}")
 
-    print(f"Releasing {LIB_NAME}: {old_version} -> {new_version}")
+        # Update version in all config files
+        print("Updating __version__.py")
+        write_version(new_version)
 
-    # Update version in all config files
-    print("Updating __version__.py")
-    write_version(new_version)
+        print("Updating requirements.txt")
+        replace_version_in_file("requirements.txt", old_version, new_version)
 
-    print("Updating requirements.txt")
-    replace_version_in_file("requirements.txt", old_version, new_version)
+        print("Updating setup.cfg")
+        replace_version_in_file("setup.cfg", old_version, new_version)
 
-    print("Updating setup.cfg")
-    replace_version_in_file("setup.cfg", old_version, new_version)
-
-    print("Updating pyproject.toml")
-    replace_version_in_file("pyproject.toml", old_version, new_version)
+        print("Updating pyproject.toml")
+        replace_version_in_file("pyproject.toml", old_version, new_version)
 
     # Delete old build artifacts
     print("Deleting old dist/")
