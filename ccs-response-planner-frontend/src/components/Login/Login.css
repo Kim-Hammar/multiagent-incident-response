@@ -1,0 +1,10 @@
+.Login {
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.login-card {
+  max-width: 400px;
+  width: 100%;
+}

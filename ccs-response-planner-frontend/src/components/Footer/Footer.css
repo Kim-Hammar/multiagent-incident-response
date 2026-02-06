@@ -1,0 +1,27 @@
+.Footer {
+  margin-top: 40px;
+}
+
+.footer {
+  padding: 20px 0;
+  text-align: center;
+  border-top: 1px solid #e5e5e5;
+}
+
+.footer .text-muted {
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.githubLink {
+  margin-left: 8px;
+  color: #6c757d;
+}
+
+.githubLink:hover {
+  color: #343a40;
+}
+
+.imperialLogo {
+  margin-left: 10px;
+}

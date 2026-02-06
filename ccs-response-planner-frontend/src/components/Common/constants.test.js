@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
-  HOME_RESOURCE,
+  LOGIN_RESOURCE,
+  ABOUT_RESOURCE,
+  RESPONSE_PLANNER_RESOURCE,
   NOT_FOUND_RESOURCE,
   APP_TITLE,
   API_BASE_URL,
@@ -9,9 +11,16 @@ import {
 } from './constants'
 
 describe('constants', () => {
-  it('HOME_RESOURCE is a non-empty string', () => {
-    expect(typeof HOME_RESOURCE).toBe('string')
-    expect(HOME_RESOURCE).toBe('home-page')
+  it('LOGIN_RESOURCE is the login route', () => {
+    expect(LOGIN_RESOURCE).toBe('login')
+  })
+
+  it('ABOUT_RESOURCE is the about route', () => {
+    expect(ABOUT_RESOURCE).toBe('about')
+  })
+
+  it('RESPONSE_PLANNER_RESOURCE is the response planner route', () => {
+    expect(RESPONSE_PLANNER_RESOURCE).toBe('response-planner')
   })
 
   it('NOT_FOUND_RESOURCE is the wildcard route', () => {

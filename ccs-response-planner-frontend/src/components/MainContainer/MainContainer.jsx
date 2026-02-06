@@ -1,15 +1,16 @@
+import './MainContainer.css'
 import { Outlet } from 'react-router-dom'
-import { APP_TITLE } from '../Common/constants'
+import Header from '../Header/Header.jsx'
+import Footer from '../Footer/Footer.jsx'
 
 function MainContainer() {
   return (
     <div>
-      <nav className="navbar navbar-dark bg-dark mb-4">
-        <span className="navbar-brand">{APP_TITLE}</span>
-      </nav>
+      <Header />
       <div className="container">
         <Outlet />
       </div>
+      <Footer />
     </div>
   )
 }

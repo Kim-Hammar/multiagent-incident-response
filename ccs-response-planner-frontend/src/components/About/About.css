@@ -1,0 +1,40 @@
+.About {
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.About h2 {
+  margin-bottom: 10px;
+}
+
+.About hr {
+  margin: 20px 0;
+}
+
+.About p {
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.About h5 {
+  margin-top: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.About ul {
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.About li {
+  margin-bottom: 8px;
+}
+
+.method-figure {
+  display: block;
+  max-width: 100%;
+  margin: 20px auto;
+}
