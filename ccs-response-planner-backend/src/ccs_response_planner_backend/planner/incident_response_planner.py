@@ -1,19 +1,20 @@
-"""Incident response planning logic."""
+"""
+Incident response planning logic.
+"""
 from typing import Any
 
 
 class IncidentResponsePlanner:
-    """Generates incident response plans for cyber-security incidents."""
+    """
+    Generates incident response plans for cyber-security incidents.
+    """
 
     def generate_plan(self, incident_description: str) -> dict[str, Any]:
-        """Generate a response plan for the given incident.
+        """
+        Generate a response plan for the given incident.
 
-        Args:
-            incident_description: A text description of the incident.
-
-        Returns:
-            A dict containing the response plan with steps,
-            severity, and status.
+        :param incident_description: a text description of the incident
+        :return: a dict containing the response plan with steps, severity, and status
         """
         return {
             "incident_description": incident_description,

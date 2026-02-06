@@ -76,3 +76,23 @@ React app using React Router for navigation. Uses Bootstrap 4 (loaded via CDN in
 
 - **Backend:** flake8 (120 char lines), mypy strict mode, pytest for tests
 - **Frontend:** ESLint (flat config with react/promise/node plugins) + Prettier (no semicolons, single quotes, 2-space tabs, 100 char width, no trailing commas)
+
+### Python Docstring Format
+
+All Python docstrings must use the reST `:param` / `:return` style with triple-quoted multi-line blocks:
+
+```python
+def create_app(static_folder: str) -> Flask:
+    """
+    Create and configure the Flask application.
+
+    :param static_folder: path to the static frontend build directory
+    :return: a configured Flask app instance
+    """
+```
+
+- Opening `"""` on its own line after the `def`
+- Description on the next line
+- `:param name:` for each parameter
+- `:return:` for the return value
+- Closing `"""` on its own line
