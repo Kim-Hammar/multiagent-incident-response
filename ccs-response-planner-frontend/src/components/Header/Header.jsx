@@ -14,7 +14,7 @@ const Header = () => (
     <ul className="navbar-nav">
       <li className="nav-item">
         <NavLink className="nav-link" to={`/${RESPONSE_PLANNER_RESOURCE}`}>
-          Response Planner
+          Response planner
         </NavLink>
       </li>
       <li className="nav-item">

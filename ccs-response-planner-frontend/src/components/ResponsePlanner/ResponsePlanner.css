@@ -1,8 +1,57 @@
 .ResponsePlanner {
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto;
+  text-align: left;
 }
 
 .ResponsePlanner h2 {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+}
+
+.ResponsePlanner .subtitle {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.ResponsePlanner hr {
+  margin: 16px 0 24px;
+}
+
+.input-section {
+  margin-bottom: 24px;
+}
+
+.input-section label {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.input-hint {
+  color: #888;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.planner-textarea {
+  font-size: 13px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.planner-textarea:focus {
+  border-color: #343a40;
+  box-shadow: 0 0 0 0.15rem rgba(52, 58, 64, 0.2);
+}
+
+.btn-generate {
+  margin-top: 4px;
+  padding: 5px 18px;
+  font-size: 13px;
+}
+
+.btn-generate .fa {
+  margin-right: 5px;
 }
