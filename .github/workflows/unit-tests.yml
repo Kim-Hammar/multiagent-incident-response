@@ -1,0 +1,35 @@
+name: unit-tests
+run-name: ${{ github.actor }} unit-tests
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+    branches:
+      - "master"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10']
+        node-version: ['22']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install backend dependencies
+        run: cd ccs-response-planner-backend && pip install -e ".[test]"
+      - name: Install frontend dependencies
+        run: cd ccs-response-planner-frontend && npm install
+      - name: Run unit tests
+        run: chmod +x unit_tests.sh && ./unit_tests.sh
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

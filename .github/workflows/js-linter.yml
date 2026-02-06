@@ -1,0 +1,21 @@
+name: js-linter
+run-name: ${{ github.actor }} js-linter
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+    branches:
+      - "master"
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: cd ccs-response-planner-frontend && npm install
+      - name: Run eslint
+        run: chmod +x js_linter.sh && ./js_linter.sh
