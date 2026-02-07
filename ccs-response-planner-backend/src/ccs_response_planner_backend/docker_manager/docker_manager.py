@@ -123,6 +123,12 @@ class DockerManager:
                         )
             container.start()
 
+            # Disconnect from default bridge to enforce zone segmentation
+            try:
+                client.networks.get("bridge").disconnect(container)
+            except Exception:
+                pass
+
             emit(f"[{idx}/{total}] Container {container_name} started")
             containers.append({
                 "host_id": host["id"],

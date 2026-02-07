@@ -190,6 +190,45 @@ CEOF'`
     expect(check).not.toContain('NOT_FOUND')
   })
 
+  test('positive reachability between linked hosts', () => {
+    const pairs = [
+      ['gateway', '10.0.1.253'],
+      ['firewall', '10.0.1.252'],
+      ['ids', '10.0.2.2'],
+      ['ids', '10.0.3.3'],
+      ['server_1', '10.0.2.2'],
+      ['server_1', '10.0.3.4'],
+      ['server_1', '10.0.4.6'],
+      ['server_2', '10.0.3.3'],
+      ['server_2', '10.0.4.5'],
+      ['server_3', '10.0.4.6'],
+      ['server_4', '10.0.4.5'],
+      ['server_5', '10.0.4.6'],
+      ['gateway', '10.0.4.6'],
+    ]
+    for (const [host, ip] of pairs) {
+      const out = dockerExec(
+        `ccs_dt_${host}`,
+        `ping -c 1 -W 2 ${ip}`
+      )
+      expect(out).toContain('1 received')
+    }
+  })
+
+  test('zone isolation blocks cross-zone traffic', () => {
+    const pairs = [
+      ['server_5', '10.0.2.1'],
+      ['server_5', '10.0.3.3'],
+      ['server_6', '10.0.2.2'],
+      ['server_3', '10.0.2.1'],
+    ]
+    for (const [host, ip] of pairs) {
+      expect(() => {
+        dockerExec(`ccs_dt_${host}`, `ping -c 1 -W 2 ${ip}`)
+      }).toThrow()
+    }
+  })
+
   test('validate specification commands', async ({ request }) => {
     const res = await request.post(`${API}/digital-twin/validate`, {
       headers: { Authorization: `Bearer ${authToken}` },
@@ -203,12 +242,12 @@ CEOF'`
     const results = parsed.filter((o) => o.type === 'result')
     const done = parsed.find((o) => o.type === 'done')
 
-    expect(results.length).toBe(4)
+    expect(results.length).toBe(21)
     expect(done).toBeTruthy()
 
-    // All services should be running at this point
+    // All spec commands should pass
     const passed = results.filter((r) => r.passed)
-    expect(passed.length).toBeGreaterThanOrEqual(1)
+    expect(passed.length).toBe(21)
 
     // Each result should have the expected shape
     for (const r of results) {

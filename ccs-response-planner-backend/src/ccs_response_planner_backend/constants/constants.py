@@ -309,6 +309,144 @@ class DIGITAL_TWIN:
                     " accepting connections"
                 ),
             },
+            # Positive reachability — one test per topology link
+            {
+                "host": "gateway",
+                "command": "ping -c 1 -W 2 10.0.1.253",
+                "description": (
+                    "Firewall reachable from Gateway"
+                    " (perimeter)"
+                ),
+            },
+            {
+                "host": "firewall",
+                "command": "ping -c 1 -W 2 10.0.1.252",
+                "description": (
+                    "IDS reachable from Firewall"
+                    " (perimeter)"
+                ),
+            },
+            {
+                "host": "ids",
+                "command": "ping -c 1 -W 2 10.0.2.2",
+                "description": (
+                    "Server 2 reachable from IDS"
+                    " (zone1)"
+                ),
+            },
+            {
+                "host": "ids",
+                "command": "ping -c 1 -W 2 10.0.3.3",
+                "description": (
+                    "Server 3 reachable from IDS"
+                    " (zone2)"
+                ),
+            },
+            {
+                "host": "server_1",
+                "command": "ping -c 1 -W 2 10.0.2.2",
+                "description": (
+                    "Server 2 reachable from Server 1"
+                    " (zone1)"
+                ),
+            },
+            {
+                "host": "server_1",
+                "command": "ping -c 1 -W 2 10.0.3.4",
+                "description": (
+                    "Server 4 reachable from Server 1"
+                    " (zone2)"
+                ),
+            },
+            {
+                "host": "server_1",
+                "command": "ping -c 1 -W 2 10.0.4.6",
+                "description": (
+                    "Server 6 reachable from Server 1"
+                    " (zone3)"
+                ),
+            },
+            {
+                "host": "server_2",
+                "command": "ping -c 1 -W 2 10.0.3.3",
+                "description": (
+                    "Server 3 reachable from Server 2"
+                    " (zone2)"
+                ),
+            },
+            {
+                "host": "server_2",
+                "command": "ping -c 1 -W 2 10.0.4.5",
+                "description": (
+                    "Server 5 reachable from Server 2"
+                    " (zone3)"
+                ),
+            },
+            {
+                "host": "server_3",
+                "command": "ping -c 1 -W 2 10.0.4.6",
+                "description": (
+                    "Server 6 reachable from Server 3"
+                    " (zone3)"
+                ),
+            },
+            {
+                "host": "server_4",
+                "command": "ping -c 1 -W 2 10.0.4.5",
+                "description": (
+                    "Server 5 reachable from Server 4"
+                    " (zone3)"
+                ),
+            },
+            {
+                "host": "server_5",
+                "command": "ping -c 1 -W 2 10.0.4.6",
+                "description": (
+                    "Server 6 reachable from Server 5"
+                    " (zone3)"
+                ),
+            },
+            {
+                "host": "gateway",
+                "command": "ping -c 1 -W 2 10.0.4.6",
+                "description": (
+                    "Server 6 reachable from Gateway"
+                    " (end-to-end routing)"
+                ),
+            },
+            # Negative reachability — zone isolation
+            {
+                "host": "server_5",
+                "command": "! ping -c 1 -W 2 10.0.2.1",
+                "description": (
+                    "Server 1 not reachable from"
+                    " Server 5 (zone isolation)"
+                ),
+            },
+            {
+                "host": "server_5",
+                "command": "! ping -c 1 -W 2 10.0.3.3",
+                "description": (
+                    "Server 3 not reachable from"
+                    " Server 5 (zone isolation)"
+                ),
+            },
+            {
+                "host": "server_6",
+                "command": "! ping -c 1 -W 2 10.0.2.2",
+                "description": (
+                    "Server 2 not reachable from"
+                    " Server 6 (zone isolation)"
+                ),
+            },
+            {
+                "host": "server_3",
+                "command": "! ping -c 1 -W 2 10.0.2.1",
+                "description": (
+                    "Server 1 not reachable from"
+                    " Server 3 (zone isolation)"
+                ),
+            },
         ],
     }
 
@@ -369,5 +507,14 @@ class EXAMPLES:
         "- Server 6 PostgreSQL must not be taken offline (all "
         "services depend on it)\n"
         "- Server 4 Postfix mail delivery must not be interrupted "
-        "(SLA obligation)"
+        "(SLA obligation)\n"
+        "- All servers must remain reachable from the gateway "
+        "through the routing chain "
+        "(gateway -> firewall -> IDS -> zones)\n"
+        "- All topology links between adjacent hosts must remain "
+        "operational\n"
+        "- Zone 3 hosts (Server 5, Server 6) must not have direct "
+        "routes to Zone 1 (10.0.2.0/24) or Zone 2 (10.0.3.0/24)\n"
+        "- Zone 2 hosts (Server 3, Server 4) must not have direct "
+        "routes to Zone 1 (10.0.2.0/24)"
     )

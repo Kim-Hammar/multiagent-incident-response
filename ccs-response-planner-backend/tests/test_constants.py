@@ -149,11 +149,27 @@ def test_digital_twin_status_route() -> None:
 
 def test_digital_twin_default_config_has_specification_commands() -> None:
     """
-    The default DT config must include a non-empty specification_commands list.
+    The default DT config must include 21 specification commands
+    (4 service + 13 positive reachability + 4 negative reachability).
     """
     cmds = DIGITAL_TWIN.DEFAULT_CONFIG["specification_commands"]
     assert isinstance(cmds, list)
-    assert len(cmds) > 0
+    assert len(cmds) == 21
     for cmd in cmds:
         assert "command" in cmd
         assert "description" in cmd
+
+
+def test_specification_commands_include_reachability() -> None:
+    """
+    Specification commands must include both positive and negative
+    reachability checks using ping.
+    """
+    cmds = DIGITAL_TWIN.DEFAULT_CONFIG["specification_commands"]
+    ping_cmds = [c for c in cmds if "ping" in c["command"]]
+    positive = [c for c in ping_cmds
+                if not c["command"].startswith("!")]
+    negative = [c for c in ping_cmds
+                if c["command"].startswith("!")]
+    assert len(positive) == 13
+    assert len(negative) == 4
