@@ -48,6 +48,8 @@ def save_digital_twin() -> tuple[Response, int]:
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body is required"}), 400
+    if "networks" not in data or not isinstance(data["networks"], list):
+        return jsonify({"error": "networks must be a list"}), 400
     if "hosts" not in data or not isinstance(data["hosts"], list):
         return jsonify({"error": "hosts must be a list"}), 400
     if "links" not in data or not isinstance(data["links"], list):

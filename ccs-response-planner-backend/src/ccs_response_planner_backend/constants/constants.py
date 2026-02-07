@@ -86,10 +86,8 @@ class DOCKER:
     """
     Constants related to Docker digital-twin deployment.
     """
-    NETWORK_NAME = "ccs_dt_network"
+    NETWORK_PREFIX = "ccs_dt_net_"
     CONTAINER_PREFIX = "ccs_dt_"
-    SUBNET = "10.0.0.0/24"
-    GATEWAY = "10.0.0.100"
 
 
 class DIGITAL_TWIN:
@@ -97,12 +95,46 @@ class DIGITAL_TWIN:
     Constants related to the digital twin configuration.
     """
     DEFAULT_CONFIG: dict[str, Any] = {
+        "networks": [
+            {
+                "id": "perimeter",
+                "name": "Perimeter",
+                "subnet": "10.0.1.0/24",
+                "gateway": "10.0.1.100",
+            },
+            {
+                "id": "zone1",
+                "name": "Zone 1",
+                "subnet": "10.0.2.0/24",
+                "gateway": "10.0.2.100",
+            },
+            {
+                "id": "zone2",
+                "name": "Zone 2",
+                "subnet": "10.0.3.0/24",
+                "gateway": "10.0.3.100",
+            },
+            {
+                "id": "zone3",
+                "name": "Zone 3",
+                "subnet": "10.0.4.0/24",
+                "gateway": "10.0.4.100",
+            },
+        ],
         "hosts": [
             {
                 "id": "gateway",
                 "name": "Gateway",
                 "docker_image": "ccs-dt-gateway:latest",
-                "ip_addresses": ["10.0.0.254"],
+                "ip_addresses": {"perimeter": "10.0.1.254"},
+                "routes": [
+                    {"destination": "10.0.2.0/24",
+                     "via": "10.0.1.253"},
+                    {"destination": "10.0.3.0/24",
+                     "via": "10.0.1.253"},
+                    {"destination": "10.0.4.0/24",
+                     "via": "10.0.1.253"},
+                ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
             },
@@ -110,58 +142,112 @@ class DIGITAL_TWIN:
                 "id": "firewall",
                 "name": "Firewall",
                 "docker_image": "ccs-dt-firewall:latest",
-                "ip_addresses": ["10.0.0.253"],
+                "ip_addresses": {"perimeter": "10.0.1.253"},
+                "routes": [
+                    {"destination": "10.0.2.0/24",
+                     "via": "10.0.1.252"},
+                    {"destination": "10.0.3.0/24",
+                     "via": "10.0.1.252"},
+                    {"destination": "10.0.4.0/24",
+                     "via": "10.0.1.252"},
+                ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
+                "sysctls": {"net.ipv4.ip_forward": "1"},
             },
             {
                 "id": "ids",
                 "name": "IDS",
                 "docker_image": "ccs-dt-ids:latest",
-                "ip_addresses": ["10.0.0.252"],
+                "ip_addresses": {
+                    "perimeter": "10.0.1.252",
+                    "zone1": "10.0.2.252",
+                    "zone2": "10.0.3.252",
+                    "zone3": "10.0.4.252",
+                },
+                "routes": [],
                 "use_image_entrypoint": True,
-                "capabilities": ["NET_RAW"],
+                "capabilities": ["NET_ADMIN", "NET_RAW"],
+                "sysctls": {"net.ipv4.ip_forward": "1"},
             },
             {
                 "id": "server_1",
                 "name": "Server 1",
                 "docker_image": "ccs-dt-server1:latest",
-                "ip_addresses": ["10.0.0.1"],
+                "ip_addresses": {
+                    "zone1": "10.0.2.1",
+                    "zone2": "10.0.3.1",
+                    "zone3": "10.0.4.1",
+                },
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.2.252"},
+                ],
                 "use_image_entrypoint": True,
             },
             {
                 "id": "server_2",
                 "name": "Server 2",
                 "docker_image": "ccs-dt-server2:latest",
-                "ip_addresses": ["10.0.0.2"],
+                "ip_addresses": {
+                    "zone1": "10.0.2.2",
+                    "zone2": "10.0.3.2",
+                    "zone3": "10.0.4.2",
+                },
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.2.252"},
+                ],
                 "use_image_entrypoint": True,
             },
             {
                 "id": "server_3",
                 "name": "Server 3",
                 "docker_image": "ccs-dt-server3:latest",
-                "ip_addresses": ["10.0.0.3"],
+                "ip_addresses": {
+                    "zone2": "10.0.3.3",
+                    "zone3": "10.0.4.3",
+                },
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.3.252"},
+                ],
                 "use_image_entrypoint": True,
             },
             {
                 "id": "server_4",
                 "name": "Server 4",
                 "docker_image": "ccs-dt-server4:latest",
-                "ip_addresses": ["10.0.0.4"],
+                "ip_addresses": {
+                    "zone2": "10.0.3.4",
+                    "zone3": "10.0.4.4",
+                },
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.3.252"},
+                ],
                 "use_image_entrypoint": True,
             },
             {
                 "id": "server_5",
                 "name": "Server 5",
                 "docker_image": "ccs-dt-server5:latest",
-                "ip_addresses": ["10.0.0.5"],
+                "ip_addresses": {"zone3": "10.0.4.5"},
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.4.252"},
+                ],
                 "use_image_entrypoint": True,
             },
             {
                 "id": "server_6",
                 "name": "Server 6",
                 "docker_image": "ccs-dt-server6:latest",
-                "ip_addresses": ["10.0.0.6"],
+                "ip_addresses": {"zone3": "10.0.4.6"},
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.4.252"},
+                ],
                 "use_image_entrypoint": True,
                 "privileged": True,
             },
@@ -182,45 +268,41 @@ class DIGITAL_TWIN:
         ],
         "specification_commands": [
             {
-                "host": "gateway",
+                "host": "server_1",
                 "command": (
-                    "python3 -c \"import socket;"
-                    " s=socket.create_connection("
-                    "('10.0.0.2', 21), timeout=3); s.close()\""
+                    "bash -c 'echo > /dev/tcp/10.0.2.2/21'"
                 ),
                 "description": (
                     "Verify Server 2 FTP is reachable"
-                    " from the gateway"
+                    " from Server 1"
                 ),
             },
             {
-                "host": "gateway",
+                "host": "server_1",
                 "command": (
-                    "ssh-keyscan -T 3 10.0.0.3 2>&1"
-                    " | grep -q ssh"
+                    "bash -c 'echo > /dev/tcp/10.0.3.3/22'"
                 ),
                 "description": (
                     "Verify Server 3 SSH is reachable"
-                    " from the gateway"
+                    " from Server 1"
                 ),
             },
             {
-                "host": "gateway",
+                "host": "server_5",
                 "command": (
                     "python3 -c \"import socket;"
                     " s=socket.create_connection("
-                    "('10.0.0.6', 5432), timeout=3); s.close()\""
+                    "('10.0.4.6', 5432), timeout=3);"
+                    " s.close()\""
                 ),
                 "description": (
                     "Verify Server 6 PostgreSQL is running"
                 ),
             },
             {
-                "host": "gateway",
+                "host": "server_1",
                 "command": (
-                    "python3 -c \"import socket;"
-                    " s=socket.create_connection("
-                    "('10.0.0.4', 25), timeout=3); s.close()\""
+                    "bash -c 'echo > /dev/tcp/10.0.3.4/25'"
                 ),
                 "description": (
                     "Verify Server 4 Postfix SMTP is"
@@ -238,24 +320,27 @@ class EXAMPLES:
     SYSTEM_DESCRIPTION = (
         "The system is the cloud infrastructure of a mid-size SaaS "
         "company, consisting of 6 servers behind a gateway with "
-        "Snort IDS. The network topology is shown in the attached "
-        "figure.\n\n"
-        "Gateway (10.0.0.254, Ubuntu 22): Snort IDS v2.9\n"
-        "Firewall (10.0.0.253, Ubuntu 22): iptables packet "
+        "Snort IDS. The network is segmented into a perimeter zone "
+        "(10.0.1.0/24) and three internal zones: Zone 1 "
+        "(10.0.2.0/24), Zone 2 (10.0.3.0/24), and Zone 3 "
+        "(10.0.4.0/24). The network topology is shown in the "
+        "attached figure.\n\n"
+        "Gateway (10.0.1.254, Ubuntu 22): Snort IDS v2.9\n"
+        "Firewall (10.0.1.253, Ubuntu 22): iptables packet "
         "filtering\n"
-        "IDS (10.0.0.252, Ubuntu 22): rsyslog log aggregation, "
+        "IDS (10.0.1.252, Ubuntu 22): rsyslog log aggregation, "
         "tcpdump\n"
-        "Server 1 (10.0.0.1, Debian 11): Nginx reverse proxy, "
+        "Server 1 (10.0.2.1, Debian 11): Nginx reverse proxy, "
         "PHP-FPM customer portal, dnsmasq internal DNS\n"
-        "Server 2 (10.0.0.2, Debian 11): vsftpd FTP, cron nightly "
+        "Server 2 (10.0.2.2, Debian 11): vsftpd FTP, cron nightly "
         "backups\n"
-        "Server 3 (10.0.0.3, Ubuntu 20): SSH, cron CI/CD build "
+        "Server 3 (10.0.3.3, Ubuntu 20): SSH, cron CI/CD build "
         "pipeline\n"
-        "Server 4 (10.0.0.4, Debian 11): Postfix SMTP mail "
+        "Server 4 (10.0.3.4, Debian 11): Postfix SMTP mail "
         "server\n"
-        "Server 5 (10.0.0.5, Debian 11): SSH, Python REST API, "
+        "Server 5 (10.0.4.5, Debian 11): SSH, Python REST API, "
         "Redis session cache\n"
-        "Server 6 (10.0.0.6, Debian 8): PostgreSQL database, "
+        "Server 6 (10.0.4.6, Debian 8): PostgreSQL database, "
         "Samba file shares"
     )
     SYSTEM_DESCRIPTION_IMAGE = _load_example_image()
@@ -263,11 +348,11 @@ class EXAMPLES:
         "02/06-10:15:22.341201 [**] [1:2006546:3] ET SCAN SSH "
         "Brute Force Login Attempt [**] [Classification: Attempted "
         "Information Leak] [Priority: 2] {TCP} "
-        "192.168.1.50:44321 -> 10.0.0.3:22\n\n"
+        "192.168.1.50:44321 -> 10.0.3.3:22\n\n"
         "02/06-10:42:15.889102 [**] [1:2014473:3] ET EXPLOIT "
         "Possible SQL Injection Attempt (UNION SELECT) [**] "
         "[Classification: Attempted Administrator Privilege Gain] "
-        "[Priority: 1] {TCP} 10.0.0.3:55210 -> 10.0.0.1:80"
+        "[Priority: 1] {TCP} 10.0.3.3:55210 -> 10.0.2.1:80"
     )
     OPERATOR_FEEDBACK = (
         "Note that the Snort IDS alerts only cover the SSH brute "

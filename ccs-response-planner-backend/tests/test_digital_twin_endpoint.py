@@ -39,7 +39,7 @@ def test_get_requires_auth(client: FlaskClient) -> None:
 def test_put_saves_valid_config(
     client: FlaskClient, auth_headers: dict[str, str]
 ) -> None:
-    payload = {"hosts": [{"id": "x"}], "links": []}
+    payload = {"networks": [], "hosts": [{"id": "x"}], "links": []}
     response = client.put(
         "/api/digital-twin",
         json=payload,
@@ -49,12 +49,23 @@ def test_put_saves_valid_config(
     assert response.get_json()["message"] == "Configuration saved"
 
 
+def test_put_rejects_missing_networks(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.put(
+        "/api/digital-twin",
+        json={"hosts": [], "links": []},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+
+
 def test_put_rejects_missing_hosts(
     client: FlaskClient, auth_headers: dict[str, str]
 ) -> None:
     response = client.put(
         "/api/digital-twin",
-        json={"links": []},
+        json={"networks": [], "links": []},
         headers=auth_headers,
     )
     assert response.status_code == 400
@@ -65,7 +76,7 @@ def test_put_rejects_missing_links(
 ) -> None:
     response = client.put(
         "/api/digital-twin",
-        json={"hosts": []},
+        json={"networks": [], "hosts": []},
         headers=auth_headers,
     )
     assert response.status_code == 400
@@ -84,7 +95,8 @@ def test_put_rejects_empty_body(
 
 def test_put_requires_auth(client: FlaskClient) -> None:
     response = client.put(
-        "/api/digital-twin", json={"hosts": [], "links": []}
+        "/api/digital-twin",
+        json={"networks": [], "hosts": [], "links": []},
     )
     assert response.status_code == 401
 

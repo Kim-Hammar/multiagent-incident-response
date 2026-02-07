@@ -27,7 +27,7 @@ RUN mkdir -p /srv/public && chmod 777 /srv/public
 # Note: globs expand in command args but not in shell redirects, so use tee -a
 RUN sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" \
     /etc/postgresql/*/main/postgresql.conf && \
-    echo "host all all 10.0.0.0/24 md5" | tee -a /etc/postgresql/*/main/pg_hba.conf > /dev/null
+    echo "host all all 10.0.0.0/8 md5" | tee -a /etc/postgresql/*/main/pg_hba.conf > /dev/null
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

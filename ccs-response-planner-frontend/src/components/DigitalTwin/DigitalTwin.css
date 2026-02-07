@@ -49,6 +49,36 @@
   font-size: 14px;
 }
 
+/* IP address editor */
+.DigitalTwin .ip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.DigitalTwin .ip-net-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6c757d;
+  min-width: 60px;
+}
+
+.DigitalTwin .ip-input {
+  flex: 1;
+}
+
+.DigitalTwin .ip-remove {
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.DigitalTwin .ip-add {
+  font-size: 11px;
+  padding: 1px 8px;
+  margin-top: 2px;
+}
+
 .DigitalTwin .action-buttons {
   margin-top: 15px;
   margin-bottom: 30px;

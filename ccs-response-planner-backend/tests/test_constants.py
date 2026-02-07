@@ -99,20 +99,24 @@ def test_llm_route_starts_with_api_prefix() -> None:
     assert API.LLM_ROUTE == "/api/llm"
 
 
-def test_docker_network_name() -> None:
-    assert DOCKER.NETWORK_NAME == "ccs_dt_network"
+def test_docker_network_prefix() -> None:
+    assert DOCKER.NETWORK_PREFIX == "ccs_dt_net_"
 
 
 def test_docker_container_prefix() -> None:
     assert DOCKER.CONTAINER_PREFIX == "ccs_dt_"
 
 
-def test_docker_subnet() -> None:
-    assert DOCKER.SUBNET == "10.0.0.0/24"
-
-
-def test_docker_gateway() -> None:
-    assert DOCKER.GATEWAY == "10.0.0.100"
+def test_digital_twin_default_config_has_networks() -> None:
+    """
+    The default DT config must include a non-empty networks list.
+    """
+    nets = DIGITAL_TWIN.DEFAULT_CONFIG["networks"]
+    assert isinstance(nets, list)
+    assert len(nets) == 4
+    for net in nets:
+        assert "id" in net
+        assert "subnet" in net
 
 
 def test_digital_twin_default_config_hosts() -> None:

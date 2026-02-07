@@ -29,14 +29,15 @@ class DockerManager:
         on_progress: Optional[Callable[[str], None]] = None,
     ) -> dict[str, Any]:
         """
-        Deploy the digital twin as Docker containers on a bridge network.
+        Deploy the digital twin on multiple segmented Docker networks.
 
-        Creates the network if it does not exist, pulls images, and starts
-        containers with assigned IPs. Idempotent: skips existing containers.
+        Creates networks from the config, starts containers, connects
+        each to its assigned networks with static IPs, then applies
+        static routes. Idempotent: skips existing containers.
 
-        :param config: the digital twin configuration with hosts list
+        :param config: the digital twin configuration with networks/hosts
         :param on_progress: optional callback invoked with status messages
-        :return: a dict with network name and list of created containers
+        :return: a dict with networks list and created containers list
         """
         def emit(msg: str) -> None:
             if on_progress:
@@ -44,24 +45,32 @@ class DockerManager:
 
         client = DockerManager._client()
 
-        try:
-            network = client.networks.get(DOCKER.NETWORK_NAME)
-            emit(f"Using existing network {DOCKER.NETWORK_NAME}")
-        except NotFound:
-            emit(f"Creating network {DOCKER.NETWORK_NAME} "
-                 f"({DOCKER.SUBNET})")
-            ipam_pool = docker.types.IPAMPool(
-                subnet=DOCKER.SUBNET,
-                gateway=DOCKER.GATEWAY,
-            )
-            ipam_config = docker.types.IPAMConfig(pool_configs=[ipam_pool])
-            network = client.networks.create(
-                DOCKER.NETWORK_NAME,
-                driver="bridge",
-                ipam=ipam_config,
-            )
-            emit(f"Network {DOCKER.NETWORK_NAME} created")
+        # Create networks
+        networks_by_id: dict[str, Any] = {}
+        network_names: list[str] = []
+        for net_def in config.get("networks", []):
+            net_name = f"{DOCKER.NETWORK_PREFIX}{net_def['id']}"
+            try:
+                net_obj = client.networks.get(net_name)
+                emit(f"Using existing network {net_name}")
+            except NotFound:
+                emit(f"Creating network {net_name} "
+                     f"({net_def['subnet']})")
+                ipam_pool = docker.types.IPAMPool(
+                    subnet=net_def["subnet"],
+                    gateway=net_def.get("gateway"),
+                )
+                ipam_config = docker.types.IPAMConfig(
+                    pool_configs=[ipam_pool],
+                )
+                net_obj = client.networks.create(
+                    net_name, driver="bridge", ipam=ipam_config,
+                )
+                emit(f"Network {net_name} created")
+            networks_by_id[net_def["id"]] = net_obj
+            network_names.append(net_name)
 
+        # Create and start containers
         containers = []
         hosts = config.get("hosts", [])
         total = len(hosts)
@@ -81,7 +90,6 @@ class DockerManager:
             except NotFound:
                 pass
 
-            ip_addr = (host.get("ip_addresses") or [None])[0]
             emit(f"[{idx}/{total}] Starting {container_name} "
                  f"({host['docker_image']})")
 
@@ -95,19 +103,24 @@ class DockerManager:
                 create_kwargs["cap_add"] = host["capabilities"]
             if host.get("privileged", False):
                 create_kwargs["privileged"] = True
+            if host.get("sysctls"):
+                create_kwargs["sysctls"] = host["sysctls"]
 
-            # Create the container without a network, then attach the
-            # network with the correct IP *before* starting so the
-            # entrypoint services bind to the final interface.
             container = client.containers.create(
                 host["docker_image"], **create_kwargs
             )
-            if ip_addr:
-                emit(f"[{idx}/{total}] Assigning IP {ip_addr} "
-                     f"to {container_name}")
-                network.connect(container, ipv4_address=ip_addr)
-            else:
-                network.connect(container)
+
+            # Connect to each assigned network with its static IP
+            ip_addrs = host.get("ip_addresses") or {}
+            if isinstance(ip_addrs, dict):
+                for net_id, ip_addr in ip_addrs.items():
+                    if net_id in networks_by_id:
+                        emit(f"[{idx}/{total}] Connecting "
+                             f"{container_name} to {net_id} "
+                             f"({ip_addr})")
+                        networks_by_id[net_id].connect(
+                            container, ipv4_address=ip_addr,
+                        )
             container.start()
 
             emit(f"[{idx}/{total}] Container {container_name} started")
@@ -118,15 +131,34 @@ class DockerManager:
                 "image": host["docker_image"],
             })
 
+        # Apply static routes
+        for host in hosts:
+            routes = host.get("routes", [])
+            if not routes:
+                continue
+            container_name = f"{DOCKER.CONTAINER_PREFIX}{host['id']}"
+            for route in routes:
+                cmd = (f"ip route add {route['destination']} "
+                       f"via {route['via']}")
+                emit(f"Adding route on {host['id']}: "
+                     f"{route['destination']} via {route['via']}")
+                try:
+                    exec_id = client.api.exec_create(
+                        container_name, ["/bin/sh", "-c", cmd],
+                    )["Id"]
+                    client.api.exec_start(exec_id)
+                except Exception:
+                    pass
+
         emit("Deployment complete")
-        return {"network": DOCKER.NETWORK_NAME, "containers": containers}
+        return {"networks": network_names, "containers": containers}
 
     @staticmethod
     def stop(
         on_progress: Optional[Callable[[str], None]] = None,
     ) -> dict[str, Any]:
         """
-        Stop and remove all digital twin containers and the network.
+        Stop and remove all digital twin containers and networks.
 
         :param on_progress: optional callback invoked with status messages
         :return: a dict with the list of removed container names
@@ -149,13 +181,11 @@ class DockerManager:
             removed.append(container.name)
             emit(f"[{idx}/{total}] Removed {container.name}")
 
-        try:
-            network = client.networks.get(DOCKER.NETWORK_NAME)
-            emit(f"Removing network {DOCKER.NETWORK_NAME}")
-            network.remove()
-            emit(f"Network {DOCKER.NETWORK_NAME} removed")
-        except NotFound:
-            pass
+        for network in client.networks.list():
+            if network.name.startswith(DOCKER.NETWORK_PREFIX):
+                emit(f"Removing network {network.name}")
+                network.remove()
+                emit(f"Network {network.name} removed")
 
         emit("Shutdown complete")
         return {"removed": removed}
@@ -163,18 +193,16 @@ class DockerManager:
     @staticmethod
     def status() -> dict[str, Any]:
         """
-        Get the status of digital twin containers and network.
+        Get the status of digital twin containers and networks.
 
-        :return: a dict with deployed flag, network info, and container list
+        :return: a dict with deployed flag, networks list, and container list
         """
         client = DockerManager._client()
 
-        network_info = None
-        try:
-            network = client.networks.get(DOCKER.NETWORK_NAME)
-            network_info = network.name
-        except NotFound:
-            pass
+        network_names = [
+            n.name for n in client.networks.list()
+            if n.name.startswith(DOCKER.NETWORK_PREFIX)
+        ]
 
         containers = []
         for container in client.containers.list(all=True):
@@ -194,7 +222,7 @@ class DockerManager:
 
         return {
             "deployed": len(containers) > 0,
-            "network": network_info,
+            "networks": network_names,
             "containers": containers,
         }
 

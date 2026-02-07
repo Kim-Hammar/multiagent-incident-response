@@ -31,7 +31,7 @@ class TestDeployEndpoint:
         msgs = _parse_ndjson(resp.data)
         result_msgs = [m for m in msgs if m["type"] == "result"]
         assert len(result_msgs) == 1
-        assert "network" in result_msgs[0]["data"]
+        assert "networks" in result_msgs[0]["data"]
         assert "containers" in result_msgs[0]["data"]
 
     def test_deploy_requires_auth(self, client: FlaskClient) -> None:

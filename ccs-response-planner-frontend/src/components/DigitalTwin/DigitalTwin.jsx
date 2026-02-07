@@ -11,6 +11,7 @@ import './DigitalTwin.css'
  */
 function DigitalTwin() {
   const { token, logout } = useAuth()
+  const [networks, setNetworks] = useState([])
   const [hosts, setHosts] = useState([])
   const [links, setLinks] = useState([])
   const [specificationCommands, setSpecificationCommands] = useState([])
@@ -27,6 +28,7 @@ function DigitalTwin() {
         return
       }
       const data = await response.json()
+      setNetworks(data.networks || [])
       setHosts(data.hosts || [])
       setLinks(data.links || [])
       setSpecificationCommands(data.specification_commands || [])
@@ -53,7 +55,12 @@ function DigitalTwin() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ hosts, links, specification_commands: specificationCommands })
+        body: JSON.stringify({
+          networks,
+          hosts,
+          links,
+          specification_commands: specificationCommands
+        })
       })
       if (response.status === 401) {
         logout()
@@ -81,6 +88,7 @@ function DigitalTwin() {
         return
       }
       const data = await response.json()
+      setNetworks(data.networks || [])
       setHosts(data.hosts || [])
       setLinks(data.links || [])
       setSpecificationCommands(data.specification_commands || [])
@@ -90,18 +98,25 @@ function DigitalTwin() {
     }
   }
 
+  const addNetwork = () => {
+    setNetworks([...networks, { id: '', name: '', subnet: '', gateway: '' }])
+  }
+
+  const updateNetwork = (index, field, value) => {
+    const updated = networks.map((n, i) => (i === index ? { ...n, [field]: value } : n))
+    setNetworks(updated)
+  }
+
+  const removeNetwork = (index) => {
+    setNetworks(networks.filter((_, i) => i !== index))
+  }
+
   const addHost = () => {
-    setHosts([...hosts, { id: '', name: '', docker_image: '', ip_addresses: [] }])
+    setHosts([...hosts, { id: '', name: '', docker_image: '', ip_addresses: {} }])
   }
 
   const updateHost = (index, field, value) => {
-    const updated = hosts.map((h, i) => {
-      if (i !== index) return h
-      if (field === 'ip_addresses') {
-        return { ...h, [field]: value.split(',').map((s) => s.trim()) }
-      }
-      return { ...h, [field]: value }
-    })
+    const updated = hosts.map((h, i) => (i === index ? { ...h, [field]: value } : h))
     setHosts(updated)
   }
 
@@ -185,9 +200,13 @@ function DigitalTwin() {
       <div className="tab-content">
         {activeTab === 'config' && (
           <ConfigTab
+            networks={networks}
             hosts={hosts}
             links={links}
             specificationCommands={specificationCommands}
+            addNetwork={addNetwork}
+            updateNetwork={updateNetwork}
+            removeNetwork={removeNetwork}
             addHost={addHost}
             updateHost={updateHost}
             removeHost={removeHost}

@@ -55,13 +55,13 @@ def mock_db() -> Generator[MagicMock, None, None]:
         dt_mock.save_digital_twin_config.return_value = None
         dt_mock.delete_digital_twin_config.return_value = None
         docker_mgr_mock.deploy.return_value = {
-            "network": "ccs_dt_network",
+            "networks": [],
             "containers": [],
         }
         docker_mgr_mock.stop.return_value = {"removed": []}
         docker_mgr_mock.status.return_value = {
             "deployed": False,
-            "network": None,
+            "networks": [],
             "containers": [],
         }
         docker_mgr_mock.validate.return_value = []

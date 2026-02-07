@@ -56,7 +56,7 @@ class TestValidateEndpoint:
         ) as mock:
             mock.status.return_value = {
                 "deployed": True,
-                "network": "ccs_dt_network",
+                "networks": ["ccs_dt_net_perimeter"],
                 "containers": [
                     {"host_id": "gateway", "container": "ccs_dt_gateway",
                      "status": "running", "image": "ccs-dt-gateway:latest"},
