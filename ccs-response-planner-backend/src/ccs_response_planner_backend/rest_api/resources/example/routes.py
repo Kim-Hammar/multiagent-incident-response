@@ -20,8 +20,14 @@ def example() -> tuple[Response, int]:
 
     :return: a tuple of (JSON response, HTTP status code)
     """
+    images = (
+        [EXAMPLES.SYSTEM_DESCRIPTION_IMAGE]
+        if EXAMPLES.SYSTEM_DESCRIPTION_IMAGE
+        else []
+    )
     return jsonify({
         "system_description": EXAMPLES.SYSTEM_DESCRIPTION,
         "security_alerts": EXAMPLES.SECURITY_ALERTS,
         "operator_feedback": EXAMPLES.OPERATOR_FEEDBACK,
+        "system_description_images": images,
     }), 200

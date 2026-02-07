@@ -129,3 +129,70 @@ def test_plan_steps_are_strings(
     ).get_json()
     for step in data["steps"]:
         assert isinstance(step, str)
+
+
+def test_plan_accepts_images_field(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/api/plan",
+        json={
+            "incident_description": "Server compromised",
+            "images": ["data:image/png;base64,abc123"],
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_plan_works_without_images_field(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/api/plan",
+        json={"incident_description": "Server compromised"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_plan_returns_400_when_images_not_a_list(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/api/plan",
+        json={
+            "incident_description": "Server compromised",
+            "images": "not-a-list",
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+
+
+def test_plan_images_error_message(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    data = client.post(
+        "/api/plan",
+        json={
+            "incident_description": "Server compromised",
+            "images": "not-a-list",
+        },
+        headers=auth_headers,
+    ).get_json()
+    assert data["error"] == "images must be a list"
+
+
+def test_plan_accepts_empty_images_list(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/api/plan",
+        json={
+            "incident_description": "Server compromised",
+            "images": [],
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200

@@ -39,11 +39,19 @@ def test_example_body_has_operator_feedback(
     assert data["operator_feedback"] == EXAMPLES.OPERATOR_FEEDBACK
 
 
-def test_example_body_has_exactly_three_keys(
+def test_example_body_has_exactly_four_keys(
     client: FlaskClient, auth_headers: dict[str, str]
 ) -> None:
     data = client.get("/api/example", headers=auth_headers).get_json()
-    assert len(data) == 3
+    assert len(data) == 4
+
+
+def test_example_body_has_system_description_images(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    data = client.get("/api/example", headers=auth_headers).get_json()
+    assert "system_description_images" in data
+    assert isinstance(data["system_description_images"], list)
 
 
 def test_example_post_returns_405(

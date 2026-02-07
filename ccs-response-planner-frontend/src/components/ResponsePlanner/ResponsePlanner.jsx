@@ -4,13 +4,89 @@ import { useAuth } from '../../contexts/AuthContext.jsx'
 import './ResponsePlanner.css'
 
 /**
+ * Renders a strip of image thumbnails with remove buttons.
+ * Clicking a thumbnail opens a full-size lightbox overlay.
+ */
+function ImageThumbnails({ images, setImages }) {
+  const [lightboxSrc, setLightboxSrc] = useState(null)
+
+  if (images.length === 0) return null
+
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  return (
+    <>
+      <div className="image-thumbnails">
+        {images.map((src, index) => (
+          <div key={index} className="thumbnail-wrapper">
+            <img
+              src={src}
+              alt={`Pasted ${index + 1}`}
+              className="thumbnail-img"
+              onClick={() => setLightboxSrc(src)}
+            />
+            <button
+              type="button"
+              className="thumbnail-remove"
+              onClick={() => removeImage(index)}
+              aria-label="Remove image"
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+      </div>
+      {lightboxSrc && (
+        <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
+          <button
+            type="button"
+            className="lightbox-close"
+            onClick={() => setLightboxSrc(null)}
+            aria-label="Close preview"
+          >
+            &times;
+          </button>
+          <img
+            src={lightboxSrc}
+            alt="Full size preview"
+            className="lightbox-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
+  )
+}
+
+/**
  * The response planner page component
  */
 function ResponsePlanner() {
   const [systemDescription, setSystemDescription] = useState('')
   const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
+  const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
+  const [securityAlertsImages, setSecurityAlertsImages] = useState([])
+  const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
   const { token, logout } = useAuth()
+
+  const handlePaste = (setImages) => (event) => {
+    const items = event.clipboardData?.items
+    if (!items) return
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        event.preventDefault()
+        const file = item.getAsFile()
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          setImages((prev) => [...prev, e.target.result])
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+  }
 
   const fetchExample = async () => {
     const res = await fetch(API_EXAMPLE_URL, {
@@ -24,6 +100,7 @@ function ResponsePlanner() {
     setSystemDescription(data.system_description)
     setSecurityAlerts(data.security_alerts)
     setOperatorFeedback(data.operator_feedback)
+    setSystemDescriptionImages(data.system_description_images || [])
   }
 
   return (
@@ -47,6 +124,11 @@ function ResponsePlanner() {
             placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
             value={systemDescription}
             onChange={(e) => setSystemDescription(e.target.value)}
+            onPaste={handlePaste(setSystemDescriptionImages)}
+          />
+          <ImageThumbnails
+            images={systemDescriptionImages}
+            setImages={setSystemDescriptionImages}
           />
         </div>
         <div className="input-section">
@@ -61,7 +143,9 @@ function ResponsePlanner() {
             placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
             value={securityAlerts}
             onChange={(e) => setSecurityAlerts(e.target.value)}
+            onPaste={handlePaste(setSecurityAlertsImages)}
           />
+          <ImageThumbnails images={securityAlertsImages} setImages={setSecurityAlertsImages} />
         </div>
         <div className="input-section">
           <label htmlFor="operatorFeedback">Operator feedback</label>
@@ -75,7 +159,9 @@ function ResponsePlanner() {
             placeholder="e.g., The proposed isolation of 10.0.0.1 is not feasible because it hosts a critical customer-facing service..."
             value={operatorFeedback}
             onChange={(e) => setOperatorFeedback(e.target.value)}
+            onPaste={handlePaste(setOperatorFeedbackImages)}
           />
+          <ImageThumbnails images={operatorFeedbackImages} setImages={setOperatorFeedbackImages} />
         </div>
         <button type="submit" className="btn btn-dark btn-sm btn-generate">
           <i className="fa fa-bolt" aria-hidden="true" /> Generate plan
@@ -94,6 +180,9 @@ function ResponsePlanner() {
             setSystemDescription('')
             setSecurityAlerts('')
             setOperatorFeedback('')
+            setSystemDescriptionImages([])
+            setSecurityAlertsImages([])
+            setOperatorFeedbackImages([])
           }}
         >
           <i className="fa fa-eraser" aria-hidden="true" /> Clear all

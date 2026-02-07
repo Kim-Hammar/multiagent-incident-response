@@ -1,6 +1,8 @@
 """
 Shared constants for the CCS Response Planner backend.
 """
+import base64
+from pathlib import Path
 
 
 class API:
@@ -57,6 +59,20 @@ class GENERAL:
     APP_NAME = "CCS Incident Response Planner"
 
 
+def _load_example_image() -> str:
+    """
+    Load the example system diagram as a base64 data URL.
+
+    :return: a data URL string, or empty string if the file is not found
+    """
+    path = Path(__file__).resolve().parents[4] / "docs" / "example_system.png"
+    try:
+        data = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:image/png;base64,{data}"
+    except FileNotFoundError:
+        return ""
+
+
 class EXAMPLES:
     """
     Example incident data for populating the response planner form.
@@ -74,6 +90,7 @@ class EXAMPLES:
         "Server 6 (10.0.0.6, Debian Jessie): PostgreSQL, Samba "
         "(known vulnerability: CVE-2017-7494)"
     )
+    SYSTEM_DESCRIPTION_IMAGE = _load_example_image()
     SECURITY_ALERTS = (
         "02/06-10:15:22.341201 [**] [1:2006546:3] ET SCAN SSH "
         "Brute Force Login Attempt [**] [Classification: Attempted "
