@@ -84,6 +84,21 @@ class DatabaseFacade:
                 }
 
     @staticmethod
+    def reset_users() -> None:
+        """
+        Delete all session tokens and users.
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"DELETE FROM {DB.SESSION_TOKENS_TABLE}"
+                )
+                cur.execute(
+                    f"DELETE FROM {DB.MANAGEMENT_USERS_TABLE}"
+                )
+            conn.commit()
+
+    @staticmethod
     def save_user(username: str, password: str) -> None:
         """
         Hash a password with bcrypt and insert a new user.

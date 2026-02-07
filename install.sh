@@ -116,16 +116,16 @@ setup_postgres_db() {
         echo "Created PostgreSQL user '${POSTGRES_USER}'"
     fi
 
-    # Create database if it does not exist
+    # Drop and recreate database for a fresh state
     if $run_psql -tAc \
         "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'" \
         | grep -q 1; then
-        echo "PostgreSQL database '${POSTGRES_DB}' already exists"
-    else
-        $run_psql -c \
-            "CREATE DATABASE ${POSTGRES_DB} OWNER ${POSTGRES_USER};"
-        echo "Created PostgreSQL database '${POSTGRES_DB}'"
+        echo "Dropping existing database '${POSTGRES_DB}'..."
+        $run_psql -c "DROP DATABASE ${POSTGRES_DB};"
     fi
+    $run_psql -c \
+        "CREATE DATABASE ${POSTGRES_DB} OWNER ${POSTGRES_USER};"
+    echo "Created fresh PostgreSQL database '${POSTGRES_DB}'"
 }
 
 echo ""

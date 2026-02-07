@@ -10,6 +10,15 @@ logger = logging.getLogger(__name__)
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.abspath(__file__))
     static_folder_path = os.path.join(script_dir, "..", "build")
+
+    env_file = os.path.join(script_dir, "..", "..", ".env")
+    if os.path.isfile(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
     host = os.environ.get("HOST", "127.0.0.1")
 
     max_retries = 20
@@ -29,6 +38,7 @@ if __name__ == '__main__':
 
     admin_username = os.environ.get("ADMIN_USERNAME", "admin")
     admin_password = os.environ.get("ADMIN_PASSWORD", "admin")
+    DatabaseFacade.reset_users()
     DatabaseFacade.save_user(admin_username, admin_password)
     logger.info("Admin user ensured: %s", admin_username)
 

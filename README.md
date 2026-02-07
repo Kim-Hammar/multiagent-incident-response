@@ -5,6 +5,37 @@ LLM-based incident response planner for cyber-security. Monorepo with two sub-pr
 - `ccs-response-planner-backend/` — Python backend (Flask REST API + planner logic)
 - `ccs-response-planner-frontend/` — React frontend (Vite + JSX)
 
+## Configuration
+
+Before building or deploying, copy the example environment file and edit it with your credentials:
+
+```bash
+cp .env.example .env
+```
+
+The `.env` file contains the following settings:
+
+| Variable            | Description                        | Default                          |
+|---------------------|------------------------------------|----------------------------------|
+| `POSTGRES_DB`       | PostgreSQL database name           | `ccs`                            |
+| `POSTGRES_USER`     | PostgreSQL user                    | `ccs`                            |
+| `POSTGRES_PASSWORD` | PostgreSQL password                | `CHANGE_ME_TO_A_STRONG_PASSWORD` |
+| `ADMIN_USERNAME`    | Application admin login username   | `admin`                          |
+| `ADMIN_PASSWORD`    | Application admin login password   | `CHANGE_ME_TO_A_STRONG_PASSWORD` |
+
+The admin credentials are used to seed the initial login account on first startup. Make sure to set strong passwords before deploying.
+
+To deploy remotely with Ansible, add your target hosts to `ansible/inventory.yml` under the `servers` group:
+
+```yaml
+servers:
+  hosts:
+    web1.example.com:
+      ansible_user: ubuntu
+```
+
+Then run the playbook with `--limit servers`. See [`ansible/README.md`](ansible/README.md) for full details.
+
 ## Prerequisites
 
 - Python 3.10+
