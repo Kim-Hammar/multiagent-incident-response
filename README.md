@@ -45,6 +45,7 @@ The `.env` file contains the following settings:
 | `POSTGRES_PASSWORD` | PostgreSQL password                | `CHANGE_ME_TO_A_STRONG_PASSWORD` |
 | `ADMIN_USERNAME`    | Application admin login username   | `admin`                          |
 | `ADMIN_PASSWORD`    | Application admin login password   | `CHANGE_ME_TO_A_STRONG_PASSWORD` |
+| `GEMINI_API_KEY`    | Google Gemini API key              | `CHANGE_ME_TO_YOUR_GEMINI_API_KEY` |
 
 The admin credentials are used to seed the initial login account on first startup. Make sure to set strong passwords before deploying.
 
