@@ -1,0 +1,12 @@
+{
+  "name": "ccs-response-planner-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

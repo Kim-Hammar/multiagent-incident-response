@@ -165,3 +165,8 @@ package-lock.json
 .output.txt
 
 test_dir_*
+
+# Playwright
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
