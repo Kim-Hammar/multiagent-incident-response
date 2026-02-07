@@ -1,67 +1,12 @@
 import { useState } from 'react'
-import { API_EXAMPLE_URL } from '../Common/constants'
+import { API_EXAMPLE_URL, API_PLAN_URL } from '../Common/constants'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import ConfigTab from './ConfigTab.jsx'
+import PlanningTab from './PlanningTab.jsx'
 import './ResponsePlanner.css'
 
 /**
- * Renders a strip of image thumbnails with remove buttons.
- * Clicking a thumbnail opens a full-size lightbox overlay.
- */
-function ImageThumbnails({ images, setImages }) {
-  const [lightboxSrc, setLightboxSrc] = useState(null)
-
-  if (images.length === 0) return null
-
-  const removeImage = (index) => {
-    setImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  return (
-    <>
-      <div className="image-thumbnails">
-        {images.map((src, index) => (
-          <div key={index} className="thumbnail-wrapper">
-            <img
-              src={src}
-              alt={`Pasted ${index + 1}`}
-              className="thumbnail-img"
-              onClick={() => setLightboxSrc(src)}
-            />
-            <button
-              type="button"
-              className="thumbnail-remove"
-              onClick={() => removeImage(index)}
-              aria-label="Remove image"
-            >
-              &times;
-            </button>
-          </div>
-        ))}
-      </div>
-      {lightboxSrc && (
-        <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
-          <button
-            type="button"
-            className="lightbox-close"
-            onClick={() => setLightboxSrc(null)}
-            aria-label="Close preview"
-          >
-            &times;
-          </button>
-          <img
-            src={lightboxSrc}
-            alt="Full size preview"
-            className="lightbox-img"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-    </>
-  )
-}
-
-/**
- * The response planner page component
+ * The response planner page with Configuration and Planning process tabs.
  */
 function ResponsePlanner() {
   const [systemDescription, setSystemDescription] = useState('')
@@ -70,6 +15,9 @@ function ResponsePlanner() {
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
   const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
+  const [activeTab, setActiveTab] = useState('config')
+  const [planResult, setPlanResult] = useState(null)
+  const [generating, setGenerating] = useState(false)
   const { token, logout } = useAuth()
 
   const handlePaste = (setImages) => (event) => {
@@ -103,91 +51,105 @@ function ResponsePlanner() {
     setSystemDescriptionImages(data.system_description_images || [])
   }
 
+  const handleClear = () => {
+    setSystemDescription('')
+    setSecurityAlerts('')
+    setOperatorFeedback('')
+    setSystemDescriptionImages([])
+    setSecurityAlertsImages([])
+    setOperatorFeedbackImages([])
+  }
+
+  const handleGenerate = async () => {
+    setGenerating(true)
+    setActiveTab('planning')
+    try {
+      const allImages = [
+        ...systemDescriptionImages,
+        ...securityAlertsImages,
+        ...operatorFeedbackImages
+      ]
+      const incidentDescription = [systemDescription, securityAlerts, operatorFeedback]
+        .filter(Boolean)
+        .join('\n\n')
+      const res = await fetch(API_PLAN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          incident_description: incidentDescription,
+          images: allImages
+        })
+      })
+      if (res.status === 401) {
+        logout()
+        return
+      }
+      const data = await res.json()
+      setPlanResult(data)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   return (
     <div className="ResponsePlanner">
       <h2>Response planner</h2>
       <p className="subtitle">
-        Provide system details, security alerts, and operator feedback to generate an incident
-        response plan.
+        Provide system details, security alerts, and operator input to generate an incident response
+        plan.
       </p>
       <hr />
-      <form>
-        <div className="input-section">
-          <label htmlFor="systemDescription">System description</label>
-          <p className="input-hint">
-            Describe the target system, its architecture, hosts, and services.
-          </p>
-          <textarea
-            className="form-control planner-textarea"
-            id="systemDescription"
-            rows="8"
-            placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
-            value={systemDescription}
-            onChange={(e) => setSystemDescription(e.target.value)}
-            onPaste={handlePaste(setSystemDescriptionImages)}
+
+      <ul className="nav nav-tabs rp-tabs">
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'config' ? ' active' : ''}`}
+            onClick={() => setActiveTab('config')}
+          >
+            Configuration
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'planning' ? ' active' : ''}`}
+            onClick={() => setActiveTab('planning')}
+          >
+            Planning process
+          </button>
+        </li>
+      </ul>
+
+      <div className="tab-content">
+        {activeTab === 'config' && (
+          <ConfigTab
+            systemDescription={systemDescription}
+            setSystemDescription={setSystemDescription}
+            securityAlerts={securityAlerts}
+            setSecurityAlerts={setSecurityAlerts}
+            operatorFeedback={operatorFeedback}
+            setOperatorFeedback={setOperatorFeedback}
+            systemDescriptionImages={systemDescriptionImages}
+            setSystemDescriptionImages={setSystemDescriptionImages}
+            securityAlertsImages={securityAlertsImages}
+            setSecurityAlertsImages={setSecurityAlertsImages}
+            operatorFeedbackImages={operatorFeedbackImages}
+            setOperatorFeedbackImages={setOperatorFeedbackImages}
+            handlePaste={handlePaste}
+            fetchExample={fetchExample}
+            onClear={handleClear}
+            onGenerate={handleGenerate}
+            generating={generating}
           />
-          <ImageThumbnails
-            images={systemDescriptionImages}
-            setImages={setSystemDescriptionImages}
-          />
-        </div>
-        <div className="input-section">
-          <label htmlFor="securityAlerts">Security alerts and logs</label>
-          <p className="input-hint">
-            Paste relevant security alerts, IDS logs, or other indicators of compromise.
-          </p>
-          <textarea
-            className="form-control planner-textarea"
-            id="securityAlerts"
-            rows="8"
-            placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
-            value={securityAlerts}
-            onChange={(e) => setSecurityAlerts(e.target.value)}
-            onPaste={handlePaste(setSecurityAlertsImages)}
-          />
-          <ImageThumbnails images={securityAlertsImages} setImages={setSecurityAlertsImages} />
-        </div>
-        <div className="input-section">
-          <label htmlFor="operatorFeedback">Operator feedback</label>
-          <p className="input-hint">
-            Optionally provide feedback to refine a previously generated plan.
-          </p>
-          <textarea
-            className="form-control planner-textarea"
-            id="operatorFeedback"
-            rows="6"
-            placeholder="e.g., The proposed isolation of 10.0.0.1 is not feasible because it hosts a critical customer-facing service..."
-            value={operatorFeedback}
-            onChange={(e) => setOperatorFeedback(e.target.value)}
-            onPaste={handlePaste(setOperatorFeedbackImages)}
-          />
-          <ImageThumbnails images={operatorFeedbackImages} setImages={setOperatorFeedbackImages} />
-        </div>
-        <button type="submit" className="btn btn-dark btn-sm btn-generate">
-          <i className="fa fa-bolt" aria-hidden="true" /> Generate plan
-        </button>
-        <button
-          type="button"
-          className="btn btn-outline-dark btn-sm btn-example"
-          onClick={fetchExample}
-        >
-          <i className="fa fa-download" aria-hidden="true" /> Fetch example incident
-        </button>
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm btn-clear"
-          onClick={() => {
-            setSystemDescription('')
-            setSecurityAlerts('')
-            setOperatorFeedback('')
-            setSystemDescriptionImages([])
-            setSecurityAlertsImages([])
-            setOperatorFeedbackImages([])
-          }}
-        >
-          <i className="fa fa-eraser" aria-hidden="true" /> Clear all
-        </button>
-      </form>
+        )}
+        {activeTab === 'planning' && (
+          <PlanningTab planResult={planResult} generating={generating} />
+        )}
+      </div>
     </div>
   )
 }

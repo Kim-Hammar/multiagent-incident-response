@@ -129,6 +129,66 @@
   cursor: pointer;
 }
 
+/* Tabs */
+.rp-tabs {
+  margin-bottom: 20px;
+}
+
+.rp-tabs .nav-link {
+  cursor: pointer;
+  font-size: 14px;
+  color: #495057;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+}
+
+.rp-tabs .nav-link.active {
+  color: #212529;
+  font-weight: 600;
+  background-color: #fff;
+  border-color: #dee2e6 #dee2e6 #fff;
+}
+
+/* Planning tab */
+.planning-placeholder {
+  color: #6c757d;
+  font-size: 14px;
+  text-align: center;
+  margin-top: 40px;
+}
+
+.planning-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 40px;
+  font-size: 14px;
+  color: #495057;
+}
+
+.planning-result {
+  font-size: 14px;
+}
+
+.planning-meta .badge {
+  font-size: 12px;
+}
+
+.planning-steps {
+  font-size: 13px;
+  padding-left: 20px;
+}
+
+.planning-steps li {
+  margin-bottom: 4px;
+}
+
+.planning-description {
+  font-size: 13px;
+  color: #495057;
+  white-space: pre-wrap;
+}
+
 .thumbnail-remove {
   position: absolute;
   top: -6px;
