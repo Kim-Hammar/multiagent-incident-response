@@ -83,3 +83,12 @@ def test_auth_token_header() -> None:
     assert AUTH.TOKEN_HEADER == "Authorization"
     assert AUTH.TOKEN_PREFIX == "Bearer "
     assert AUTH.TOKEN_LENGTH == 32
+
+
+def test_llm_resource() -> None:
+    assert API.LLM_RESOURCE == "llm"
+
+
+def test_llm_route_starts_with_api_prefix() -> None:
+    assert API.LLM_ROUTE.startswith(API.PREFIX)
+    assert API.LLM_ROUTE == "/api/llm"

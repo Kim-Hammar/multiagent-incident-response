@@ -1,0 +1,69 @@
+"""Integration tests for the /api/llm endpoint."""
+from unittest.mock import MagicMock, patch
+
+from flask.testing import FlaskClient
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
+)
+def test_llm_returns_connected_status(
+    mock_genai: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    fake_model = MagicMock()
+    fake_model.name = "models/gemini-2.0-flash"
+    fake_model.display_name = "Gemini 2.0 Flash"
+    fake_model.description = "A fast model"
+    fake_model.input_token_limit = 1048576
+    fake_model.output_token_limit = 8192
+    fake_model.supported_generation_methods = ["generateContent"]
+    mock_genai.list_models.return_value = [fake_model]
+
+    response = client.get("/api/llm", headers=auth_headers)
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["status"] == "connected"
+    assert "timestamp" in data
+    assert len(data["models"]) == 1
+    assert data["models"][0]["name"] == "models/gemini-2.0-flash"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
+)
+def test_llm_returns_error_status_on_failure(
+    mock_genai: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    mock_genai.configure.side_effect = Exception("Invalid API key")
+
+    response = client.get("/api/llm", headers=auth_headers)
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["status"] == "error"
+    assert "timestamp" in data
+    assert data["error"] == "Invalid API key"
+
+
+def test_llm_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    response = client.get("/api/llm")
+    assert response.status_code == 401
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
+)
+def test_llm_post_returns_405(
+    mock_genai: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    response = client.post("/api/llm", headers=auth_headers)
+    assert response.status_code == 405

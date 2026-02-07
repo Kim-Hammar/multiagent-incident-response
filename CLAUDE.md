@@ -72,6 +72,16 @@ React app using React Router for navigation. Uses Bootstrap 4 (loaded via CDN in
 - `components/MainContainer/Home/Home.jsx` — Home page component
 - `components/MainContainer/NotFound/NotFound.jsx` — 404 page component
 
+### Dependency Management
+
+Backend dependencies are declared in four places that **must be kept in sync**:
+- `pyproject.toml` — `dependencies` (pinned versions, e.g. `==1.23.5`) and `[project.optional-dependencies] test`
+- `setup.cfg` — `install_requires` (minimum versions, e.g. `>=1.23.5`) and `[options.extras_require] testing`
+- `requirements.txt` — pinned runtime deps (mirrors `pyproject.toml` `dependencies`)
+- `requirements_dev.txt` — includes `-r requirements.txt` plus dev/test deps
+
+When adding or updating a Python dependency, update **all four** locations.
+
 ### Code Style
 
 - **Backend:** flake8 (120 char lines), mypy strict mode, pytest for tests

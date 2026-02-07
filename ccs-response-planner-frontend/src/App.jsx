@@ -4,6 +4,7 @@ import NotFound from './components/NotFound/NotFound.jsx'
 import Login from './components/Login/Login.jsx'
 import About from './components/About/About.jsx'
 import ResponsePlanner from './components/ResponsePlanner/ResponsePlanner.jsx'
+import Llm from './components/LLM/LLM.jsx'
 import ProtectedRoute from './components/Common/ProtectedRoute.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
@@ -11,6 +12,7 @@ import {
   LOGIN_RESOURCE,
   ABOUT_RESOURCE,
   RESPONSE_PLANNER_RESOURCE,
+  LLM_RESOURCE,
   NOT_FOUND_RESOURCE
 } from './components/Common/constants'
 
@@ -29,6 +31,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <ResponsePlanner />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path={LLM_RESOURCE}
+                    element={
+                      <ProtectedRoute>
+                        <Llm />
                       </ProtectedRoute>
                     }
                   />

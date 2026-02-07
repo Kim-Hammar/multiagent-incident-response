@@ -1,10 +1,12 @@
-flake8==6.1.0
-flake8-rst-docstrings==0.3.0
-tox==4.24.1
+-r requirements.txt
 pytest==6.2.5
 pytest-cov==2.12.1
 pytest-mock==3.10.0
 mypy==1.7.0
 mypy-extensions==1.0.0
+mypy-protobuf==3.5.0
+flake8==6.1.0
+flake8-rst-docstrings==0.3.0
+tox==4.24.1
 twine==6.1.0
 build==0.10.0

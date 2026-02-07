@@ -3,12 +3,14 @@ import {
   LOGIN_RESOURCE,
   ABOUT_RESOURCE,
   RESPONSE_PLANNER_RESOURCE,
+  LLM_RESOURCE,
   NOT_FOUND_RESOURCE,
   API_BASE_URL,
   API_HEALTH_URL,
   API_PLAN_URL,
   API_EXAMPLE_URL,
-  API_LOGIN_URL
+  API_LOGIN_URL,
+  API_LLM_URL
 } from './constants'
 
 describe('constants', () => {
@@ -50,5 +52,14 @@ describe('constants', () => {
   it('API_LOGIN_URL starts with API_BASE_URL', () => {
     expect(API_LOGIN_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_LOGIN_URL).toBe('/api/login')
+  })
+
+  it('LLM_RESOURCE is the llm route', () => {
+    expect(LLM_RESOURCE).toBe('llm')
+  })
+
+  it('API_LLM_URL starts with API_BASE_URL', () => {
+    expect(API_LLM_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_LLM_URL).toBe('/api/llm')
   })
 })

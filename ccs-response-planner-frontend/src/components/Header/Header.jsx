@@ -1,7 +1,12 @@
 import './Header.css'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { LOGIN_RESOURCE, ABOUT_RESOURCE, RESPONSE_PLANNER_RESOURCE } from '../Common/constants'
+import {
+  LOGIN_RESOURCE,
+  ABOUT_RESOURCE,
+  RESPONSE_PLANNER_RESOURCE,
+  LLM_RESOURCE
+} from '../Common/constants'
 
 /**
  * The header component that is present on every page
@@ -21,6 +26,11 @@ const Header = () => {
         <li className="nav-item">
           <NavLink className="nav-link" to={`/${RESPONSE_PLANNER_RESOURCE}`}>
             Response planner
+          </NavLink>
+        </li>
+        <li className="nav-item">
+          <NavLink className="nav-link" to={`/${LLM_RESOURCE}`}>
+            LLM
           </NavLink>
         </li>
         <li className="nav-item">

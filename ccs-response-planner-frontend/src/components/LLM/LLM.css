@@ -1,0 +1,26 @@
+.Llm {
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.Llm h2 {
+  margin-bottom: 10px;
+}
+
+.Llm hr {
+  margin: 20px 0;
+}
+
+.Llm p {
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.Llm .badge {
+  font-size: 14px;
+}
+
+.Llm table {
+  font-size: 14px;
+}

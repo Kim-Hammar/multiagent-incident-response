@@ -12,10 +12,12 @@ class API:
     PLAN_RESOURCE = "plan"
     EXAMPLE_RESOURCE = "example"
     LOGIN_RESOURCE = "login"
+    LLM_RESOURCE = "llm"
     HEALTH_ROUTE = "/api/health"
     PLAN_ROUTE = "/api/plan"
     EXAMPLE_ROUTE = "/api/example"
     LOGIN_ROUTE = "/api/login"
+    LLM_ROUTE = "/api/llm"
 
 
 class DB:

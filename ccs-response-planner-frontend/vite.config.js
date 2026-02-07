@@ -71,6 +71,12 @@ function devServerPlugin() {
           host: HOST || '0.0.0.0',
           port: parseInt(PORT || '3000', 10),
           open: true,
+          proxy: {
+            '/api': {
+              target: 'http://127.0.0.1:8888',
+              changeOrigin: true
+            }
+          },
           ...(https &&
             SSL_CRT_FILE &&
             SSL_KEY_FILE && {
