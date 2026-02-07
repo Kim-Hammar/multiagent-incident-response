@@ -8,6 +8,10 @@ class API:
     Constants related to API routes
     """
     PREFIX = "/api"
+    HEALTH_RESOURCE = "health"
+    PLAN_RESOURCE = "plan"
+    EXAMPLE_RESOURCE = "example"
+    LOGIN_RESOURCE = "login"
     HEALTH_ROUTE = "/api/health"
     PLAN_ROUTE = "/api/plan"
     EXAMPLE_ROUTE = "/api/example"

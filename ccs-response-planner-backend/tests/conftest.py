@@ -33,12 +33,16 @@ def mock_db() -> Generator[MagicMock, None, None]:
     :return: the mocked DatabaseFacade class
     """
     with patch(
-        "ccs_response_planner_backend.rest_api.rest_api.DatabaseFacade"
-    ) as mock:
-        mock.get_session_token_by_token.side_effect = _mock_get_token
-        mock.get_user_by_username.return_value = None
-        mock.update_session_token.return_value = None
-        yield mock
+        "ccs_response_planner_backend.rest_api.util.auth.DatabaseFacade"
+    ) as auth_mock, patch(
+        "ccs_response_planner_backend.rest_api.resources.login.routes"
+        ".DatabaseFacade"
+    ) as login_mock:
+        for mock in (auth_mock, login_mock):
+            mock.get_session_token_by_token.side_effect = _mock_get_token
+            mock.get_user_by_username.return_value = None
+            mock.update_session_token.return_value = None
+        yield login_mock
 
 
 def _mock_get_token(token: str) -> Any:
