@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
-from ccs_response_planner_backend.constants.constants import API, GENERAL
+from ccs_response_planner_backend.constants.constants import API, EXAMPLES, GENERAL
 from ccs_response_planner_backend.planner.incident_response_planner import (
     IncidentResponsePlanner,
 )
@@ -34,6 +34,19 @@ def create_app(static_folder: str) -> Flask:
         :return: a tuple of (JSON response, HTTP status code)
         """
         return jsonify({"status": "ok", "app": GENERAL.APP_NAME}), 200
+
+    @app.route(API.EXAMPLE_ROUTE, methods=["GET"])
+    def example() -> tuple[Response, int]:
+        """
+        Return example incident data for the response planner form.
+
+        :return: a tuple of (JSON response, HTTP status code)
+        """
+        return jsonify({
+            "system_description": EXAMPLES.SYSTEM_DESCRIPTION,
+            "security_alerts": EXAMPLES.SECURITY_ALERTS,
+            "operator_feedback": EXAMPLES.OPERATOR_FEEDBACK,
+        }), 200
 
     @app.route(API.PLAN_ROUTE, methods=["POST"])
     def plan() -> tuple[Response, int]:

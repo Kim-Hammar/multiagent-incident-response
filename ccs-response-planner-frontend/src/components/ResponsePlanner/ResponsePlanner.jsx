@@ -1,9 +1,23 @@
+import { useState } from 'react'
+import { API_EXAMPLE_URL } from '../Common/constants'
 import './ResponsePlanner.css'
 
 /**
  * The response planner page component
  */
 function ResponsePlanner() {
+  const [systemDescription, setSystemDescription] = useState('')
+  const [securityAlerts, setSecurityAlerts] = useState('')
+  const [operatorFeedback, setOperatorFeedback] = useState('')
+
+  const fetchExample = async () => {
+    const res = await fetch(API_EXAMPLE_URL)
+    const data = await res.json()
+    setSystemDescription(data.system_description)
+    setSecurityAlerts(data.security_alerts)
+    setOperatorFeedback(data.operator_feedback)
+  }
+
   return (
     <div className="ResponsePlanner">
       <h2>Response planner</h2>
@@ -23,6 +37,8 @@ function ResponsePlanner() {
             id="systemDescription"
             rows="4"
             placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
+            value={systemDescription}
+            onChange={(e) => setSystemDescription(e.target.value)}
           />
         </div>
         <div className="input-section">
@@ -36,6 +52,8 @@ function ResponsePlanner() {
             id="securityAlerts"
             rows="4"
             placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
+            value={securityAlerts}
+            onChange={(e) => setSecurityAlerts(e.target.value)}
           />
         </div>
         <div className="input-section">
@@ -48,10 +66,20 @@ function ResponsePlanner() {
             id="operatorFeedback"
             rows="3"
             placeholder="e.g., The proposed isolation of 10.0.0.1 is not feasible because it hosts a critical customer-facing service..."
+            value={operatorFeedback}
+            onChange={(e) => setOperatorFeedback(e.target.value)}
           />
         </div>
         <button type="submit" className="btn btn-dark btn-sm btn-generate">
           <i className="fa fa-bolt" aria-hidden="true" /> Generate plan
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline-dark btn-sm btn-example"
+          onClick={fetchExample}
+        >
+          <i className="fa fa-download" aria-hidden="true" /> Fetch example
+          incident
         </button>
       </form>
     </div>

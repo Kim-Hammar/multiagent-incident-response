@@ -4,10 +4,10 @@ import {
   ABOUT_RESOURCE,
   RESPONSE_PLANNER_RESOURCE,
   NOT_FOUND_RESOURCE,
-  APP_TITLE,
   API_BASE_URL,
   API_HEALTH_URL,
-  API_PLAN_URL
+  API_PLAN_URL,
+  API_EXAMPLE_URL
 } from './constants'
 
 describe('constants', () => {
@@ -27,10 +27,6 @@ describe('constants', () => {
     expect(NOT_FOUND_RESOURCE).toBe('*')
   })
 
-  it('APP_TITLE is the application name', () => {
-    expect(APP_TITLE).toBe('CCS Incident Response Planner')
-  })
-
   it('API_BASE_URL starts with /api', () => {
     expect(API_BASE_URL).toBe('/api')
   })
@@ -43,5 +39,10 @@ describe('constants', () => {
   it('API_PLAN_URL starts with API_BASE_URL', () => {
     expect(API_PLAN_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_PLAN_URL).toBe('/api/plan')
+  })
+
+  it('API_EXAMPLE_URL starts with API_BASE_URL', () => {
+    expect(API_EXAMPLE_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_EXAMPLE_URL).toBe('/api/example')
   })
 })

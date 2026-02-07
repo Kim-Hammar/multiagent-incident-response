@@ -1,5 +1,4 @@
 import './About.css'
-import { APP_TITLE } from '../Common/constants'
 import MethodFigure from './method.png'
 
 /**
@@ -8,7 +7,7 @@ import MethodFigure from './method.png'
 function About() {
   return (
     <div className="About">
-      <h2>{APP_TITLE}</h2>
+      <h2>About</h2>
       <hr />
       <p>
         <b>Incident response</b> refers to the coordinated actions taken to
