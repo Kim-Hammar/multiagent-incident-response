@@ -15,6 +15,8 @@ function ResponsePlanner() {
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
   const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
+  const [specification, setSpecification] = useState('')
+  const [specificationImages, setSpecificationImages] = useState([])
   const [activeTab, setActiveTab] = useState('config')
   const [planResult, setPlanResult] = useState(null)
   const [generating, setGenerating] = useState(false)
@@ -49,6 +51,7 @@ function ResponsePlanner() {
     setSecurityAlerts(data.security_alerts)
     setOperatorFeedback(data.operator_feedback)
     setSystemDescriptionImages(data.system_description_images || [])
+    setSpecification(data.specification || '')
   }
 
   const handleClear = () => {
@@ -58,6 +61,8 @@ function ResponsePlanner() {
     setSystemDescriptionImages([])
     setSecurityAlertsImages([])
     setOperatorFeedbackImages([])
+    setSpecification('')
+    setSpecificationImages([])
   }
 
   const handleGenerate = async () => {
@@ -67,7 +72,8 @@ function ResponsePlanner() {
       const allImages = [
         ...systemDescriptionImages,
         ...securityAlertsImages,
-        ...operatorFeedbackImages
+        ...operatorFeedbackImages,
+        ...specificationImages
       ]
       const incidentDescription = [systemDescription, securityAlerts, operatorFeedback]
         .filter(Boolean)
@@ -80,6 +86,7 @@ function ResponsePlanner() {
         },
         body: JSON.stringify({
           incident_description: incidentDescription,
+          specification,
           images: allImages
         })
       })
@@ -140,6 +147,10 @@ function ResponsePlanner() {
             setSecurityAlertsImages={setSecurityAlertsImages}
             operatorFeedbackImages={operatorFeedbackImages}
             setOperatorFeedbackImages={setOperatorFeedbackImages}
+            specification={specification}
+            setSpecification={setSpecification}
+            specificationImages={specificationImages}
+            setSpecificationImages={setSpecificationImages}
             handlePaste={handlePaste}
             fetchExample={fetchExample}
             onClear={handleClear}

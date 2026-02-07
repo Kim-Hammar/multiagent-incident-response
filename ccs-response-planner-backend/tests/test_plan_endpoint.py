@@ -196,3 +196,28 @@ def test_plan_accepts_empty_images_list(
         headers=auth_headers,
     )
     assert response.status_code == 200
+
+
+def test_plan_accepts_specification_field(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/api/plan",
+        json={
+            "incident_description": "Server compromised",
+            "specification": "Nginx must stay up",
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+
+
+def test_plan_works_without_specification_field(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.post(
+        "/api/plan",
+        json={"incident_description": "Server compromised"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200

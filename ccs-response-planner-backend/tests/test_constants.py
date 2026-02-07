@@ -59,6 +59,11 @@ def test_examples_operator_feedback() -> None:
     assert len(EXAMPLES.OPERATOR_FEEDBACK) > 0
 
 
+def test_examples_specification() -> None:
+    assert isinstance(EXAMPLES.SPECIFICATION, str)
+    assert len(EXAMPLES.SPECIFICATION) > 0
+
+
 def test_login_route_starts_with_api_prefix() -> None:
     assert API.LOGIN_ROUTE.startswith(API.PREFIX)
     assert API.LOGIN_ROUTE == "/api/login"

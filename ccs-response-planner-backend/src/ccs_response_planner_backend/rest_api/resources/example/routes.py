@@ -29,5 +29,6 @@ def example() -> tuple[Response, int]:
         "system_description": EXAMPLES.SYSTEM_DESCRIPTION,
         "security_alerts": EXAMPLES.SECURITY_ALERTS,
         "operator_feedback": EXAMPLES.OPERATOR_FEEDBACK,
+        "specification": EXAMPLES.SPECIFICATION,
         "system_description_images": images,
     }), 200

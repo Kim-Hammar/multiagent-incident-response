@@ -74,6 +74,10 @@ function ConfigTab({
   setSecurityAlertsImages,
   operatorFeedbackImages,
   setOperatorFeedbackImages,
+  specification,
+  setSpecification,
+  specificationImages,
+  setSpecificationImages,
   handlePaste,
   fetchExample,
   onClear,
@@ -134,6 +138,22 @@ function ConfigTab({
           onPaste={handlePaste(setOperatorFeedbackImages)}
         />
         <ImageThumbnails images={operatorFeedbackImages} setImages={setOperatorFeedbackImages} />
+      </div>
+      <div className="input-section">
+        <label htmlFor="specification">Specification</label>
+        <p className="input-hint">
+          Define constraints the plan must satisfy, e.g., which services must remain accessible.
+        </p>
+        <textarea
+          className="form-control planner-textarea"
+          id="specification"
+          rows="6"
+          placeholder="e.g., Server 1 Nginx must remain accessible from the gateway at all times..."
+          value={specification}
+          onChange={(e) => setSpecification(e.target.value)}
+          onPaste={handlePaste(setSpecificationImages)}
+        />
+        <ImageThumbnails images={specificationImages} setImages={setSpecificationImages} />
       </div>
       <button type="submit" className="btn btn-dark btn-sm btn-generate" disabled={generating}>
         <i className="fa fa-bolt" aria-hidden="true" /> Generate plan

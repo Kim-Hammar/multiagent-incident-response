@@ -12,16 +12,19 @@ class IncidentResponsePlanner:
     def generate_plan(
         self, incident_description: str,
         images: list[str] | None = None,
+        specification: str = "",
     ) -> dict[str, Any]:
         """
         Generate a response plan for the given incident.
 
         :param incident_description: a text description of the incident
         :param images: optional list of base64 data-URL images
+        :param specification: constraints the plan must satisfy
         :return: a dict containing the response plan with steps, severity, and status
         """
         return {
             "incident_description": incident_description,
+            "specification": specification,
             "severity": "medium",
             "status": "planned",
             "steps": [

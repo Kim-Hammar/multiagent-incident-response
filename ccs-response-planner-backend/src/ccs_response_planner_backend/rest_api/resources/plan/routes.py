@@ -32,5 +32,8 @@ def plan() -> tuple[Response, int]:
     images = data.get("images", [])
     if not isinstance(images, list):
         return jsonify({"error": "images must be a list"}), 400
-    result = planner.generate_plan(incident_description, images=images)
+    specification = data.get("specification", "")
+    result = planner.generate_plan(
+        incident_description, images=images, specification=specification,
+    )
     return jsonify(result), 200

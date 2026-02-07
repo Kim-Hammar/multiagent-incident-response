@@ -168,17 +168,16 @@ class DIGITAL_TWIN:
         "links": [
             {"source": "gateway", "target": "firewall"},
             {"source": "firewall", "target": "ids"},
-            {"source": "ids", "target": "server_1"},
             {"source": "ids", "target": "server_2"},
             {"source": "ids", "target": "server_3"},
-            {"source": "ids", "target": "server_4"},
-            {"source": "ids", "target": "server_5"},
-            {"source": "ids", "target": "server_6"},
             {"source": "server_1", "target": "server_2"},
-            {"source": "server_3", "target": "server_4"},
+            {"source": "server_1", "target": "server_4"},
+            {"source": "server_1", "target": "server_6"},
+            {"source": "server_2", "target": "server_3"},
+            {"source": "server_2", "target": "server_5"},
+            {"source": "server_3", "target": "server_6"},
+            {"source": "server_4", "target": "server_5"},
             {"source": "server_5", "target": "server_6"},
-            {"source": "server_1", "target": "server_3"},
-            {"source": "server_3", "target": "server_5"},
         ],
     }
 
@@ -190,7 +189,8 @@ class EXAMPLES:
     SYSTEM_DESCRIPTION = (
         "The system is the cloud infrastructure of a mid-size SaaS "
         "company, consisting of 6 servers behind a gateway with "
-        "Snort IDS.\n\n"
+        "Snort IDS. The network topology is shown in the attached "
+        "figure.\n\n"
         "Gateway (10.0.0.254, Ubuntu 22): Snort IDS v2.9\n"
         "Firewall (10.0.0.253, Ubuntu 22): iptables packet "
         "filtering\n"
@@ -198,19 +198,16 @@ class EXAMPLES:
         "tcpdump\n"
         "Server 1 (10.0.0.1, Debian 11): Nginx reverse proxy, "
         "PHP-FPM customer portal, dnsmasq internal DNS\n"
-        "  (known vulnerability: SQL injection in login form)\n"
         "Server 2 (10.0.0.2, Debian 11): vsftpd FTP, cron nightly "
         "backups\n"
         "Server 3 (10.0.0.3, Ubuntu 20): SSH, cron CI/CD build "
         "pipeline\n"
-        "  (known vulnerability: weak SSH password)\n"
         "Server 4 (10.0.0.4, Debian 11): Postfix SMTP mail "
         "server\n"
         "Server 5 (10.0.0.5, Debian 11): SSH, Python REST API, "
         "Redis session cache\n"
         "Server 6 (10.0.0.6, Debian 8): PostgreSQL database, "
-        "Samba file shares\n"
-        "  (known vulnerability: CVE-2017-7494)"
+        "Samba file shares"
     )
     SYSTEM_DESCRIPTION_IMAGE = _load_example_image()
     SECURITY_ALERTS = (
@@ -226,10 +223,17 @@ class EXAMPLES:
     OPERATOR_FEEDBACK = (
         "Note that the Snort IDS alerts only cover the SSH brute "
         "force on server 3 and the SQL injection on server 1. "
-        "There is no alert for the Samba exploit on server 6 "
-        "(CVE-2017-7494) because the IDS lacks a matching "
-        "signature. However, the SQL injection alert shows the "
-        "attack on server 1 originates from server 3, indicating "
-        "server 3 is compromised. Prioritize containment of "
-        "server 3 as the attacker's pivot point."
+        "However, the SQL injection alert shows the attack on "
+        "server 1 originates from server 3, which indicates that "
+        "server 3 is compromised as well."
+    )
+    SPECIFICATION = (
+        "- Server 2 FTP service must remain accessible from "
+        "the gateway\n"
+        "- Server 3 CI/CD build pipeline must remain accessible "
+        "from the gateway\n"
+        "- Server 6 PostgreSQL must not be taken offline (all "
+        "services depend on it)\n"
+        "- Server 4 Postfix mail delivery must not be interrupted "
+        "(SLA obligation)"
     )
