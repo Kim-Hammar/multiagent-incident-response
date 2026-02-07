@@ -1,4 +1,4 @@
-# CCS Incident Response Planner
+# Incident Response Planner
 
 LLM-based incident response planner for cyber-security. Monorepo with two sub-projects:
 
@@ -124,4 +124,4 @@ Kim Hammar <kimham@kth.se>
 
 Creative Commons
 
-(C) 2026, Kim Hammar
+(C) 2026, Kim Hammar, Tansu Alpcan, Emil Lupu

@@ -54,4 +54,4 @@ Kim Hammar <kimham@kth.se>
 
 Creative Commons
 
-(C) 2026, Kim Hammar
+(C) 2026, Kim Hammar, Tansu Alpcan, Emil Lupu

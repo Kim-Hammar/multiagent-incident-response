@@ -25,9 +25,9 @@ docker compose exec app bash -c "cd ccs-response-planner-backend && flake8 src t
 docker compose exec app bash -c "cd ccs-response-planner-backend && mypy src"
 ```
 
-## Authors & Maintainers
+## Author & Maintainer
 
-Kim Hammar, Tansu Alpcan, Emil Lupu
+Kim Hammar <kimham@kth.se>
 
 ## Copyright and license
 
