@@ -1,0 +1,4 @@
+---
+repo_url: "https://github.com/Kim-Hammar/ccs26_incident_response.git"
+repo_branch: "main"
+app_dir: "/opt/ccs26_incident_response"

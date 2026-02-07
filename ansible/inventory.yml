@@ -1,0 +1,15 @@
+---
+all:
+  children:
+    local:
+      hosts:
+        localhost:
+          ansible_connection: local
+    servers:
+      hosts: {}
+      # Example: uncomment and edit to add remote hosts
+      # hosts:
+      #   web1.example.com:
+      #     ansible_user: ubuntu
+      #   web2.example.com:
+      #     ansible_user: ubuntu

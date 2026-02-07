@@ -134,6 +134,17 @@ docker compose down -v --rmi all
 | 8888 | Production server        |
 | 3005 | Frontend dev server      |
 
+## Ansible
+
+An Ansible playbook is provided in `ansible/` to automate deployment on Ubuntu/Debian hosts. It installs Docker, clones the repo, and starts the app. See [`ansible/README.md`](ansible/README.md) for full details.
+
+Quick start:
+
+```bash
+cd ansible
+ansible-playbook playbook.yml -i inventory.yml --limit local
+```
+
 ## Author & Maintainer
 
 Kim Hammar <kimham@kth.se>
