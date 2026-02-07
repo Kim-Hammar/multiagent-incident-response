@@ -10,12 +10,16 @@ function ResponsePlanner() {
   const [systemDescription, setSystemDescription] = useState('')
   const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
 
   const fetchExample = async () => {
     const res = await fetch(API_EXAMPLE_URL, {
       headers: { Authorization: `Bearer ${token}` }
     })
+    if (res.status === 401) {
+      logout()
+      return
+    }
     const data = await res.json()
     setSystemDescription(data.system_description)
     setSecurityAlerts(data.security_alerts)
@@ -39,7 +43,7 @@ function ResponsePlanner() {
           <textarea
             className="form-control planner-textarea"
             id="systemDescription"
-            rows="4"
+            rows="8"
             placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
             value={systemDescription}
             onChange={(e) => setSystemDescription(e.target.value)}
@@ -53,7 +57,7 @@ function ResponsePlanner() {
           <textarea
             className="form-control planner-textarea"
             id="securityAlerts"
-            rows="4"
+            rows="8"
             placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
             value={securityAlerts}
             onChange={(e) => setSecurityAlerts(e.target.value)}
@@ -67,7 +71,7 @@ function ResponsePlanner() {
           <textarea
             className="form-control planner-textarea"
             id="operatorFeedback"
-            rows="3"
+            rows="6"
             placeholder="e.g., The proposed isolation of 10.0.0.1 is not feasible because it hosts a critical customer-facing service..."
             value={operatorFeedback}
             onChange={(e) => setOperatorFeedback(e.target.value)}
@@ -82,6 +86,17 @@ function ResponsePlanner() {
           onClick={fetchExample}
         >
           <i className="fa fa-download" aria-hidden="true" /> Fetch example incident
+        </button>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm btn-clear"
+          onClick={() => {
+            setSystemDescription('')
+            setSecurityAlerts('')
+            setOperatorFeedback('')
+          }}
+        >
+          <i className="fa fa-eraser" aria-hidden="true" /> Clear all
         </button>
       </form>
     </div>

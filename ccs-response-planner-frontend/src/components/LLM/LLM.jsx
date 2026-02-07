@@ -18,7 +18,7 @@ function formatTimestamp(iso) {
  * and displays available model information.
  */
 function Llm() {
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
   const [status, setStatus] = useState('pending')
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -31,6 +31,10 @@ function Llm() {
       const response = await fetch(API_LLM_URL, {
         headers: { Authorization: `Bearer ${token}` }
       })
+      if (response.status === 401) {
+        logout()
+        return
+      }
       if (!response.ok) {
         setStatus('error')
         setError(`HTTP ${response.status}`)

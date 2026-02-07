@@ -1,5 +1,5 @@
 .ResponsePlanner {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
   text-align: left;
 }
@@ -64,5 +64,16 @@
 }
 
 .btn-example .fa {
+  margin-right: 5px;
+}
+
+.btn-clear {
+  margin-left: 8px;
+  margin-top: 4px;
+  padding: 5px 18px;
+  font-size: 13px;
+}
+
+.btn-clear .fa {
   margin-right: 5px;
 }
