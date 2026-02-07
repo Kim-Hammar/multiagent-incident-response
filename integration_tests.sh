@@ -6,12 +6,12 @@ EXIT_CODE=0
 
 cleanup() {
     echo ">>> Stopping Docker containers..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
+    docker compose -f "$SCRIPT_DIR/docker/docker-compose.yml" --env-file "$SCRIPT_DIR/.env" down
 }
 trap cleanup EXIT
 
 echo ">>> Building and starting Docker containers..."
-docker compose -f "$SCRIPT_DIR/docker-compose.yml" up --build -d
+docker compose -f "$SCRIPT_DIR/docker/docker-compose.yml" --env-file "$SCRIPT_DIR/.env" up --build -d
 
 echo ">>> Waiting for app to be ready (up to 30s)..."
 for i in $(seq 1 30); do

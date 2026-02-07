@@ -55,6 +55,6 @@
 
     - name: Build and start the app
       ansible.builtin.command:
-        cmd: docker compose up -d --build
+        cmd: docker compose -f docker/docker-compose.yml --env-file .env up -d --build
         chdir: "{{ app_dir }}"
       changed_when: true

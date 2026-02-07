@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    env_file: .env
+    env_file: ../.env
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -17,18 +17,20 @@ services:
       retries: 5
 
   app:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     ports:
       - "8888:8888"
       - "3005:3005"
-    env_file: .env
+    env_file: ../.env
     environment:
       - HOST=0.0.0.0
       - POSTGRES_HOST=db
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     volumes:
-      - .:/app
+      - ..:/app
       - /app/ccs-response-planner-frontend/node_modules
       - /app/ccs-response-planner-frontend/build
       - /app/ccs-response-planner-backend/ccs_response_planner_backend.egg-info
