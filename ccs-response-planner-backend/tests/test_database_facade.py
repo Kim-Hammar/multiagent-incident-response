@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
-def test_create_tables_executes_two_statements(mock_psycopg: MagicMock) -> None:
+def test_create_tables_executes_three_statements(mock_psycopg: MagicMock) -> None:
     """
-    Verify create_tables issues two CREATE TABLE statements.
+    Verify create_tables issues three CREATE TABLE statements.
     """
     mock_conn = MagicMock()
     mock_cur = MagicMock()
@@ -17,7 +17,7 @@ def test_create_tables_executes_two_statements(mock_psycopg: MagicMock) -> None:
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
 
-    assert mock_cur.execute.call_count == 2
+    assert mock_cur.execute.call_count == 3
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
@@ -83,3 +83,64 @@ def test_save_user_calls_execute(
     mock_cur.execute.assert_called_once()
     mock_bcrypt.gensalt.assert_called_once()
     mock_bcrypt.hashpw.assert_called_once()
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_digital_twin_config_returns_none(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_digital_twin_config returns None when no row exists.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    mock_cur.fetchone.return_value = None
+
+    from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+    result = DatabaseFacade.get_digital_twin_config()
+
+    assert result is None
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_save_digital_twin_config_calls_execute(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify save_digital_twin_config issues an INSERT statement.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+
+    from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+    DatabaseFacade.save_digital_twin_config({"hosts": [], "links": []})
+
+    mock_cur.execute.assert_called_once()
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_delete_digital_twin_config_calls_execute(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify delete_digital_twin_config issues a DELETE statement.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+
+    from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+    DatabaseFacade.delete_digital_twin_config()
+
+    mock_cur.execute.assert_called_once()

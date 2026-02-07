@@ -3,6 +3,7 @@ Shared constants for the CCS Response Planner backend.
 """
 import base64
 from pathlib import Path
+from typing import Any
 
 
 class API:
@@ -20,6 +21,12 @@ class API:
     EXAMPLE_ROUTE = "/api/example"
     LOGIN_ROUTE = "/api/login"
     LLM_ROUTE = "/api/llm"
+    DIGITAL_TWIN_RESOURCE = "digital-twin"
+    DIGITAL_TWIN_ROUTE = "/api/digital-twin"
+    DIGITAL_TWIN_RESET_ROUTE = "/api/digital-twin/reset"
+    DIGITAL_TWIN_DEPLOY_ROUTE = "/api/digital-twin/deploy"
+    DIGITAL_TWIN_STOP_ROUTE = "/api/digital-twin/stop"
+    DIGITAL_TWIN_STATUS_ROUTE = "/api/digital-twin/status"
 
 
 class DB:
@@ -32,6 +39,7 @@ class DB:
     DEFAULT_USER = "ccs"
     MANAGEMENT_USERS_TABLE = "management_users"
     SESSION_TOKENS_TABLE = "session_tokens"
+    DIGITAL_TWIN_CONFIGS_TABLE = "digital_twin_configs"
 
 
 class AUTH:
@@ -71,6 +79,95 @@ def _load_example_image() -> str:
         return f"data:image/png;base64,{data}"
     except FileNotFoundError:
         return ""
+
+
+class DOCKER:
+    """
+    Constants related to Docker digital-twin deployment.
+    """
+    NETWORK_NAME = "ccs_dt_network"
+    CONTAINER_PREFIX = "ccs_dt_"
+    SUBNET = "10.0.0.0/24"
+    GATEWAY = "10.0.0.100"
+
+
+class DIGITAL_TWIN:
+    """
+    Constants related to the digital twin configuration.
+    """
+    DEFAULT_CONFIG: dict[str, Any] = {
+        "hosts": [
+            {
+                "id": "gateway",
+                "name": "Gateway",
+                "docker_image": "ubuntu:22.04",
+                "ip_addresses": ["10.0.0.254"],
+            },
+            {
+                "id": "firewall",
+                "name": "Firewall",
+                "docker_image": "ubuntu:22.04",
+                "ip_addresses": ["10.0.0.253"],
+            },
+            {
+                "id": "ids",
+                "name": "IDS (Snort)",
+                "docker_image": "ubuntu:22.04",
+                "ip_addresses": ["10.0.0.252"],
+            },
+            {
+                "id": "server_1",
+                "name": "Server 1",
+                "docker_image": "debian:9.2",
+                "ip_addresses": ["10.0.0.1"],
+            },
+            {
+                "id": "server_2",
+                "name": "Server 2",
+                "docker_image": "debian:jessie",
+                "ip_addresses": ["10.0.0.2"],
+            },
+            {
+                "id": "server_3",
+                "name": "Server 3",
+                "docker_image": "ubuntu:20.04",
+                "ip_addresses": ["10.0.0.3"],
+            },
+            {
+                "id": "server_4",
+                "name": "Server 4",
+                "docker_image": "debian:jessie",
+                "ip_addresses": ["10.0.0.4"],
+            },
+            {
+                "id": "server_5",
+                "name": "Server 5",
+                "docker_image": "debian:jessie",
+                "ip_addresses": ["10.0.0.5"],
+            },
+            {
+                "id": "server_6",
+                "name": "Server 6",
+                "docker_image": "debian:jessie",
+                "ip_addresses": ["10.0.0.6"],
+            },
+        ],
+        "links": [
+            {"source": "gateway", "target": "firewall"},
+            {"source": "firewall", "target": "ids"},
+            {"source": "ids", "target": "server_1"},
+            {"source": "ids", "target": "server_2"},
+            {"source": "ids", "target": "server_3"},
+            {"source": "ids", "target": "server_4"},
+            {"source": "ids", "target": "server_5"},
+            {"source": "ids", "target": "server_6"},
+            {"source": "server_1", "target": "server_2"},
+            {"source": "server_3", "target": "server_4"},
+            {"source": "server_5", "target": "server_6"},
+            {"source": "server_1", "target": "server_3"},
+            {"source": "server_3", "target": "server_5"},
+        ],
+    }
 
 
 class EXAMPLES:

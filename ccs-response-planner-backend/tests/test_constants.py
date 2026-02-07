@@ -1,6 +1,6 @@
 """Tests for backend constants."""
 from ccs_response_planner_backend.constants.constants import (
-    API, AUTH, DB, EXAMPLES, GENERAL, SERVER,
+    API, AUTH, DB, DOCKER, EXAMPLES, GENERAL, SERVER,
 )
 
 
@@ -92,3 +92,34 @@ def test_llm_resource() -> None:
 def test_llm_route_starts_with_api_prefix() -> None:
     assert API.LLM_ROUTE.startswith(API.PREFIX)
     assert API.LLM_ROUTE == "/api/llm"
+
+
+def test_docker_network_name() -> None:
+    assert DOCKER.NETWORK_NAME == "ccs_dt_network"
+
+
+def test_docker_container_prefix() -> None:
+    assert DOCKER.CONTAINER_PREFIX == "ccs_dt_"
+
+
+def test_docker_subnet() -> None:
+    assert DOCKER.SUBNET == "10.0.0.0/24"
+
+
+def test_docker_gateway() -> None:
+    assert DOCKER.GATEWAY == "10.0.0.100"
+
+
+def test_digital_twin_deploy_route() -> None:
+    assert API.DIGITAL_TWIN_DEPLOY_ROUTE.startswith(API.PREFIX)
+    assert API.DIGITAL_TWIN_DEPLOY_ROUTE == "/api/digital-twin/deploy"
+
+
+def test_digital_twin_stop_route() -> None:
+    assert API.DIGITAL_TWIN_STOP_ROUTE.startswith(API.PREFIX)
+    assert API.DIGITAL_TWIN_STOP_ROUTE == "/api/digital-twin/stop"
+
+
+def test_digital_twin_status_route() -> None:
+    assert API.DIGITAL_TWIN_STATUS_ROUTE.startswith(API.PREFIX)
+    assert API.DIGITAL_TWIN_STATUS_ROUTE == "/api/digital-twin/status"

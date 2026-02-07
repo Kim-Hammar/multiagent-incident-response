@@ -82,6 +82,10 @@ Backend dependencies are declared in four places that **must be kept in sync**:
 
 When adding or updating a Python dependency, update **all four** locations.
 
+### UI Patterns
+
+- **Alert auto-dismiss:** All alert/notification banners in the frontend must auto-dismiss after 3 seconds using a `useEffect` with `setTimeout`. Users can still manually dismiss them before the timer fires.
+
 ### Code Style
 
 - **Backend:** flake8 (120 char lines), mypy strict mode, pytest for tests

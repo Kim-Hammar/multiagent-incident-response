@@ -10,7 +10,13 @@ import {
   API_PLAN_URL,
   API_EXAMPLE_URL,
   API_LOGIN_URL,
-  API_LLM_URL
+  API_LLM_URL,
+  DIGITAL_TWIN_RESOURCE,
+  API_DIGITAL_TWIN_URL,
+  API_DIGITAL_TWIN_RESET_URL,
+  API_DIGITAL_TWIN_DEPLOY_URL,
+  API_DIGITAL_TWIN_STOP_URL,
+  API_DIGITAL_TWIN_STATUS_URL
 } from './constants'
 
 describe('constants', () => {
@@ -61,5 +67,34 @@ describe('constants', () => {
   it('API_LLM_URL starts with API_BASE_URL', () => {
     expect(API_LLM_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_LLM_URL).toBe('/api/llm')
+  })
+
+  it('DIGITAL_TWIN_RESOURCE is the digital-twin route', () => {
+    expect(DIGITAL_TWIN_RESOURCE).toBe('digital-twin')
+  })
+
+  it('API_DIGITAL_TWIN_URL starts with API_BASE_URL', () => {
+    expect(API_DIGITAL_TWIN_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DIGITAL_TWIN_URL).toBe('/api/digital-twin')
+  })
+
+  it('API_DIGITAL_TWIN_RESET_URL starts with API_BASE_URL', () => {
+    expect(API_DIGITAL_TWIN_RESET_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DIGITAL_TWIN_RESET_URL).toBe('/api/digital-twin/reset')
+  })
+
+  it('API_DIGITAL_TWIN_DEPLOY_URL starts with API_BASE_URL', () => {
+    expect(API_DIGITAL_TWIN_DEPLOY_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DIGITAL_TWIN_DEPLOY_URL).toBe('/api/digital-twin/deploy')
+  })
+
+  it('API_DIGITAL_TWIN_STOP_URL starts with API_BASE_URL', () => {
+    expect(API_DIGITAL_TWIN_STOP_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DIGITAL_TWIN_STOP_URL).toBe('/api/digital-twin/stop')
+  })
+
+  it('API_DIGITAL_TWIN_STATUS_URL starts with API_BASE_URL', () => {
+    expect(API_DIGITAL_TWIN_STATUS_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DIGITAL_TWIN_STATUS_URL).toBe('/api/digital-twin/status')
   })
 })

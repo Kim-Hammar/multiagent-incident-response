@@ -5,8 +5,15 @@ import os
 from typing import Any, Optional
 
 from flask import Flask, jsonify, request, send_from_directory
+from flask_sock import Sock
 
 from ccs_response_planner_backend.constants.constants import API
+from ccs_response_planner_backend.rest_api.resources.digital_twin.routes import (
+    digital_twin_bp,
+)
+from ccs_response_planner_backend.rest_api.resources.digital_twin.terminal import (
+    register_terminal_ws,
+)
 from ccs_response_planner_backend.rest_api.resources.example.routes import (
     example_bp,
 )
@@ -42,6 +49,10 @@ def create_app(static_folder: str) -> Flask:
     app.register_blueprint(plan_bp)
     app.register_blueprint(login_bp)
     app.register_blueprint(llm_bp)
+    app.register_blueprint(digital_twin_bp)
+
+    sock = Sock(app)
+    register_terminal_ws(sock)
 
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")

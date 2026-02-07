@@ -37,11 +37,33 @@ def mock_db() -> Generator[MagicMock, None, None]:
     ) as auth_mock, patch(
         "ccs_response_planner_backend.rest_api.resources.login.routes"
         ".DatabaseFacade"
-    ) as login_mock:
-        for mock in (auth_mock, login_mock):
+    ) as login_mock, patch(
+        "ccs_response_planner_backend.rest_api.resources.digital_twin"
+        ".routes.DatabaseFacade"
+    ) as dt_mock, patch(
+        "ccs_response_planner_backend.rest_api.resources.digital_twin"
+        ".routes.DockerManager"
+    ) as docker_mgr_mock, patch(
+        "ccs_response_planner_backend.rest_api.resources.digital_twin"
+        ".terminal.DatabaseFacade"
+    ) as terminal_db_mock:
+        for mock in (auth_mock, login_mock, dt_mock, terminal_db_mock):
             mock.get_session_token_by_token.side_effect = _mock_get_token
             mock.get_user_by_username.return_value = None
             mock.update_session_token.return_value = None
+        dt_mock.get_digital_twin_config.return_value = None
+        dt_mock.save_digital_twin_config.return_value = None
+        dt_mock.delete_digital_twin_config.return_value = None
+        docker_mgr_mock.deploy.return_value = {
+            "network": "ccs_dt_network",
+            "containers": [],
+        }
+        docker_mgr_mock.stop.return_value = {"removed": []}
+        docker_mgr_mock.status.return_value = {
+            "deployed": False,
+            "network": None,
+            "containers": [],
+        }
         yield login_mock
 
 

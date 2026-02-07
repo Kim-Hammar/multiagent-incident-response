@@ -1,6 +1,7 @@
 """
 Database facade for managing users and session tokens.
 """
+import json
 import os
 from typing import Any, Optional
 
@@ -53,6 +54,16 @@ class DatabaseFacade:
                         username VARCHAR(255) NOT NULL
                             REFERENCES {DB.MANAGEMENT_USERS_TABLE}(username),
                         timestamp TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                """)
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS
+                        {DB.DIGITAL_TWIN_CONFIGS_TABLE} (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) UNIQUE NOT NULL DEFAULT 'default',
+                        config JSONB NOT NULL,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
                 """)
             conn.commit()
@@ -164,5 +175,54 @@ class DatabaseFacade:
                     f"INSERT INTO {DB.SESSION_TOKENS_TABLE} "
                     f"(token, username) VALUES (%s, %s)",
                     (new_token, username),
+                )
+            conn.commit()
+
+    @staticmethod
+    def get_digital_twin_config() -> Optional[dict[str, Any]]:
+        """
+        Load the saved digital twin configuration.
+
+        :return: the config dict or None if no config is saved
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT config FROM "
+                    f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} LIMIT 1"
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return row[0]  # type: ignore[no-any-return]
+
+    @staticmethod
+    def save_digital_twin_config(config: dict[str, Any]) -> None:
+        """
+        Upsert the digital twin configuration.
+
+        :param config: the config dict to save
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"INSERT INTO {DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                    f"(name, config) VALUES ('default', %s) "
+                    f"ON CONFLICT (name) DO UPDATE "
+                    f"SET config = EXCLUDED.config, "
+                    f"updated_at = NOW()",
+                    (json.dumps(config),),
+                )
+            conn.commit()
+
+    @staticmethod
+    def delete_digital_twin_config() -> None:
+        """
+        Delete all saved digital twin configurations.
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"DELETE FROM {DB.DIGITAL_TWIN_CONFIGS_TABLE}"
                 )
             conn.commit()
