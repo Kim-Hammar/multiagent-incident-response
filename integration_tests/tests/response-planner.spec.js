@@ -57,6 +57,6 @@ test.describe('Response Planner page', () => {
     await page.locator('button', { hasText: 'Fetch example' }).click()
     await expect(page.locator('#systemDescription')).not.toHaveValue('', { timeout: 5000 })
     const sysDesc = await page.locator('#systemDescription').inputValue()
-    expect(sysDesc).toContain('web server')
+    expect(sysDesc).toContain('SaaS company')
   })
 })

@@ -100,56 +100,69 @@ class DIGITAL_TWIN:
             {
                 "id": "gateway",
                 "name": "Gateway",
-                "docker_image": "ubuntu:22.04",
+                "docker_image": "ccs-dt-gateway:latest",
                 "ip_addresses": ["10.0.0.254"],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN", "NET_RAW"],
             },
             {
                 "id": "firewall",
                 "name": "Firewall",
-                "docker_image": "ubuntu:22.04",
+                "docker_image": "ccs-dt-firewall:latest",
                 "ip_addresses": ["10.0.0.253"],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN", "NET_RAW"],
             },
             {
                 "id": "ids",
-                "name": "IDS (Snort)",
-                "docker_image": "ubuntu:22.04",
+                "name": "IDS",
+                "docker_image": "ccs-dt-ids:latest",
                 "ip_addresses": ["10.0.0.252"],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_RAW"],
             },
             {
                 "id": "server_1",
                 "name": "Server 1",
-                "docker_image": "debian:9.2",
+                "docker_image": "ccs-dt-server1:latest",
                 "ip_addresses": ["10.0.0.1"],
+                "use_image_entrypoint": True,
             },
             {
                 "id": "server_2",
                 "name": "Server 2",
-                "docker_image": "debian:jessie",
+                "docker_image": "ccs-dt-server2:latest",
                 "ip_addresses": ["10.0.0.2"],
+                "use_image_entrypoint": True,
             },
             {
                 "id": "server_3",
                 "name": "Server 3",
-                "docker_image": "ubuntu:20.04",
+                "docker_image": "ccs-dt-server3:latest",
                 "ip_addresses": ["10.0.0.3"],
+                "use_image_entrypoint": True,
             },
             {
                 "id": "server_4",
                 "name": "Server 4",
-                "docker_image": "debian:jessie",
+                "docker_image": "ccs-dt-server4:latest",
                 "ip_addresses": ["10.0.0.4"],
+                "use_image_entrypoint": True,
             },
             {
                 "id": "server_5",
                 "name": "Server 5",
-                "docker_image": "debian:jessie",
+                "docker_image": "ccs-dt-server5:latest",
                 "ip_addresses": ["10.0.0.5"],
+                "use_image_entrypoint": True,
             },
             {
                 "id": "server_6",
                 "name": "Server 6",
-                "docker_image": "debian:jessie",
+                "docker_image": "ccs-dt-server6:latest",
                 "ip_addresses": ["10.0.0.6"],
+                "use_image_entrypoint": True,
+                "privileged": True,
             },
         ],
         "links": [
@@ -175,17 +188,29 @@ class EXAMPLES:
     Example incident data for populating the response planner form.
     """
     SYSTEM_DESCRIPTION = (
-        "The system consists of 6 servers providing network services "
-        "to a client population through a cloud gateway.\n\n"
-        "Gateway (Ubuntu 22): Snort IDS v2.9.17.1\n"
-        "Server 1 (10.0.0.1, Debian 9.2): Apache 2 web server\n"
-        "Server 2 (10.0.0.2, Debian Jessie): FTP server\n"
-        "Server 3 (10.0.0.3, Ubuntu 20): SSH, Spark "
-        "(known vulnerability: weak SSH password)\n"
-        "Server 4 (10.0.0.4, Debian Jessie): PhpMailer\n"
-        "Server 5 (10.0.0.5, Debian Jessie): SSH, Spring Boot\n"
-        "Server 6 (10.0.0.6, Debian Jessie): PostgreSQL, Samba "
-        "(known vulnerability: CVE-2017-7494)"
+        "The system is the cloud infrastructure of a mid-size SaaS "
+        "company, consisting of 6 servers behind a gateway with "
+        "Snort IDS.\n\n"
+        "Gateway (10.0.0.254, Ubuntu 22): Snort IDS v2.9\n"
+        "Firewall (10.0.0.253, Ubuntu 22): iptables packet "
+        "filtering\n"
+        "IDS (10.0.0.252, Ubuntu 22): rsyslog log aggregation, "
+        "tcpdump\n"
+        "Server 1 (10.0.0.1, Debian 11): Nginx reverse proxy, "
+        "PHP-FPM customer portal, dnsmasq internal DNS\n"
+        "  (known vulnerability: SQL injection in login form)\n"
+        "Server 2 (10.0.0.2, Debian 11): vsftpd FTP, cron nightly "
+        "backups\n"
+        "Server 3 (10.0.0.3, Ubuntu 20): SSH, cron CI/CD build "
+        "pipeline\n"
+        "  (known vulnerability: weak SSH password)\n"
+        "Server 4 (10.0.0.4, Debian 11): Postfix SMTP mail "
+        "server\n"
+        "Server 5 (10.0.0.5, Debian 11): SSH, Python REST API, "
+        "Redis session cache\n"
+        "Server 6 (10.0.0.6, Debian 8): PostgreSQL database, "
+        "Samba file shares\n"
+        "  (known vulnerability: CVE-2017-7494)"
     )
     SYSTEM_DESCRIPTION_IMAGE = _load_example_image()
     SECURITY_ALERTS = (

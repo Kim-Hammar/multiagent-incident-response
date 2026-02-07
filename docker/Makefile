@@ -1,4 +1,4 @@
-.PHONY: all build up down clean logs shell tests lint format rebuild help
+.PHONY: all build up down clean logs shell tests lint format rebuild help dt-build dt-clean
 
 all: build
 
@@ -32,6 +32,14 @@ format: ## Run Prettier formatter inside the container
 rebuild: ## Full rebuild (remove volumes, rebuild images, start)
 	docker compose -f docker-compose.yml --env-file ../.env down -v
 	docker compose -f docker-compose.yml --env-file ../.env up --build -d
+
+dt-build: ## Build all digital twin images
+	bash digital_twin/build.sh
+
+dt-clean: ## Remove all digital twin images
+	docker rmi ccs-dt-gateway ccs-dt-firewall ccs-dt-ids \
+	    ccs-dt-server1 ccs-dt-server2 ccs-dt-server3 \
+	    ccs-dt-server4 ccs-dt-server5 ccs-dt-server6 2>/dev/null || true
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \

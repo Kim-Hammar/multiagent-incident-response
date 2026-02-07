@@ -1,0 +1,37 @@
+FROM --platform=linux/amd64 debian:jessie
+
+# Debian Jessie repos moved to archive; keys are expired
+RUN echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid && \
+    echo 'APT::Get::AllowUnauthenticated "true";' >> /etc/apt/apt.conf.d/99no-check-valid && \
+    echo "deb http://archive.debian.org/debian jessie main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security jessie/updates main" >> /etc/apt/sources.list
+
+RUN apt-get update && apt-get install -y --force-yes --no-install-recommends \
+    postgresql \
+    postgresql-client \
+    samba \
+    gcc \
+    libc6-dev \
+    iproute2 \
+    iputils-ping \
+    net-tools \
+    curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure Samba with world-writable share (vulnerable to CVE-2017-7494)
+COPY smb.conf /etc/samba/smb.conf
+RUN mkdir -p /srv/public && chmod 777 /srv/public
+
+# Configure PostgreSQL to listen on all interfaces
+# Note: globs expand in command args but not in shell redirects, so use tee -a
+RUN sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" \
+    /etc/postgresql/*/main/postgresql.conf && \
+    echo "host all all 10.0.0.0/24 md5" | tee -a /etc/postgresql/*/main/pg_hba.conf > /dev/null
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 5432 445 139
+
+ENTRYPOINT ["/entrypoint.sh"]

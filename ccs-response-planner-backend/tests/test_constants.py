@@ -1,6 +1,6 @@
 """Tests for backend constants."""
 from ccs_response_planner_backend.constants.constants import (
-    API, AUTH, DB, DOCKER, EXAMPLES, GENERAL, SERVER,
+    API, AUTH, DB, DIGITAL_TWIN, DOCKER, EXAMPLES, GENERAL, SERVER,
 )
 
 
@@ -108,6 +108,19 @@ def test_docker_subnet() -> None:
 
 def test_docker_gateway() -> None:
     assert DOCKER.GATEWAY == "10.0.0.100"
+
+
+def test_digital_twin_default_config_hosts() -> None:
+    """
+    All hosts in the default config should use ccs-dt- image names.
+    """
+    hosts = DIGITAL_TWIN.DEFAULT_CONFIG["hosts"]
+    assert len(hosts) == 9
+    for host in hosts:
+        assert "ccs-dt-" in host["docker_image"], (
+            f"Host {host['id']} uses image {host['docker_image']} "
+            f"which does not contain 'ccs-dt-'"
+        )
 
 
 def test_digital_twin_deploy_route() -> None:

@@ -42,9 +42,12 @@ function PlanningTab({ planResult, generating }) {
   }
 
   return (
-    <p className="planning-placeholder">
-      Click &quot;Generate plan&quot; on the Configuration tab to start.
-    </p>
+    <div className="planning-placeholder">
+      <p className="planning-placeholder-title">No planning process is active.</p>
+      <p className="planning-placeholder-hint">
+        To start one, go to the Configuration tab and click &quot;Generate plan&quot;.
+      </p>
+    </div>
   )
 }
 

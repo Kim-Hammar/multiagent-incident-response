@@ -1,0 +1,30 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    snort \
+    hydra \
+    smbclient \
+    sshpass \
+    openssh-client \
+    gcc \
+    libc6-dev \
+    python3 \
+    python3-pip \
+    curl \
+    iproute2 \
+    iputils-ping \
+    net-tools \
+    tcpdump \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir impacket
+
+COPY snort.conf /etc/snort/snort.conf
+COPY local.rules /etc/snort/rules/local.rules
+COPY samba_exploit.py /test_fixtures/samba_exploit.py
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

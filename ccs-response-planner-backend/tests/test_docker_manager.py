@@ -31,7 +31,7 @@ class TestDeploy:
         container.name = "ccs_dt_server_1"
         container.status = "running"
         client.containers.get.side_effect = NotFound("not found")
-        client.containers.run.return_value = container
+        client.containers.create.return_value = container
         client.api.create_networking_config.return_value = {}
         client.api.create_endpoint_config.return_value = {}
 
@@ -65,7 +65,7 @@ class TestDeploy:
         container = MagicMock()
         container.name = "ccs_dt_gw"
         container.status = "running"
-        client.containers.run.return_value = container
+        client.containers.create.return_value = container
 
         config = {
             "hosts": [
@@ -106,8 +106,105 @@ class TestDeploy:
             ]
         }
         result = DockerManager.deploy(config)
-        client.containers.run.assert_not_called()
+        client.containers.create.assert_not_called()
         assert result["containers"][0]["status"] == "running"
+
+    @patch(DOCKER_MODULE)
+    def test_deploy_uses_image_entrypoint(
+        self, mock_docker: MagicMock
+    ) -> None:
+        """
+        Deploy should not pass command when use_image_entrypoint is True.
+        """
+        client = MagicMock()
+        mock_docker.from_env.return_value = client
+        network = MagicMock()
+        client.networks.get.return_value = network
+        from docker.errors import NotFound
+        client.containers.get.side_effect = NotFound("not found")
+        container = MagicMock()
+        container.name = "ccs_dt_server_1"
+        container.status = "running"
+        client.containers.create.return_value = container
+
+        config = {
+            "hosts": [
+                {
+                    "id": "server_1",
+                    "docker_image": "ccs-dt-server1:latest",
+                    "ip_addresses": ["10.0.0.1"],
+                    "use_image_entrypoint": True,
+                }
+            ]
+        }
+        DockerManager.deploy(config)
+        call_kwargs = client.containers.create.call_args
+        assert "command" not in call_kwargs.kwargs
+
+    @patch(DOCKER_MODULE)
+    def test_deploy_passes_capabilities(
+        self, mock_docker: MagicMock
+    ) -> None:
+        """
+        Deploy should pass cap_add when capabilities are specified.
+        """
+        client = MagicMock()
+        mock_docker.from_env.return_value = client
+        network = MagicMock()
+        client.networks.get.return_value = network
+        from docker.errors import NotFound
+        client.containers.get.side_effect = NotFound("not found")
+        container = MagicMock()
+        container.name = "ccs_dt_gateway"
+        container.status = "running"
+        client.containers.create.return_value = container
+
+        config = {
+            "hosts": [
+                {
+                    "id": "gateway",
+                    "docker_image": "ccs-dt-gateway:latest",
+                    "ip_addresses": ["10.0.0.254"],
+                    "use_image_entrypoint": True,
+                    "capabilities": ["NET_ADMIN", "NET_RAW"],
+                }
+            ]
+        }
+        DockerManager.deploy(config)
+        call_kwargs = client.containers.create.call_args
+        assert call_kwargs.kwargs["cap_add"] == ["NET_ADMIN", "NET_RAW"]
+
+    @patch(DOCKER_MODULE)
+    def test_deploy_backward_compatible_no_entrypoint(
+        self, mock_docker: MagicMock
+    ) -> None:
+        """
+        Deploy should still pass sleep infinity when use_image_entrypoint
+        is absent.
+        """
+        client = MagicMock()
+        mock_docker.from_env.return_value = client
+        network = MagicMock()
+        client.networks.get.return_value = network
+        from docker.errors import NotFound
+        client.containers.get.side_effect = NotFound("not found")
+        container = MagicMock()
+        container.name = "ccs_dt_server_1"
+        container.status = "running"
+        client.containers.create.return_value = container
+
+        config = {
+            "hosts": [
+                {
+                    "id": "server_1",
+                    "docker_image": "ubuntu:22.04",
+                    "ip_addresses": ["10.0.0.1"],
+                }
+            ]
+        }
+        DockerManager.deploy(config)
+        call_kwargs = client.containers.create.call_args
+        assert call_kwargs.kwargs["command"] == "sleep infinity"
 
     @patch(DOCKER_MODULE)
     def test_deploy_emits_progress_messages(
@@ -126,7 +223,7 @@ class TestDeploy:
         container.name = "ccs_dt_s1"
         container.status = "running"
         client.containers.get.side_effect = NotFound("not found")
-        client.containers.run.return_value = container
+        client.containers.create.return_value = container
 
         messages: list[str] = []
         config = {

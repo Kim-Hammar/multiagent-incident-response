@@ -10,6 +10,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
+echo ">>> Building digital twin images..."
+bash "$SCRIPT_DIR/docker/digital_twin/build.sh"
+
 echo ">>> Building and starting Docker containers..."
 docker compose -f "$SCRIPT_DIR/docker/docker-compose.yml" --env-file "$SCRIPT_DIR/.env" up --build -d
 

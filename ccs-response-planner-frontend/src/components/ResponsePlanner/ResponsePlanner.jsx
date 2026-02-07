@@ -119,6 +119,7 @@ function ResponsePlanner() {
             className={`nav-link${activeTab === 'planning' ? ' active' : ''}`}
             onClick={() => setActiveTab('planning')}
           >
+            <span className={`status-dot ${generating ? 'active' : 'inactive'}`} />
             Planning process
           </button>
         </li>

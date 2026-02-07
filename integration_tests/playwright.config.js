@@ -13,7 +13,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium' }
+      use: { browserName: 'chromium' },
+      testIgnore: /digital-twin\.spec\.js/
+    },
+    {
+      name: 'digital-twin',
+      timeout: 300000,
+      testMatch: /digital-twin\.spec\.js/,
+      dependencies: ['chromium']
     }
   ]
 })

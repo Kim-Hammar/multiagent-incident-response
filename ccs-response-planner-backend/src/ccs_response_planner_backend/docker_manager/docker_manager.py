@@ -85,22 +85,30 @@ class DockerManager:
             emit(f"[{idx}/{total}] Starting {container_name} "
                  f"({host['docker_image']})")
 
-            container = client.containers.run(
-                host["docker_image"],
-                command="sleep infinity",
-                name=container_name,
-                network=DOCKER.NETWORK_NAME,
-                detach=True,
-            )
+            create_kwargs: dict[str, Any] = {
+                "name": container_name,
+                "detach": True,
+            }
+            if not host.get("use_image_entrypoint", False):
+                create_kwargs["command"] = "sleep infinity"
+            if host.get("capabilities"):
+                create_kwargs["cap_add"] = host["capabilities"]
+            if host.get("privileged", False):
+                create_kwargs["privileged"] = True
 
+            # Create the container without a network, then attach the
+            # network with the correct IP *before* starting so the
+            # entrypoint services bind to the final interface.
+            container = client.containers.create(
+                host["docker_image"], **create_kwargs
+            )
             if ip_addr:
                 emit(f"[{idx}/{total}] Assigning IP {ip_addr} "
                      f"to {container_name}")
-                try:
-                    network.disconnect(container)
-                except Exception:
-                    pass
                 network.connect(container, ipv4_address=ip_addr)
+            else:
+                network.connect(container)
+            container.start()
 
             emit(f"[{idx}/{total}] Container {container_name} started")
             containers.append({

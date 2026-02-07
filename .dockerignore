@@ -1,11 +1,17 @@
 .git
-node_modules
-build
-__pycache__
-.tox
-.mypy_cache
-.pytest_cache
-*.egg-info
+**/node_modules
+**/build
+**/__pycache__
+**/*.egg-info
+**/.tox
+**/.mypy_cache
+**/.pytest_cache
 .env
 .venv
 .DS_Store
+
+# Integration test artifacts (not needed in app container)
+integration_tests/test-results
+
+# Digital twin Docker contexts (not needed in app container)
+docker/digital_twin
