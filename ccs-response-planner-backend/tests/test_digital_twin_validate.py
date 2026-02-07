@@ -62,8 +62,17 @@ class TestValidateEndpoint:
                      "status": "running", "image": "ccs-dt-gateway:latest"},
                 ],
             }
-            mock.validate.return_value = [
+            mock.validate.return_value = iter([
                 {
+                    "type": "progress",
+                    "message": "[1/2] Running on gateway: Check FTP...",
+                },
+                {
+                    "type": "progress",
+                    "message": "[1/2] PASS: Check FTP",
+                },
+                {
+                    "type": "result",
                     "host": "gateway",
                     "description": "Check FTP",
                     "command": "curl http://10.0.0.2:21",
@@ -71,20 +80,31 @@ class TestValidateEndpoint:
                     "output": "220",
                 },
                 {
+                    "type": "progress",
+                    "message": "[2/2] Running on gateway: Check SSH...",
+                },
+                {
+                    "type": "progress",
+                    "message": "[2/2] FAIL: Check SSH",
+                },
+                {
+                    "type": "result",
                     "host": "gateway",
                     "description": "Check SSH",
                     "command": "ssh admin@10.0.0.3 echo ok",
                     "passed": False,
                     "output": "Connection refused",
                 },
-            ]
+            ])
             resp = client.post(
                 "/api/digital-twin/validate", headers=auth_headers
             )
         assert resp.status_code == 200
         assert resp.content_type == "application/x-ndjson"
         msgs = _parse_ndjson(resp.data)
+        progress_msgs = [m for m in msgs if m["type"] == "progress"]
         result_msgs = [m for m in msgs if m["type"] == "result"]
+        assert len(progress_msgs) == 4
         assert len(result_msgs) == 2
         assert result_msgs[0]["passed"] is True
         assert result_msgs[0]["description"] == "Check FTP"

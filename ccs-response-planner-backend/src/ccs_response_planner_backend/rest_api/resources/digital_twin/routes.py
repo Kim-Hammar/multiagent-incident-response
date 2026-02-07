@@ -90,19 +90,11 @@ def deploy_digital_twin() -> Response:
             config = DatabaseFacade.get_digital_twin_config()
             if config is None:
                 config = DIGITAL_TWIN.DEFAULT_CONFIG
-
-            lines: list[str] = []
-
-            def capture(msg: str) -> None:
-                lines.append(msg)
-
-            result = DockerManager.deploy(config, on_progress=capture)
-            for line in lines:
-                yield json.dumps({"type": "progress", "message": line}
-                                 ) + "\n"
-            yield json.dumps({"type": "result", "data": result}) + "\n"
+            for item in DockerManager.deploy(config):
+                yield json.dumps(item) + "\n"
         except Exception as e:
-            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+            yield json.dumps({"type": "error", "message": str(e)
+                              }) + "\n"
 
     return Response(generate(), mimetype="application/x-ndjson")
 
@@ -124,18 +116,11 @@ def stop_digital_twin() -> Response:
         :return: a generator of JSON-encoded strings
         """
         try:
-            lines: list[str] = []
-
-            def capture(msg: str) -> None:
-                lines.append(msg)
-
-            result = DockerManager.stop(on_progress=capture)
-            for line in lines:
-                yield json.dumps({"type": "progress", "message": line}
-                                 ) + "\n"
-            yield json.dumps({"type": "result", "data": result}) + "\n"
+            for item in DockerManager.stop():
+                yield json.dumps(item) + "\n"
         except Exception as e:
-            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+            yield json.dumps({"type": "error", "message": str(e)
+                              }) + "\n"
 
     return Response(generate(), mimetype="application/x-ndjson")
 
@@ -192,27 +177,8 @@ def validate_digital_twin() -> Response:
                 }) + "\n"
                 return
 
-            lines: list[str] = []
-
-            def capture(msg: str) -> None:
-                lines.append(msg)
-
-            results = DockerManager.validate(
-                spec_commands, on_progress=capture,
-            )
-            for line in lines:
-                yield json.dumps({
-                    "type": "progress", "message": line,
-                }) + "\n"
-            for r in results:
-                yield json.dumps({
-                    "type": "result",
-                    "host": r["host"],
-                    "description": r["description"],
-                    "command": r["command"],
-                    "passed": r["passed"],
-                    "output": r["output"],
-                }) + "\n"
+            for item in DockerManager.validate(spec_commands):
+                yield json.dumps(item) + "\n"
             yield json.dumps({"type": "done"}) + "\n"
         except Exception as e:
             yield json.dumps({

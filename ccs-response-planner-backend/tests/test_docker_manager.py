@@ -60,7 +60,9 @@ class TestDeploy:
         client.containers.get.side_effect = NotFound("not found")
         client.containers.create.return_value = container
 
-        result = DockerManager.deploy(_make_config())
+        items = list(DockerManager.deploy(_make_config()))
+        result = [i for i in items
+                  if i["type"] == "result"][0]["data"]
         assert "networks" in result
         assert len(result["networks"]) == 1
         assert result["networks"][0] == "ccs_dt_net_zone1"
@@ -92,7 +94,9 @@ class TestDeploy:
                 "ip_addresses": {"zone1": "10.0.2.254"},
             }],
         )
-        result = DockerManager.deploy(config)
+        items = list(DockerManager.deploy(config))
+        result = [i for i in items
+                  if i["type"] == "result"][0]["data"]
         client.networks.create.assert_not_called()
         assert "ccs_dt_net_zone1" in result["networks"]
 
@@ -112,7 +116,9 @@ class TestDeploy:
         existing.status = "running"
         client.containers.get.return_value = existing
 
-        result = DockerManager.deploy(_make_config())
+        items = list(DockerManager.deploy(_make_config()))
+        result = [i for i in items
+                  if i["type"] == "result"][0]["data"]
         client.containers.create.assert_not_called()
         assert result["containers"][0]["status"] == "running"
 
@@ -142,7 +148,7 @@ class TestDeploy:
                 "use_image_entrypoint": True,
             }],
         )
-        DockerManager.deploy(config)
+        list(DockerManager.deploy(config))
         call_kwargs = client.containers.create.call_args
         assert "command" not in call_kwargs.kwargs
 
@@ -177,7 +183,7 @@ class TestDeploy:
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
             }],
         )
-        DockerManager.deploy(config)
+        list(DockerManager.deploy(config))
         call_kwargs = client.containers.create.call_args
         assert call_kwargs.kwargs["cap_add"] == ["NET_ADMIN", "NET_RAW"]
 
@@ -200,7 +206,7 @@ class TestDeploy:
         container.status = "running"
         client.containers.create.return_value = container
 
-        DockerManager.deploy(_make_config())
+        list(DockerManager.deploy(_make_config()))
         call_kwargs = client.containers.create.call_args
         assert call_kwargs.kwargs["command"] == "sleep infinity"
 
@@ -209,7 +215,7 @@ class TestDeploy:
         self, mock_docker: MagicMock
     ) -> None:
         """
-        Deploy should call on_progress with step messages.
+        Deploy should yield progress dicts with step messages.
         """
         client = MagicMock()
         mock_docker.from_env.return_value = client
@@ -223,7 +229,6 @@ class TestDeploy:
         client.containers.get.side_effect = NotFound("not found")
         client.containers.create.return_value = container
 
-        messages: list[str] = []
         config = _make_config(
             hosts=[{
                 "id": "s1",
@@ -231,7 +236,9 @@ class TestDeploy:
                 "ip_addresses": {"zone1": "10.0.2.1"},
             }],
         )
-        DockerManager.deploy(config, on_progress=messages.append)
+        items = list(DockerManager.deploy(config))
+        messages = [i["message"] for i in items
+                    if i["type"] == "progress"]
         assert any("Creating network" in m for m in messages)
         assert any("Starting" in m for m in messages)
         assert any("Deployment complete" in m for m in messages)
@@ -278,7 +285,7 @@ class TestDeploy:
                 "use_image_entrypoint": True,
             }],
         )
-        DockerManager.deploy(config)
+        list(DockerManager.deploy(config))
         net1.connect.assert_called_once()
         net2.connect.assert_called_once()
 
@@ -308,7 +315,9 @@ class TestStop:
         other.name = "bridge"
         client.networks.list.return_value = [n1, n2, other]
 
-        result = DockerManager.stop()
+        items = list(DockerManager.stop())
+        result = [i for i in items
+                  if i["type"] == "result"][0]["data"]
         assert len(result["removed"]) == 2
         c1.remove.assert_called_once_with(force=True)
         c2.remove.assert_called_once_with(force=True)
@@ -327,7 +336,9 @@ class TestStop:
         client.containers.list.return_value = []
         client.networks.list.return_value = []
 
-        result = DockerManager.stop()
+        items = list(DockerManager.stop())
+        result = [i for i in items
+                  if i["type"] == "result"][0]["data"]
         assert result["removed"] == []
 
     @patch(DOCKER_MODULE)
@@ -335,7 +346,7 @@ class TestStop:
         self, mock_docker: MagicMock
     ) -> None:
         """
-        Stop should call on_progress with step messages.
+        Stop should yield progress dicts with step messages.
         """
         client = MagicMock()
         mock_docker.from_env.return_value = client
@@ -346,8 +357,9 @@ class TestStop:
         n1.name = "ccs_dt_net_zone1"
         client.networks.list.return_value = [n1]
 
-        messages: list[str] = []
-        DockerManager.stop(on_progress=messages.append)
+        items = list(DockerManager.stop())
+        messages = [i["message"] for i in items
+                    if i["type"] == "progress"]
         assert any("Removing ccs_dt_server_1" in m for m in messages)
         assert any("Removed ccs_dt_server_1" in m for m in messages)
         assert any("Shutdown complete" in m for m in messages)

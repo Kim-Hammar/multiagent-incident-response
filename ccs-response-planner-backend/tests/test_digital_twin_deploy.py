@@ -25,10 +25,28 @@ class TestDeployEndpoint:
         """
         Deploy should stream NDJSON with progress and a result line.
         """
-        resp = client.post("/api/digital-twin/deploy", headers=auth_headers)
+        with patch(
+            "ccs_response_planner_backend.rest_api.resources"
+            ".digital_twin.routes.DockerManager"
+        ) as mock:
+            mock.deploy.return_value = iter([
+                {"type": "progress",
+                 "message": "Creating network ccs_dt_net_zone1"},
+                {"type": "progress",
+                 "message": "Deployment complete"},
+                {"type": "result", "data": {
+                    "networks": ["ccs_dt_net_zone1"],
+                    "containers": [{"host_id": "server_1"}],
+                }},
+            ])
+            resp = client.post(
+                "/api/digital-twin/deploy", headers=auth_headers
+            )
         assert resp.status_code == 200
         assert resp.content_type == "application/x-ndjson"
         msgs = _parse_ndjson(resp.data)
+        progress_msgs = [m for m in msgs if m["type"] == "progress"]
+        assert len(progress_msgs) == 2
         result_msgs = [m for m in msgs if m["type"] == "result"]
         assert len(result_msgs) == 1
         assert "networks" in result_msgs[0]["data"]
@@ -71,10 +89,26 @@ class TestStopEndpoint:
         """
         Stop should stream NDJSON with progress and a result line.
         """
-        resp = client.post("/api/digital-twin/stop", headers=auth_headers)
+        with patch(
+            "ccs_response_planner_backend.rest_api.resources"
+            ".digital_twin.routes.DockerManager"
+        ) as mock:
+            mock.stop.return_value = iter([
+                {"type": "progress",
+                 "message": "[1/1] Removing ccs_dt_server_1"},
+                {"type": "progress",
+                 "message": "Shutdown complete"},
+                {"type": "result",
+                 "data": {"removed": ["ccs_dt_server_1"]}},
+            ])
+            resp = client.post(
+                "/api/digital-twin/stop", headers=auth_headers
+            )
         assert resp.status_code == 200
         assert resp.content_type == "application/x-ndjson"
         msgs = _parse_ndjson(resp.data)
+        progress_msgs = [m for m in msgs if m["type"] == "progress"]
+        assert len(progress_msgs) == 2
         result_msgs = [m for m in msgs if m["type"] == "result"]
         assert len(result_msgs) == 1
         assert "removed" in result_msgs[0]["data"]

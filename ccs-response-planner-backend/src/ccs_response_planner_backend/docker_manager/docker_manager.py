@@ -1,7 +1,7 @@
 """
 Docker management facade for digital-twin deployment.
 """
-from typing import Any, Callable, Optional
+from typing import Any, Generator
 
 import docker
 from docker.errors import NotFound
@@ -26,23 +26,17 @@ class DockerManager:
     @staticmethod
     def deploy(
         config: dict[str, Any],
-        on_progress: Optional[Callable[[str], None]] = None,
-    ) -> dict[str, Any]:
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Deploy the digital twin on multiple segmented Docker networks.
 
-        Creates networks from the config, starts containers, connects
-        each to its assigned networks with static IPs, then applies
-        static routes. Idempotent: skips existing containers.
+        Yields progress dicts as each step completes, enabling
+        real-time streaming to clients. The final yield is a result
+        dict with networks and containers lists.
 
         :param config: the digital twin configuration with networks/hosts
-        :param on_progress: optional callback invoked with status messages
-        :return: a dict with networks list and created containers list
+        :return: a generator of progress/result dicts
         """
-        def emit(msg: str) -> None:
-            if on_progress:
-                on_progress(msg)
-
         client = DockerManager._client()
 
         # Create networks
@@ -52,10 +46,13 @@ class DockerManager:
             net_name = f"{DOCKER.NETWORK_PREFIX}{net_def['id']}"
             try:
                 net_obj = client.networks.get(net_name)
-                emit(f"Using existing network {net_name}")
+                yield {"type": "progress",
+                       "message": f"Using existing network "
+                                  f"{net_name}"}
             except NotFound:
-                emit(f"Creating network {net_name} "
-                     f"({net_def['subnet']})")
+                yield {"type": "progress",
+                       "message": f"Creating network {net_name}"
+                                  f" ({net_def['subnet']})"}
                 ipam_pool = docker.types.IPAMPool(
                     subnet=net_def["subnet"],
                     gateway=net_def.get("gateway"),
@@ -66,20 +63,26 @@ class DockerManager:
                 net_obj = client.networks.create(
                     net_name, driver="bridge", ipam=ipam_config,
                 )
-                emit(f"Network {net_name} created")
+                yield {"type": "progress",
+                       "message": f"Network {net_name} created"}
             networks_by_id[net_def["id"]] = net_obj
             network_names.append(net_name)
 
         # Create and start containers
-        containers = []
+        containers: list[dict[str, Any]] = []
         hosts = config.get("hosts", [])
         total = len(hosts)
         for idx, host in enumerate(hosts, 1):
             container_name = f"{DOCKER.CONTAINER_PREFIX}{host['id']}"
             try:
                 existing = client.containers.get(container_name)
-                emit(f"[{idx}/{total}] Container {container_name} "
-                     f"already exists (status: {existing.status})")
+                yield {
+                    "type": "progress",
+                    "message":
+                        f"[{idx}/{total}] Container "
+                        f"{container_name} already exists "
+                        f"(status: {existing.status})",
+                }
                 containers.append({
                     "host_id": host["id"],
                     "container": existing.name,
@@ -90,8 +93,12 @@ class DockerManager:
             except NotFound:
                 pass
 
-            emit(f"[{idx}/{total}] Starting {container_name} "
-                 f"({host['docker_image']})")
+            yield {
+                "type": "progress",
+                "message": f"[{idx}/{total}] Starting "
+                           f"{container_name} "
+                           f"({host['docker_image']})",
+            }
 
             create_kwargs: dict[str, Any] = {
                 "name": container_name,
@@ -115,21 +122,32 @@ class DockerManager:
             if isinstance(ip_addrs, dict):
                 for net_id, ip_addr in ip_addrs.items():
                     if net_id in networks_by_id:
-                        emit(f"[{idx}/{total}] Connecting "
-                             f"{container_name} to {net_id} "
-                             f"({ip_addr})")
+                        yield {
+                            "type": "progress",
+                            "message":
+                                f"[{idx}/{total}] Connecting "
+                                f"{container_name} to {net_id} "
+                                f"({ip_addr})",
+                        }
                         networks_by_id[net_id].connect(
                             container, ipv4_address=ip_addr,
                         )
             container.start()
 
-            # Disconnect from default bridge to enforce zone segmentation
+            # Disconnect from default bridge to enforce zone
+            # segmentation
             try:
-                client.networks.get("bridge").disconnect(container)
+                client.networks.get("bridge").disconnect(
+                    container
+                )
             except Exception:
                 pass
 
-            emit(f"[{idx}/{total}] Container {container_name} started")
+            yield {
+                "type": "progress",
+                "message": f"[{idx}/{total}] Container "
+                           f"{container_name} started",
+            }
             containers.append({
                 "host_id": host["id"],
                 "container": container.name,
@@ -146,8 +164,13 @@ class DockerManager:
             for route in routes:
                 cmd = (f"ip route add {route['destination']} "
                        f"via {route['via']}")
-                emit(f"Adding route on {host['id']}: "
-                     f"{route['destination']} via {route['via']}")
+                yield {
+                    "type": "progress",
+                    "message":
+                        f"Adding route on {host['id']}: "
+                        f"{route['destination']} "
+                        f"via {route['via']}",
+                }
                 try:
                     exec_id = client.api.exec_create(
                         container_name, ["/bin/sh", "-c", cmd],
@@ -156,25 +179,28 @@ class DockerManager:
                 except Exception:
                     pass
 
-        emit("Deployment complete")
-        return {"networks": network_names, "containers": containers}
+        yield {"type": "progress",
+               "message": "Deployment complete"}
+        yield {
+            "type": "result",
+            "data": {
+                "networks": network_names,
+                "containers": containers,
+            },
+        }
 
     @staticmethod
-    def stop(
-        on_progress: Optional[Callable[[str], None]] = None,
-    ) -> dict[str, Any]:
+    def stop() -> Generator[dict[str, Any], None, None]:
         """
         Stop and remove all digital twin containers and networks.
 
-        :param on_progress: optional callback invoked with status messages
-        :return: a dict with the list of removed container names
-        """
-        def emit(msg: str) -> None:
-            if on_progress:
-                on_progress(msg)
+        Yields progress dicts as each step completes. The final
+        yield is a result dict with the removed container names.
 
+        :return: a generator of progress/result dicts
+        """
         client = DockerManager._client()
-        removed = []
+        removed: list[str] = []
 
         dt_containers = [
             c for c in client.containers.list(all=True)
@@ -182,19 +208,38 @@ class DockerManager:
         ]
         total = len(dt_containers)
         for idx, container in enumerate(dt_containers, 1):
-            emit(f"[{idx}/{total}] Removing {container.name}")
+            yield {
+                "type": "progress",
+                "message": f"[{idx}/{total}] Removing "
+                           f"{container.name}",
+            }
             container.remove(force=True)
             removed.append(container.name)
-            emit(f"[{idx}/{total}] Removed {container.name}")
+            yield {
+                "type": "progress",
+                "message": f"[{idx}/{total}] Removed "
+                           f"{container.name}",
+            }
 
         for network in client.networks.list():
             if network.name.startswith(DOCKER.NETWORK_PREFIX):
-                emit(f"Removing network {network.name}")
+                yield {
+                    "type": "progress",
+                    "message": f"Removing network "
+                               f"{network.name}",
+                }
                 network.remove()
-                emit(f"Network {network.name} removed")
+                yield {
+                    "type": "progress",
+                    "message": f"Network {network.name} removed",
+                }
 
-        emit("Shutdown complete")
-        return {"removed": removed}
+        yield {"type": "progress",
+               "message": "Shutdown complete"}
+        yield {
+            "type": "result",
+            "data": {"removed": removed},
+        }
 
     @staticmethod
     def status() -> dict[str, Any]:
@@ -235,32 +280,28 @@ class DockerManager:
     @staticmethod
     def validate(
         specification_commands: list[dict[str, str]],
-        on_progress: Optional[Callable[[str], None]] = None,
-    ) -> list[dict[str, Any]]:
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Run specification commands against deployed containers.
 
-        Each command specifies a ``host`` whose container it executes in.
-        The exit code determines pass/fail status.
+        Yields progress and result dicts as each command completes,
+        enabling real-time streaming to clients.
 
         :param specification_commands: list of dicts with host/command/description
-        :param on_progress: optional callback invoked with status messages
-        :return: list of result dicts with host, description, command, passed, output
+        :return: a generator of progress/result dicts
         """
-        def emit(msg: str) -> None:
-            if on_progress:
-                on_progress(msg)
-
         client = DockerManager._client()
         total = len(specification_commands)
-        results: list[dict[str, Any]] = []
         for idx, spec in enumerate(specification_commands, 1):
             host_id = spec.get("host", "gateway")
             container_name = f"{DOCKER.CONTAINER_PREFIX}{host_id}"
             cmd = spec["command"]
             description = spec["description"]
-            emit(f"[{idx}/{total}] Running on {host_id}: "
-                 f"{description}...")
+            yield {
+                "type": "progress",
+                "message": (f"[{idx}/{total}] Running on "
+                            f"{host_id}: {description}..."),
+            }
             exec_id = client.api.exec_create(
                 container_name,
                 ["/bin/sh", "-c", cmd],
@@ -270,17 +311,23 @@ class DockerManager:
             output_bytes = client.api.exec_start(exec_id)
             exit_code = client.api.exec_inspect(exec_id)["ExitCode"]
             passed = exit_code == 0
-            output = output_bytes.decode("utf-8", errors="replace").strip()
+            output = output_bytes.decode(
+                "utf-8", errors="replace"
+            ).strip()
             status_label = "PASS" if passed else "FAIL"
-            emit(f"[{idx}/{total}] {status_label}: {description}")
-            results.append({
+            yield {
+                "type": "progress",
+                "message": (f"[{idx}/{total}] "
+                            f"{status_label}: {description}"),
+            }
+            yield {
+                "type": "result",
                 "host": host_id,
                 "description": description,
                 "command": cmd,
                 "passed": passed,
                 "output": output,
-            })
-        return results
+            }
 
     @staticmethod
     def exec_create(
