@@ -180,11 +180,16 @@ class DockerManager:
         for container in client.containers.list(all=True):
             if container.name.startswith(DOCKER.CONTAINER_PREFIX):
                 host_id = container.name[len(DOCKER.CONTAINER_PREFIX):]
+                try:
+                    image_name = (container.image.tags
+                                  or ["unknown"])[0]
+                except Exception:
+                    image_name = "unknown"
                 containers.append({
                     "host_id": host_id,
                     "container": container.name,
                     "status": container.status,
-                    "image": (container.image.tags or ["unknown"])[0],
+                    "image": image_name,
                 })
 
         return {
@@ -192,6 +197,56 @@ class DockerManager:
             "network": network_info,
             "containers": containers,
         }
+
+    @staticmethod
+    def validate(
+        specification_commands: list[dict[str, str]],
+        on_progress: Optional[Callable[[str], None]] = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Run specification commands against deployed containers.
+
+        Each command specifies a ``host`` whose container it executes in.
+        The exit code determines pass/fail status.
+
+        :param specification_commands: list of dicts with host/command/description
+        :param on_progress: optional callback invoked with status messages
+        :return: list of result dicts with host, description, command, passed, output
+        """
+        def emit(msg: str) -> None:
+            if on_progress:
+                on_progress(msg)
+
+        client = DockerManager._client()
+        total = len(specification_commands)
+        results: list[dict[str, Any]] = []
+        for idx, spec in enumerate(specification_commands, 1):
+            host_id = spec.get("host", "gateway")
+            container_name = f"{DOCKER.CONTAINER_PREFIX}{host_id}"
+            cmd = spec["command"]
+            description = spec["description"]
+            emit(f"[{idx}/{total}] Running on {host_id}: "
+                 f"{description}...")
+            exec_id = client.api.exec_create(
+                container_name,
+                ["/bin/sh", "-c", cmd],
+                stdin=False,
+                tty=False,
+            )["Id"]
+            output_bytes = client.api.exec_start(exec_id)
+            exit_code = client.api.exec_inspect(exec_id)["ExitCode"]
+            passed = exit_code == 0
+            output = output_bytes.decode("utf-8", errors="replace").strip()
+            status_label = "PASS" if passed else "FAIL"
+            emit(f"[{idx}/{total}] {status_label}: {description}")
+            results.append({
+                "host": host_id,
+                "description": description,
+                "command": cmd,
+                "passed": passed,
+                "output": output,
+            })
+        return results
 
     @staticmethod
     def exec_create(

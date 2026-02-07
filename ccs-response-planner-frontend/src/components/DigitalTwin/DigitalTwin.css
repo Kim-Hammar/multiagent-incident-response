@@ -1,5 +1,5 @@
 .DigitalTwin {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   text-align: left;
 }
@@ -200,4 +200,23 @@
 .DigitalTwin .terminal-body {
   height: 400px;
   background: #1e1e1e;
+}
+
+/* Validation tab */
+.DigitalTwin .validation-tab code {
+  font-size: 12px;
+  color: #495057;
+}
+
+.DigitalTwin .validation-tab .last-tested {
+  font-size: 13px;
+  color: #6c757d;
+  margin-bottom: 12px;
+}
+
+.DigitalTwin .validation-tab .output-cell {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

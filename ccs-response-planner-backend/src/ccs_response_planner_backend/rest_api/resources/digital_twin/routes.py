@@ -151,3 +151,70 @@ def status_digital_twin() -> tuple[Response, int]:
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@digital_twin_bp.route("/validate", methods=["POST"])
+@token_required
+def validate_digital_twin() -> Response:
+    """
+    Run specification commands against the deployed digital twin.
+
+    Streams NDJSON progress lines, result lines, then a done line.
+
+    :return: a streaming Response with NDJSON content
+    """
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines as validation progresses.
+
+        :return: a generator of JSON-encoded strings
+        """
+        try:
+            status = DockerManager.status()
+            if not status.get("deployed"):
+                yield json.dumps({
+                    "type": "error",
+                    "message": "Digital twin is not deployed. "
+                               "Deploy it first from the Deployment tab.",
+                }) + "\n"
+                return
+
+            config = DatabaseFacade.get_digital_twin_config()
+            if config is None:
+                config = DIGITAL_TWIN.DEFAULT_CONFIG
+            spec_commands = config.get("specification_commands", [])
+            if not spec_commands:
+                yield json.dumps({
+                    "type": "error",
+                    "message": "No specification commands configured.",
+                }) + "\n"
+                return
+
+            lines: list[str] = []
+
+            def capture(msg: str) -> None:
+                lines.append(msg)
+
+            results = DockerManager.validate(
+                spec_commands, on_progress=capture,
+            )
+            for line in lines:
+                yield json.dumps({
+                    "type": "progress", "message": line,
+                }) + "\n"
+            for r in results:
+                yield json.dumps({
+                    "type": "result",
+                    "host": r["host"],
+                    "description": r["description"],
+                    "command": r["command"],
+                    "passed": r["passed"],
+                    "output": r["output"],
+                }) + "\n"
+            yield json.dumps({"type": "done"}) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error", "message": str(e),
+            }) + "\n"
+
+    return Response(generate(), mimetype="application/x-ndjson")

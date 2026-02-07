@@ -5,12 +5,16 @@
 function ConfigTab({
   hosts,
   links,
+  specificationCommands,
   addHost,
   updateHost,
   removeHost,
   addLink,
   updateLink,
   removeLink,
+  addSpecCommand,
+  updateSpecCommand,
+  removeSpecCommand,
   saveConfig,
   resetConfig
 }) {
@@ -135,6 +139,70 @@ function ConfigTab({
                   type="button"
                   className="btn btn-sm btn-outline-danger"
                   onClick={() => removeLink(index)}
+                >
+                  <i className="fa fa-trash" aria-hidden="true" />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="section-header">
+        <h5>Specification</h5>
+        <button type="button" className="btn btn-sm btn-outline-dark" onClick={addSpecCommand}>
+          <i className="fa fa-plus" aria-hidden="true" /> Add command
+        </button>
+      </div>
+      <table className="table table-striped table-sm">
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th>Command</th>
+            <th>Description</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {specificationCommands.map((cmd, index) => (
+            <tr key={index}>
+              <td>
+                <select
+                  className="form-control form-control-sm"
+                  value={cmd.host || ''}
+                  onChange={(e) => updateSpecCommand(index, 'host', e.target.value)}
+                >
+                  <option value="">-- select --</option>
+                  {hosts.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name || h.id}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={cmd.command}
+                  onChange={(e) => updateSpecCommand(index, 'command', e.target.value)}
+                  placeholder="e.g. curl -s http://10.0.0.2:21"
+                />
+              </td>
+              <td>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={cmd.description}
+                  onChange={(e) => updateSpecCommand(index, 'description', e.target.value)}
+                  placeholder="e.g. Verify FTP is reachable"
+                />
+              </td>
+              <td>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={() => removeSpecCommand(index)}
                 >
                   <i className="fa fa-trash" aria-hidden="true" />
                 </button>

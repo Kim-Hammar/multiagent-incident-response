@@ -1,5 +1,5 @@
 .Llm {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
   text-align: left;
 }
@@ -23,4 +23,11 @@
 
 .Llm table {
   font-size: 14px;
+}
+
+.Llm th:nth-child(3),
+.Llm td:nth-child(3),
+.Llm th:nth-child(4),
+.Llm td:nth-child(4) {
+  min-width: 160px;
 }

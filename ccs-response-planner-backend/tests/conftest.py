@@ -64,6 +64,7 @@ def mock_db() -> Generator[MagicMock, None, None]:
             "network": None,
             "containers": [],
         }
+        docker_mgr_mock.validate.return_value = []
         yield login_mock
 
 

@@ -27,6 +27,7 @@ class API:
     DIGITAL_TWIN_DEPLOY_ROUTE = "/api/digital-twin/deploy"
     DIGITAL_TWIN_STOP_ROUTE = "/api/digital-twin/stop"
     DIGITAL_TWIN_STATUS_ROUTE = "/api/digital-twin/status"
+    DIGITAL_TWIN_VALIDATE_ROUTE = "/api/digital-twin/validate"
 
 
 class DB:
@@ -178,6 +179,54 @@ class DIGITAL_TWIN:
             {"source": "server_3", "target": "server_6"},
             {"source": "server_4", "target": "server_5"},
             {"source": "server_5", "target": "server_6"},
+        ],
+        "specification_commands": [
+            {
+                "host": "gateway",
+                "command": (
+                    "python3 -c \"import socket;"
+                    " s=socket.create_connection("
+                    "('10.0.0.2', 21), timeout=3); s.close()\""
+                ),
+                "description": (
+                    "Verify Server 2 FTP is reachable"
+                    " from the gateway"
+                ),
+            },
+            {
+                "host": "gateway",
+                "command": (
+                    "ssh-keyscan -T 3 10.0.0.3 2>&1"
+                    " | grep -q ssh"
+                ),
+                "description": (
+                    "Verify Server 3 SSH is reachable"
+                    " from the gateway"
+                ),
+            },
+            {
+                "host": "gateway",
+                "command": (
+                    "python3 -c \"import socket;"
+                    " s=socket.create_connection("
+                    "('10.0.0.6', 5432), timeout=3); s.close()\""
+                ),
+                "description": (
+                    "Verify Server 6 PostgreSQL is running"
+                ),
+            },
+            {
+                "host": "gateway",
+                "command": (
+                    "python3 -c \"import socket;"
+                    " s=socket.create_connection("
+                    "('10.0.0.4', 25), timeout=3); s.close()\""
+                ),
+                "description": (
+                    "Verify Server 4 Postfix SMTP is"
+                    " accepting connections"
+                ),
+            },
         ],
     }
 

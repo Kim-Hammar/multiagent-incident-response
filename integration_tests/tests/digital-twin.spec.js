@@ -190,6 +190,36 @@ CEOF'`
     expect(check).not.toContain('NOT_FOUND')
   })
 
+  test('validate specification commands', async ({ request }) => {
+    const res = await request.post(`${API}/digital-twin/validate`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+    expect(res.ok()).toBeTruthy()
+
+    const text = await res.text()
+    const lines = text.trim().split('\n').filter(Boolean)
+    const parsed = lines.map((l) => JSON.parse(l))
+
+    const results = parsed.filter((o) => o.type === 'result')
+    const done = parsed.find((o) => o.type === 'done')
+
+    expect(results.length).toBe(4)
+    expect(done).toBeTruthy()
+
+    // All services should be running at this point
+    const passed = results.filter((r) => r.passed)
+    expect(passed.length).toBeGreaterThanOrEqual(1)
+
+    // Each result should have the expected shape
+    for (const r of results) {
+      expect(r).toHaveProperty('host')
+      expect(r).toHaveProperty('description')
+      expect(r).toHaveProperty('command')
+      expect(typeof r.passed).toBe('boolean')
+      expect(r).toHaveProperty('output')
+    }
+  })
+
   test.afterAll(async ({ request }) => {
     const res = await request.post(`${API}/digital-twin/stop`, {
       headers: { Authorization: `Bearer ${authToken}` },

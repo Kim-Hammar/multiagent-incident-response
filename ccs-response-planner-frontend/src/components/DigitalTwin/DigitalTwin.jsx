@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext.jsx'
 import { API_DIGITAL_TWIN_URL, API_DIGITAL_TWIN_RESET_URL } from '../Common/constants'
 import ConfigTab from './ConfigTab.jsx'
 import DeployTab from './DeployTab.jsx'
+import ValidationTab from './ValidationTab.jsx'
 import './DigitalTwin.css'
 
 /**
@@ -12,6 +13,7 @@ function DigitalTwin() {
   const { token, logout } = useAuth()
   const [hosts, setHosts] = useState([])
   const [links, setLinks] = useState([])
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [alert, setAlert] = useState(null)
   const [activeTab, setActiveTab] = useState('config')
 
@@ -27,6 +29,7 @@ function DigitalTwin() {
       const data = await response.json()
       setHosts(data.hosts || [])
       setLinks(data.links || [])
+      setSpecificationCommands(data.specification_commands || [])
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to load configuration: ${err.message}` })
     }
@@ -50,7 +53,7 @@ function DigitalTwin() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ hosts, links })
+        body: JSON.stringify({ hosts, links, specification_commands: specificationCommands })
       })
       if (response.status === 401) {
         logout()
@@ -80,6 +83,7 @@ function DigitalTwin() {
       const data = await response.json()
       setHosts(data.hosts || [])
       setLinks(data.links || [])
+      setSpecificationCommands(data.specification_commands || [])
       setAlert({ type: 'success', message: 'Configuration reset to default' })
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to reset configuration: ${err.message}` })
@@ -118,6 +122,21 @@ function DigitalTwin() {
     setLinks(links.filter((_, i) => i !== index))
   }
 
+  const addSpecCommand = () => {
+    setSpecificationCommands([...specificationCommands, { host: '', command: '', description: '' }])
+  }
+
+  const updateSpecCommand = (index, field, value) => {
+    const updated = specificationCommands.map((c, i) =>
+      i === index ? { ...c, [field]: value } : c
+    )
+    setSpecificationCommands(updated)
+  }
+
+  const removeSpecCommand = (index) => {
+    setSpecificationCommands(specificationCommands.filter((_, i) => i !== index))
+  }
+
   return (
     <div className="DigitalTwin">
       <h2>Digital twin</h2>
@@ -152,6 +171,15 @@ function DigitalTwin() {
             Deployment
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'validate' ? ' active' : ''}`}
+            onClick={() => setActiveTab('validate')}
+          >
+            Validation
+          </button>
+        </li>
       </ul>
 
       <div className="tab-content">
@@ -159,17 +187,28 @@ function DigitalTwin() {
           <ConfigTab
             hosts={hosts}
             links={links}
+            specificationCommands={specificationCommands}
             addHost={addHost}
             updateHost={updateHost}
             removeHost={removeHost}
             addLink={addLink}
             updateLink={updateLink}
             removeLink={removeLink}
+            addSpecCommand={addSpecCommand}
+            updateSpecCommand={updateSpecCommand}
+            removeSpecCommand={removeSpecCommand}
             saveConfig={saveConfig}
             resetConfig={resetConfig}
           />
         )}
         {activeTab === 'deploy' && <DeployTab token={token} logout={logout} />}
+        {activeTab === 'validate' && (
+          <ValidationTab
+            token={token}
+            logout={logout}
+            specificationCommands={specificationCommands}
+          />
+        )}
       </div>
     </div>
   )

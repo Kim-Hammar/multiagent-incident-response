@@ -141,3 +141,15 @@ def test_digital_twin_stop_route() -> None:
 def test_digital_twin_status_route() -> None:
     assert API.DIGITAL_TWIN_STATUS_ROUTE.startswith(API.PREFIX)
     assert API.DIGITAL_TWIN_STATUS_ROUTE == "/api/digital-twin/status"
+
+
+def test_digital_twin_default_config_has_specification_commands() -> None:
+    """
+    The default DT config must include a non-empty specification_commands list.
+    """
+    cmds = DIGITAL_TWIN.DEFAULT_CONFIG["specification_commands"]
+    assert isinstance(cmds, list)
+    assert len(cmds) > 0
+    for cmd in cmds:
+        assert "command" in cmd
+        assert "description" in cmd
