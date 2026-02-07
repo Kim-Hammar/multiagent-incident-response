@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: pip install -e ".[test]"
+        working-directory: ccs-response-planner-backend
+
+      - name: Run backend tests with coverage
+        run: pytest --cov=ccs_response_planner_backend --cov-report=xml -q
+        working-directory: ccs-response-planner-backend
+
+      - name: Lint (flake8)
+        run: flake8 src tests
+        working-directory: ccs-response-planner-backend
+
+      - name: Type check (mypy)
+        run: mypy src
+        working-directory: ccs-response-planner-backend
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ccs-response-planner-backend/coverage.xml
+          flags: backend
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ccs-response-planner-frontend
+
+      - name: Run frontend tests
+        run: npm test
+        working-directory: ccs-response-planner-frontend
+
+      - name: Lint (eslint)
+        run: npx eslint . --quiet
+        working-directory: ccs-response-planner-frontend

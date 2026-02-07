@@ -154,8 +154,8 @@ cd "$DIR/ccs-response-planner-frontend"
 npm install
 
 echo ""
-echo "=== Installing E2E test dependencies ==="
-cd "$DIR/e2e"
+echo "=== Installing integration test dependencies ==="
+cd "$DIR/integration_tests"
 npm install
 npx playwright install --with-deps chromium
 

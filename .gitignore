@@ -167,6 +167,6 @@ package-lock.json
 test_dir_*
 
 # Playwright
-e2e/node_modules/
-e2e/test-results/
-e2e/playwright-report/
+integration_tests/node_modules/
+integration_tests/test-results/
+integration_tests/playwright-report/

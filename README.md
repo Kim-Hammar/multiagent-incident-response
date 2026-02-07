@@ -5,6 +5,16 @@ LLM-based incident response planner for cyber-security. Monorepo with two sub-pr
 - `ccs-response-planner-backend/` — Python backend (Flask REST API + planner logic)
 - `ccs-response-planner-frontend/` — React frontend (Vite + JSX)
 
+## About
+
+Incident response refers to the coordinated actions taken to contain, mitigate, and recover from cyberattacks. Today, incident response is largely a manual process that is slow, labor-intensive, and requires specialized skills. To address this, an emerging direction of research is to leverage the security knowledge encoded in large language models (LLMs) as decision support.
+
+This tool implements a novel approach: instead of using the LLM to directly generate response actions from system logs, we use it to generate a **code model** of the response process as Python code. This model allows us to leverage standard planning algorithms (e.g., tree search) to efficiently compute an effective response plan through simulation. The code model is then refined through **in-context learning (ICL)** based on feedback from security operators.
+
+<p align="center">
+<img src="docs/method.png" alt="Method overview" width="600" />
+</p>
+
 ## Configuration
 
 Before building or deploying, copy the example environment file and edit it with your credentials:
@@ -113,6 +123,23 @@ Quick start:
 cd ansible
 ansible-playbook playbook.yml -i inventory.yml --limit local
 ```
+
+## Release Management
+
+To create a new release, run the `release.sh` script with a semver version number:
+
+```bash
+./release.sh 1.0.0
+```
+
+This will:
+
+1. Update the Python package version in `__version__.py`
+2. Run backend and frontend tests
+3. Build and push the Docker image to DockerHub (`kimham/ccs_incident_response_planner:<version>`)
+4. Build and upload the Python package to PyPI
+
+Ensure you are logged in to DockerHub (`docker login`) and have a PyPI token configured (`~/.pypirc`) before running the script.
 
 ## Author & Maintainer
 

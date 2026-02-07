@@ -1,5 +1,5 @@
 {
-  "name": "ccs-response-planner-e2e",
+  "name": "ccs-response-planner-integration-tests",
   "version": "0.0.1",
   "private": true,
   "scripts": {

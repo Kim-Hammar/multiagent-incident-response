@@ -33,7 +33,7 @@ source "$SCRIPT_DIR/.env"
 set +a
 
 echo ">>> Installing E2E dependencies..."
-cd "$SCRIPT_DIR/e2e"
+cd "$SCRIPT_DIR/integration_tests"
 npm install
 npx playwright install --with-deps chromium
 
