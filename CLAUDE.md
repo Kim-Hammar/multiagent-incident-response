@@ -37,7 +37,7 @@ tox
 python ../ccs-response-planner-frontend/server/server.py
 ```
 
-Python 3.10+ required. Flake8 max line length is 120 chars.
+Python 3.11+ required. Flake8 max line length is 120 chars.
 
 ## Frontend Commands
 

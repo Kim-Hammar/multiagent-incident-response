@@ -62,7 +62,7 @@ Then run the playbook with `--limit servers`. See [`ansible/README.md`](ansible/
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - Node.js 22+
 
 ## Build the Frontend
