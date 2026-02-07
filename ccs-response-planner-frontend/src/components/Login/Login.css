@@ -5,6 +5,14 @@
 }
 
 .login-card {
-  max-width: 400px;
+  max-width: 480px;
   width: 100%;
+}
+
+.login-alert {
+  transition: opacity 0.5s ease;
+}
+
+.login-alert-fade {
+  opacity: 0;
 }

@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Navigation', () => {
-  test('root redirects to /response-planner', async ({ page }) => {
+  test('root redirects to /login when not authenticated', async ({ page }) => {
     await page.goto('/')
-    await expect(page).toHaveURL(/\/response-planner/)
-    await expect(page.locator('h2')).toHaveText('Response planner')
+    await expect(page).toHaveURL(/\/login/)
   })
 
   test('navbar links are visible', async ({ page }) => {
@@ -28,14 +27,21 @@ test.describe('Navigation', () => {
     await expect(page.locator('h2')).toHaveText('Login')
   })
 
-  test('direct navigation to unknown route returns server 404', async ({ page }) => {
-    const response = await page.goto('/this-does-not-exist')
-    expect(response.status()).toBe(404)
+  test('direct navigation to /login serves the SPA', async ({ page }) => {
+    await page.goto('/login')
+    await expect(page).toHaveURL(/\/login/)
+    await expect(page.locator('h2')).toHaveText('Login')
   })
 
-  test('direct navigation to sub-path falls back to server', async ({ page }) => {
-    const response = await page.goto('/nonexistent-page')
-    expect(response.status()).toBe(404)
+  test('direct navigation to /about serves the SPA', async ({ page }) => {
+    await page.goto('/about')
+    await expect(page).toHaveURL(/\/about/)
+    await expect(page.locator('h2')).toHaveText('About')
+  })
+
+  test('direct navigation to unknown route shows Not Found page', async ({ page }) => {
+    await page.goto('/this-does-not-exist')
+    await expect(page.locator('h1')).toHaveText('404')
   })
 
   test('footer is visible with Creative Commons text', async ({ page }) => {

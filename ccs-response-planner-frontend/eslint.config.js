@@ -44,7 +44,7 @@ export default [
       'n/no-unsupported-features/node-builtins': 'off',
       'react/prop-types': 'off',
       'promise/always-return': 'off',
-      'promise/no-nesting': 'off',
+      'promise/no-nesting': 'off'
     }
   },
 

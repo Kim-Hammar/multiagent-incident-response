@@ -26,6 +26,12 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
+echo ">>> Loading .env for E2E tests..."
+set -a
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/.env"
+set +a
+
 echo ">>> Installing E2E dependencies..."
 cd "$SCRIPT_DIR/e2e"
 npm install

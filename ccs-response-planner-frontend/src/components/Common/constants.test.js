@@ -7,7 +7,8 @@ import {
   API_BASE_URL,
   API_HEALTH_URL,
   API_PLAN_URL,
-  API_EXAMPLE_URL
+  API_EXAMPLE_URL,
+  API_LOGIN_URL
 } from './constants'
 
 describe('constants', () => {
@@ -44,5 +45,10 @@ describe('constants', () => {
   it('API_EXAMPLE_URL starts with API_BASE_URL', () => {
     expect(API_EXAMPLE_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_EXAMPLE_URL).toBe('/api/example')
+  })
+
+  it('API_LOGIN_URL starts with API_BASE_URL', () => {
+    expect(API_LOGIN_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_LOGIN_URL).toBe('/api/login')
   })
 })

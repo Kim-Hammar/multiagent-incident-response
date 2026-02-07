@@ -19,4 +19,12 @@ test.describe('Login page', () => {
   test('password field has type password', async ({ page }) => {
     await expect(page.locator('#password')).toHaveAttribute('type', 'password')
   })
+
+  test('successful login redirects to response planner', async ({ page }) => {
+    await page.locator('#username').fill('admin')
+    await page.locator('#password').fill(process.env.ADMIN_PASSWORD || 'admin')
+    await page.locator('button', { hasText: 'Sign in' }).click()
+    await expect(page).toHaveURL(/\/response-planner/, { timeout: 5000 })
+    await expect(page.locator('h2')).toHaveText('Response planner')
+  })
 })

@@ -1,6 +1,6 @@
 """Tests for backend constants."""
 from ccs_response_planner_backend.constants.constants import (
-    API, EXAMPLES, GENERAL, SERVER,
+    API, AUTH, DB, EXAMPLES, GENERAL, SERVER,
 )
 
 
@@ -57,3 +57,29 @@ def test_examples_security_alerts() -> None:
 def test_examples_operator_feedback() -> None:
     assert isinstance(EXAMPLES.OPERATOR_FEEDBACK, str)
     assert len(EXAMPLES.OPERATOR_FEEDBACK) > 0
+
+
+def test_login_route_starts_with_api_prefix() -> None:
+    assert API.LOGIN_ROUTE.startswith(API.PREFIX)
+    assert API.LOGIN_ROUTE == "/api/login"
+
+
+def test_db_default_host() -> None:
+    assert isinstance(DB.DEFAULT_HOST, str)
+    assert DB.DEFAULT_HOST == "localhost"
+
+
+def test_db_default_port() -> None:
+    assert isinstance(DB.DEFAULT_PORT, int)
+    assert DB.DEFAULT_PORT == 5432
+
+
+def test_db_table_names() -> None:
+    assert DB.MANAGEMENT_USERS_TABLE == "management_users"
+    assert DB.SESSION_TOKENS_TABLE == "session_tokens"
+
+
+def test_auth_token_header() -> None:
+    assert AUTH.TOKEN_HEADER == "Authorization"
+    assert AUTH.TOKEN_PREFIX == "Bearer "
+    assert AUTH.TOKEN_LENGTH == 32

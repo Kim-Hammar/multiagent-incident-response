@@ -1,15 +1,47 @@
 services:
+  db:
+    image: postgres:16-alpine
+    env_file: .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     ports:
       - "8888:8888"
       - "3005:3005"
+    env_file: .env
     environment:
       - HOST=0.0.0.0
+      - POSTGRES_HOST=db
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     volumes:
       - .:/app
       - /app/ccs-response-planner-frontend/node_modules
       - /app/ccs-response-planner-frontend/build
       - /app/ccs-response-planner-backend/ccs_response_planner_backend.egg-info
+    networks:
+      - backend
+    depends_on:
+      db:
+        condition: service_healthy
     command: >
       bash -c "pip install -e 'ccs-response-planner-backend/.[test]' && exec python ccs-response-planner-frontend/server/server.py"
+
+volumes:
+  pgdata:
+
+networks:
+  backend:

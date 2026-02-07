@@ -49,6 +49,100 @@ case "$OS" in
     *)      echo "ERROR: Unsupported OS: $OS"; exit 1 ;;
 esac
 
+# ---------- PostgreSQL ----------
+install_postgres_linux() {
+    if command -v psql &> /dev/null; then
+        echo "PostgreSQL already installed: $(psql --version)"
+    else
+        echo "Installing PostgreSQL via apt..."
+        sudo apt-get update
+        sudo apt-get install -y postgresql postgresql-contrib
+        echo "PostgreSQL installed: $(psql --version)"
+    fi
+    if ! sudo systemctl is-active --quiet postgresql; then
+        sudo systemctl start postgresql
+        sudo systemctl enable postgresql
+    fi
+}
+
+install_postgres_macos() {
+    # Homebrew postgresql@16 is keg-only; resolve the real binary path
+    local pg_bin="/opt/homebrew/opt/postgresql@16/bin"
+    if [ -x "$pg_bin/psql" ]; then
+        echo "PostgreSQL already installed: $("$pg_bin/psql" --version)"
+    elif command -v psql &> /dev/null; then
+        echo "PostgreSQL already installed: $(psql --version)"
+        pg_bin="$(dirname "$(command -v psql)")"
+    else
+        if ! command -v brew &> /dev/null; then
+            echo "ERROR: Homebrew is required to install PostgreSQL on macOS."
+            echo "Install it from https://brew.sh then re-run this script."
+            exit 1
+        fi
+        echo "Installing PostgreSQL via Homebrew..."
+        brew install postgresql@16
+        echo "PostgreSQL installed: $("$pg_bin/psql" --version)"
+    fi
+    export PATH="$pg_bin:$PATH"
+    if ! brew services list | grep -q "postgresql.*started"; then
+        brew services start postgresql@16
+    fi
+}
+
+setup_postgres_db() {
+    echo "Setting up PostgreSQL database and user..."
+    # Source .env for credentials (create from example if missing)
+    if [ ! -f "$DIR/.env" ]; then
+        echo "Creating .env from .env.example..."
+        cp "$DIR/.env.example" "$DIR/.env"
+    fi
+    set -a
+    # shellcheck disable=SC1091
+    source "$DIR/.env"
+    set +a
+
+    # On Linux the postgres superuser needs sudo; on macOS Homebrew runs
+    # as the current user so we call psql directly.
+    local run_psql="$PSQL_CMD"
+
+    # Create user if it does not exist
+    if $run_psql -tAc \
+        "SELECT 1 FROM pg_roles WHERE rolname='${POSTGRES_USER}'" \
+        | grep -q 1; then
+        echo "PostgreSQL user '${POSTGRES_USER}' already exists"
+    else
+        $run_psql -c \
+            "CREATE USER ${POSTGRES_USER} WITH PASSWORD '${POSTGRES_PASSWORD}';"
+        echo "Created PostgreSQL user '${POSTGRES_USER}'"
+    fi
+
+    # Create database if it does not exist
+    if $run_psql -tAc \
+        "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'" \
+        | grep -q 1; then
+        echo "PostgreSQL database '${POSTGRES_DB}' already exists"
+    else
+        $run_psql -c \
+            "CREATE DATABASE ${POSTGRES_DB} OWNER ${POSTGRES_USER};"
+        echo "Created PostgreSQL database '${POSTGRES_DB}'"
+    fi
+}
+
+echo ""
+echo "=== Installing PostgreSQL ==="
+case "$OS" in
+    Linux)
+        install_postgres_linux
+        PSQL_CMD="sudo -u postgres psql"
+        setup_postgres_db
+        ;;
+    Darwin)
+        install_postgres_macos
+        PSQL_CMD="psql postgres"
+        setup_postgres_db
+        ;;
+esac
+
 echo ""
 echo "=== Installing backend ==="
 cd "$DIR/ccs-response-planner-backend"

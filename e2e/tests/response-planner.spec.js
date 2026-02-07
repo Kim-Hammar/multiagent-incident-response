@@ -1,9 +1,20 @@
 import { test, expect } from '@playwright/test'
 
+/**
+ * Helper: log in via the UI so localStorage gets the token
+ * and the response-planner route becomes accessible.
+ */
+async function loginViaUI(page) {
+  await page.goto('/login')
+  await page.locator('#username').fill('admin')
+  await page.locator('#password').fill(process.env.ADMIN_PASSWORD || 'admin')
+  await page.locator('button', { hasText: 'Sign in' }).click()
+  await expect(page).toHaveURL(/\/response-planner/, { timeout: 5000 })
+}
+
 test.describe('Response Planner page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await expect(page).toHaveURL(/\/response-planner/)
+    await loginViaUI(page)
   })
 
   test('three textareas are visible', async ({ page }) => {

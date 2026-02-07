@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { API_EXAMPLE_URL } from '../Common/constants'
+import { useAuth } from '../../contexts/AuthContext.jsx'
 import './ResponsePlanner.css'
 
 /**
@@ -9,9 +10,12 @@ function ResponsePlanner() {
   const [systemDescription, setSystemDescription] = useState('')
   const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
+  const { token } = useAuth()
 
   const fetchExample = async () => {
-    const res = await fetch(API_EXAMPLE_URL)
+    const res = await fetch(API_EXAMPLE_URL, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
     const data = await res.json()
     setSystemDescription(data.system_description)
     setSecurityAlerts(data.security_alerts)
@@ -22,8 +26,8 @@ function ResponsePlanner() {
     <div className="ResponsePlanner">
       <h2>Response planner</h2>
       <p className="subtitle">
-        Provide system details, security alerts, and operator feedback to
-        generate an incident response plan.
+        Provide system details, security alerts, and operator feedback to generate an incident
+        response plan.
       </p>
       <hr />
       <form>
@@ -44,8 +48,7 @@ function ResponsePlanner() {
         <div className="input-section">
           <label htmlFor="securityAlerts">Security alerts and logs</label>
           <p className="input-hint">
-            Paste relevant security alerts, IDS logs, or other indicators of
-            compromise.
+            Paste relevant security alerts, IDS logs, or other indicators of compromise.
           </p>
           <textarea
             className="form-control planner-textarea"
@@ -78,8 +81,7 @@ function ResponsePlanner() {
           className="btn btn-outline-dark btn-sm btn-example"
           onClick={fetchExample}
         >
-          <i className="fa fa-download" aria-hidden="true" /> Fetch example
-          incident
+          <i className="fa fa-download" aria-hidden="true" /> Fetch example incident
         </button>
       </form>
     </div>

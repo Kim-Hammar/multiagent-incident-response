@@ -11,6 +11,28 @@ class API:
     HEALTH_ROUTE = "/api/health"
     PLAN_ROUTE = "/api/plan"
     EXAMPLE_ROUTE = "/api/example"
+    LOGIN_ROUTE = "/api/login"
+
+
+class DB:
+    """
+    Constants related to the database configuration.
+    """
+    DEFAULT_HOST = "localhost"
+    DEFAULT_PORT = 5432
+    DEFAULT_DB_NAME = "ccs"
+    DEFAULT_USER = "ccs"
+    MANAGEMENT_USERS_TABLE = "management_users"
+    SESSION_TOKENS_TABLE = "session_tokens"
+
+
+class AUTH:
+    """
+    Constants related to authentication.
+    """
+    TOKEN_HEADER = "Authorization"
+    TOKEN_PREFIX = "Bearer "
+    TOKEN_LENGTH = 32
 
 
 class SERVER:
