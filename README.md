@@ -59,6 +59,81 @@ From the project root:
 ./type-checker.sh     # mypy
 ```
 
+## Docker
+
+### Quick Start
+
+```bash
+docker compose up --build
+```
+
+The server starts at http://localhost:8888.
+
+### Dev Commands
+
+Run any check inside the container:
+
+```bash
+docker compose exec app ./unit_tests.sh       # Backend (pytest) + frontend (vitest) tests
+docker compose exec app ./linter.sh           # Both linters (flake8 + eslint)
+docker compose exec app ./python_linter.sh    # flake8 only
+docker compose exec app ./js_linter.sh        # eslint only
+docker compose exec app ./type-checker.sh     # mypy
+```
+
+Start the frontend dev server (hot reload on port 3005):
+
+```bash
+docker compose exec app bash -c "cd ccs-response-planner-frontend && npm start"
+```
+
+Rebuild the frontend production bundle:
+
+```bash
+docker compose exec app bash -c "cd ccs-response-planner-frontend && npm run build"
+```
+
+Open a shell inside the container:
+
+```bash
+docker compose exec app bash
+```
+
+### Rebuilding After Dependency Changes
+
+If you change `package.json` or `pyproject.toml`, rebuild the image:
+
+```bash
+docker compose down -v && docker compose up --build
+```
+
+### Stopping and Cleanup
+
+Stop the running containers:
+
+```bash
+docker compose down
+```
+
+Stop and remove all associated volumes (anonymous volumes for `node_modules`, `build`, `egg-info`):
+
+```bash
+docker compose down -v
+```
+
+Remove the built image as well:
+
+```bash
+docker compose down -v --rmi all
+```
+
+### Ports
+
+| Port | Description              |
+|------|--------------------------|
+| 8888 | Production server        |
+| 3005 | Frontend dev server      |
+
 ## Author & Maintainer
 
 Kim Hammar <kimham@kth.se>

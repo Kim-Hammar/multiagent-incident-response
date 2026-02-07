@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8888:8888"
+      - "3005:3005"
+    environment:
+      - HOST=0.0.0.0
+    volumes:
+      - .:/app
+      - /app/ccs-response-planner-frontend/node_modules
+      - /app/ccs-response-planner-frontend/build
+      - /app/ccs-response-planner-backend/ccs_response_planner_backend.egg-info
+    command: >
+      bash -c "pip install -e 'ccs-response-planner-backend/.[test]' && exec python ccs-response-planner-frontend/server/server.py"
