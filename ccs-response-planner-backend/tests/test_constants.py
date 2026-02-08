@@ -224,6 +224,26 @@ def test_digital_twin_default_config_has_specification_commands() -> None:
         assert "description" in cmd
 
 
+def test_dt_exec_route_starts_with_api_prefix() -> None:
+    assert API.DT_EXEC_ROUTE.startswith(API.PREFIX)
+    assert API.DT_EXEC_ROUTE == "/api/dt-exec"
+
+
+def test_dt_exec_run_route_starts_with_api_prefix() -> None:
+    assert API.DT_EXEC_RUN_ROUTE.startswith(API.PREFIX)
+    assert API.DT_EXEC_RUN_ROUTE == "/api/dt-exec/run"
+
+
+def test_dt_logs_route_starts_with_api_prefix() -> None:
+    assert API.DT_LOGS_ROUTE.startswith(API.PREFIX)
+    assert API.DT_LOGS_ROUTE == "/api/dt-logs"
+
+
+def test_dt_logs_fetch_route_starts_with_api_prefix() -> None:
+    assert API.DT_LOGS_FETCH_ROUTE.startswith(API.PREFIX)
+    assert API.DT_LOGS_FETCH_ROUTE == "/api/dt-logs/fetch"
+
+
 def test_specification_commands_include_reachability() -> None:
     """
     Specification commands must include both positive and negative

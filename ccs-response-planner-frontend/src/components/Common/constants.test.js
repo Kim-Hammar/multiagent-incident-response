@@ -30,7 +30,11 @@ import {
   API_DIGITAL_TWIN_DEPLOY_URL,
   API_DIGITAL_TWIN_STOP_URL,
   API_DIGITAL_TWIN_STATUS_URL,
-  API_DIGITAL_TWIN_VALIDATE_URL
+  API_DIGITAL_TWIN_VALIDATE_URL,
+  API_DT_EXEC_URL,
+  API_DT_EXEC_RUN_URL,
+  API_DT_LOGS_URL,
+  API_DT_LOGS_FETCH_URL
 } from './constants'
 
 describe('constants', () => {
@@ -179,5 +183,25 @@ describe('constants', () => {
   it('API_DIGITAL_TWIN_VALIDATE_URL starts with API_BASE_URL', () => {
     expect(API_DIGITAL_TWIN_VALIDATE_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_DIGITAL_TWIN_VALIDATE_URL).toBe('/api/digital-twin/validate')
+  })
+
+  it('API_DT_EXEC_URL starts with API_BASE_URL', () => {
+    expect(API_DT_EXEC_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_EXEC_URL).toBe('/api/dt-exec')
+  })
+
+  it('API_DT_EXEC_RUN_URL starts with API_BASE_URL', () => {
+    expect(API_DT_EXEC_RUN_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_EXEC_RUN_URL).toBe('/api/dt-exec/run')
+  })
+
+  it('API_DT_LOGS_URL starts with API_BASE_URL', () => {
+    expect(API_DT_LOGS_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_LOGS_URL).toBe('/api/dt-logs')
+  })
+
+  it('API_DT_LOGS_FETCH_URL starts with API_BASE_URL', () => {
+    expect(API_DT_LOGS_FETCH_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_LOGS_FETCH_URL).toBe('/api/dt-logs/fetch')
   })
 })

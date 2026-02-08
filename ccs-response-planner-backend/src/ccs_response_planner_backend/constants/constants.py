@@ -46,6 +46,12 @@ class API:
     OTX_RESOURCE = "otx"
     OTX_ROUTE = "/api/otx"
     OTX_SEARCH_ROUTE = "/api/otx/search"
+    DT_EXEC_RESOURCE = "dt-exec"
+    DT_EXEC_ROUTE = "/api/dt-exec"
+    DT_EXEC_RUN_ROUTE = "/api/dt-exec/run"
+    DT_LOGS_RESOURCE = "dt-logs"
+    DT_LOGS_ROUTE = "/api/dt-logs"
+    DT_LOGS_FETCH_ROUTE = "/api/dt-logs/fetch"
 
 
 class DB:

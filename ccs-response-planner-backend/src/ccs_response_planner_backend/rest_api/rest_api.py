@@ -47,6 +47,12 @@ from ccs_response_planner_backend.rest_api.resources.abuseipdb.routes import (
 from ccs_response_planner_backend.rest_api.resources.otx.routes import (
     otx_bp,
 )
+from ccs_response_planner_backend.rest_api.resources.dt_exec.routes import (
+    dt_exec_bp,
+)
+from ccs_response_planner_backend.rest_api.resources.dt_logs.routes import (
+    dt_logs_bp,
+)
 
 
 def create_app(static_folder: str) -> Flask:
@@ -74,6 +80,8 @@ def create_app(static_folder: str) -> Flask:
     app.register_blueprint(abuseipdb_bp)
     app.register_blueprint(otx_bp)
     app.register_blueprint(digital_twin_bp)
+    app.register_blueprint(dt_exec_bp)
+    app.register_blueprint(dt_logs_bp)
 
     sock = Sock(app)
     register_terminal_ws(sock)

@@ -7,6 +7,8 @@ import MitreCard from './MitreCard.jsx'
 import VirusTotalCard from './VirusTotalCard.jsx'
 import AbuseIPDBCard from './AbuseIPDBCard.jsx'
 import OtxCard from './OtxCard.jsx'
+import DtExecCard from './DtExecCard.jsx'
+import DtLogsCard from './DtLogsCard.jsx'
 
 /**
  * Tools page listing all connected external tools.
@@ -42,6 +44,8 @@ function Tools() {
       <VirusTotalCard token={token} logout={logout} setAlert={setAlert} />
       <AbuseIPDBCard token={token} logout={logout} setAlert={setAlert} />
       <OtxCard token={token} logout={logout} setAlert={setAlert} />
+      <DtExecCard token={token} logout={logout} setAlert={setAlert} />
+      <DtLogsCard token={token} logout={logout} setAlert={setAlert} />
     </div>
   )
 }
