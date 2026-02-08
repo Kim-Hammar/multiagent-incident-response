@@ -11,12 +11,16 @@ import {
   API_EXAMPLE_URL,
   API_LOGIN_URL,
   API_LLM_URL,
+  TOOLS_RESOURCE,
+  API_TAVILY_URL,
+  API_TAVILY_SEARCH_URL,
   DIGITAL_TWIN_RESOURCE,
   API_DIGITAL_TWIN_URL,
   API_DIGITAL_TWIN_RESET_URL,
   API_DIGITAL_TWIN_DEPLOY_URL,
   API_DIGITAL_TWIN_STOP_URL,
-  API_DIGITAL_TWIN_STATUS_URL
+  API_DIGITAL_TWIN_STATUS_URL,
+  API_DIGITAL_TWIN_VALIDATE_URL
 } from './constants'
 
 describe('constants', () => {
@@ -69,6 +73,20 @@ describe('constants', () => {
     expect(API_LLM_URL).toBe('/api/llm')
   })
 
+  it('TOOLS_RESOURCE is the tools route', () => {
+    expect(TOOLS_RESOURCE).toBe('tools')
+  })
+
+  it('API_TAVILY_URL starts with API_BASE_URL', () => {
+    expect(API_TAVILY_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_TAVILY_URL).toBe('/api/tavily')
+  })
+
+  it('API_TAVILY_SEARCH_URL starts with API_BASE_URL', () => {
+    expect(API_TAVILY_SEARCH_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_TAVILY_SEARCH_URL).toBe('/api/tavily/search')
+  })
+
   it('DIGITAL_TWIN_RESOURCE is the digital-twin route', () => {
     expect(DIGITAL_TWIN_RESOURCE).toBe('digital-twin')
   })
@@ -96,5 +114,10 @@ describe('constants', () => {
   it('API_DIGITAL_TWIN_STATUS_URL starts with API_BASE_URL', () => {
     expect(API_DIGITAL_TWIN_STATUS_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_DIGITAL_TWIN_STATUS_URL).toBe('/api/digital-twin/status')
+  })
+
+  it('API_DIGITAL_TWIN_VALIDATE_URL starts with API_BASE_URL', () => {
+    expect(API_DIGITAL_TWIN_VALIDATE_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DIGITAL_TWIN_VALIDATE_URL).toBe('/api/digital-twin/validate')
   })
 })

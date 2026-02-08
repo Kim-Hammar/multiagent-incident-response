@@ -99,6 +99,20 @@ def test_llm_route_starts_with_api_prefix() -> None:
     assert API.LLM_ROUTE == "/api/llm"
 
 
+def test_tavily_resource() -> None:
+    assert API.TAVILY_RESOURCE == "tavily"
+
+
+def test_tavily_route_starts_with_api_prefix() -> None:
+    assert API.TAVILY_ROUTE.startswith(API.PREFIX)
+    assert API.TAVILY_ROUTE == "/api/tavily"
+
+
+def test_tavily_search_route_starts_with_api_prefix() -> None:
+    assert API.TAVILY_SEARCH_ROUTE.startswith(API.PREFIX)
+    assert API.TAVILY_SEARCH_ROUTE == "/api/tavily/search"
+
+
 def test_docker_network_prefix() -> None:
     assert DOCKER.NETWORK_PREFIX == "ccs_dt_net_"
 

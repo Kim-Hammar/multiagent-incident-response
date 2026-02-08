@@ -29,6 +29,9 @@ from ccs_response_planner_backend.rest_api.resources.login.routes import (
 from ccs_response_planner_backend.rest_api.resources.plan.routes import (
     plan_bp,
 )
+from ccs_response_planner_backend.rest_api.resources.tavily.routes import (
+    tavily_bp,
+)
 
 
 def create_app(static_folder: str) -> Flask:
@@ -49,6 +52,7 @@ def create_app(static_folder: str) -> Flask:
     app.register_blueprint(plan_bp)
     app.register_blueprint(login_bp)
     app.register_blueprint(llm_bp)
+    app.register_blueprint(tavily_bp)
     app.register_blueprint(digital_twin_bp)
 
     sock = Sock(app)

@@ -30,6 +30,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
     volumes:
       - ..:/app
       - /app/ccs-response-planner-frontend/node_modules

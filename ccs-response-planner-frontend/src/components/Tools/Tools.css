@@ -1,0 +1,46 @@
+.Tools {
+  max-width: 1400px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.Tools h2 {
+  margin-bottom: 10px;
+}
+
+.Tools hr {
+  margin: 20px 0;
+}
+
+.Tools p {
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.Tools .badge {
+  font-size: 14px;
+}
+
+.Tools .card {
+  margin-bottom: 20px;
+}
+
+.Tools .search-form {
+  margin-top: 15px;
+}
+
+.Tools .results-table {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.Tools .results-table td {
+  vertical-align: middle;
+}
+
+.Tools .snippet {
+  max-width: 500px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

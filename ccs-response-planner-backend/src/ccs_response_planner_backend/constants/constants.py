@@ -28,6 +28,9 @@ class API:
     DIGITAL_TWIN_STOP_ROUTE = "/api/digital-twin/stop"
     DIGITAL_TWIN_STATUS_ROUTE = "/api/digital-twin/status"
     DIGITAL_TWIN_VALIDATE_ROUTE = "/api/digital-twin/validate"
+    TAVILY_RESOURCE = "tavily"
+    TAVILY_ROUTE = "/api/tavily"
+    TAVILY_SEARCH_ROUTE = "/api/tavily/search"
 
 
 class DB:
