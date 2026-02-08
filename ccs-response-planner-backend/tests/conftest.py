@@ -1,4 +1,4 @@
-"""Shared fixtures for backend integration tests."""
+"""Shared fixtures for backend unit tests."""
 from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 

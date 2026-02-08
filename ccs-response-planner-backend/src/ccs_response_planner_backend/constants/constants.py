@@ -52,6 +52,9 @@ class API:
     DT_LOGS_RESOURCE = "dt-logs"
     DT_LOGS_ROUTE = "/api/dt-logs"
     DT_LOGS_FETCH_ROUTE = "/api/dt-logs/fetch"
+    DT_PYTHON_RESOURCE = "dt-python"
+    DT_PYTHON_ROUTE = "/api/dt-python"
+    DT_PYTHON_RUN_ROUTE = "/api/dt-python/run"
 
 
 class DB:
@@ -112,6 +115,8 @@ class DOCKER:
     """
     NETWORK_PREFIX = "ccs_dt_net_"
     CONTAINER_PREFIX = "ccs_dt_"
+    PYTHON_SANDBOX_IMAGE = "ccs-dt-python-sandbox:latest"
+    PYTHON_SANDBOX_CONTAINER = "ccs_python_sandbox"
 
 
 class DIGITAL_TWIN:

@@ -14,4 +14,7 @@ done
 # Clean up copied fixture
 rm -f "${DIR}/gateway/samba_exploit.py"
 
+echo ">>> Building ccs-dt-python-sandbox:latest"
+docker build -t "ccs-dt-python-sandbox:latest" "${DIR}/python_sandbox"
+
 echo ">>> All images built."

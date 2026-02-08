@@ -53,6 +53,9 @@ from ccs_response_planner_backend.rest_api.resources.dt_exec.routes import (
 from ccs_response_planner_backend.rest_api.resources.dt_logs.routes import (
     dt_logs_bp,
 )
+from ccs_response_planner_backend.rest_api.resources.dt_python.routes import (
+    dt_python_bp,
+)
 
 
 def create_app(static_folder: str) -> Flask:
@@ -82,6 +85,7 @@ def create_app(static_folder: str) -> Flask:
     app.register_blueprint(digital_twin_bp)
     app.register_blueprint(dt_exec_bp)
     app.register_blueprint(dt_logs_bp)
+    app.register_blueprint(dt_python_bp)
 
     sock = Sock(app)
     register_terminal_ws(sock)

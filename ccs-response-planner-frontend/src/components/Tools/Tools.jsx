@@ -9,6 +9,7 @@ import AbuseIPDBCard from './AbuseIPDBCard.jsx'
 import OtxCard from './OtxCard.jsx'
 import DtExecCard from './DtExecCard.jsx'
 import DtLogsCard from './DtLogsCard.jsx'
+import DtPythonCard from './DtPythonCard.jsx'
 
 /**
  * Tools page listing all connected external tools.
@@ -46,6 +47,7 @@ function Tools() {
       <OtxCard token={token} logout={logout} setAlert={setAlert} />
       <DtExecCard token={token} logout={logout} setAlert={setAlert} />
       <DtLogsCard token={token} logout={logout} setAlert={setAlert} />
+      <DtPythonCard token={token} logout={logout} setAlert={setAlert} />
     </div>
   )
 }

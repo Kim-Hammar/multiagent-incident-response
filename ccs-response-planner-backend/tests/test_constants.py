@@ -244,6 +244,16 @@ def test_dt_logs_fetch_route_starts_with_api_prefix() -> None:
     assert API.DT_LOGS_FETCH_ROUTE == "/api/dt-logs/fetch"
 
 
+def test_dt_python_route_starts_with_api_prefix() -> None:
+    assert API.DT_PYTHON_ROUTE.startswith(API.PREFIX)
+    assert API.DT_PYTHON_ROUTE == "/api/dt-python"
+
+
+def test_dt_python_run_route_starts_with_api_prefix() -> None:
+    assert API.DT_PYTHON_RUN_ROUTE.startswith(API.PREFIX)
+    assert API.DT_PYTHON_RUN_ROUTE == "/api/dt-python/run"
+
+
 def test_specification_commands_include_reachability() -> None:
     """
     Specification commands must include both positive and negative

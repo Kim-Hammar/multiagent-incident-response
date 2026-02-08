@@ -34,7 +34,9 @@ import {
   API_DT_EXEC_URL,
   API_DT_EXEC_RUN_URL,
   API_DT_LOGS_URL,
-  API_DT_LOGS_FETCH_URL
+  API_DT_LOGS_FETCH_URL,
+  API_DT_PYTHON_URL,
+  API_DT_PYTHON_RUN_URL
 } from './constants'
 
 describe('constants', () => {
@@ -203,5 +205,15 @@ describe('constants', () => {
   it('API_DT_LOGS_FETCH_URL starts with API_BASE_URL', () => {
     expect(API_DT_LOGS_FETCH_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_DT_LOGS_FETCH_URL).toBe('/api/dt-logs/fetch')
+  })
+
+  it('API_DT_PYTHON_URL starts with API_BASE_URL', () => {
+    expect(API_DT_PYTHON_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_PYTHON_URL).toBe('/api/dt-python')
+  })
+
+  it('API_DT_PYTHON_RUN_URL starts with API_BASE_URL', () => {
+    expect(API_DT_PYTHON_RUN_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_PYTHON_RUN_URL).toBe('/api/dt-python/run')
   })
 })
