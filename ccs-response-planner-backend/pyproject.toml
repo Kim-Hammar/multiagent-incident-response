@@ -23,6 +23,11 @@ dependencies = [
     "docker==7.1.0",
     "flask-sock==0.7.0",
     "tavily-python==0.7.21",
+    "nvdlib==0.8.3",
+    "mitreattack-python==5.4.0",
+    "vt-py==0.22.0",
+    "requests==2.32.3",
+    "OTXv2==1.5.12",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +38,7 @@ test = [
     "mypy>=1.7.0",
     "mypy-extensions>=1.0.0",
     "mypy-protobuf>=3.5.0",
+    "types-requests>=2.31.0",
     "flake8>=6.1.0",
     "flake8-rst-docstrings>=0.3.0",
     "tox>=4.24.1",

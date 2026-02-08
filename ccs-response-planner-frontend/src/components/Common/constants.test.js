@@ -14,6 +14,16 @@ import {
   TOOLS_RESOURCE,
   API_TAVILY_URL,
   API_TAVILY_SEARCH_URL,
+  API_NVD_URL,
+  API_NVD_SEARCH_URL,
+  API_MITRE_URL,
+  API_MITRE_SEARCH_URL,
+  API_VIRUSTOTAL_URL,
+  API_VIRUSTOTAL_SCAN_URL,
+  API_ABUSEIPDB_URL,
+  API_ABUSEIPDB_CHECK_URL,
+  API_OTX_URL,
+  API_OTX_SEARCH_URL,
   DIGITAL_TWIN_RESOURCE,
   API_DIGITAL_TWIN_URL,
   API_DIGITAL_TWIN_RESET_URL,
@@ -85,6 +95,56 @@ describe('constants', () => {
   it('API_TAVILY_SEARCH_URL starts with API_BASE_URL', () => {
     expect(API_TAVILY_SEARCH_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_TAVILY_SEARCH_URL).toBe('/api/tavily/search')
+  })
+
+  it('API_NVD_URL starts with API_BASE_URL', () => {
+    expect(API_NVD_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_NVD_URL).toBe('/api/nvd')
+  })
+
+  it('API_NVD_SEARCH_URL starts with API_BASE_URL', () => {
+    expect(API_NVD_SEARCH_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_NVD_SEARCH_URL).toBe('/api/nvd/search')
+  })
+
+  it('API_MITRE_URL starts with API_BASE_URL', () => {
+    expect(API_MITRE_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_MITRE_URL).toBe('/api/mitre')
+  })
+
+  it('API_MITRE_SEARCH_URL starts with API_BASE_URL', () => {
+    expect(API_MITRE_SEARCH_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_MITRE_SEARCH_URL).toBe('/api/mitre/search')
+  })
+
+  it('API_VIRUSTOTAL_URL starts with API_BASE_URL', () => {
+    expect(API_VIRUSTOTAL_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_VIRUSTOTAL_URL).toBe('/api/virustotal')
+  })
+
+  it('API_VIRUSTOTAL_SCAN_URL starts with API_BASE_URL', () => {
+    expect(API_VIRUSTOTAL_SCAN_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_VIRUSTOTAL_SCAN_URL).toBe('/api/virustotal/scan')
+  })
+
+  it('API_ABUSEIPDB_URL starts with API_BASE_URL', () => {
+    expect(API_ABUSEIPDB_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_ABUSEIPDB_URL).toBe('/api/abuseipdb')
+  })
+
+  it('API_ABUSEIPDB_CHECK_URL starts with API_BASE_URL', () => {
+    expect(API_ABUSEIPDB_CHECK_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_ABUSEIPDB_CHECK_URL).toBe('/api/abuseipdb/check')
+  })
+
+  it('API_OTX_URL starts with API_BASE_URL', () => {
+    expect(API_OTX_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_OTX_URL).toBe('/api/otx')
+  })
+
+  it('API_OTX_SEARCH_URL starts with API_BASE_URL', () => {
+    expect(API_OTX_SEARCH_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_OTX_SEARCH_URL).toBe('/api/otx/search')
   })
 
   it('DIGITAL_TWIN_RESOURCE is the digital-twin route', () => {

@@ -32,6 +32,21 @@ from ccs_response_planner_backend.rest_api.resources.plan.routes import (
 from ccs_response_planner_backend.rest_api.resources.tavily.routes import (
     tavily_bp,
 )
+from ccs_response_planner_backend.rest_api.resources.nvd.routes import (
+    nvd_bp,
+)
+from ccs_response_planner_backend.rest_api.resources.mitre.routes import (
+    mitre_bp,
+)
+from ccs_response_planner_backend.rest_api.resources.virustotal.routes import (
+    virustotal_bp,
+)
+from ccs_response_planner_backend.rest_api.resources.abuseipdb.routes import (
+    abuseipdb_bp,
+)
+from ccs_response_planner_backend.rest_api.resources.otx.routes import (
+    otx_bp,
+)
 
 
 def create_app(static_folder: str) -> Flask:
@@ -53,6 +68,11 @@ def create_app(static_folder: str) -> Flask:
     app.register_blueprint(login_bp)
     app.register_blueprint(llm_bp)
     app.register_blueprint(tavily_bp)
+    app.register_blueprint(nvd_bp)
+    app.register_blueprint(mitre_bp)
+    app.register_blueprint(virustotal_bp)
+    app.register_blueprint(abuseipdb_bp)
+    app.register_blueprint(otx_bp)
     app.register_blueprint(digital_twin_bp)
 
     sock = Sock(app)

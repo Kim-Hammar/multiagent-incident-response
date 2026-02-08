@@ -113,6 +113,56 @@ def test_tavily_search_route_starts_with_api_prefix() -> None:
     assert API.TAVILY_SEARCH_ROUTE == "/api/tavily/search"
 
 
+def test_nvd_route_starts_with_api_prefix() -> None:
+    assert API.NVD_ROUTE.startswith(API.PREFIX)
+    assert API.NVD_ROUTE == "/api/nvd"
+
+
+def test_nvd_search_route_starts_with_api_prefix() -> None:
+    assert API.NVD_SEARCH_ROUTE.startswith(API.PREFIX)
+    assert API.NVD_SEARCH_ROUTE == "/api/nvd/search"
+
+
+def test_mitre_route_starts_with_api_prefix() -> None:
+    assert API.MITRE_ROUTE.startswith(API.PREFIX)
+    assert API.MITRE_ROUTE == "/api/mitre"
+
+
+def test_mitre_search_route_starts_with_api_prefix() -> None:
+    assert API.MITRE_SEARCH_ROUTE.startswith(API.PREFIX)
+    assert API.MITRE_SEARCH_ROUTE == "/api/mitre/search"
+
+
+def test_virustotal_route_starts_with_api_prefix() -> None:
+    assert API.VIRUSTOTAL_ROUTE.startswith(API.PREFIX)
+    assert API.VIRUSTOTAL_ROUTE == "/api/virustotal"
+
+
+def test_virustotal_scan_route_starts_with_api_prefix() -> None:
+    assert API.VIRUSTOTAL_SCAN_ROUTE.startswith(API.PREFIX)
+    assert API.VIRUSTOTAL_SCAN_ROUTE == "/api/virustotal/scan"
+
+
+def test_abuseipdb_route_starts_with_api_prefix() -> None:
+    assert API.ABUSEIPDB_ROUTE.startswith(API.PREFIX)
+    assert API.ABUSEIPDB_ROUTE == "/api/abuseipdb"
+
+
+def test_abuseipdb_check_route_starts_with_api_prefix() -> None:
+    assert API.ABUSEIPDB_CHECK_ROUTE.startswith(API.PREFIX)
+    assert API.ABUSEIPDB_CHECK_ROUTE == "/api/abuseipdb/check"
+
+
+def test_otx_route_starts_with_api_prefix() -> None:
+    assert API.OTX_ROUTE.startswith(API.PREFIX)
+    assert API.OTX_ROUTE == "/api/otx"
+
+
+def test_otx_search_route_starts_with_api_prefix() -> None:
+    assert API.OTX_SEARCH_ROUTE.startswith(API.PREFIX)
+    assert API.OTX_SEARCH_ROUTE == "/api/otx/search"
+
+
 def test_docker_network_prefix() -> None:
     assert DOCKER.NETWORK_PREFIX == "ccs_dt_net_"
 

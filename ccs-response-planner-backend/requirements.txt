@@ -6,3 +6,8 @@ google-generativeai==0.8.5
 docker==7.1.0
 flask-sock==0.7.0
 tavily-python==0.7.21
+nvdlib==0.8.3
+mitreattack-python==5.4.0
+vt-py==0.22.0
+requests==2.32.3
+OTXv2==1.5.12

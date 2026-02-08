@@ -13,25 +13,48 @@
 }
 
 .Tools p {
-  line-height: 1.7;
-  font-size: 14px;
+  line-height: 1.5;
+  font-size: 13px;
+  margin-bottom: 6px;
 }
 
 .Tools .badge {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .Tools .card {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.Tools .card-header {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.Tools .card-body {
+  padding: 12px 14px;
 }
 
 .Tools .search-form {
-  margin-top: 15px;
+  margin-top: 10px;
+}
+
+.Tools .search-form .form-control {
+  font-size: 13px;
+  height: calc(1.5em + 0.5rem + 2px);
+  padding: 0.25rem 0.5rem;
+}
+
+.Tools .search-form select.form-control {
+  font-size: 13px;
+  height: calc(1.5em + 0.5rem + 2px);
+  padding: 0.25rem 0.5rem;
 }
 
 .Tools .results-table {
-  margin-top: 15px;
-  font-size: 14px;
+  margin-top: 12px;
+  font-size: 13px;
 }
 
 .Tools .results-table td {

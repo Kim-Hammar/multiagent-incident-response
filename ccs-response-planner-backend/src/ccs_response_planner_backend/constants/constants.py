@@ -31,6 +31,21 @@ class API:
     TAVILY_RESOURCE = "tavily"
     TAVILY_ROUTE = "/api/tavily"
     TAVILY_SEARCH_ROUTE = "/api/tavily/search"
+    NVD_RESOURCE = "nvd"
+    NVD_ROUTE = "/api/nvd"
+    NVD_SEARCH_ROUTE = "/api/nvd/search"
+    MITRE_RESOURCE = "mitre"
+    MITRE_ROUTE = "/api/mitre"
+    MITRE_SEARCH_ROUTE = "/api/mitre/search"
+    VIRUSTOTAL_RESOURCE = "virustotal"
+    VIRUSTOTAL_ROUTE = "/api/virustotal"
+    VIRUSTOTAL_SCAN_ROUTE = "/api/virustotal/scan"
+    ABUSEIPDB_RESOURCE = "abuseipdb"
+    ABUSEIPDB_ROUTE = "/api/abuseipdb"
+    ABUSEIPDB_CHECK_ROUTE = "/api/abuseipdb/check"
+    OTX_RESOURCE = "otx"
+    OTX_ROUTE = "/api/otx"
+    OTX_SEARCH_ROUTE = "/api/otx/search"
 
 
 class DB:
