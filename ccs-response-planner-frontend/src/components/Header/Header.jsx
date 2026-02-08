@@ -8,7 +8,8 @@ import {
   LLM_RESOURCE,
   TOOLS_RESOURCE,
   DIGITAL_TWIN_RESOURCE,
-  PYTHON_RESOURCE
+  PYTHON_RESOURCE,
+  AGENTS_RESOURCE
 } from '../Common/constants'
 
 /**
@@ -49,6 +50,11 @@ const Header = () => {
         <li className="nav-item">
           <NavLink className="nav-link" to={`/${PYTHON_RESOURCE}`}>
             Python
+          </NavLink>
+        </li>
+        <li className="nav-item">
+          <NavLink className="nav-link" to={`/${AGENTS_RESOURCE}`}>
+            Agents
           </NavLink>
         </li>
         <li className="nav-item">

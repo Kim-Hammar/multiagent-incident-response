@@ -264,6 +264,30 @@ def test_dt_python_stop_route_starts_with_api_prefix() -> None:
     assert API.DT_PYTHON_STOP_ROUTE == "/api/dt-python/stop"
 
 
+def test_agents_resource() -> None:
+    assert API.AGENTS_RESOURCE == "agents"
+
+
+def test_agents_route_starts_with_api_prefix() -> None:
+    assert API.AGENTS_ROUTE.startswith(API.PREFIX)
+    assert API.AGENTS_ROUTE == "/api/agents"
+
+
+def test_agents_info_step_route_starts_with_api_prefix() -> None:
+    assert API.AGENTS_INFO_STEP_ROUTE.startswith(API.PREFIX)
+    assert API.AGENTS_INFO_STEP_ROUTE == "/api/agents/information/step"
+
+
+def test_agents_info_tool_route_starts_with_api_prefix() -> None:
+    assert API.AGENTS_INFO_TOOL_ROUTE.startswith(API.PREFIX)
+    assert API.AGENTS_INFO_TOOL_ROUTE == "/api/agents/information/tool"
+
+
+def test_agents_info_prompt_route_starts_with_api_prefix() -> None:
+    assert API.AGENTS_INFO_PROMPT_ROUTE.startswith(API.PREFIX)
+    assert API.AGENTS_INFO_PROMPT_ROUTE == "/api/agents/information/prompt"
+
+
 def test_specification_commands_include_reachability() -> None:
     """
     Specification commands must include both positive and negative

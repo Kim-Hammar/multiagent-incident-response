@@ -1,0 +1,34 @@
+import { useState } from 'react'
+import InformationAgent from './InformationAgent.jsx'
+import './Agents.css'
+
+/**
+ * Agents page with sub-tabs for individual agents.
+ */
+function Agents() {
+  const [activeTab, setActiveTab] = useState('information')
+
+  return (
+    <div className="Agents">
+      <h2>Agents</h2>
+      <p className="subtitle">AI-powered agents for incident response analysis.</p>
+      <hr />
+
+      <ul className="nav nav-tabs agents-tabs">
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'information' ? ' active' : ''}`}
+            onClick={() => setActiveTab('information')}
+          >
+            Information Agent
+          </button>
+        </li>
+      </ul>
+
+      <div className="tab-content">{activeTab === 'information' && <InformationAgent />}</div>
+    </div>
+  )
+}
+
+export default Agents

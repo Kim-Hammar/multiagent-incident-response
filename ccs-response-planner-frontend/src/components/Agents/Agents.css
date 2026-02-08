@@ -1,0 +1,318 @@
+.Agents {
+  max-width: 1400px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.Agents h2 {
+  margin-bottom: 6px;
+}
+
+.Agents .subtitle {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.Agents hr {
+  margin: 16px 0 24px;
+}
+
+/* Tabs — same as planner */
+.agents-tabs {
+  margin-bottom: 20px;
+}
+
+.agents-tabs .nav-link {
+  cursor: pointer;
+  font-size: 14px;
+  color: #495057;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+}
+
+.agents-tabs .nav-link.active {
+  color: #212529;
+  font-weight: 600;
+  background-color: #fff;
+  border-color: #dee2e6 #dee2e6 #fff;
+}
+
+/* Agent description */
+.ia-description {
+  font-size: 13px;
+  color: #495057;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.ia-description p {
+  margin-bottom: 8px;
+}
+
+.ia-description ul {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+
+.ia-description li {
+  margin-bottom: 3px;
+}
+
+/* Input form — mirrors planner input-section */
+.ia-section {
+  margin-bottom: 24px;
+}
+
+.ia-section label {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.ia-hint {
+  color: #888;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.ia-textarea {
+  font-size: 13px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.ia-textarea:focus {
+  border-color: #343a40;
+  box-shadow: 0 0 0 0.15rem rgba(52, 58, 64, 0.2);
+}
+
+/* Buttons — same sizing as planner */
+.ia-btn {
+  padding: 5px 18px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.ia-btn .fa {
+  margin-right: 5px;
+}
+
+.ia-btn + .ia-btn {
+  margin-left: 8px;
+}
+
+/* Activity log */
+.ia-log {
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ia-log-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: #495057;
+}
+
+/* Log entries — compact, borderless feel */
+.ia-entry {
+  margin-bottom: 10px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.ia-entry .card-body {
+  padding: 8px 12px;
+}
+
+.ia-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ia-tool-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #212529;
+}
+
+.ia-rationale {
+  color: #6c757d;
+  font-size: 12px;
+  margin: 4px 0 6px;
+  line-height: 1.4;
+}
+
+.ia-args {
+  font-size: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+}
+
+.ia-approval-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.ia-result-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.ia-result-toggle:hover .ia-toggle-hint {
+  text-decoration: underline;
+}
+
+.ia-toggle-hint {
+  font-size: 11px;
+  color: #6c757d;
+  margin-left: auto;
+}
+
+.ia-result-data {
+  font-size: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.ia-assessment-body {
+  font-size: 13px;
+  color: #495057;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Spinner */
+.ia-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.ia-spinner .spinner-border {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  margin-right: 8px;
+}
+
+/* Approve/Deny buttons — extra small */
+.ia-action-btn {
+  padding: 3px 12px;
+  font-size: 12px;
+}
+
+.ia-action-btn + .ia-action-btn {
+  margin-left: 6px;
+}
+
+/* Prompt modal */
+.ia-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+}
+
+.ia-modal {
+  background: #fff;
+  border-radius: 6px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.ia-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.ia-modal-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ia-modal-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ia-prompt-text {
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin: 0;
+  max-height: none;
+}
+
+/* Streaming entry */
+.ia-streaming-entry {
+  border: 1px solid #17a2b8;
+}
+
+.ia-typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.ia-typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6c757d;
+  animation: ia-bounce 1.2s infinite;
+}
+
+.ia-typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ia-typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ia-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
+}

@@ -8,6 +8,7 @@ import Llm from './components/LLM/LLM.jsx'
 import Tools from './components/Tools/Tools.jsx'
 import DigitalTwin from './components/DigitalTwin/DigitalTwin.jsx'
 import Python from './components/Python/Python.jsx'
+import Agents from './components/Agents/Agents.jsx'
 import ProtectedRoute from './components/Common/ProtectedRoute.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
@@ -19,6 +20,7 @@ import {
   TOOLS_RESOURCE,
   DIGITAL_TWIN_RESOURCE,
   PYTHON_RESOURCE,
+  AGENTS_RESOURCE,
   NOT_FOUND_RESOURCE
 } from './components/Common/constants'
 
@@ -69,6 +71,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Python />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path={AGENTS_RESOURCE}
+                    element={
+                      <ProtectedRoute>
+                        <Agents />
                       </ProtectedRoute>
                     }
                   />

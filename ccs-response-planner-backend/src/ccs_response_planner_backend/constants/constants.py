@@ -57,6 +57,11 @@ class API:
     DT_PYTHON_RUN_ROUTE = "/api/dt-python/run"
     DT_PYTHON_START_ROUTE = "/api/dt-python/start"
     DT_PYTHON_STOP_ROUTE = "/api/dt-python/stop"
+    AGENTS_RESOURCE = "agents"
+    AGENTS_ROUTE = "/api/agents"
+    AGENTS_INFO_STEP_ROUTE = "/api/agents/information/step"
+    AGENTS_INFO_TOOL_ROUTE = "/api/agents/information/tool"
+    AGENTS_INFO_PROMPT_ROUTE = "/api/agents/information/prompt"
 
 
 class DB:
