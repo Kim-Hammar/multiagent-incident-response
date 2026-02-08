@@ -7,7 +7,8 @@ import {
   RESPONSE_PLANNER_RESOURCE,
   LLM_RESOURCE,
   TOOLS_RESOURCE,
-  DIGITAL_TWIN_RESOURCE
+  DIGITAL_TWIN_RESOURCE,
+  PYTHON_RESOURCE
 } from '../Common/constants'
 
 /**
@@ -43,6 +44,11 @@ const Header = () => {
         <li className="nav-item">
           <NavLink className="nav-link" to={`/${DIGITAL_TWIN_RESOURCE}`}>
             Digital twin
+          </NavLink>
+        </li>
+        <li className="nav-item">
+          <NavLink className="nav-link" to={`/${PYTHON_RESOURCE}`}>
+            Python
           </NavLink>
         </li>
         <li className="nav-item">

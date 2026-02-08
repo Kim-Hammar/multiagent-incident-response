@@ -1,5 +1,4 @@
 import './Tools.css'
-import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import TavilyCard from './TavilyCard.jsx'
 import NvdCard from './NvdCard.jsx'
@@ -16,38 +15,22 @@ import DtPythonCard from './DtPythonCard.jsx'
  */
 function Tools() {
   const { token, logout } = useAuth()
-
-  const [alert, setAlert] = useState(null)
-
-  useEffect(() => {
-    if (!alert) return
-    const timer = setTimeout(() => setAlert(null), 3000)
-    return () => clearTimeout(timer)
-  }, [alert])
+  const noop = () => {}
 
   return (
     <div className="Tools">
       <h2>Tools</h2>
       <hr />
 
-      {alert && (
-        <div className={`alert alert-${alert.type} alert-dismissible fade show`} role="alert">
-          {alert.message}
-          <button type="button" className="close" onClick={() => setAlert(null)}>
-            <span>&times;</span>
-          </button>
-        </div>
-      )}
-
-      <TavilyCard token={token} logout={logout} setAlert={setAlert} />
-      <NvdCard token={token} logout={logout} setAlert={setAlert} />
-      <MitreCard token={token} logout={logout} setAlert={setAlert} />
-      <VirusTotalCard token={token} logout={logout} setAlert={setAlert} />
-      <AbuseIPDBCard token={token} logout={logout} setAlert={setAlert} />
-      <OtxCard token={token} logout={logout} setAlert={setAlert} />
-      <DtExecCard token={token} logout={logout} setAlert={setAlert} />
-      <DtLogsCard token={token} logout={logout} setAlert={setAlert} />
-      <DtPythonCard token={token} logout={logout} setAlert={setAlert} />
+      <TavilyCard token={token} logout={logout} setAlert={noop} />
+      <NvdCard token={token} logout={logout} setAlert={noop} />
+      <MitreCard token={token} logout={logout} setAlert={noop} />
+      <VirusTotalCard token={token} logout={logout} setAlert={noop} />
+      <AbuseIPDBCard token={token} logout={logout} setAlert={noop} />
+      <OtxCard token={token} logout={logout} setAlert={noop} />
+      <DtExecCard token={token} logout={logout} setAlert={noop} />
+      <DtLogsCard token={token} logout={logout} setAlert={noop} />
+      <DtPythonCard token={token} logout={logout} setAlert={noop} />
     </div>
   )
 }

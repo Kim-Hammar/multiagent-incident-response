@@ -228,3 +228,166 @@ def test_dt_python_run_get_not_allowed(
 ) -> None:
     response = client.get("/api/dt-python/run", headers=auth_headers)
     assert response.status_code in (404, 405)
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".dt_python.routes.docker"
+)
+def test_dt_python_start_creates_container(
+    mock_docker: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    not_found = type("NotFound", (Exception,), {})
+    mock_docker.errors.NotFound = not_found
+    mock_client = MagicMock()
+    mock_client.containers.get.side_effect = not_found("not found")
+    mock_client.containers.run.return_value = MagicMock(
+        status="running",
+    )
+    mock_docker.from_env.return_value = mock_client
+
+    response = client.post(
+        "/api/dt-python/start", headers=auth_headers,
+    )
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["container_status"] == "running"
+    assert "timestamp" in data
+    mock_client.containers.run.assert_called_once()
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".dt_python.routes.docker"
+)
+def test_dt_python_start_starts_stopped_container(
+    mock_docker: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    mock_container = MagicMock()
+    mock_container.status = "exited"
+    mock_client = MagicMock()
+    mock_client.containers.get.return_value = mock_container
+    mock_docker.from_env.return_value = mock_client
+    mock_docker.errors.NotFound = type("NotFound", (Exception,), {})
+
+    response = client.post(
+        "/api/dt-python/start", headers=auth_headers,
+    )
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["container_status"] == "running"
+    mock_container.start.assert_called_once()
+
+
+def test_dt_python_start_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    response = client.post("/api/dt-python/start")
+    assert response.status_code == 401
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".dt_python.routes.docker"
+)
+def test_dt_python_start_returns_500_on_failure(
+    mock_docker: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    mock_docker.from_env.side_effect = RuntimeError("Docker error")
+
+    response = client.post(
+        "/api/dt-python/start", headers=auth_headers,
+    )
+    data = response.get_json()
+
+    assert response.status_code == 500
+    assert data["error"] == "Docker error"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".dt_python.routes.docker"
+)
+def test_dt_python_stop_removes_container(
+    mock_docker: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    mock_container = MagicMock()
+    mock_container.status = "running"
+    mock_client = MagicMock()
+    mock_client.containers.get.return_value = mock_container
+    mock_docker.from_env.return_value = mock_client
+    mock_docker.errors.NotFound = type("NotFound", (Exception,), {})
+
+    response = client.post(
+        "/api/dt-python/stop", headers=auth_headers,
+    )
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["container_status"] == "stopped"
+    assert "timestamp" in data
+    mock_container.stop.assert_called_once()
+    mock_container.remove.assert_called_once()
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".dt_python.routes.docker"
+)
+def test_dt_python_stop_not_found_returns_success(
+    mock_docker: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    not_found = type("NotFound", (Exception,), {})
+    mock_docker.errors.NotFound = not_found
+    mock_client = MagicMock()
+    mock_client.containers.get.side_effect = not_found("not found")
+    mock_docker.from_env.return_value = mock_client
+
+    response = client.post(
+        "/api/dt-python/stop", headers=auth_headers,
+    )
+    data = response.get_json()
+
+    assert response.status_code == 200
+    assert data["container_status"] == "not_found"
+
+
+def test_dt_python_stop_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    response = client.post("/api/dt-python/stop")
+    assert response.status_code == 401
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".dt_python.routes.docker"
+)
+def test_dt_python_stop_returns_500_on_failure(
+    mock_docker: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    not_found = type("NotFound", (Exception,), {})
+    mock_docker.errors.NotFound = not_found
+    mock_docker.from_env.side_effect = RuntimeError("Docker error")
+
+    response = client.post(
+        "/api/dt-python/stop", headers=auth_headers,
+    )
+    data = response.get_json()
+
+    assert response.status_code == 500
+    assert data["error"] == "Docker error"

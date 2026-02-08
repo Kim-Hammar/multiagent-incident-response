@@ -77,6 +77,62 @@ def dt_python_status() -> tuple[Response, int]:
         }), 200
 
 
+@dt_python_bp.route("/start", methods=["POST"])
+@token_required
+def dt_python_start() -> tuple[Response, int]:
+    """
+    Start the Python sandbox container.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    timestamp = datetime.now(timezone.utc).isoformat()
+    try:
+        client = docker.from_env()
+        _ensure_sandbox(client)
+        return jsonify({
+            "container_status": "running",
+            "timestamp": timestamp,
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "timestamp": timestamp,
+        }), 500
+
+
+@dt_python_bp.route("/stop", methods=["POST"])
+@token_required
+def dt_python_stop() -> tuple[Response, int]:
+    """
+    Stop and remove the Python sandbox container.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    timestamp = datetime.now(timezone.utc).isoformat()
+    try:
+        client = docker.from_env()
+        container = client.containers.get(
+            DOCKER.PYTHON_SANDBOX_CONTAINER,
+        )
+        if container.status == "running":
+            container.stop()
+        container.remove()
+        return jsonify({
+            "container_status": "stopped",
+            "timestamp": timestamp,
+        }), 200
+    except docker.errors.NotFound:
+        return jsonify({
+            "container_status": "not_found",
+            "timestamp": timestamp,
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "timestamp": timestamp,
+        }), 500
+
+
 @dt_python_bp.route("/run", methods=["POST"])
 @token_required
 def dt_python_run() -> tuple[Response, int]:

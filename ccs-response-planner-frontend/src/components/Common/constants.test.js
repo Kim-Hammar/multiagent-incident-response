@@ -35,8 +35,11 @@ import {
   API_DT_EXEC_RUN_URL,
   API_DT_LOGS_URL,
   API_DT_LOGS_FETCH_URL,
+  PYTHON_RESOURCE,
   API_DT_PYTHON_URL,
-  API_DT_PYTHON_RUN_URL
+  API_DT_PYTHON_RUN_URL,
+  API_DT_PYTHON_START_URL,
+  API_DT_PYTHON_STOP_URL
 } from './constants'
 
 describe('constants', () => {
@@ -215,5 +218,19 @@ describe('constants', () => {
   it('API_DT_PYTHON_RUN_URL starts with API_BASE_URL', () => {
     expect(API_DT_PYTHON_RUN_URL.startsWith(API_BASE_URL)).toBe(true)
     expect(API_DT_PYTHON_RUN_URL).toBe('/api/dt-python/run')
+  })
+
+  it('PYTHON_RESOURCE is the python route', () => {
+    expect(PYTHON_RESOURCE).toBe('python')
+  })
+
+  it('API_DT_PYTHON_START_URL starts with API_BASE_URL', () => {
+    expect(API_DT_PYTHON_START_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_PYTHON_START_URL).toBe('/api/dt-python/start')
+  })
+
+  it('API_DT_PYTHON_STOP_URL starts with API_BASE_URL', () => {
+    expect(API_DT_PYTHON_STOP_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_DT_PYTHON_STOP_URL).toBe('/api/dt-python/stop')
   })
 })

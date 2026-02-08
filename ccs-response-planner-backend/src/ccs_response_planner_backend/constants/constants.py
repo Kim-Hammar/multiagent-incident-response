@@ -55,6 +55,8 @@ class API:
     DT_PYTHON_RESOURCE = "dt-python"
     DT_PYTHON_ROUTE = "/api/dt-python"
     DT_PYTHON_RUN_ROUTE = "/api/dt-python/run"
+    DT_PYTHON_START_ROUTE = "/api/dt-python/start"
+    DT_PYTHON_STOP_ROUTE = "/api/dt-python/stop"
 
 
 class DB:

@@ -18,6 +18,7 @@ import pytest
 import requests as http
 
 
+_GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 _TAVILY_KEY = os.environ.get("TAVILY_API_KEY", "")
 _NVD_KEY = os.environ.get("NVD_API_KEY", "")
 _VIRUSTOTAL_KEY = os.environ.get("VIRUSTOTAL_API_KEY", "")
@@ -48,6 +49,25 @@ def _sandbox_image_exists() -> bool:
         return True
     except Exception:
         return False
+
+
+# ── LLM (Gemini) ───────────────────────────────────────────────────
+
+@pytest.mark.skipif(not _GEMINI_KEY, reason="GEMINI_API_KEY not set")
+class TestLlmIntegration:
+    """Integration tests for the Gemini LLM connection."""
+
+    def test_connection(
+        self, base_url: str, auth_headers: dict[str, str],
+    ) -> None:
+        resp = http.get(
+            f"{base_url}/api/llm", headers=auth_headers,
+            timeout=30,
+        )
+        data = resp.json()
+        assert resp.status_code == 200
+        assert data["status"] == "connected"
+        assert len(data["models"]) > 0
 
 
 # ── Tavily ──────────────────────────────────────────────────────────

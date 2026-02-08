@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { API_DT_PYTHON_URL, API_DT_PYTHON_RUN_URL } from '../Common/constants'
 
-function DtPythonCard({ token, logout, setAlert }) {
+/**
+ * Small status card for the Python sandbox on the Tools page.
+ */
+function DtPythonCard({ token, logout }) {
   const [connStatus, setConnStatus] = useState('pending')
   const [connData, setConnData] = useState(null)
   const [connError, setConnError] = useState(null)
 
   const [code, setCode] = useState('')
-  const [isTest, setIsTest] = useState(false)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState(null)
   const [runError, setRunError] = useState(null)
@@ -33,7 +35,6 @@ function DtPythonCard({ token, logout, setAlert }) {
       if (json.status === 'connected') {
         setConnStatus('connected')
         setConnData(json)
-        setAlert({ type: 'success', message: 'DT Python Sandbox connection successful' })
       } else {
         setConnStatus('error')
         setConnError(json.error || 'Unknown error')
@@ -43,7 +44,7 @@ function DtPythonCard({ token, logout, setAlert }) {
       setConnStatus('error')
       setConnError(err.message)
     }
-  }, [token, logout, setAlert])
+  }, [token, logout])
 
   useEffect(() => {
     testConnection()
@@ -62,7 +63,7 @@ function DtPythonCard({ token, logout, setAlert }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ code: code.trim(), test: isTest })
+        body: JSON.stringify({ code: code.trim() })
       })
       if (response.status === 401) {
         logout()
@@ -118,33 +119,17 @@ function DtPythonCard({ token, logout, setAlert }) {
 
         <hr />
 
-        <form className="search-form" onSubmit={handleRun}>
-          <div className="form-group">
-            <textarea
+        <form onSubmit={handleRun}>
+          <div className="input-group">
+            <input
+              type="text"
               className="form-control"
-              rows="10"
-              placeholder="Enter Python code..."
+              placeholder="Python one-liner, e.g. print(2+2)"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               style={{ fontFamily: 'monospace' }}
             />
-          </div>
-          <div className="form-row align-items-center">
-            <div className="col-auto mb-2">
-              <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="dt-python-test-flag"
-                  checked={isTest}
-                  onChange={(e) => setIsTest(e.target.checked)}
-                />
-                <label className="form-check-label" htmlFor="dt-python-test-flag">
-                  Run as test (pytest)
-                </label>
-              </div>
-            </div>
-            <div className="col-auto mb-2">
+            <div className="input-group-append">
               <button
                 className="btn btn-sm btn-primary"
                 type="submit"
@@ -174,9 +159,8 @@ function DtPythonCard({ token, logout, setAlert }) {
               >
                 {result.exit_code}
               </span>
-              {result.test && <span className="badge badge-info ml-2">pytest</span>}
             </p>
-            <pre className="bg-light p-2 border rounded" style={{ maxHeight: '300px' }}>
+            <pre className="bg-light p-2 border rounded" style={{ maxHeight: '150px' }}>
               {result.output}
             </pre>
           </div>
