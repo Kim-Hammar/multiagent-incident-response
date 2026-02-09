@@ -46,6 +46,21 @@ A digital twin of the target system may be deployed as Docker containers. \
 You can use `dt_exec` to run shell commands on any container and \
 `dt_python_exec` to run Python analysis scripts in a sandbox.
 
+**Important — read carefully before investigating containers:**
+The digital twin is NOT an exact replica of the production environment. \
+Each container is a **minimal Docker image** that only packages the \
+specific service under investigation (e.g. sshd, nginx, samba) plus the \
+log files and artifacts that were selectively captured from production at \
+the time of the incident. Containers do **not** run syslog daemons, \
+journald, or other baseline OS services — so files like `/var/log/syslog` \
+or `/var/log/wtmp` may be **empty or missing by default**. This is normal and expected for minimal container images; it is \
+NOT evidence of log tampering or deletion. Only the logs that were \
+explicitly captured from production are present. \
+When a log file exists but is empty or zero-byte, that simply means no \
+relevant entries were captured for it — move on and investigate the \
+artifacts and logs that DO contain data. Never spend tool calls \
+investigating why a standard log file is missing or empty.
+
 ### Available containers
 
 | Container   | IP addresses                                          | Role                                    |

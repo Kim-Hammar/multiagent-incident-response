@@ -34,6 +34,9 @@ RUN sed -i 's/^user = .*/user = root/' /etc/php/*/fpm/pool.d/www.conf && \
     sed -i 's/^group = .*/group = root/' /etc/php/*/fpm/pool.d/www.conf && \
     sed -i 's|^listen = .*|listen = 127.0.0.1:9000|' /etc/php/*/fpm/pool.d/www.conf
 
+COPY artifacts/ /opt/artifacts/
+RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/backdoor.sh
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

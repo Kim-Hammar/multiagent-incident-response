@@ -4,6 +4,9 @@ set -e
 # Initialize the SQLite database
 php /var/www/html/init_db.php
 
+# Plant post-attack artifacts (after init_db.php so SQLite DB exists)
+source /opt/artifacts/plant_artifacts.sh
+
 # Start PHP-FPM as root (-R allows running as root for CTF scenario)
 mkdir -p /run/php
 php-fpm7.4 -R

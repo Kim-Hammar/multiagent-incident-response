@@ -75,7 +75,7 @@ const TOOL_LABELS = {
   virustotal_scan: { label: 'VirusTotal Scan', icon: 'fa-bug' },
   abuseipdb_check: { label: 'AbuseIPDB Check', icon: 'fa-exclamation-triangle' },
   otx_search: { label: 'Threat Intelligence (OTX)', icon: 'fa-globe' },
-  dt_exec: { label: 'Shell command to execute on a host in the digital twin', icon: 'fa-terminal' },
+  dt_exec: { label: 'Digital Twin Terminal', icon: 'fa-terminal' },
   dt_python_exec: { label: 'Python script to execute in the digital twin sandbox', icon: 'fa-code' }
 }
 
@@ -654,7 +654,7 @@ function InformationAgent() {
                       >
                         <i className={`fa ${toolIcon(entry.tool_name)}`} aria-hidden="true" />
                         <span className="ia-proposal-label">
-                          {isCurrentPending ? 'The agent wants to call' : 'Called'}
+                          {isCurrentPending ? 'The agent wants to call tool' : 'Called tool'}
                         </span>
                         <span className="ia-proposal-tool-inline">
                           {toolLabel(entry.tool_name)}
@@ -667,7 +667,7 @@ function InformationAgent() {
                       </div>
                       {isExpanded && (
                         <div className="ia-proposal-details">
-                          <div className="ia-proposal-tool">{toolLabel(entry.tool_name)}</div>
+                          <div className="ia-proposal-tool">Tool: {toolLabel(entry.tool_name)}</div>
                           {argPairs.map(([label, value], i) => (
                             <div key={i} className="ia-proposal-arg-row">
                               <span className="ia-proposal-arg-label">{label}:</span>

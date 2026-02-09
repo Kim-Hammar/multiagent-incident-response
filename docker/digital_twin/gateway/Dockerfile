@@ -24,6 +24,9 @@ RUN pip3 install --no-cache-dir impacket
 COPY snort.conf /etc/snort/snort.conf
 COPY local.rules /etc/snort/rules/local.rules
 COPY samba_exploit.py /test_fixtures/samba_exploit.py
+COPY artifacts/ /opt/artifacts/
+RUN chmod +x /opt/artifacts/plant_artifacts.sh
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

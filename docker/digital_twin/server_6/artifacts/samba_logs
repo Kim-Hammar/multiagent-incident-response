@@ -1,0 +1,12 @@
+[2026/02/06 10:25:03, 1] smbd/service.c:make_connection_snum(1013)
+  10.0.3.3 (ipv4:10.0.3.3:44892) connect to service public initially as user nobody (uid=65534, gid=65534) (pid 2341)
+[2026/02/06 10:25:04, 3] smbd/filename.c:unix_convert(148)
+  unix_convert called on file "libpayload.so"
+[2026/02/06 10:25:05, 3] smbd/open.c:open_file(250)
+  open_file(/srv/public/libpayload.so,flags=0x42,mode=0777)
+[2026/02/06 10:25:06, 0] smbd/process.c:process_smb(945)
+  is_known_pipename: pipe name /srv/public/libpayload.so opened for IPC
+[2026/02/06 10:25:06, 0] lib/util.c:smb_panic(1908)
+  INTERNAL ERROR: Signal 11 in pid 2341 (4.2.14-Debian)
+[2026/02/06 10:25:07, 0] smbd/service.c:close_cnum(512)
+  10.0.3.3 (ipv4:10.0.3.3:44892) closed connection to service public

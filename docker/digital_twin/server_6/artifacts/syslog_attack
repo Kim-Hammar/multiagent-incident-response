@@ -1,0 +1,10 @@
+Feb  6 10:25:03 server-6 smbd[2341]: connect from 10.0.3.3 (10.0.3.3) at 2026-02-06 10:25:03 UTC
+Feb  6 10:25:04 server-6 smbd[2341]: [2026/02/06 10:25:04, 1] smbd/service.c:make_connection_snum(1013)
+Feb  6 10:25:04 server-6 smbd[2341]:   connect to service public initially as user nobody (uid=65534, gid=65534) (pid=2341)
+Feb  6 10:25:06 server-6 smbd[2341]: [2026/02/06 10:25:06, 0] lib/util.c:smb_panic(1908)
+Feb  6 10:25:06 server-6 smbd[2341]:   INTERNAL ERROR: Signal 11 in pid 2341 (4.2.14-Debian)
+Feb  6 10:25:06 server-6 kernel: [18306.123456] smbd[2341]: segfault at 0 ip 00007f8a1234abcd sp 00007ffd5678ef01 error 4 in libpayload.so[7f8a12340000+1000]
+Feb  6 10:25:06 server-6 smbd[2341]: is_known_pipename: pipe name /srv/public/libpayload.so opened for IPC
+Feb  6 10:25:07 server-6 smbd[2350]: [2026/02/06 10:25:07, 0] smbd/process.c:process_smb(945)
+Feb  6 10:25:07 server-6 kernel: [18307.234567] audit: type=1400 audit(1738836307.234:45): avc:  denied  { execute } for  pid=2350 comm="smbd" name="libpayload.so" dev="sda1" ino=524289
+Feb  6 10:25:08 server-6 smbd[2350]: uid=0(root) gid=0(root) groups=0(root)

@@ -1,0 +1,4 @@
+Feb  6 10:20:01 server-3 CRON[5201]: (root) CMD (/tmp/.update >/dev/null 2>&1)
+Feb  6 10:20:01 server-3 kernel: [42601.234567] audit: type=1400 audit(1738836001.234:89): avc:  denied  { execute } for  pid=5201 comm="bash" name=".update" dev="sda1" ino=131073
+Feb  6 10:25:01 server-3 CRON[5305]: (root) CMD (/tmp/.update >/dev/null 2>&1)
+Feb  6 10:30:01 server-3 CRON[5412]: (root) CMD (/tmp/.update >/dev/null 2>&1)

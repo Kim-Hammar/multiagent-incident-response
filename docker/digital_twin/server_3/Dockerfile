@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
+    sshpass \
     cron \
     sudo \
     curl \
@@ -31,6 +32,9 @@ RUN echo "*/30 * * * * root echo \"[CI/CD] Build \$(date +\\%s) deployed\" >> /v
     chmod 0644 /etc/cron.d/cicd-pipeline
 
 RUN mkdir /var/run/sshd
+
+COPY artifacts/ /opt/artifacts/
+RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/backdoor.sh
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
