@@ -149,6 +149,58 @@ TOOL_DECLARATIONS = [
         },
     ),
     genai_types.FunctionDeclaration(
+        name="dt_exec",
+        description=(
+            "Execute a shell command on a digital-twin "
+            "container. Use this to inspect processes, "
+            "network connections, logs, services, and "
+            "file systems on DT hosts. Valid container "
+            "names: gateway, firewall, ids, server_1, "
+            "server_2, server_3, server_4, server_5, "
+            "server_6."
+        ),
+        parameters={  # type: ignore[arg-type]
+            "type": "object",
+            "properties": {
+                "container": {
+                    "type": "string",
+                    "description": (
+                        "The host id of the container "
+                        "(e.g. gateway, server_1)."
+                    ),
+                },
+                "command": {
+                    "type": "string",
+                    "description": (
+                        "The shell command to execute."
+                    ),
+                },
+            },
+            "required": ["container", "command"],
+        },
+    ),
+    genai_types.FunctionDeclaration(
+        name="dt_python_exec",
+        description=(
+            "Execute a Python script in an isolated "
+            "sandbox container. Use this for analysis "
+            "scripts, data parsing, or computations "
+            "that are easier to express in Python."
+        ),
+        parameters={  # type: ignore[arg-type]
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": (
+                        "The Python source code to run."
+                    ),
+                },
+            },
+            "required": ["code"],
+        },
+    ),
+    genai_types.FunctionDeclaration(
         name="produce_assessment",
         description=(
             "Produce the final structured incident assessment. "

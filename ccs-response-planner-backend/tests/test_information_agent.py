@@ -3,9 +3,13 @@ import base64
 import json
 from unittest.mock import MagicMock, patch
 
+import docker as docker_module
+
 from ccs_response_planner_backend.agents.information_agent.tools import (
     TOOL_DISPATCH,
     abuseipdb_check,
+    dt_exec,
+    dt_python_exec,
     mitre_search,
     nvd_search,
     otx_search,
@@ -16,7 +20,7 @@ from ccs_response_planner_backend.agents.information_agent.tools import (
 
 def test_tool_dispatch_has_all_tools() -> None:
     """
-    TOOL_DISPATCH must contain all six tool functions.
+    TOOL_DISPATCH must contain all eight tool functions.
     """
     expected = {
         "tavily_search",
@@ -25,6 +29,8 @@ def test_tool_dispatch_has_all_tools() -> None:
         "virustotal_scan",
         "abuseipdb_check",
         "otx_search",
+        "dt_exec",
+        "dt_python_exec",
     }
     assert set(TOOL_DISPATCH.keys()) == expected
 
@@ -192,6 +198,110 @@ def test_otx_search(mock_otx_cls: MagicMock) -> None:
     assert "result" in result
     assert result["result"]["type"] == "IPv4"
     assert result["result"]["pulse_count"] == 2
+
+
+@patch(
+    "ccs_response_planner_backend.agents.information_agent"
+    ".tools.docker",
+)
+def test_dt_exec_returns_output(
+    mock_docker: MagicMock,
+) -> None:
+    """
+    dt_exec should execute a command on a DT container and
+    return the output with exit code.
+    """
+    mock_client = MagicMock()
+    mock_container = MagicMock()
+    mock_container.id = "abc123"
+    mock_client.containers.get.return_value = mock_container
+    mock_client.api.exec_create.return_value = {"Id": "ex1"}
+    mock_client.api.exec_start.return_value = b"root  1  0.0\n"
+    mock_client.api.exec_inspect.return_value = {"ExitCode": 0}
+    mock_docker.from_env.return_value = mock_client
+    result = dt_exec("gateway", "ps aux")
+    assert result["container"] == "gateway"
+    assert result["command"] == "ps aux"
+    assert result["exit_code"] == 0
+    assert "root" in result["output"]
+
+
+@patch(
+    "ccs_response_planner_backend.agents.information_agent"
+    ".tools.docker",
+)
+def test_dt_exec_container_not_found(
+    mock_docker: MagicMock,
+) -> None:
+    """
+    dt_exec should return an error with valid container names
+    when the container is not found.
+    """
+    mock_client = MagicMock()
+    mock_client.containers.get.side_effect = (
+        docker_module.errors.NotFound("not found")
+    )
+    mock_docker.from_env.return_value = mock_client
+    mock_docker.errors.NotFound = docker_module.errors.NotFound
+    result = dt_exec("gateway", "ps aux")
+    assert "error" in result
+    assert "not found" in result["error"].lower()
+    assert "gateway" in result["error"]
+
+
+@patch(
+    "ccs_response_planner_backend.agents.information_agent"
+    ".tools.docker",
+)
+def test_dt_python_exec_returns_output(
+    mock_docker: MagicMock,
+) -> None:
+    """
+    dt_python_exec should execute Python code in the sandbox
+    and return the output with exit code.
+    """
+    mock_client = MagicMock()
+    mock_sandbox = MagicMock()
+    mock_sandbox.id = "sandbox1"
+    mock_sandbox.status = "running"
+    mock_client.containers.get.return_value = mock_sandbox
+    mock_client.api.exec_create.return_value = {"Id": "ex1"}
+    mock_client.api.exec_start.return_value = b"hello\n"
+    mock_client.api.exec_inspect.return_value = {"ExitCode": 0}
+    mock_docker.from_env.return_value = mock_client
+    mock_docker.errors.NotFound = docker_module.errors.NotFound
+    result = dt_python_exec("print('hello')")
+    assert result["code"] == "print('hello')"
+    assert result["exit_code"] == 0
+    assert "hello" in result["output"]
+
+
+@patch(
+    "ccs_response_planner_backend.agents.information_agent"
+    ".tools.docker",
+)
+def test_dt_python_exec_starts_sandbox(
+    mock_docker: MagicMock,
+) -> None:
+    """
+    dt_python_exec should create the sandbox container when
+    it does not exist yet.
+    """
+    mock_client = MagicMock()
+    mock_sandbox = MagicMock()
+    mock_sandbox.id = "sandbox1"
+    mock_client.containers.get.side_effect = (
+        docker_module.errors.NotFound("not found")
+    )
+    mock_client.containers.run.return_value = mock_sandbox
+    mock_client.api.exec_create.return_value = {"Id": "ex1"}
+    mock_client.api.exec_start.return_value = b"ok\n"
+    mock_client.api.exec_inspect.return_value = {"ExitCode": 0}
+    mock_docker.from_env.return_value = mock_client
+    mock_docker.errors.NotFound = docker_module.errors.NotFound
+    result = dt_python_exec("print('ok')")
+    mock_client.containers.run.assert_called_once()
+    assert result["exit_code"] == 0
 
 
 def _make_part(

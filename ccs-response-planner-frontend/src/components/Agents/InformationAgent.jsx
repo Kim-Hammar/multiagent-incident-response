@@ -74,7 +74,9 @@ const TOOL_LABELS = {
   mitre_search: { label: 'MITRE ATT&CK Lookup', icon: 'fa-crosshairs' },
   virustotal_scan: { label: 'VirusTotal Scan', icon: 'fa-bug' },
   abuseipdb_check: { label: 'AbuseIPDB Check', icon: 'fa-exclamation-triangle' },
-  otx_search: { label: 'Threat Intelligence (OTX)', icon: 'fa-globe' }
+  otx_search: { label: 'Threat Intelligence (OTX)', icon: 'fa-globe' },
+  dt_exec: { label: 'Shell command to execute on a host in the digital twin', icon: 'fa-terminal' },
+  dt_python_exec: { label: 'Python script to execute in the digital twin sandbox', icon: 'fa-code' }
 }
 
 function formatToolArgs(toolName, args) {
@@ -100,6 +102,13 @@ function formatToolArgs(toolName, args) {
         ['Indicator type', args.indicator_type || ''],
         ['Value', args.value || '']
       ]
+    case 'dt_exec':
+      return [
+        ['Container', args.container || ''],
+        ['Command', args.command || '']
+      ]
+    case 'dt_python_exec':
+      return [['Code', args.code || '']]
     default:
       return [['Arguments', JSON.stringify(args)]]
   }

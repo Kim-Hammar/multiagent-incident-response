@@ -5,16 +5,20 @@ Each function encapsulates the SDK call logic extracted from
 the corresponding route handler, reads its API key from the
 environment, and returns a plain dict (no Flask dependency).
 """
+import base64
 import os
 import tempfile
 from typing import Any, Callable
 
+import docker
 import nvdlib
 import requests as http_requests
 import vt
 from mitreattack.stix20 import MitreAttackData
 from OTXv2 import IndicatorTypes, OTXv2
 from tavily import TavilyClient
+
+from ccs_response_planner_backend.constants.constants import DOCKER
 
 _STIX_URL = (
     "https://raw.githubusercontent.com/mitre/cti"
@@ -317,6 +321,120 @@ def otx_search(
     }
 
 
+_VALID_DT_CONTAINERS = [
+    "gateway", "firewall", "ids",
+    "server_1", "server_2", "server_3",
+    "server_4", "server_5", "server_6",
+]
+
+
+def _ensure_python_sandbox(
+    client: docker.DockerClient,
+) -> docker.models.containers.Container:
+    """
+    Ensure the Python sandbox container is running.
+
+    If the container does not exist it is created from the sandbox
+    image.  If it exists but is stopped it is started.
+
+    :param client: a Docker client instance
+    :return: the running sandbox container
+    """
+    try:
+        container = client.containers.get(
+            DOCKER.PYTHON_SANDBOX_CONTAINER,
+        )
+        if container.status != "running":
+            container.start()
+        return container
+    except docker.errors.NotFound:
+        container = client.containers.run(
+            DOCKER.PYTHON_SANDBOX_IMAGE,
+            name=DOCKER.PYTHON_SANDBOX_CONTAINER,
+            detach=True,
+        )
+        return container
+
+
+def dt_exec(
+    container: str, command: str,
+) -> dict[str, Any]:
+    """
+    Execute a shell command on a digital-twin container.
+
+    :param container: host id (e.g. gateway, server_1)
+    :param command: the shell command to run
+    :return: a dict with container, command, exit_code, and output
+    """
+    container_name = f"{DOCKER.CONTAINER_PREFIX}{container}"
+    try:
+        client = docker.from_env()
+        ct = client.containers.get(container_name)
+        exec_id = client.api.exec_create(
+            ct.id, ["/bin/sh", "-c", command],
+            stdout=True, stderr=True,
+        )["Id"]
+        output = client.api.exec_start(exec_id).decode(
+            "utf-8", errors="replace",
+        )
+        exit_code = client.api.exec_inspect(exec_id)[
+            "ExitCode"
+        ]
+        return {
+            "container": container,
+            "command": command,
+            "exit_code": exit_code,
+            "output": output,
+        }
+    except docker.errors.NotFound:
+        return {
+            "error": (
+                f"Container '{container_name}' not found. "
+                f"Valid containers: "
+                f"{', '.join(_VALID_DT_CONTAINERS)}"
+            ),
+        }
+
+
+def dt_python_exec(code: str) -> dict[str, Any]:
+    """
+    Execute Python code in the sandbox container.
+
+    :param code: the Python source code to run
+    :return: a dict with code, exit_code, and output
+    """
+    client = docker.from_env()
+    ct = _ensure_python_sandbox(client)
+    encoded = base64.b64encode(
+        code.encode("utf-8"),
+    ).decode("ascii")
+    write_cmd = (
+        f"python3 -c \"import base64; "
+        f"open('/workspace/_code.py','wb')"
+        f".write(base64.b64decode('{encoded}'))\""
+    )
+    client.api.exec_start(
+        client.api.exec_create(
+            ct.id, ["/bin/sh", "-c", write_cmd],
+            stdout=True, stderr=True,
+        )["Id"],
+    )
+    run_cmd = "python /workspace/_code.py"
+    exec_id = client.api.exec_create(
+        ct.id, ["/bin/sh", "-c", run_cmd],
+        stdout=True, stderr=True,
+    )["Id"]
+    output = client.api.exec_start(exec_id).decode(
+        "utf-8", errors="replace",
+    )
+    exit_code = client.api.exec_inspect(exec_id)["ExitCode"]
+    return {
+        "code": code,
+        "exit_code": exit_code,
+        "output": output,
+    }
+
+
 TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "tavily_search": tavily_search,
     "nvd_search": nvd_search,
@@ -324,4 +442,6 @@ TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "virustotal_scan": virustotal_scan,
     "abuseipdb_check": abuseipdb_check,
     "otx_search": otx_search,
+    "dt_exec": dt_exec,
+    "dt_python_exec": dt_python_exec,
 }
