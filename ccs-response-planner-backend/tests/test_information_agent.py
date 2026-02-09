@@ -1,4 +1,5 @@
 """Tests for the InformationAgent and its standalone tool functions."""
+import json
 from unittest.mock import MagicMock, patch
 
 from ccs_response_planner_backend.agents.information_agent.tools import (
@@ -215,10 +216,14 @@ def test_agent_step_returns_tool_proposal(
     text_part.text = "I will search for test"
     text_part.function_call = MagicMock()
     text_part.function_call.name = ""
+    text_part._pb = None
+    text_part.thought = False
 
     fc_part = MagicMock()
     fc_part.text = ""
     fc_part.function_call = mock_fc
+    fc_part._pb = None
+    fc_part.thought = False
 
     candidate = MagicMock()
     candidate.content.parts = [text_part, fc_part]
@@ -242,6 +247,7 @@ def test_agent_step_returns_tool_proposal(
     assert result["tool_name"] == "tavily_search"
     assert result["tool_args"] == {"query": "test"}
     assert result["rationale"] == "I will search for test"
+    assert "_model_parts" in result
 
 
 @patch(
@@ -252,20 +258,42 @@ def test_agent_step_returns_assessment(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step should return an assessment when the
-    model responds with text only.
+    InformationAgent.step should return a structured assessment
+    when the model calls the produce_assessment tool.
     """
     from ccs_response_planner_backend.agents.information_agent.agent import (
         InformationAgent,
     )
 
-    text_part = MagicMock()
-    text_part.text = "Final assessment text"
-    text_part.function_call = MagicMock()
-    text_part.function_call.name = ""
+    assessment_args = {
+        "incident_summary": "Test incident",
+        "attack_vector_analysis": "SSH brute force",
+        "indicators_of_compromise": [
+            {"type": "ip", "value": "1.2.3.4",
+             "context": "attacker"},
+        ],
+        "severity": "High",
+        "severity_justification": "Compromised server",
+        "affected_assets": [
+            {"asset": "server1", "impact": "full access"},
+        ],
+        "recommended_actions": [
+            {"priority": 1, "action": "Block IP",
+             "type": "immediate"},
+        ],
+    }
+    mock_fc = MagicMock()
+    mock_fc.name = "produce_assessment"
+    mock_fc.args = assessment_args
+
+    fc_part = MagicMock()
+    fc_part.text = ""
+    fc_part.function_call = mock_fc
+    fc_part._pb = None
+    fc_part.thought = False
 
     candidate = MagicMock()
-    candidate.content.parts = [text_part]
+    candidate.content.parts = [fc_part]
 
     mock_response = MagicMock()
     mock_response.candidates = [candidate]
@@ -283,7 +311,13 @@ def test_agent_step_returns_assessment(
         conversation_history=[],
     )
     assert result["type"] == "assessment"
-    assert result["content"] == "Final assessment text"
+    assert result["assessment"]["severity"] == "High"
+    assert result["assessment"]["incident_summary"] == (
+        "Test incident"
+    )
+    assert len(
+        result["assessment"]["indicators_of_compromise"],
+    ) == 1
 
 
 @patch(
@@ -329,18 +363,20 @@ def test_agent_step_stream_yields_text_then_tool_proposal(
         InformationAgent,
     )
 
-    # Build streaming chunks: one text chunk
+    # Chunk 1: text part
     text_part = MagicMock()
     text_part.text = "I will search"
     text_part.function_call = MagicMock()
     text_part.function_call.name = ""
+    text_part._pb = None
+    text_part.thought = False
 
-    chunk_candidate = MagicMock()
-    chunk_candidate.content.parts = [text_part]
-    chunk = MagicMock()
-    chunk.candidates = [chunk_candidate]
+    chunk_1_candidate = MagicMock()
+    chunk_1_candidate.content.parts = [text_part]
+    chunk_1 = MagicMock()
+    chunk_1.candidates = [chunk_1_candidate]
 
-    # Build the resolved response with function call
+    # Chunk 2: function call part
     mock_fc = MagicMock()
     mock_fc.name = "tavily_search"
     mock_fc.args = {"query": "test"}
@@ -348,20 +384,23 @@ def test_agent_step_stream_yields_text_then_tool_proposal(
     fc_part = MagicMock()
     fc_part.text = ""
     fc_part.function_call = mock_fc
+    fc_part._pb = None
+    fc_part.thought = False
 
-    resolved_text_part = MagicMock()
-    resolved_text_part.text = "I will search"
-    resolved_text_part.function_call = MagicMock()
-    resolved_text_part.function_call.name = ""
+    chunk_2_candidate = MagicMock()
+    chunk_2_candidate.content.parts = [fc_part]
+    chunk_2 = MagicMock()
+    chunk_2.candidates = [chunk_2_candidate]
 
-    resolved_candidate = MagicMock()
-    resolved_candidate.content.parts = [resolved_text_part, fc_part]
+    # Aggregated response after streaming
+    agg_candidate = MagicMock()
+    agg_candidate.content.parts = [text_part, fc_part]
 
     mock_response = MagicMock()
     mock_response.__iter__ = MagicMock(
-        return_value=iter([chunk]),
+        return_value=iter([chunk_1, chunk_2]),
     )
-    mock_response.candidates = [resolved_candidate]
+    mock_response.candidates = [agg_candidate]
 
     mock_model = MagicMock()
     mock_model.generate_content.return_value = mock_response
@@ -383,6 +422,7 @@ def test_agent_step_stream_yields_text_then_tool_proposal(
     assert events[1]["tool_name"] == "tavily_search"
     assert events[1]["tool_args"] == {"query": "test"}
     assert events[1]["rationale"] == "I will search"
+    assert "_model_parts" in events[1]
 
 
 @patch(
@@ -394,47 +434,61 @@ def test_agent_step_stream_yields_text_then_assessment(
 ) -> None:
     """
     InformationAgent.step_stream should yield text deltas and then
-    an assessment event when the model responds with text only.
+    a structured assessment event when the model calls
+    produce_assessment.
     """
     from ccs_response_planner_backend.agents.information_agent.agent import (
         InformationAgent,
     )
 
-    # Build streaming chunks: two text chunks
-    text_part_1 = MagicMock()
-    text_part_1.text = "First part"
-    text_part_1.function_call = MagicMock()
-    text_part_1.function_call.name = ""
+    assessment_args = {
+        "incident_summary": "Stream test",
+        "attack_vector_analysis": "Phishing",
+        "indicators_of_compromise": [],
+        "severity": "Medium",
+        "severity_justification": "Limited scope",
+        "affected_assets": [],
+        "recommended_actions": [],
+    }
+
+    # Chunk 1: text rationale
+    text_part = MagicMock()
+    text_part.text = "Here is the assessment"
+    text_part.function_call = MagicMock()
+    text_part.function_call.name = ""
+    text_part._pb = None
+    text_part.thought = False
 
     chunk_1_candidate = MagicMock()
-    chunk_1_candidate.content.parts = [text_part_1]
+    chunk_1_candidate.content.parts = [text_part]
     chunk_1 = MagicMock()
     chunk_1.candidates = [chunk_1_candidate]
 
-    text_part_2 = MagicMock()
-    text_part_2.text = " second part"
-    text_part_2.function_call = MagicMock()
-    text_part_2.function_call.name = ""
+    # Chunk 2: produce_assessment function call
+    mock_fc = MagicMock()
+    mock_fc.name = "produce_assessment"
+    mock_fc.args = assessment_args
+
+    fc_part = MagicMock()
+    fc_part.text = ""
+    fc_part.function_call = mock_fc
+    fc_part._pb = None
+    fc_part.thought = False
 
     chunk_2_candidate = MagicMock()
-    chunk_2_candidate.content.parts = [text_part_2]
+    chunk_2_candidate.content.parts = [fc_part]
     chunk_2 = MagicMock()
     chunk_2.candidates = [chunk_2_candidate]
 
-    # Resolved response: text only, no function call
-    resolved_text_part = MagicMock()
-    resolved_text_part.text = "First part second part"
-    resolved_text_part.function_call = MagicMock()
-    resolved_text_part.function_call.name = ""
-
-    resolved_candidate = MagicMock()
-    resolved_candidate.content.parts = [resolved_text_part]
+    # Aggregated response
+    agg_candidate = MagicMock()
+    agg_candidate.content.parts = [text_part, fc_part]
 
     mock_response = MagicMock()
     mock_response.__iter__ = MagicMock(
         return_value=iter([chunk_1, chunk_2]),
     )
-    mock_response.candidates = [resolved_candidate]
+    mock_response.candidates = [agg_candidate]
 
     mock_model = MagicMock()
     mock_model.generate_content.return_value = mock_response
@@ -448,17 +502,90 @@ def test_agent_step_stream_yields_text_then_assessment(
         recovery_context="",
         conversation_history=[],
     ))
-    assert len(events) == 3
-    assert events[0] == {
-        "type": "text", "delta": "First part",
-    }
-    assert events[1] == {
-        "type": "text", "delta": " second part",
-    }
-    assert events[2] == {
-        "type": "assessment",
-        "content": "First part second part",
-    }
+    assert len(events) == 2
+    assert events[0]["type"] == "text"
+    assert events[0]["delta"] == "Here is the assessment"
+    assert events[1]["type"] == "assessment"
+    assert events[1]["assessment"]["severity"] == "Medium"
+    assert events[1]["assessment"]["incident_summary"] == (
+        "Stream test"
+    )
+
+
+@patch(
+    "ccs_response_planner_backend.agents.information_agent"
+    ".agent.genai",
+)
+def test_agent_step_stream_prepends_initial_message(
+    mock_genai: MagicMock,
+) -> None:
+    """
+    InformationAgent.step_stream should always prepend the initial
+    user message so Gemini contents start with a user turn.
+    """
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        INITIAL_USER_MESSAGE,
+        InformationAgent,
+    )
+
+    text_part = MagicMock()
+    text_part.text = "Assessment"
+    text_part.function_call = MagicMock()
+    text_part.function_call.name = ""
+    text_part._pb = None
+    text_part.thought = False
+
+    chunk_candidate = MagicMock()
+    chunk_candidate.content.parts = [text_part]
+    chunk = MagicMock()
+    chunk.candidates = [chunk_candidate]
+
+    mock_response = MagicMock()
+    mock_response.__iter__ = MagicMock(
+        return_value=iter([chunk]),
+    )
+
+    mock_model = MagicMock()
+    mock_model.generate_content.return_value = mock_response
+    mock_genai.GenerativeModel.return_value = mock_model
+
+    agent = InformationAgent()
+    history = [
+        {
+            "type": "tool_proposal",
+            "tool_name": "tavily_search",
+            "tool_args": {"query": "test"},
+            "rationale": "Searching",
+        },
+        {
+            "type": "tool_approval",
+            "tool_name": "tavily_search",
+            "approved": True,
+        },
+        {
+            "type": "tool_result",
+            "tool_name": "tavily_search",
+            "result": {"query": "test", "results": []},
+        },
+    ]
+    list(agent.step_stream(
+        system_description="test",
+        security_alerts="alerts",
+        operator_feedback="",
+        recovery_context="",
+        conversation_history=history,
+    ))
+
+    call_args = mock_model.generate_content.call_args
+    contents = call_args[0][0]
+    assert contents[0] == INITIAL_USER_MESSAGE
+    assert contents[0]["role"] == "user"
+    assert len(contents) == 3
+    # tool_result turn has function_response + continuation text
+    tool_result_parts = contents[2]["parts"]
+    assert len(tool_result_parts) == 2
+    assert "function_response" in tool_result_parts[0]
+    assert "text" in tool_result_parts[1]
 
 
 def test_agent_execute_tool_unknown() -> None:
@@ -473,3 +600,123 @@ def test_agent_execute_tool_unknown() -> None:
     result = agent.execute_tool("unknown_tool", {})
     assert result["tool_name"] == "unknown_tool"
     assert "error" in result
+
+
+def test_agent_parse_assessment_fallback() -> None:
+    """
+    _parse_assessment should fall back gracefully when the
+    model output is not valid JSON.
+    """
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        InformationAgent,
+    )
+
+    agent = InformationAgent()
+    raw = "This is not valid JSON at all."
+    result = agent._parse_assessment(raw)
+    assert result["type"] == "assessment"
+    a = result["assessment"]
+    assert a["incident_summary"] == raw
+    assert a["severity"] == "Unknown"
+    assert a["attack_vector_analysis"] == ""
+    assert a["indicators_of_compromise"] == []
+    assert a["affected_assets"] == []
+    assert a["recommended_actions"] == []
+
+
+def test_agent_parse_assessment_strips_code_fences() -> None:
+    """
+    _parse_assessment should strip markdown code fences and
+    parse the inner JSON correctly.
+    """
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        InformationAgent,
+    )
+
+    inner = {
+        "incident_summary": "Fenced",
+        "attack_vector_analysis": "",
+        "indicators_of_compromise": [],
+        "severity": "Low",
+        "severity_justification": "",
+        "affected_assets": [],
+        "recommended_actions": [],
+    }
+    fenced = "```json\n" + json.dumps(inner) + "\n```"
+    agent = InformationAgent()
+    result = agent._parse_assessment(fenced)
+    assert result["type"] == "assessment"
+    assert result["assessment"]["severity"] == "Low"
+    assert result["assessment"]["incident_summary"] == "Fenced"
+
+
+def test_serialize_part_with_pb_stores_proto_binary() -> None:
+    """
+    _serialize_part should store proto binary via _pb when
+    available, and read thought from the raw proto.
+    """
+    import base64
+
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        InformationAgent,
+    )
+
+    proto_bytes = b"\x01\x02\x03\x04"
+    mock_pb = MagicMock()
+    mock_pb.thought = True
+    mock_pb.SerializeToString.return_value = proto_bytes
+
+    part = MagicMock()
+    part.text = "thinking"
+    part.function_call = MagicMock()
+    part.function_call.name = ""
+    part._pb = mock_pb
+
+    serialized = InformationAgent._serialize_part(part)
+    assert serialized["text"] == "thinking"
+    assert serialized["thought"] is True
+    assert serialized["_pb"] == base64.b64encode(
+        proto_bytes,
+    ).decode("ascii")
+
+
+def test_serialize_part_without_pb_fallback() -> None:
+    """
+    _serialize_part should fall back to getattr for thought
+    when _pb is not available.
+    """
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        InformationAgent,
+    )
+
+    part = MagicMock()
+    part.text = "hello"
+    part.function_call = MagicMock()
+    part.function_call.name = ""
+    part._pb = None
+    part.thought = True
+
+    serialized = InformationAgent._serialize_part(part)
+    assert serialized["text"] == "hello"
+    assert serialized["thought"] is True
+    assert "_pb" not in serialized
+
+
+def test_decode_raw_parts_dict_fallback() -> None:
+    """
+    _decode_raw_parts should return plain dicts when no _pb
+    field is present, stripping any stale _pb keys.
+    """
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        InformationAgent,
+    )
+
+    raw = [
+        {"text": "hello", "thought": True},
+        {"function_call": {"name": "test", "args": {}}},
+    ]
+    decoded = InformationAgent._decode_raw_parts(raw)
+    assert decoded[0] == {"text": "hello", "thought": True}
+    assert decoded[1] == {
+        "function_call": {"name": "test", "args": {}},
+    }

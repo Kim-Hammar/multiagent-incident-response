@@ -65,9 +65,10 @@ function InformationAgent() {
         return
       }
       if (!res.ok) {
-        const data = await res.json()
-        setAlert({ type: 'danger', message: data.error || 'Agent step failed' })
-        setConversationHistory(history)
+        const data = await res.json().catch(() => ({}))
+        const msg = data.error || `Agent step failed (HTTP ${res.status})`
+        setAlert({ type: 'danger', message: msg })
+        setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
         return
       }
 
@@ -99,13 +100,15 @@ function InformationAgent() {
               type: 'tool_proposal',
               tool_name: event.tool_name,
               tool_args: event.tool_args,
-              rationale: event.rationale
+              rationale: event.rationale,
+              _model_parts: event._model_parts
             }
           } else if (event.type === 'assessment') {
-            finalEntry = { role: 'model', type: 'assessment', content: event.content }
+            finalEntry = { role: 'model', type: 'assessment', assessment: event.assessment }
           } else if (event.type === 'error') {
-            setAlert({ type: 'danger', message: event.message || 'Agent stream error' })
-            setConversationHistory(history)
+            const msg = event.message || 'Agent stream error'
+            setAlert({ type: 'danger', message: msg })
+            setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
             return
           }
         }
@@ -118,16 +121,30 @@ function InformationAgent() {
           setPendingProposal(finalEntry)
         }
       } else if (accumulated) {
+        let assessment
+        try {
+          assessment = JSON.parse(accumulated)
+        } catch {
+          assessment = {
+            incident_summary: accumulated,
+            attack_vector_analysis: '',
+            indicators_of_compromise: [],
+            severity: 'Unknown',
+            severity_justification: '',
+            affected_assets: [],
+            recommended_actions: []
+          }
+        }
+        setConversationHistory([...history, { role: 'model', type: 'assessment', assessment }])
+      } else {
         setConversationHistory([
           ...history,
-          { role: 'model', type: 'assessment', content: accumulated }
+          { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
-      } else {
-        setConversationHistory(history)
       }
     } catch (err) {
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
-      setConversationHistory(history)
+      setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
     } finally {
       setRunning(false)
     }
@@ -141,10 +158,11 @@ function InformationAgent() {
 
   const handleApprove = async () => {
     if (!pendingProposal) return
+    const proposal = pendingProposal
     const approvalEntry = {
       role: 'user',
       type: 'tool_approval',
-      tool_name: pendingProposal.tool_name,
+      tool_name: proposal.tool_name,
       approved: true
     }
     setPendingProposal(null)
@@ -157,32 +175,41 @@ function InformationAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          tool_name: pendingProposal.tool_name,
-          tool_args: pendingProposal.tool_args
+          tool_name: proposal.tool_name,
+          tool_args: proposal.tool_args
         })
       })
       if (res.status === 401) {
         logout()
         return
       }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        setAlert({
+          type: 'danger',
+          message: errData.error || `Tool execution failed (HTTP ${res.status})`
+        })
+        setExecutingTool(false)
+        return
+      }
       const data = await res.json()
       const resultEntry = {
         role: 'tool',
         type: 'tool_result',
-        tool_name: pendingProposal.tool_name,
+        tool_name: proposal.tool_name,
         result: data.error ? { error: data.error } : data.result
       }
       const updated = [...conversationHistory, approvalEntry, resultEntry]
       setConversationHistory(updated)
       setExecutingTool(false)
-      callStep(updated)
+      await callStep(updated)
     } catch (err) {
       setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
       setExecutingTool(false)
     }
   }
 
-  const handleDeny = () => {
+  const handleDeny = async () => {
     if (!pendingProposal) return
     const denialEntry = {
       role: 'user',
@@ -193,7 +220,7 @@ function InformationAgent() {
     const updated = [...conversationHistory, denialEntry]
     setConversationHistory(updated)
     setPendingProposal(null)
-    callStep(updated)
+    await callStep(updated)
   }
 
   const fetchExample = async () => {
@@ -492,7 +519,28 @@ function InformationAgent() {
                 )
               }
 
+              if (entry.type === 'error') {
+                return (
+                  <div key={index} className="card ia-entry border-danger">
+                    <div className="card-body">
+                      <div className="ia-entry-header">
+                        <span className="badge badge-danger">Error</span>
+                        <span className="ia-tool-name">Agent step failed</span>
+                      </div>
+                      <p className="ia-error-message mb-0">{entry.message}</p>
+                    </div>
+                  </div>
+                )
+              }
+
               if (entry.type === 'assessment') {
+                const a = entry.assessment || {}
+                const severityClass = {
+                  Critical: 'danger',
+                  High: 'warning',
+                  Medium: 'info',
+                  Low: 'success'
+                }
                 return (
                   <div key={index} className="card ia-entry border-dark">
                     <div className="card-body">
@@ -500,7 +548,109 @@ function InformationAgent() {
                         <span className="badge badge-dark">Assessment</span>
                         <span className="ia-tool-name">Final Incident Assessment</span>
                       </div>
-                      <div className="ia-assessment-body">{entry.content}</div>
+
+                      {a.incident_summary && (
+                        <div className="ia-assessment-section">
+                          <div className="ia-assessment-label">Incident Summary</div>
+                          <p className="ia-assessment-body mb-0">{a.incident_summary}</p>
+                        </div>
+                      )}
+
+                      {a.attack_vector_analysis && (
+                        <div className="ia-assessment-section">
+                          <div className="ia-assessment-label">Attack Vector Analysis</div>
+                          <p className="ia-assessment-body mb-0">{a.attack_vector_analysis}</p>
+                        </div>
+                      )}
+
+                      {a.severity && (
+                        <div className="ia-assessment-section">
+                          <div className="ia-assessment-label">Severity</div>
+                          <span
+                            className={`badge ia-severity-badge badge-${severityClass[a.severity] || 'secondary'}`}
+                          >
+                            {a.severity}
+                          </span>
+                          {a.severity_justification && (
+                            <p className="ia-assessment-body mb-0 mt-1">
+                              {a.severity_justification}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {a.indicators_of_compromise && a.indicators_of_compromise.length > 0 && (
+                        <div className="ia-assessment-section">
+                          <div className="ia-assessment-label">Indicators of Compromise</div>
+                          <table className="ia-ioc-table">
+                            <thead>
+                              <tr>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Context</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {a.indicators_of_compromise.map((ioc, i) => (
+                                <tr key={i}>
+                                  <td>{ioc.type}</td>
+                                  <td>{ioc.value}</td>
+                                  <td>{ioc.context}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {a.affected_assets && a.affected_assets.length > 0 && (
+                        <div className="ia-assessment-section">
+                          <div className="ia-assessment-label">Affected Assets</div>
+                          <table className="ia-asset-table">
+                            <thead>
+                              <tr>
+                                <th>Asset</th>
+                                <th>Impact</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {a.affected_assets.map((asset, i) => (
+                                <tr key={i}>
+                                  <td>{asset.asset}</td>
+                                  <td>{asset.impact}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {a.recommended_actions && a.recommended_actions.length > 0 && (
+                        <div className="ia-assessment-section">
+                          <div className="ia-assessment-label">Recommended Actions</div>
+                          <ol className="ia-actions-list">
+                            {a.recommended_actions.map((action, i) => (
+                              <li key={i} className="ia-action-item">
+                                <span className="badge badge-dark ia-priority-badge">
+                                  P{action.priority}
+                                </span>
+                                <span
+                                  className={`badge ia-action-type-badge badge-${
+                                    action.type === 'immediate'
+                                      ? 'danger'
+                                      : action.type === 'short_term'
+                                        ? 'warning'
+                                        : 'info'
+                                  }`}
+                                >
+                                  {(action.type || '').replace('_', ' ')}
+                                </span>
+                                <span>{action.action}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )

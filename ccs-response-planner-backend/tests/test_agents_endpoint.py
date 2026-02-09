@@ -106,12 +106,21 @@ def test_step_streams_assessment(
     """
     POST /api/agents/information/step streams text then assessment.
     """
+    mock_assessment = {
+        "incident_summary": "Based on analysis",
+        "attack_vector_analysis": "SQL injection",
+        "indicators_of_compromise": [],
+        "severity": "High",
+        "severity_justification": "Database compromised",
+        "affected_assets": [],
+        "recommended_actions": [],
+    }
     mock_agent = MagicMock()
     mock_agent.step_stream.return_value = iter([
         {"type": "text", "delta": "Based on analysis"},
         {
             "type": "assessment",
-            "content": "Based on analysis",
+            "assessment": mock_assessment,
         },
     ])
     mock_agent_cls.return_value = mock_agent
@@ -130,7 +139,10 @@ def test_step_streams_assessment(
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[1]["type"] == "assessment"
-    assert events[1]["content"] == "Based on analysis"
+    assert events[1]["assessment"]["severity"] == "High"
+    assert events[1]["assessment"]["incident_summary"] == (
+        "Based on analysis"
+    )
 
 
 @patch(

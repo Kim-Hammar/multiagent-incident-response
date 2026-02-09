@@ -148,4 +148,134 @@ TOOL_DECLARATIONS = [
             "required": ["indicator_type", "value"],
         },
     ),
+    FunctionDeclaration(
+        name="produce_assessment",
+        description=(
+            "Produce the final structured incident assessment. "
+            "Call this ONLY after gathering enough information "
+            "from multiple investigation tools."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "incident_summary": {
+                    "type": "string",
+                    "description": (
+                        "Brief overview of the incident."
+                    ),
+                },
+                "attack_vector_analysis": {
+                    "type": "string",
+                    "description": (
+                        "How the attacker gained access and "
+                        "what techniques were used."
+                    ),
+                },
+                "indicators_of_compromise": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "description": (
+                                    "IOC type: ip, domain, "
+                                    "hash, cve, or other."
+                                ),
+                            },
+                            "value": {
+                                "type": "string",
+                                "description": (
+                                    "The IOC value."
+                                ),
+                            },
+                            "context": {
+                                "type": "string",
+                                "description": (
+                                    "Context about this IOC."
+                                ),
+                            },
+                        },
+                        "required": [
+                            "type", "value", "context",
+                        ],
+                    },
+                },
+                "severity": {
+                    "type": "string",
+                    "description": (
+                        "Severity: Critical, High, "
+                        "Medium, or Low."
+                    ),
+                },
+                "severity_justification": {
+                    "type": "string",
+                    "description": (
+                        "Why this severity was chosen."
+                    ),
+                },
+                "affected_assets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "asset": {
+                                "type": "string",
+                                "description": (
+                                    "The asset name."
+                                ),
+                            },
+                            "impact": {
+                                "type": "string",
+                                "description": (
+                                    "Impact on this asset."
+                                ),
+                            },
+                        },
+                        "required": ["asset", "impact"],
+                    },
+                },
+                "recommended_actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "priority": {
+                                "type": "integer",
+                                "description": (
+                                    "Priority (1 = highest)."
+                                ),
+                            },
+                            "action": {
+                                "type": "string",
+                                "description": (
+                                    "The recommended action."
+                                ),
+                            },
+                            "type": {
+                                "type": "string",
+                                "description": (
+                                    "Type: immediate, "
+                                    "short_term, or "
+                                    "long_term."
+                                ),
+                            },
+                        },
+                        "required": [
+                            "priority", "action", "type",
+                        ],
+                    },
+                },
+            },
+            "required": [
+                "incident_summary",
+                "attack_vector_analysis",
+                "indicators_of_compromise",
+                "severity",
+                "severity_justification",
+                "affected_assets",
+                "recommended_actions",
+            ],
+        },
+    ),
 ]
