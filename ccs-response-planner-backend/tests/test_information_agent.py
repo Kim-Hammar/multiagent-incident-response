@@ -1,4 +1,5 @@
 """Tests for the InformationAgent and its standalone tool functions."""
+import base64
 import json
 from unittest.mock import MagicMock, patch
 
@@ -193,6 +194,92 @@ def test_otx_search(mock_otx_cls: MagicMock) -> None:
     assert result["result"]["pulse_count"] == 2
 
 
+def _make_part(
+    text: str = "",
+    fc_name: str = "",
+    fc_args: dict | None = None,
+    thought: bool = False,
+    thought_signature: bytes | None = None,
+) -> MagicMock:
+    """
+    Create a mock Gemini Part for the new google-genai SDK.
+
+    :param text: text content of the part
+    :param fc_name: function call name (empty = no call)
+    :param fc_args: function call arguments
+    :param thought: whether this is a thinking part
+    :param thought_signature: optional thought signature bytes
+    :return: a MagicMock mimicking a genai Part
+    """
+    part = MagicMock()
+    part.text = text
+    part.thought = thought
+    part.thought_signature = thought_signature
+
+    if fc_name:
+        part.function_call = MagicMock()
+        part.function_call.name = fc_name
+        part.function_call.args = fc_args or {}
+    else:
+        part.function_call = MagicMock()
+        part.function_call.name = ""
+        part.function_call.args = None
+    return part
+
+
+def _mock_client_generate(
+    mock_genai: MagicMock,
+    parts: list[MagicMock],
+) -> MagicMock:
+    """
+    Set up mock_genai.Client so generate_content returns parts.
+
+    :param mock_genai: the patched genai module
+    :param parts: list of mock Part objects
+    :return: the mock client instance
+    """
+    candidate = MagicMock()
+    candidate.content.parts = parts
+
+    mock_response = MagicMock()
+    mock_response.candidates = [candidate]
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+    mock_genai.Client.return_value = mock_client
+    return mock_client
+
+
+def _mock_client_stream(
+    mock_genai: MagicMock,
+    chunks: list[list[MagicMock]],
+) -> MagicMock:
+    """
+    Set up mock_genai.Client so generate_content_stream yields chunks.
+
+    Each element in chunks is a list of parts for one chunk.
+
+    :param mock_genai: the patched genai module
+    :param chunks: list of part-lists, one per chunk
+    :return: the mock client instance
+    """
+    stream_chunks = []
+    for chunk_parts in chunks:
+        candidate = MagicMock()
+        candidate.content = MagicMock()
+        candidate.content.parts = chunk_parts
+        chunk = MagicMock()
+        chunk.candidates = [candidate]
+        stream_chunks.append(chunk)
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content_stream.return_value = iter(
+        stream_chunks,
+    )
+    mock_genai.Client.return_value = mock_client
+    return mock_client
+
+
 @patch(
     "ccs_response_planner_backend.agents.information_agent"
     ".agent.genai",
@@ -208,39 +295,18 @@ def test_agent_step_returns_tool_proposal(
         InformationAgent,
     )
 
-    mock_fc = MagicMock()
-    mock_fc.name = "tavily_search"
-    mock_fc.args = {"query": "test"}
+    text_part = _make_part(text="I will search for test")
+    fc_part = _make_part(
+        fc_name="tavily_search", fc_args={"query": "test"},
+    )
 
-    text_part = MagicMock()
-    text_part.text = "I will search for test"
-    text_part.function_call = MagicMock()
-    text_part.function_call.name = ""
-    text_part._pb = None
-    text_part.thought = False
-
-    fc_part = MagicMock()
-    fc_part.text = ""
-    fc_part.function_call = mock_fc
-    fc_part._pb = None
-    fc_part.thought = False
-
-    candidate = MagicMock()
-    candidate.content.parts = [text_part, fc_part]
-
-    mock_response = MagicMock()
-    mock_response.candidates = [candidate]
-
-    mock_model = MagicMock()
-    mock_model.generate_content.return_value = mock_response
-    mock_genai.GenerativeModel.return_value = mock_model
+    _mock_client_generate(mock_genai, [text_part, fc_part])
 
     agent = InformationAgent()
     result = agent.step(
         system_description="test system",
         security_alerts="test alerts",
         operator_feedback="",
-        recovery_context="",
         conversation_history=[],
     )
     assert result["type"] == "tool_proposal"
@@ -277,37 +343,18 @@ def test_agent_step_returns_assessment(
         "affected_assets": [
             {"asset": "server1", "impact": "full access"},
         ],
-        "recommended_actions": [
-            {"priority": 1, "action": "Block IP",
-             "type": "immediate"},
-        ],
     }
-    mock_fc = MagicMock()
-    mock_fc.name = "produce_assessment"
-    mock_fc.args = assessment_args
+    fc_part = _make_part(
+        fc_name="produce_assessment", fc_args=assessment_args,
+    )
 
-    fc_part = MagicMock()
-    fc_part.text = ""
-    fc_part.function_call = mock_fc
-    fc_part._pb = None
-    fc_part.thought = False
-
-    candidate = MagicMock()
-    candidate.content.parts = [fc_part]
-
-    mock_response = MagicMock()
-    mock_response.candidates = [candidate]
-
-    mock_model = MagicMock()
-    mock_model.generate_content.return_value = mock_response
-    mock_genai.GenerativeModel.return_value = mock_model
+    _mock_client_generate(mock_genai, [fc_part])
 
     agent = InformationAgent()
     result = agent.step(
         system_description="test system",
         security_alerts="test alerts",
         operator_feedback="",
-        recovery_context="",
         conversation_history=[],
     )
     assert result["type"] == "assessment"
@@ -363,55 +410,20 @@ def test_agent_step_stream_yields_text_then_tool_proposal(
         InformationAgent,
     )
 
-    # Chunk 1: text part
-    text_part = MagicMock()
-    text_part.text = "I will search"
-    text_part.function_call = MagicMock()
-    text_part.function_call.name = ""
-    text_part._pb = None
-    text_part.thought = False
-
-    chunk_1_candidate = MagicMock()
-    chunk_1_candidate.content.parts = [text_part]
-    chunk_1 = MagicMock()
-    chunk_1.candidates = [chunk_1_candidate]
-
-    # Chunk 2: function call part
-    mock_fc = MagicMock()
-    mock_fc.name = "tavily_search"
-    mock_fc.args = {"query": "test"}
-
-    fc_part = MagicMock()
-    fc_part.text = ""
-    fc_part.function_call = mock_fc
-    fc_part._pb = None
-    fc_part.thought = False
-
-    chunk_2_candidate = MagicMock()
-    chunk_2_candidate.content.parts = [fc_part]
-    chunk_2 = MagicMock()
-    chunk_2.candidates = [chunk_2_candidate]
-
-    # Aggregated response after streaming
-    agg_candidate = MagicMock()
-    agg_candidate.content.parts = [text_part, fc_part]
-
-    mock_response = MagicMock()
-    mock_response.__iter__ = MagicMock(
-        return_value=iter([chunk_1, chunk_2]),
+    text_part = _make_part(text="I will search")
+    fc_part = _make_part(
+        fc_name="tavily_search", fc_args={"query": "test"},
     )
-    mock_response.candidates = [agg_candidate]
 
-    mock_model = MagicMock()
-    mock_model.generate_content.return_value = mock_response
-    mock_genai.GenerativeModel.return_value = mock_model
+    _mock_client_stream(
+        mock_genai, [[text_part], [fc_part]],
+    )
 
     agent = InformationAgent()
     events = list(agent.step_stream(
         system_description="test system",
         security_alerts="test alerts",
         operator_feedback="",
-        recovery_context="",
         conversation_history=[],
     ))
     assert len(events) == 2
@@ -448,58 +460,22 @@ def test_agent_step_stream_yields_text_then_assessment(
         "severity": "Medium",
         "severity_justification": "Limited scope",
         "affected_assets": [],
-        "recommended_actions": [],
     }
 
-    # Chunk 1: text rationale
-    text_part = MagicMock()
-    text_part.text = "Here is the assessment"
-    text_part.function_call = MagicMock()
-    text_part.function_call.name = ""
-    text_part._pb = None
-    text_part.thought = False
-
-    chunk_1_candidate = MagicMock()
-    chunk_1_candidate.content.parts = [text_part]
-    chunk_1 = MagicMock()
-    chunk_1.candidates = [chunk_1_candidate]
-
-    # Chunk 2: produce_assessment function call
-    mock_fc = MagicMock()
-    mock_fc.name = "produce_assessment"
-    mock_fc.args = assessment_args
-
-    fc_part = MagicMock()
-    fc_part.text = ""
-    fc_part.function_call = mock_fc
-    fc_part._pb = None
-    fc_part.thought = False
-
-    chunk_2_candidate = MagicMock()
-    chunk_2_candidate.content.parts = [fc_part]
-    chunk_2 = MagicMock()
-    chunk_2.candidates = [chunk_2_candidate]
-
-    # Aggregated response
-    agg_candidate = MagicMock()
-    agg_candidate.content.parts = [text_part, fc_part]
-
-    mock_response = MagicMock()
-    mock_response.__iter__ = MagicMock(
-        return_value=iter([chunk_1, chunk_2]),
+    text_part = _make_part(text="Here is the assessment")
+    fc_part = _make_part(
+        fc_name="produce_assessment", fc_args=assessment_args,
     )
-    mock_response.candidates = [agg_candidate]
 
-    mock_model = MagicMock()
-    mock_model.generate_content.return_value = mock_response
-    mock_genai.GenerativeModel.return_value = mock_model
+    _mock_client_stream(
+        mock_genai, [[text_part], [fc_part]],
+    )
 
     agent = InformationAgent()
     events = list(agent.step_stream(
         system_description="test system",
         security_alerts="test alerts",
         operator_feedback="",
-        recovery_context="",
         conversation_history=[],
     ))
     assert len(events) == 2
@@ -528,26 +504,11 @@ def test_agent_step_stream_prepends_initial_message(
         InformationAgent,
     )
 
-    text_part = MagicMock()
-    text_part.text = "Assessment"
-    text_part.function_call = MagicMock()
-    text_part.function_call.name = ""
-    text_part._pb = None
-    text_part.thought = False
+    text_part = _make_part(text="Assessment")
 
-    chunk_candidate = MagicMock()
-    chunk_candidate.content.parts = [text_part]
-    chunk = MagicMock()
-    chunk.candidates = [chunk_candidate]
-
-    mock_response = MagicMock()
-    mock_response.__iter__ = MagicMock(
-        return_value=iter([chunk]),
+    mock_client = _mock_client_stream(
+        mock_genai, [[text_part]],
     )
-
-    mock_model = MagicMock()
-    mock_model.generate_content.return_value = mock_response
-    mock_genai.GenerativeModel.return_value = mock_model
 
     agent = InformationAgent()
     history = [
@@ -572,12 +533,13 @@ def test_agent_step_stream_prepends_initial_message(
         system_description="test",
         security_alerts="alerts",
         operator_feedback="",
-        recovery_context="",
         conversation_history=history,
     ))
 
-    call_args = mock_model.generate_content.call_args
-    contents = call_args[0][0]
+    call_args = (
+        mock_client.models.generate_content_stream.call_args
+    )
+    contents = call_args[1]["contents"]
     assert contents[0] == INITIAL_USER_MESSAGE
     assert contents[0]["role"] == "user"
     assert len(contents) == 3
@@ -621,7 +583,6 @@ def test_agent_parse_assessment_fallback() -> None:
     assert a["attack_vector_analysis"] == ""
     assert a["indicators_of_compromise"] == []
     assert a["affected_assets"] == []
-    assert a["recommended_actions"] == []
 
 
 def test_agent_parse_assessment_strips_code_fences() -> None:
@@ -640,7 +601,6 @@ def test_agent_parse_assessment_strips_code_fences() -> None:
         "severity": "Low",
         "severity_justification": "",
         "affected_assets": [],
-        "recommended_actions": [],
     }
     fenced = "```json\n" + json.dumps(inner) + "\n```"
     agent = InformationAgent()
@@ -650,73 +610,157 @@ def test_agent_parse_assessment_strips_code_fences() -> None:
     assert result["assessment"]["incident_summary"] == "Fenced"
 
 
-def test_serialize_part_with_pb_stores_proto_binary() -> None:
+@patch(
+    "ccs_response_planner_backend.agents.information_agent"
+    ".agent.genai",
+)
+def test_agent_step_stream_yields_thinking_events(
+    mock_genai: MagicMock,
+) -> None:
     """
-    _serialize_part should store proto binary via _pb when
-    available, and read thought from the raw proto.
+    InformationAgent.step_stream should yield thinking events
+    for thought parts, separate from regular text events.
     """
-    import base64
-
     from ccs_response_planner_backend.agents.information_agent.agent import (
         InformationAgent,
     )
 
-    proto_bytes = b"\x01\x02\x03\x04"
-    mock_pb = MagicMock()
-    mock_pb.thought = True
-    mock_pb.SerializeToString.return_value = proto_bytes
+    thought_part = _make_part(
+        text="Let me analyze the alerts", thought=True,
+    )
+    text_part = _make_part(text="I will search")
+    fc_part = _make_part(
+        fc_name="tavily_search", fc_args={"query": "test"},
+    )
 
-    part = MagicMock()
-    part.text = "thinking"
-    part.function_call = MagicMock()
-    part.function_call.name = ""
-    part._pb = mock_pb
+    _mock_client_stream(
+        mock_genai,
+        [[thought_part], [text_part], [fc_part]],
+    )
+
+    agent = InformationAgent()
+    events = list(agent.step_stream(
+        system_description="test",
+        security_alerts="alerts",
+        operator_feedback="",
+        conversation_history=[],
+    ))
+    assert len(events) == 3
+    assert events[0] == {
+        "type": "thinking",
+        "delta": "Let me analyze the alerts",
+    }
+    assert events[1] == {
+        "type": "text", "delta": "I will search",
+    }
+    assert events[2]["type"] == "tool_proposal"
+    assert events[2]["rationale"] == "I will search"
+    assert events[2]["thinking_trace"] == (
+        "Let me analyze the alerts"
+    )
+
+
+def test_serialize_part_with_thought_signature() -> None:
+    """
+    _serialize_part should store thought_signature as base64
+    when present on the part.
+    """
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        InformationAgent,
+    )
+
+    sig_bytes = b"\x01\x02\x03\x04"
+    part = _make_part(
+        text="thinking", thought=True,
+        thought_signature=sig_bytes,
+    )
 
     serialized = InformationAgent._serialize_part(part)
     assert serialized["text"] == "thinking"
     assert serialized["thought"] is True
-    assert serialized["_pb"] == base64.b64encode(
-        proto_bytes,
+    assert serialized["thought_signature"] == base64.b64encode(
+        sig_bytes,
     ).decode("ascii")
 
 
-def test_serialize_part_without_pb_fallback() -> None:
+def test_serialize_part_without_thought_signature() -> None:
     """
-    _serialize_part should fall back to getattr for thought
-    when _pb is not available.
+    _serialize_part should handle parts with thought=True
+    but no thought_signature.
     """
     from ccs_response_planner_backend.agents.information_agent.agent import (
         InformationAgent,
     )
 
-    part = MagicMock()
-    part.text = "hello"
-    part.function_call = MagicMock()
-    part.function_call.name = ""
-    part._pb = None
-    part.thought = True
+    part = _make_part(text="hello", thought=True)
 
     serialized = InformationAgent._serialize_part(part)
     assert serialized["text"] == "hello"
     assert serialized["thought"] is True
-    assert "_pb" not in serialized
+    assert "thought_signature" not in serialized
 
 
-def test_decode_raw_parts_dict_fallback() -> None:
+def test_decode_raw_parts_with_thought_signature() -> None:
     """
-    _decode_raw_parts should return plain dicts when no _pb
-    field is present, stripping any stale _pb keys.
+    _decode_raw_parts should decode base64 thought_signature back
+    to bytes and preserve thought flag.
     """
     from ccs_response_planner_backend.agents.information_agent.agent import (
         InformationAgent,
     )
 
+    sig_bytes = b"\x01\x02\x03\x04"
     raw = [
-        {"text": "hello", "thought": True},
+        {
+            "text": "hello",
+            "thought": True,
+            "thought_signature": base64.b64encode(
+                sig_bytes,
+            ).decode("ascii"),
+        },
         {"function_call": {"name": "test", "args": {}}},
     ]
     decoded = InformationAgent._decode_raw_parts(raw)
-    assert decoded[0] == {"text": "hello", "thought": True}
+    assert decoded[0]["text"] == "hello"
+    assert decoded[0]["thought"] is True
+    assert decoded[0]["thought_signature"] == sig_bytes
     assert decoded[1] == {
         "function_call": {"name": "test", "args": {}},
     }
+
+
+@patch(
+    "ccs_response_planner_backend.agents.information_agent"
+    ".agent.genai",
+)
+def test_agent_step_includes_thinking_trace(
+    mock_genai: MagicMock,
+) -> None:
+    """
+    InformationAgent.step should include thinking_trace in the
+    returned event when thought parts are present.
+    """
+    from ccs_response_planner_backend.agents.information_agent.agent import (
+        InformationAgent,
+    )
+
+    thought_part = _make_part(
+        text="Analyzing...", thought=True,
+    )
+    fc_part = _make_part(
+        fc_name="tavily_search", fc_args={"query": "test"},
+    )
+
+    _mock_client_generate(
+        mock_genai, [thought_part, fc_part],
+    )
+
+    agent = InformationAgent()
+    result = agent.step(
+        system_description="test",
+        security_alerts="alerts",
+        operator_feedback="",
+        conversation_history=[],
+    )
+    assert result["type"] == "tool_proposal"
+    assert result["thinking_trace"] == "Analyzing..."

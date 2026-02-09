@@ -18,9 +18,6 @@ tools, then produce a structured incident assessment.
 ### Operator Feedback
 {operator_feedback}
 
-### Recovery Context
-{recovery_context}
-
 ## Instructions
 
 1. Carefully analyze the incident context provided above.
@@ -55,7 +52,5 @@ the final assessment.
 When calling `produce_assessment`:
 - severity MUST be one of: Critical, High, Medium, Low.
 - indicators_of_compromise type MUST be one of: ip, domain, hash, cve, other.
-- recommended_actions type MUST be one of: immediate, short_term, long_term.
-- recommended_actions MUST be sorted by priority (1 = highest).
 - All string fields must be non-empty.
 """

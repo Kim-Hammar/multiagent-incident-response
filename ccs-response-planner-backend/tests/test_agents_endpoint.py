@@ -113,7 +113,6 @@ def test_step_streams_assessment(
         "severity": "High",
         "severity_justification": "Database compromised",
         "affected_assets": [],
-        "recommended_actions": [],
     }
     mock_agent = MagicMock()
     mock_agent.step_stream.return_value = iter([
@@ -321,7 +320,6 @@ def test_prompt_returns_rendered_prompt(
             "system_description": "My system",
             "security_alerts": "My alerts",
             "operator_feedback": "My feedback",
-            "recovery_context": "My recovery",
         }),
         content_type="application/json",
         headers=auth_headers,
@@ -332,7 +330,6 @@ def test_prompt_returns_rendered_prompt(
     assert "My system" in data["prompt"]
     assert "My alerts" in data["prompt"]
     assert "My feedback" in data["prompt"]
-    assert "My recovery" in data["prompt"]
 
 
 def test_prompt_uses_na_for_empty_fields(
@@ -353,6 +350,5 @@ def test_prompt_uses_na_for_empty_fields(
         system_description="N/A",
         security_alerts="N/A",
         operator_feedback="N/A",
-        recovery_context="N/A",
     )
     assert data["prompt"] == expected

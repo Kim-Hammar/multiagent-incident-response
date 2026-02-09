@@ -36,8 +36,10 @@ def agents_information_step() -> Response | tuple[Response, int]:
     system_description = body.get("system_description", "")
     security_alerts = body.get("security_alerts", "")
     operator_feedback = body.get("operator_feedback", "")
-    recovery_context = body.get("recovery_context", "")
     conversation_history = body.get("conversation_history", [])
+    images = body.get("images", [])
+    if not isinstance(images, list):
+        images = []
     if not system_description and not security_alerts:
         return jsonify({
             "error": (
@@ -58,8 +60,8 @@ def agents_information_step() -> Response | tuple[Response, int]:
                 system_description=system_description,
                 security_alerts=security_alerts,
                 operator_feedback=operator_feedback,
-                recovery_context=recovery_context,
                 conversation_history=conversation_history,
+                images=images,
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -88,9 +90,6 @@ def agents_information_prompt() -> tuple[Response, int]:
         ) or "N/A",
         operator_feedback=body.get(
             "operator_feedback", "",
-        ) or "N/A",
-        recovery_context=body.get(
-            "recovery_context", "",
         ) or "N/A",
     )
     return jsonify({"prompt": prompt}), 200

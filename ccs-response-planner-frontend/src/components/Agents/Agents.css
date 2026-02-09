@@ -125,7 +125,7 @@
 }
 
 .ia-entry .card-body {
-  padding: 8px 12px;
+  padding: 10px 14px;
 }
 
 .ia-entry-header {
@@ -140,41 +140,253 @@
   color: #212529;
 }
 
-.ia-rationale {
+/* Streaming / Thinking entry */
+.ia-streaming-entry {
+  border: 1px solid #dee2e6;
+  background: #fafbfc;
+}
+
+.ia-thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ia-thinking-header .spinner-border-sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
   color: #6c757d;
-  font-size: 12px;
-  margin: 4px 0 6px;
-  line-height: 1.4;
 }
 
-.ia-args {
-  font-size: 12px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 3px;
-  padding: 6px 10px;
-  margin-bottom: 8px;
-  overflow-x: auto;
+.ia-thinking-title {
+  font-size: 13px;
+  color: #495057;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ia-approval-badge {
+.ia-elapsed {
   font-size: 11px;
-  padding: 3px 8px;
+  color: #6c757d;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
-.ia-result-toggle {
+.ia-thinking-toggle {
+  margin-left: auto;
+  font-size: 11px;
+  color: #6c757d;
   cursor: pointer;
   user-select: none;
 }
 
-.ia-result-toggle:hover .ia-toggle-hint {
+.ia-thinking-toggle:hover {
   text-decoration: underline;
+  color: #495057;
+}
+
+.ia-thinking-trace {
+  font-size: 12px;
+  color: #495057;
+  background: #f1f3f5;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  max-height: 400px;
+  overflow: auto;
+  line-height: 1.5;
+}
+
+.ia-thinking-trace p {
+  margin-bottom: 6px;
+}
+
+.ia-thinking-trace p:last-child {
+  margin-bottom: 0;
+}
+
+.ia-thinking-trace strong {
+  color: #212529;
+}
+
+.ia-thinking-trace ul,
+.ia-thinking-trace ol {
+  padding-left: 18px;
+  margin-bottom: 6px;
+}
+
+.ia-thinking-trace li {
+  margin-bottom: 2px;
+}
+
+.ia-thinking-trace code {
+  background: #e9ecef;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* Reasoning entry */
+.ia-reasoning-entry {
+  border: 1px solid #dee2e6;
+  background: #fafbfc;
+}
+
+.ia-reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ia-reasoning-header .fa {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.ia-reasoning-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #495057;
+}
+
+/* Approval entry */
+.ia-approval-entry {
+  border: 1px solid #e9ecef;
+}
+
+.ia-approval-entry .card-body {
+  padding: 6px 14px;
+}
+
+/* Tool proposal entry */
+.ia-proposal-entry {
+  border: 1px solid #343a40;
+}
+
+.ia-proposal-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ia-proposal-header .fa {
+  font-size: 13px;
+  color: #495057;
+}
+
+.ia-proposal-label {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.ia-proposal-tool-inline {
+  font-weight: 600;
+  color: #212529;
+  font-size: 13px;
+}
+
+.ia-proposal-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e9ecef;
+}
+
+.ia-proposal-tool {
+  font-size: 15px;
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 6px;
+}
+
+.ia-proposal-arg-row {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.ia-proposal-arg-label {
+  font-weight: 600;
+  color: #495057;
+  margin-right: 4px;
+}
+
+.ia-proposal-arg-value {
+  color: #212529;
+  word-break: break-all;
+}
+
+.ia-proposal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ia-proposal-actions .btn {
+  font-size: 12px;
+  padding: 4px 16px;
+}
+
+/* Tool approval row */
+.ia-approval-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.ia-approval-row .badge {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.ia-approval-tool {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+/* Tool result entry */
+.ia-result-entry {
+  border: 1px solid #e9ecef;
+  background: #fafbfc;
+}
+
+.ia-result-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ia-result-header .fa {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.ia-result-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #495057;
 }
 
 .ia-toggle-hint {
   font-size: 11px;
   color: #6c757d;
   margin-left: auto;
+}
+
+.ia-result-header:hover .ia-toggle-hint {
+  text-decoration: underline;
 }
 
 .ia-result-data {
@@ -188,6 +400,7 @@
   overflow: auto;
 }
 
+/* Assessment body text */
 .ia-assessment-body {
   font-size: 13px;
   color: #495057;
@@ -246,60 +459,6 @@
   font-weight: 600;
 }
 
-.ia-actions-list {
-  padding-left: 0;
-  list-style: none;
-  margin: 4px 0 0;
-}
-
-.ia-action-item {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 6px;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.ia-priority-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  flex-shrink: 0;
-}
-
-.ia-action-type-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  flex-shrink: 0;
-}
-
-/* Spinner */
-.ia-spinner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 0;
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.ia-spinner .spinner-border {
-  width: 14px;
-  height: 14px;
-  border-width: 2px;
-  margin-right: 8px;
-}
-
-/* Approve/Deny buttons — extra small */
-.ia-action-btn {
-  padding: 3px 12px;
-  font-size: 12px;
-}
-
-.ia-action-btn + .ia-action-btn {
-  margin-left: 6px;
-}
-
 /* Prompt modal */
 .ia-modal-backdrop {
   position: fixed;
@@ -356,41 +515,78 @@
   max-height: none;
 }
 
-/* Streaming entry */
-.ia-streaming-entry {
-  border: 1px solid #17a2b8;
+/* Image thumbnails */
+.ia-image-thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.ia-typing-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-top: 4px;
+.ia-thumbnail-wrapper {
+  position: relative;
+  display: inline-block;
 }
 
-.ia-typing-dot {
-  width: 5px;
-  height: 5px;
+.ia-thumbnail-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ia-thumbnail-img:hover {
+  border-color: #495057;
+}
+
+.ia-thumbnail-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #6c757d;
-  animation: ia-bounce 1.2s infinite;
+  background: #dc3545;
+  color: #fff;
+  border: none;
+  font-size: 10px;
+  line-height: 20px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.ia-typing-dot:nth-child(2) {
-  animation-delay: 0.2s;
+/* Lightbox (shared with ResponsePlanner) */
+.Agents .lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
 }
 
-.ia-typing-dot:nth-child(3) {
-  animation-delay: 0.4s;
+.Agents .lightbox-img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 4px;
 }
 
-@keyframes ia-bounce {
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-4px);
-  }
+.Agents .lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  cursor: pointer;
 }

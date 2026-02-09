@@ -532,8 +532,8 @@ class EXAMPLES:
         "Note that the Snort IDS alerts only cover the SSH brute "
         "force on server 3 and the SQL injection on server 1. "
         "However, the SQL injection alert shows the attack on "
-        "server 1 originates from server 3, which indicates that "
-        "server 3 is compromised as well."
+        "server 1 originates from server 6, which indicates that "
+        "server 6 is compromised as well."
     )
     SPECIFICATION = (
         "- Server 2 FTP service must remain accessible from "

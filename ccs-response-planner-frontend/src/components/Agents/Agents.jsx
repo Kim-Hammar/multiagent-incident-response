@@ -11,7 +11,7 @@ function Agents() {
   return (
     <div className="Agents">
       <h2>Agents</h2>
-      <p className="subtitle">AI-powered agents for incident response analysis.</p>
+      <p className="subtitle">Agents that work collectively for incident response planning.</p>
       <hr />
 
       <ul className="nav nav-tabs agents-tabs">

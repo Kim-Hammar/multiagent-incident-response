@@ -1,16 +1,16 @@
 """
 Gemini function-calling declarations for the InformationAgent tools.
 """
-from google.generativeai.types import FunctionDeclaration
+from google.genai import types as genai_types  # type: ignore[attr-defined]
 
 TOOL_DECLARATIONS = [
-    FunctionDeclaration(
+    genai_types.FunctionDeclaration(
         name="tavily_search",
         description=(
             "Search the web for current information about cyber "
             "threats, vulnerabilities, or security topics."
         ),
-        parameters={
+        parameters={  # type: ignore[arg-type]
             "type": "object",
             "properties": {
                 "query": {
@@ -28,13 +28,13 @@ TOOL_DECLARATIONS = [
             "required": ["query"],
         },
     ),
-    FunctionDeclaration(
+    genai_types.FunctionDeclaration(
         name="nvd_search",
         description=(
             "Search the NIST National Vulnerability Database for "
             "CVE entries by CVE ID or keyword."
         ),
-        parameters={
+        parameters={  # type: ignore[arg-type]
             "type": "object",
             "properties": {
                 "cve_id": {
@@ -54,13 +54,13 @@ TOOL_DECLARATIONS = [
             },
         },
     ),
-    FunctionDeclaration(
+    genai_types.FunctionDeclaration(
         name="mitre_search",
         description=(
             "Search the MITRE ATT&CK framework for techniques "
             "by technique ID or keyword."
         ),
-        parameters={
+        parameters={  # type: ignore[arg-type]
             "type": "object",
             "properties": {
                 "technique_id": {
@@ -79,13 +79,13 @@ TOOL_DECLARATIONS = [
             },
         },
     ),
-    FunctionDeclaration(
+    genai_types.FunctionDeclaration(
         name="virustotal_scan",
         description=(
             "Look up an indicator on VirusTotal (IP address, "
             "domain, URL, or file hash)."
         ),
-        parameters={
+        parameters={  # type: ignore[arg-type]
             "type": "object",
             "properties": {
                 "scan_type": {
@@ -105,13 +105,13 @@ TOOL_DECLARATIONS = [
             "required": ["scan_type", "value"],
         },
     ),
-    FunctionDeclaration(
+    genai_types.FunctionDeclaration(
         name="abuseipdb_check",
         description=(
             "Check an IP address against the AbuseIPDB database "
             "for abuse reports and reputation."
         ),
-        parameters={
+        parameters={  # type: ignore[arg-type]
             "type": "object",
             "properties": {
                 "ip": {
@@ -122,13 +122,13 @@ TOOL_DECLARATIONS = [
             "required": ["ip"],
         },
     ),
-    FunctionDeclaration(
+    genai_types.FunctionDeclaration(
         name="otx_search",
         description=(
             "Search AlienVault OTX for threat intelligence on "
             "an indicator (IP, domain, hash, CVE, etc.)."
         ),
-        parameters={
+        parameters={  # type: ignore[arg-type]
             "type": "object",
             "properties": {
                 "indicator_type": {
@@ -148,14 +148,14 @@ TOOL_DECLARATIONS = [
             "required": ["indicator_type", "value"],
         },
     ),
-    FunctionDeclaration(
+    genai_types.FunctionDeclaration(
         name="produce_assessment",
         description=(
             "Produce the final structured incident assessment. "
             "Call this ONLY after gathering enough information "
             "from multiple investigation tools."
         ),
-        parameters={
+        parameters={  # type: ignore[arg-type]
             "type": "object",
             "properties": {
                 "incident_summary": {
@@ -235,37 +235,6 @@ TOOL_DECLARATIONS = [
                         "required": ["asset", "impact"],
                     },
                 },
-                "recommended_actions": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "priority": {
-                                "type": "integer",
-                                "description": (
-                                    "Priority (1 = highest)."
-                                ),
-                            },
-                            "action": {
-                                "type": "string",
-                                "description": (
-                                    "The recommended action."
-                                ),
-                            },
-                            "type": {
-                                "type": "string",
-                                "description": (
-                                    "Type: immediate, "
-                                    "short_term, or "
-                                    "long_term."
-                                ),
-                            },
-                        },
-                        "required": [
-                            "priority", "action", "type",
-                        ],
-                    },
-                },
             },
             "required": [
                 "incident_summary",
@@ -274,7 +243,6 @@ TOOL_DECLARATIONS = [
                 "severity",
                 "severity_justification",
                 "affected_assets",
-                "recommended_actions",
             ],
         },
     ),
