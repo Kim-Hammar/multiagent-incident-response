@@ -231,6 +231,32 @@
   font-size: 11px;
 }
 
+/* Live streaming trace */
+.ia-streaming-trace {
+  font-size: 12px;
+  color: #495057;
+  background: #f1f3f5;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.ia-streaming-trace p {
+  margin-bottom: 4px;
+}
+
+.ia-streaming-trace p:last-child {
+  margin-bottom: 0;
+}
+
+.ia-streaming-trace strong {
+  color: #212529;
+}
+
 /* Reasoning entry */
 .ia-reasoning-entry {
   border: 1px solid #dee2e6;

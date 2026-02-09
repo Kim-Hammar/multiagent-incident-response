@@ -526,7 +526,7 @@ class EXAMPLES:
         "02/06-10:42:15.889102 [**] [1:2014473:3] ET EXPLOIT "
         "Possible SQL Injection Attempt (UNION SELECT) [**] "
         "[Classification: Attempted Administrator Privilege Gain] "
-        "[Priority: 1] {TCP} 10.0.3.3:55210 -> 10.0.2.1:80"
+        "[Priority: 1] {TCP} 10.0.4.6:55210 -> 10.0.2.1:80"
     )
     OPERATOR_FEEDBACK = (
         "Note that the Snort IDS alerts only cover the SSH brute "

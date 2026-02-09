@@ -139,6 +139,7 @@ function InformationAgent() {
   const [promptText, setPromptText] = useState('')
   const [loadingPrompt, setLoadingPrompt] = useState(false)
   const logEndRef = useRef(null)
+  const streamingTraceRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -165,6 +166,9 @@ function InformationAgent() {
   useEffect(() => {
     if (logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+    if (streamingTraceRef.current) {
+      streamingTraceRef.current.scrollTop = streamingTraceRef.current.scrollHeight
     }
   }, [conversationHistory])
 
@@ -598,6 +602,11 @@ function InformationAgent() {
                         <span className="ia-thinking-title">Agent is thinking...</span>
                         <ElapsedTimer />
                       </div>
+                      {entry.text && (
+                        <div className="ia-streaming-trace" ref={streamingTraceRef}>
+                          <ReactMarkdown>{entry.text}</ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )

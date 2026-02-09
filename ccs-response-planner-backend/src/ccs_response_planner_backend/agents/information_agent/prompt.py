@@ -22,8 +22,8 @@ tools, then produce a structured incident assessment.
 
 1. Carefully analyze the incident context provided above.
 2. Use the available tools **methodically and thoroughly** to gather \
-additional information. You MUST call **multiple different tools** before \
-producing your assessment — typically at least 2-3 tools. Available tools:
+additional information if needed. Only call tools that will be useful and improve 
+you assessment. Available tools:
    - Search for relevant CVEs and vulnerabilities (NVD)
    - Look up attacker techniques in the MITRE ATT&CK framework
    - Check suspicious IPs against abuse databases (AbuseIPDB)
