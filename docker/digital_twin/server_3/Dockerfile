@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create vulnerable user with weak password and sudo access
 RUN useradd -m -s /bin/bash admin && \
-    echo "admin:password123" | chpasswd && \
+    echo "admin:admin" | chpasswd && \
     usermod -aG sudo admin && \
     echo "admin ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 

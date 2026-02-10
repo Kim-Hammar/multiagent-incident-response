@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import InformationAgent from './InformationAgent.jsx'
+import PenetrationTestAgent from './PenetrationTestAgent.jsx'
 import './Agents.css'
 
 /**
@@ -24,9 +25,21 @@ function Agents() {
             Information Agent
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'pentest' ? ' active' : ''}`}
+            onClick={() => setActiveTab('pentest')}
+          >
+            Penetration Test Agent
+          </button>
+        </li>
       </ul>
 
-      <div className="tab-content">{activeTab === 'information' && <InformationAgent />}</div>
+      <div className="tab-content">
+        {activeTab === 'information' && <InformationAgent />}
+        {activeTab === 'pentest' && <PenetrationTestAgent />}
+      </div>
     </div>
   )
 }

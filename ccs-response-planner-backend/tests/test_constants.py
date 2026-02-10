@@ -188,7 +188,7 @@ def test_digital_twin_default_config_hosts() -> None:
     All hosts in the default config should use ccs-dt- image names.
     """
     hosts = DIGITAL_TWIN.DEFAULT_CONFIG["hosts"]
-    assert len(hosts) == 9
+    assert len(hosts) == 10
     for host in hosts:
         assert "ccs-dt-" in host["docker_image"], (
             f"Host {host['id']} uses image {host['docker_image']} "
@@ -213,12 +213,12 @@ def test_digital_twin_status_route() -> None:
 
 def test_digital_twin_default_config_has_specification_commands() -> None:
     """
-    The default DT config must include 21 specification commands
-    (4 service + 13 positive reachability + 4 negative reachability).
+    The default DT config must include 27 specification commands
+    (4 service + 16 positive reachability + 7 negative reachability).
     """
     cmds = DIGITAL_TWIN.DEFAULT_CONFIG["specification_commands"]
     assert isinstance(cmds, list)
-    assert len(cmds) == 21
+    assert len(cmds) == 27
     for cmd in cmds:
         assert "command" in cmd
         assert "description" in cmd
@@ -299,5 +299,5 @@ def test_specification_commands_include_reachability() -> None:
                 if not c["command"].startswith("!")]
     negative = [c for c in ping_cmds
                 if c["command"].startswith("!")]
-    assert len(positive) == 13
-    assert len(negative) == 4
+    assert len(positive) == 16
+    assert len(negative) == 7

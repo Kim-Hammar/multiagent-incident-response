@@ -62,6 +62,9 @@ class API:
     AGENTS_INFO_STEP_ROUTE = "/api/agents/information/step"
     AGENTS_INFO_TOOL_ROUTE = "/api/agents/information/tool"
     AGENTS_INFO_PROMPT_ROUTE = "/api/agents/information/prompt"
+    AGENTS_PENTEST_STEP_ROUTE = "/api/agents/pentest/step"
+    AGENTS_PENTEST_TOOL_ROUTE = "/api/agents/pentest/tool"
+    AGENTS_PENTEST_PROMPT_ROUTE = "/api/agents/pentest/prompt"
 
 
 class DB:
@@ -124,6 +127,8 @@ class DOCKER:
     CONTAINER_PREFIX = "ccs_dt_"
     PYTHON_SANDBOX_IMAGE = "ccs-dt-python-sandbox:latest"
     PYTHON_SANDBOX_CONTAINER = "ccs_python_sandbox"
+    ATTACKER_IMAGE = "ccs-dt-attacker:latest"
+    ATTACKER_CONTAINER = "ccs_dt_attacker"
 
 
 class DIGITAL_TWIN:
@@ -158,6 +163,22 @@ class DIGITAL_TWIN:
             },
         ],
         "hosts": [
+            {
+                "id": "attacker",
+                "name": "Attacker",
+                "docker_image": "ccs-dt-attacker:latest",
+                "ip_addresses": {"perimeter": "10.0.1.10"},
+                "routes": [
+                    {"destination": "10.0.2.0/24",
+                     "via": "10.0.1.253"},
+                    {"destination": "10.0.3.0/24",
+                     "via": "10.0.1.253"},
+                    {"destination": "10.0.4.0/24",
+                     "via": "10.0.1.253"},
+                ],
+                "use_image_entrypoint": False,
+                "capabilities": ["NET_ADMIN", "NET_RAW"],
+            },
             {
                 "id": "gateway",
                 "name": "Gateway",
@@ -220,6 +241,7 @@ class DIGITAL_TWIN:
                      "via": "10.0.2.252"},
                 ],
                 "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
             },
             {
                 "id": "server_2",
@@ -235,6 +257,7 @@ class DIGITAL_TWIN:
                      "via": "10.0.2.252"},
                 ],
                 "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
             },
             {
                 "id": "server_3",
@@ -249,6 +272,7 @@ class DIGITAL_TWIN:
                      "via": "10.0.3.252"},
                 ],
                 "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
             },
             {
                 "id": "server_4",
@@ -263,6 +287,7 @@ class DIGITAL_TWIN:
                      "via": "10.0.3.252"},
                 ],
                 "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
             },
             {
                 "id": "server_5",
@@ -274,6 +299,7 @@ class DIGITAL_TWIN:
                      "via": "10.0.4.252"},
                 ],
                 "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
             },
             {
                 "id": "server_6",
@@ -289,6 +315,7 @@ class DIGITAL_TWIN:
             },
         ],
         "links": [
+            {"source": "attacker", "target": "gateway"},
             {"source": "gateway", "target": "firewall"},
             {"source": "firewall", "target": "ids"},
             {"source": "ids", "target": "server_2"},
@@ -442,12 +469,62 @@ class DIGITAL_TWIN:
                     " (zone3)"
                 ),
             },
+            # Positive reachability — perimeter to allowed servers
+            {
+                "host": "attacker",
+                "command": "ping -c 1 -W 2 10.0.2.2",
+                "description": (
+                    "Server 2 reachable from Attacker"
+                    " (perimeter, allowed by firewall)"
+                ),
+            },
+            {
+                "host": "attacker",
+                "command": "ping -c 1 -W 2 10.0.3.3",
+                "description": (
+                    "Server 3 reachable from Attacker"
+                    " (perimeter, allowed by firewall)"
+                ),
+            },
             {
                 "host": "gateway",
-                "command": "ping -c 1 -W 2 10.0.4.6",
+                "command": "ping -c 1 -W 2 10.0.2.2",
                 "description": (
-                    "Server 6 reachable from Gateway"
-                    " (end-to-end routing)"
+                    "Server 2 reachable from Gateway"
+                    " (perimeter, allowed by firewall)"
+                ),
+            },
+            {
+                "host": "gateway",
+                "command": "ping -c 1 -W 2 10.0.3.3",
+                "description": (
+                    "Server 3 reachable from Gateway"
+                    " (perimeter, allowed by firewall)"
+                ),
+            },
+            # Negative reachability — firewall blocks
+            {
+                "host": "gateway",
+                "command": "! ping -c 1 -W 2 10.0.4.6",
+                "description": (
+                    "Server 6 not reachable from"
+                    " Gateway (firewall blocks)"
+                ),
+            },
+            {
+                "host": "attacker",
+                "command": "! ping -c 1 -W 2 10.0.2.1",
+                "description": (
+                    "Server 1 not reachable from"
+                    " Attacker (firewall blocks)"
+                ),
+            },
+            {
+                "host": "attacker",
+                "command": "! ping -c 1 -W 2 10.0.4.6",
+                "description": (
+                    "Server 6 not reachable from"
+                    " Attacker (firewall blocks)"
                 ),
             },
             # Negative reachability — zone isolation
@@ -499,6 +576,11 @@ class EXAMPLES:
         "(10.0.2.0/24), Zone 2 (10.0.3.0/24), and Zone 3 "
         "(10.0.4.0/24). The network topology is shown in the "
         "attached figure.\n\n"
+        "The perimeter firewall only forwards traffic from the "
+        "perimeter network to two hosts: Server 2 (10.0.2.2) and "
+        "Server 3 (10.0.3.3). All other internal servers are not "
+        "directly reachable from the perimeter and can only be "
+        "accessed by pivoting through an internal host.\n\n"
         "Gateway (10.0.1.254, Ubuntu 22): Snort IDS v2.9\n"
         "Firewall (10.0.1.253, Ubuntu 22): iptables packet "
         "filtering\n"

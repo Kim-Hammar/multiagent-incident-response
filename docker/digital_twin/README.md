@@ -10,6 +10,7 @@ A **mid-size SaaS company** infrastructure: web frontend, customer-facing API, d
 
 | Image | Host | Base | Services | Vulnerability |
 |-------|------|------|----------|---------------|
+| `ccs-dt-attacker` | Attacker (10.0.1.10) | debian:bookworm-slim | nmap, hydra, smbclient, impacket | — |
 | `ccs-dt-gateway` | Gateway (10.0.0.254) | ubuntu:22.04 | Snort IDS, pentest tools | — |
 | `ccs-dt-firewall` | Firewall (10.0.0.253) | ubuntu:22.04 | iptables, IP forwarding | — |
 | `ccs-dt-ids` | IDS (10.0.0.252) | ubuntu:22.04 | rsyslog, tcpdump | — |

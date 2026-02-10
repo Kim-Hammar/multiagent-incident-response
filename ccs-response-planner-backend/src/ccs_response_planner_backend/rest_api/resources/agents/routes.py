@@ -15,6 +15,15 @@ from ccs_response_planner_backend.agents.information_agent.prompt import (
 from ccs_response_planner_backend.agents.information_agent.tools import (
     TOOL_DISPATCH,
 )
+from ccs_response_planner_backend.agents.penetration_test_agent.agent import (
+    PenetrationTestAgent,
+)
+from ccs_response_planner_backend.agents.penetration_test_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as PENTEST_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.penetration_test_agent.tools import (
+    TOOL_DISPATCH as PENTEST_TOOL_DISPATCH,
+)
 from ccs_response_planner_backend.constants.constants import API
 from ccs_response_planner_backend.rest_api.util.auth import token_required
 
@@ -114,6 +123,89 @@ def agents_information_tool() -> tuple[Response, int]:
         }), 400
     try:
         agent = InformationAgent()
+        result = agent.execute_tool(tool_name, tool_args)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/pentest/step", methods=["POST"])
+@token_required
+def agents_pentest_step() -> Response | tuple[Response, int]:
+    """
+    Advance the PenetrationTestAgent loop by one step (NDJSON stream).
+
+    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get("system_description", "")
+    conversation_history = body.get("conversation_history", [])
+    images = body.get("images", [])
+    if not isinstance(images, list):
+        images = []
+    if not system_description:
+        return jsonify({
+            "error": "system_description is required",
+        }), 400
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: a generator of newline-delimited JSON strings
+        """
+        try:
+            agent = PenetrationTestAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                conversation_history=conversation_history,
+                images=images,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error", "message": str(e),
+            }) + "\n"
+
+    return Response(generate(), mimetype="application/x-ndjson")
+
+
+@agents_bp.route("/pentest/prompt", methods=["POST"])
+@token_required
+def agents_pentest_prompt() -> tuple[Response, int]:
+    """
+    Render the PenetrationTestAgent system prompt from the given context.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    prompt = PENTEST_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route("/pentest/tool", methods=["POST"])
+@token_required
+def agents_pentest_tool() -> tuple[Response, int]:
+    """
+    Execute an approved tool call for the PenetrationTestAgent.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    if not tool_name:
+        return jsonify({"error": "tool_name is required"}), 400
+    if tool_name not in PENTEST_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = PenetrationTestAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:

@@ -616,3 +616,21 @@
   font-size: 32px;
   cursor: pointer;
 }
+
+/* Attack path cards (pentest report) */
+.ia-attack-path {
+  border: 1px solid #e9ecef;
+  background: #fafbfc;
+}
+
+.ia-attack-path .card-body {
+  font-size: 13px;
+}
+
+.ia-attack-path ol {
+  color: #495057;
+}
+
+.ia-attack-path ol li {
+  margin-bottom: 2px;
+}
