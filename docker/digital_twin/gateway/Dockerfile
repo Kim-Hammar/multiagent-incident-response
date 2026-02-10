@@ -25,7 +25,8 @@ COPY snort.conf /etc/snort/snort.conf
 COPY local.rules /etc/snort/rules/local.rules
 COPY samba_exploit.py /test_fixtures/samba_exploit.py
 COPY artifacts/ /opt/artifacts/
-RUN chmod +x /opt/artifacts/plant_artifacts.sh
+RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/plant_static.sh && \
+    bash /opt/artifacts/plant_static.sh
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

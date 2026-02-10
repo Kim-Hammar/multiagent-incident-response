@@ -4,9 +4,6 @@ set -e
 # Initialize the SQLite database
 php /var/www/html/init_db.php
 
-# Plant post-attack artifacts (after init_db.php so SQLite DB exists)
-source /opt/artifacts/plant_artifacts.sh
-
 # Start PHP-FPM as root (-R allows running as root for CTF scenario)
 mkdir -p /run/php
 php-fpm7.4 -R
@@ -22,5 +19,11 @@ done
 # Start dnsmasq
 dnsmasq
 
-# Start Nginx in foreground
-exec nginx -g 'daemon off;'
+# Start Nginx in daemon mode (so we can plant log artifacts after)
+nginx
+
+# Plant post-attack artifacts (after all services are running)
+source /opt/artifacts/plant_artifacts.sh
+
+# Keep container alive
+exec tail -f /dev/null

@@ -30,7 +30,9 @@ RUN sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" \
     echo "host all all 10.0.0.0/8 md5" | tee -a /etc/postgresql/*/main/pg_hba.conf > /dev/null
 
 COPY artifacts/ /opt/artifacts/
-RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/backdoor.sh
+RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/backdoor.sh \
+    /opt/artifacts/plant_static.sh && \
+    bash /opt/artifacts/plant_static.sh
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

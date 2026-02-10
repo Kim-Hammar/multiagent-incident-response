@@ -1,15 +1,33 @@
 import { test, expect } from '@playwright/test'
 
-let authToken
-
-test.beforeAll(async ({ request }) => {
+async function getAuthToken(request) {
   const loginRes = await request.post('/api/login', {
     data: { username: 'admin', password: process.env.ADMIN_PASSWORD || 'admin' }
   })
   expect(loginRes.status()).toBe(200)
   const body = await loginRes.json()
-  authToken = body.token
-})
+  return body.token
+}
+
+/**
+ * Send an authenticated request, retrying once with a fresh token if
+ * a concurrent login from another worker invalidated the first token.
+ */
+async function authedRequest(request, method, url, options = {}) {
+  const token = await getAuthToken(request)
+  const res = await request[method](url, {
+    ...options,
+    headers: { ...options.headers, Authorization: `Bearer ${token}` }
+  })
+  if (res.status() === 401) {
+    const retryToken = await getAuthToken(request)
+    return request[method](url, {
+      ...options,
+      headers: { ...options.headers, Authorization: `Bearer ${retryToken}` }
+    })
+  }
+  return res
+}
 
 test.describe('API health checks', () => {
   test('GET /api/health returns ok', async ({ request }) => {
@@ -21,9 +39,7 @@ test.describe('API health checks', () => {
   })
 
   test('GET /api/example returns 5 fields', async ({ request }) => {
-    const response = await request.get('/api/example', {
-      headers: { Authorization: `Bearer ${authToken}` }
-    })
+    const response = await authedRequest(request, 'get', '/api/example')
     expect(response.status()).toBe(200)
     const body = await response.json()
     expect(Object.keys(body)).toHaveLength(5)
@@ -34,8 +50,7 @@ test.describe('API health checks', () => {
   })
 
   test('POST /api/plan with valid input returns plan', async ({ request }) => {
-    const response = await request.post('/api/plan', {
-      headers: { Authorization: `Bearer ${authToken}` },
+    const response = await authedRequest(request, 'post', '/api/plan', {
       data: { incident_description: 'Server compromised' }
     })
     expect(response.status()).toBe(200)
@@ -46,8 +61,7 @@ test.describe('API health checks', () => {
   })
 
   test('POST /api/plan without description returns 400', async ({ request }) => {
-    const response = await request.post('/api/plan', {
-      headers: { Authorization: `Bearer ${authToken}` },
+    const response = await authedRequest(request, 'post', '/api/plan', {
       data: { wrong_key: 'value' }
     })
     expect(response.status()).toBe(400)

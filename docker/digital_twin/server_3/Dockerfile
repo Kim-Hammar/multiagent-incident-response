@@ -34,7 +34,9 @@ RUN echo "*/30 * * * * root echo \"[CI/CD] Build \$(date +\\%s) deployed\" >> /v
 RUN mkdir /var/run/sshd
 
 COPY artifacts/ /opt/artifacts/
-RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/backdoor.sh
+RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/backdoor.sh \
+    /opt/artifacts/plant_static.sh && \
+    bash /opt/artifacts/plant_static.sh
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

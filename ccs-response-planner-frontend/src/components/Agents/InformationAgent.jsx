@@ -147,6 +147,7 @@ function InformationAgent() {
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
   const [loadingPrompt, setLoadingPrompt] = useState(false)
+  const [autopilot, setAutopilot] = useState(false)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
 
@@ -171,6 +172,12 @@ function InformationAgent() {
     const timer = setTimeout(() => setAlert(null), 3000)
     return () => clearTimeout(timer)
   }, [alert])
+
+  useEffect(() => {
+    if (autopilot && pendingProposal) {
+      handleApprove()
+    }
+  }, [autopilot, pendingProposal])
 
   useEffect(() => {
     if (logEndRef.current) {
@@ -573,6 +580,18 @@ function InformationAgent() {
         <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
         {loadingPrompt ? 'Loading...' : 'Show prompt'}
       </button>
+      <div className="form-check form-check-inline ia-btn">
+        <input
+          className="form-check-input"
+          type="checkbox"
+          id="ia-autopilot"
+          checked={autopilot}
+          onChange={(e) => setAutopilot(e.target.checked)}
+        />
+        <label className="form-check-label" htmlFor="ia-autopilot">
+          Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
+        </label>
+      </div>
 
       {showPromptModal && (
         <div className="ia-modal-backdrop" onClick={() => setShowPromptModal(false)}>

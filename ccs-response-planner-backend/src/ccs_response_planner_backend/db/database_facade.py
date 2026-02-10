@@ -159,18 +159,16 @@ class DatabaseFacade:
     @staticmethod
     def update_session_token(username: str, new_token: str) -> None:
         """
-        Delete any existing session token for the user and insert a new one.
+        Insert a new session token for the user.
 
-        :param username: the username whose token to replace
+        Multiple tokens may coexist so concurrent sessions do not
+        invalidate each other.
+
+        :param username: the username to create a token for
         :param new_token: the new token string
         """
         with psycopg.connect(DatabaseFacade._connection_string()) as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    f"DELETE FROM {DB.SESSION_TOKENS_TABLE} "
-                    f"WHERE username = %s",
-                    (username,),
-                )
                 cur.execute(
                     f"INSERT INTO {DB.SESSION_TOKENS_TABLE} "
                     f"(token, username) VALUES (%s, %s)",

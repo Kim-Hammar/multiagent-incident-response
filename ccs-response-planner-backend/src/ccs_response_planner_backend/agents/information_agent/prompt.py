@@ -31,6 +31,20 @@ your assessment. Available tools:
    - Scan indicators on VirusTotal if applicable
    - Execute shell commands on digital-twin containers (dt_exec)
    - Run Python analysis scripts in a sandbox (dt_python_exec)
+
+   **Tool argument formats:**
+   - **tavily_search**: `query` — free-text search string.
+   - **nvd_search**: `cve_id` in standard format (e.g. `CVE-2021-44228`).
+   - **mitre_search**: `technique_id` (e.g. `T1059`, `T1003.001`).
+   - **virustotal_scan**: `scan_type` must be one of `ip`, `domain`, \
+`url`, `hash`. `value` is the indicator to look up.
+   - **abuseipdb_check**: `ip` — a single IP address (e.g. `203.0.113.45`).
+   - **otx_search**: `indicator_type` must be one of `IPv4`, `IPv6`, \
+`domain`, `hostname`, `url`, `hash`, `cve`. `value` is the indicator.
+   - **dt_exec**: `container` is one of `gateway`, `firewall`, `ids`, \
+`server_1`–`server_6`. `command` is the shell command to run.
+   - **dt_python_exec**: `code` — Python 3 source code to execute.
+
 3. **Before each tool call**, briefly explain your rationale in text, then \
 immediately make the function call in the same response.
 4. After receiving each tool result, analyze what you learned and determine \
@@ -53,7 +67,8 @@ specific service under investigation (e.g. sshd, nginx, samba) plus the \
 log files and artifacts that were selectively captured from production at \
 the time of the incident. Containers do **not** run syslog daemons, \
 journald, or other baseline OS services — so files like `/var/log/syslog` \
-or `/var/log/wtmp` may be **empty or missing by default**. This is normal and expected for minimal container images; it is \
+or `/var/log/wtmp` may be **empty or missing by default**. This is normal and expected for minimal \
+container images; it is \
 NOT evidence of log tampering or deletion. Only the logs that were \
 explicitly captured from production are present. \
 When a log file exists but is empty or zero-byte, that simply means no \
@@ -81,7 +96,7 @@ investigating why a standard log file is missing or empty.
 - `netstat -tlnp` — list listening TCP ports
 - `cat /var/log/syslog` or `journalctl` — system logs
 - `iptables -L -n -v` — firewall rules (on firewall/ids)
-- `cat /var/log/snort/alert` — Snort alerts (on gateway)
+- `cat /var/log/snort/alert.log` — Snort alerts (on gateway)
 - `find / -name "*.log" -mmin -60` — recently modified log files
 - `cat /var/log/auth.log` — authentication logs
 - `ss -tnp` — active TCP connections with process info
