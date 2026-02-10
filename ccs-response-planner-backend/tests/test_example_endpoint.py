@@ -39,11 +39,25 @@ def test_example_body_has_operator_feedback(
     assert data["operator_feedback"] == EXAMPLES.OPERATOR_FEEDBACK
 
 
-def test_example_body_has_exactly_five_keys(
+def test_example_body_has_exactly_seven_keys(
     client: FlaskClient, auth_headers: dict[str, str]
 ) -> None:
     data = client.get("/api/example", headers=auth_headers).get_json()
-    assert len(data) == 5
+    assert len(data) == 7
+
+
+def test_example_body_has_incident_report(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    data = client.get("/api/example", headers=auth_headers).get_json()
+    assert data["incident_report"] == EXAMPLES.INCIDENT_REPORT
+
+
+def test_example_body_has_response_plan(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    data = client.get("/api/example", headers=auth_headers).get_json()
+    assert data["response_plan"] == EXAMPLES.RESPONSE_PLAN
 
 
 def test_example_body_has_system_description_images(

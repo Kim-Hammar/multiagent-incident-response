@@ -30,5 +30,7 @@ def example() -> tuple[Response, int]:
         "security_alerts": EXAMPLES.SECURITY_ALERTS,
         "operator_feedback": EXAMPLES.OPERATOR_FEEDBACK,
         "specification": EXAMPLES.SPECIFICATION,
+        "incident_report": EXAMPLES.INCIDENT_REPORT,
+        "response_plan": EXAMPLES.RESPONSE_PLAN,
         "system_description_images": images,
     }), 200

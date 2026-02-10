@@ -38,15 +38,18 @@ test.describe('API health checks', () => {
     expect(body.app).toBe('CCS Incident Response Planner')
   })
 
-  test('GET /api/example returns 5 fields', async ({ request }) => {
+  test('GET /api/example returns 7 fields', async ({ request }) => {
     const response = await authedRequest(request, 'get', '/api/example')
     expect(response.status()).toBe(200)
     const body = await response.json()
-    expect(Object.keys(body)).toHaveLength(5)
+    expect(Object.keys(body)).toHaveLength(7)
     expect(body).toHaveProperty('system_description')
     expect(body).toHaveProperty('security_alerts')
     expect(body).toHaveProperty('operator_feedback')
     expect(body).toHaveProperty('specification')
+    expect(body).toHaveProperty('incident_report')
+    expect(body).toHaveProperty('response_plan')
+    expect(body).toHaveProperty('system_description_images')
   })
 
   test('POST /api/plan with valid input returns plan', async ({ request }) => {

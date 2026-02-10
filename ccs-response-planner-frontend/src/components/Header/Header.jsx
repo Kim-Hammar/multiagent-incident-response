@@ -1,5 +1,5 @@
 import './Header.css'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   LOGIN_RESOURCE,
@@ -16,13 +16,7 @@ import {
  * The header component that is present on every page
  */
 const Header = () => {
-  const { isAuthenticated, logout } = useAuth()
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    navigate(`/${LOGIN_RESOURCE}`)
-  }
+  const { isAuthenticated, user } = useAuth()
 
   return (
     <nav className="navbar navbar-expand navbar-dark bg-dark mb-4">
@@ -62,23 +56,11 @@ const Header = () => {
             About
           </NavLink>
         </li>
-        {isAuthenticated ? (
-          <li className="nav-item">
-            <button
-              className="nav-link btn btn-link"
-              onClick={handleLogout}
-              style={{ cursor: 'pointer' }}
-            >
-              Logout
-            </button>
-          </li>
-        ) : (
-          <li className="nav-item">
-            <NavLink className="nav-link" to={`/${LOGIN_RESOURCE}`}>
-              Login
-            </NavLink>
-          </li>
-        )}
+        <li className="nav-item">
+          <NavLink className="nav-link" to={`/${LOGIN_RESOURCE}`}>
+            {isAuthenticated ? `User: ${user}` : 'Login'}
+          </NavLink>
+        </li>
       </ul>
     </nav>
   )

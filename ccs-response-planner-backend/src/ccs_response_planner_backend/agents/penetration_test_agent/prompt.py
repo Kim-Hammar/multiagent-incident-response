@@ -51,11 +51,27 @@ system and identified all reachable attack paths.
 7. When you are confident you have completed the penetration test, call \
 the `produce_report` tool with the structured report data.
 
+## Test Environment
+
+The target system is deployed as a **Docker-based digital twin**. Each \
+host listed in the system description runs as an isolated Docker \
+container on segmented bridge networks. The only hosts on the perimeter \
+network (10.0.1.0/24) are: the gateway (10.0.1.254), the firewall \
+(10.0.1.253), the IDS (10.0.1.252), and your attacker machine \
+(10.0.1.10). There are **no other hosts** on this subnet — ignore any \
+unexpected IPs.
+
+The firewall forwards perimeter traffic **only** to Server 2 \
+(10.0.2.2) and Server 3 (10.0.3.3). All other internal servers are \
+unreachable from the perimeter and require pivoting through a \
+compromised host. Target containers have minimal tooling — most do not \
+have nmap or hydra installed, but basic utilities (ping, curl, cat, \
+ls, ps, ss, etc.) are available.
+
 ## Attacker Environment
 
-You are on a Debian Bookworm machine (10.0.1.10) on the perimeter \
-network. The perimeter firewall only allows traffic to certain hosts — \
-you must discover which ones are reachable and work from there.
+You are on a Debian Bookworm attacker container (10.0.1.10) on the \
+perimeter network.
 
 ### Installed tools
 
@@ -78,10 +94,37 @@ common ports with service detection (fast)
 - `smbclient -L //<target> -N` — list SMB shares anonymously
 - `curl http://<target>/` — probe web services
 - `psql -h <target> -U <user> -d <db>` — connect to PostgreSQL
-- `ssh -o StrictHostKeyChecking=no user@host` — SSH to a compromised host
-- `ssh -D 1080 user@host` — SOCKS proxy for pivoting
-- `ssh -L local:remote_host:remote_port user@host` — local port forward
-- `nmap --proxychains` or `proxychains nmap ...` — scan through pivot
+
+### Pivoting via SSH (IMPORTANT)
+
+Your tool (`pentest_exec`) runs **non-interactive** commands with a \
+**120-second timeout**. You cannot open interactive SSH sessions, \
+long-running listeners, or reverse shells. Instead, **pipe commands \
+through SSH** as one-liners:
+
+```
+# Run a command on a compromised host
+sshpass -p 'PASS' ssh -o StrictHostKeyChecking=no user@host 'id && hostname'
+
+# Scan internal hosts from a pivot
+sshpass -p 'PASS' ssh -o StrictHostKeyChecking=no user@host \
+  'nmap -sV -p 22,80,5432 10.0.4.5 10.0.4.6 2>&1'
+
+# Read files on a compromised host
+sshpass -p 'PASS' ssh -o StrictHostKeyChecking=no user@host \
+  'cat /etc/shadow 2>/dev/null; cat /etc/passwd; ls -la /root/'
+
+# Chain pivots (hop through two hosts)
+sshpass -p 'PASS' ssh -o StrictHostKeyChecking=no user@host1 \
+  "sshpass -p 'PASS2' ssh -o StrictHostKeyChecking=no user2@host2 'id'"
+
+# Use SSH port forwarding for a single command (e.g. access a database)
+sshpass -p 'PASS' ssh -o StrictHostKeyChecking=no -L 15432:10.0.4.6:5432 \
+  user@host -f -N && psql -h 127.0.0.1 -p 15432 -U postgres -c '\\l'
+```
+
+**Do NOT** attempt interactive sessions, `ncat` listeners, reverse \
+shells, or `nohup` background tasks — they will fail or hang.
 
 ### Notes
 

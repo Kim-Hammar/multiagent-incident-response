@@ -3,20 +3,23 @@ import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLE_URL,
-  API_AGENTS_PENTEST_STEP_URL,
-  API_AGENTS_PENTEST_TOOL_URL,
-  API_AGENTS_PENTEST_PROMPT_URL
+  API_AGENTS_VALIDATION_STEP_URL,
+  API_AGENTS_VALIDATION_TOOL_URL,
+  API_AGENTS_VALIDATION_PROMPT_URL
 } from '../Common/constants'
 
 const TOOL_LABELS = {
-  pentest_exec: { label: 'Attacker Terminal', icon: 'fa-terminal' }
+  dt_exec: { label: 'DT Terminal', icon: 'fa-terminal' }
 }
 
 function formatToolArgs(toolName, args) {
   if (!args) return []
   switch (toolName) {
-    case 'pentest_exec':
-      return [['Command', args.command || '']]
+    case 'dt_exec':
+      return [
+        ['Container', args.container || ''],
+        ['Command', args.command || '']
+      ]
     default:
       return [['Arguments', JSON.stringify(args)]]
   }
@@ -94,13 +97,41 @@ function ElapsedTimer() {
   return <span className="ia-elapsed">{seconds}s</span>
 }
 
+const RECOVERY_STATE_LABELS = {
+  is_attack_contained: 'Attack Contained',
+  is_attack_assessed: 'Attack Assessed',
+  is_forensic_evidence_preserved: 'Forensic Evidence Preserved',
+  is_attack_evicted: 'Attack Evicted',
+  is_system_hardened: 'System Hardened',
+  are_services_restored: 'Services Restored'
+}
+
 /**
- * PenetrationTestAgent component — drives the pentest agent loop with
+ * Renders a recovery state object as colored badges.
+ */
+function RecoveryStateBadges({ state }) {
+  if (!state) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+      {Object.entries(RECOVERY_STATE_LABELS).map(([key, label]) => (
+        <span key={key} className={`badge badge-${state[key] ? 'success' : 'secondary'}`}>
+          {state[key] ? '\u2713' : '\u2717'} {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * ValidationAgent component — drives the validation agent loop with
  * human-in-the-loop tool approval.
  */
-function PenetrationTestAgent() {
+function ValidationAgent() {
   const { token, logout } = useAuth()
   const [systemDescription, setSystemDescription] = useState('')
+  const [incidentReport, setIncidentReport] = useState('')
+  const [responsePlan, setResponsePlan] = useState('')
+  const [specification, setSpecification] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
@@ -181,7 +212,7 @@ function PenetrationTestAgent() {
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
     try {
-      const res = await fetch(API_AGENTS_PENTEST_STEP_URL, {
+      const res = await fetch(API_AGENTS_VALIDATION_STEP_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,6 +220,9 @@ function PenetrationTestAgent() {
         },
         body: JSON.stringify({
           system_description: systemDescription,
+          incident_report: incidentReport,
+          response_plan: responsePlan,
+          specification: specification,
           conversation_history: history,
           images: systemDescriptionImages
         })
@@ -237,11 +271,11 @@ function PenetrationTestAgent() {
               thinking_trace: event.thinking_trace || '',
               _model_parts: event._model_parts
             }
-          } else if (event.type === 'report') {
+          } else if (event.type === 'validation_report') {
             finalEntry = {
               role: 'model',
-              type: 'report',
-              report: event.report,
+              type: 'validation_report',
+              validation_report: event.validation_report,
               thinking_trace: event.thinking_trace || ''
             }
           } else if (event.type === 'error') {
@@ -271,13 +305,24 @@ function PenetrationTestAgent() {
         } catch {
           report = {
             executive_summary: accumulated,
-            attack_paths: [],
-            vulnerabilities_found: [],
-            compromised_servers: [],
+            action_results: [],
+            final_recovery_state: {
+              is_attack_contained: false,
+              is_attack_assessed: false,
+              is_forensic_evidence_preserved: false,
+              is_attack_evicted: false,
+              is_system_hardened: false,
+              are_services_restored: false
+            },
+            final_service_state: [],
+            overall_result: 'Plan validation failed',
             recommendations: []
           }
         }
-        setConversationHistory([...history, { role: 'model', type: 'report', report }])
+        setConversationHistory([
+          ...history,
+          { role: 'model', type: 'validation_report', validation_report: report }
+        ])
       } else {
         setConversationHistory([
           ...history,
@@ -311,7 +356,7 @@ function PenetrationTestAgent() {
     setPendingProposal(null)
     setExecutingTool(proposal.tool_name)
     try {
-      const res = await fetch(API_AGENTS_PENTEST_TOOL_URL, {
+      const res = await fetch(API_AGENTS_VALIDATION_TOOL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -377,6 +422,9 @@ function PenetrationTestAgent() {
       }
       const data = await res.json()
       setSystemDescription(data.system_description || '')
+      setIncidentReport(data.incident_report || '')
+      setResponsePlan(data.response_plan || '')
+      setSpecification(data.specification || '')
       setSystemDescriptionImages(data.system_description_images || [])
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to fetch example: ${err.message}` })
@@ -385,6 +433,9 @@ function PenetrationTestAgent() {
 
   const handleClear = () => {
     setSystemDescription('')
+    setIncidentReport('')
+    setResponsePlan('')
+    setSpecification('')
     setSystemDescriptionImages([])
     setConversationHistory([])
     setPendingProposal(null)
@@ -394,14 +445,17 @@ function PenetrationTestAgent() {
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_PENTEST_PROMPT_URL, {
+      const res = await fetch(API_AGENTS_VALIDATION_PROMPT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          system_description: systemDescription
+          system_description: systemDescription,
+          incident_report: incidentReport,
+          response_plan: responsePlan,
+          specification: specification
         })
       })
       if (res.status === 401) {
@@ -427,11 +481,10 @@ function PenetrationTestAgent() {
 
   const isAgentBusy = running || executingTool
 
-  const severityClass = {
-    Critical: 'danger',
-    High: 'warning',
-    Medium: 'info',
-    Low: 'success'
+  const overallResultClass = {
+    'Plan fully validated': 'success',
+    'Plan partially validated': 'warning',
+    'Plan validation failed': 'danger'
   }
 
   return (
@@ -447,39 +500,38 @@ function PenetrationTestAgent() {
 
       <div className="ia-description">
         <p>
-          This agent performs a grey-box penetration test from an external attacker machine. Its
-          tasks are threefold:
+          This agent validates a response plan against the deployed digital twin. Its tasks are
+          threefold:
           <ol>
             <li>
-              Probe reachable hosts from the perimeter network using the provided system description
-              and topology.
+              Apply each response action sequentially on the digital twin containers using shell
+              commands.
             </li>
             <li>
-              Attempt exploitation and lateral movement to identify attack paths through the
-              network.
+              After each action, check the recovery state (6 booleans) and service state
+              (specification commands).
             </li>
             <li>
-              Produce a structured penetration test report with attack paths, vulnerabilities, and
-              remediation recommendations.
+              Produce a structured validation report with per-action results and overall outcome.
             </li>
           </ol>
         </p>
       </div>
 
       <div className="ia-section">
-        <label htmlFor="pt-system-desc">System description</label>
+        <label htmlFor="va-system-desc">System description</label>
         <p className="ia-hint">
           Describe the target system, its architecture, hosts, and services.
         </p>
         <textarea
-          id="pt-system-desc"
+          id="va-system-desc"
           className="form-control ia-textarea"
-          rows="8"
+          rows="6"
           value={systemDescription}
           onChange={(e) => setSystemDescription(e.target.value)}
           onPaste={handlePaste}
           disabled={isAgentBusy}
-          placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
+          placeholder="e.g., The system consists of a web server, database server, and firewall..."
         />
         <ImageThumbnails
           images={systemDescriptionImages}
@@ -487,11 +539,55 @@ function PenetrationTestAgent() {
           disabled={isAgentBusy}
         />
       </div>
+      <div className="ia-section">
+        <label htmlFor="va-incident-report">Incident report</label>
+        <p className="ia-hint">
+          Paste the incident report/assessment produced by the Information Agent.
+        </p>
+        <textarea
+          id="va-incident-report"
+          className="form-control ia-textarea"
+          rows="6"
+          value={incidentReport}
+          onChange={(e) => setIncidentReport(e.target.value)}
+          disabled={isAgentBusy}
+          placeholder="e.g., An SSH brute-force attack was detected on server 3, followed by SQL injection from server 6..."
+        />
+      </div>
+      <div className="ia-section">
+        <label htmlFor="va-response-plan">Response plan</label>
+        <p className="ia-hint">Paste the response plan to validate against the digital twin.</p>
+        <textarea
+          id="va-response-plan"
+          className="form-control ia-textarea"
+          rows="6"
+          value={responsePlan}
+          onChange={(e) => setResponsePlan(e.target.value)}
+          disabled={isAgentBusy}
+          placeholder="e.g., 1. Block attacker IP on firewall. 2. Kill malicious processes on server 3. 3. Rotate credentials..."
+        />
+      </div>
+      <div className="ia-section">
+        <label htmlFor="va-specification">Specification commands (optional)</label>
+        <p className="ia-hint">
+          JSON array of specification commands. If left empty, the default digital twin
+          specification will be used.
+        </p>
+        <textarea
+          id="va-specification"
+          className="form-control ia-textarea"
+          rows="4"
+          value={specification}
+          onChange={(e) => setSpecification(e.target.value)}
+          disabled={isAgentBusy}
+          placeholder="Leave empty to use default specification commands from the digital twin config."
+        />
+      </div>
       <button
         type="button"
         className="btn btn-dark btn-sm ia-btn"
         onClick={handleRun}
-        disabled={isAgentBusy || !systemDescription}
+        disabled={isAgentBusy || (!systemDescription && !incidentReport)}
       >
         <i className="fa fa-bolt" aria-hidden="true" />
         {isAgentBusy ? ' Running...' : ' Run agent'}
@@ -525,11 +621,11 @@ function PenetrationTestAgent() {
         <input
           className="form-check-input"
           type="checkbox"
-          id="pt-autopilot"
+          id="va-autopilot"
           checked={autopilot}
           onChange={(e) => setAutopilot(e.target.checked)}
         />
-        <label className="form-check-label" htmlFor="pt-autopilot">
+        <label className="form-check-label" htmlFor="va-autopilot">
           Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
         </label>
       </div>
@@ -710,8 +806,8 @@ function PenetrationTestAgent() {
                 )
               }
 
-              if (entry.type === 'report') {
-                const r = entry.report || {}
+              if (entry.type === 'validation_report') {
+                const r = entry.validation_report || {}
                 const isExpanded = expandedEntries[index] !== false
                 return (
                   <div key={index} className="card ia-entry border-dark">
@@ -725,13 +821,24 @@ function PenetrationTestAgent() {
                           }))
                         }
                       >
-                        <span className="badge badge-dark">Report</span>
-                        <span className="ia-tool-name">Penetration Test Report</span>
+                        <span className="badge badge-dark">Validation Report</span>
+                        <span className="ia-tool-name">Response Plan Validation</span>
                         <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
                       </div>
 
                       {isExpanded && (
                         <div style={{ marginTop: '10px' }}>
+                          {r.overall_result && (
+                            <div className="ia-assessment-section">
+                              <div className="ia-assessment-label">Overall Result</div>
+                              <span
+                                className={`badge ia-severity-badge badge-${overallResultClass[r.overall_result] || 'secondary'}`}
+                              >
+                                {r.overall_result}
+                              </span>
+                            </div>
+                          )}
+
                           {r.executive_summary && (
                             <div className="ia-assessment-section">
                               <div className="ia-assessment-label">Executive Summary</div>
@@ -739,107 +846,104 @@ function PenetrationTestAgent() {
                             </div>
                           )}
 
-                          {r.compromised_servers && r.compromised_servers.length > 0 && (
+                          {r.final_recovery_state && (
                             <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Compromised Servers</div>
-                              <div>
-                                {r.compromised_servers.map((server, i) => (
-                                  <span key={i} className="badge badge-danger mr-1 mb-1">
-                                    {server}
-                                  </span>
-                                ))}
-                              </div>
+                              <div className="ia-assessment-label">Final Recovery State</div>
+                              <RecoveryStateBadges state={r.final_recovery_state} />
                             </div>
                           )}
 
-                          {r.attack_paths && r.attack_paths.length > 0 && (
+                          {r.final_service_state && r.final_service_state.length > 0 && (
                             <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Attack Paths</div>
-                              {r.attack_paths.map((path, i) => (
-                                <div key={i} className="card ia-attack-path mb-2">
-                                  <div className="card-body" style={{ padding: '10px 14px' }}>
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        marginBottom: '6px'
-                                      }}
-                                    >
-                                      <strong style={{ fontSize: '13px' }}>{path.name}</strong>
-                                      <span
-                                        className={`badge ia-severity-badge badge-${severityClass[path.severity] || 'secondary'}`}
-                                      >
-                                        {path.severity}
-                                      </span>
-                                    </div>
-                                    <p
-                                      className="ia-assessment-body mb-1"
-                                      style={{ fontSize: '12px' }}
-                                    >
-                                      {path.description}
-                                    </p>
-                                    {path.steps && path.steps.length > 0 && (
-                                      <ol
-                                        style={{
-                                          fontSize: '12px',
-                                          paddingLeft: '18px',
-                                          marginBottom: '6px'
-                                        }}
-                                      >
-                                        {path.steps.map((step, j) => (
-                                          <li key={j}>{step}</li>
-                                        ))}
-                                      </ol>
-                                    )}
-                                    {path.compromised_assets &&
-                                      path.compromised_assets.length > 0 && (
-                                        <div style={{ fontSize: '12px' }}>
-                                          <span style={{ fontWeight: 600, color: '#495057' }}>
-                                            Compromised:{' '}
-                                          </span>
-                                          {path.compromised_assets.map((asset, j) => (
-                                            <span key={j} className="badge badge-secondary mr-1">
-                                              {asset}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {r.vulnerabilities_found && r.vulnerabilities_found.length > 0 && (
-                            <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Vulnerabilities Found</div>
+                              <div className="ia-assessment-label">Final Service State</div>
                               <table className="ia-ioc-table">
                                 <thead>
                                   <tr>
-                                    <th>Vulnerability</th>
-                                    <th>Affected Asset</th>
-                                    <th>Severity</th>
-                                    <th>Remediation</th>
+                                    <th>Check</th>
+                                    <th>Result</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {r.vulnerabilities_found.map((v, i) => (
+                                  {r.final_service_state.map((s, i) => (
                                     <tr key={i}>
-                                      <td>{v.vulnerability}</td>
-                                      <td>{v.affected_asset}</td>
+                                      <td>{s.description}</td>
                                       <td>
                                         <span
-                                          className={`badge badge-${severityClass[v.severity] || 'secondary'}`}
+                                          className={`badge badge-${s.passed ? 'success' : 'danger'}`}
                                         >
-                                          {v.severity}
+                                          {s.passed ? 'Passed' : 'Failed'}
                                         </span>
                                       </td>
-                                      <td>{v.remediation}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
+                            </div>
+                          )}
+
+                          {r.action_results && r.action_results.length > 0 && (
+                            <div className="ia-assessment-section">
+                              <div className="ia-assessment-label">Per-Action Results</div>
+                              {r.action_results.map((ar, i) => (
+                                <div key={i} className="card ia-attack-path mb-2">
+                                  <div className="card-body" style={{ padding: '10px 14px' }}>
+                                    <strong style={{ fontSize: '13px' }}>{ar.action_name}</strong>
+                                    {ar.action_description && (
+                                      <p
+                                        className="ia-assessment-body mb-1"
+                                        style={{ fontSize: '12px' }}
+                                      >
+                                        {ar.action_description}
+                                      </p>
+                                    )}
+                                    {ar.outcome && (
+                                      <p
+                                        className="ia-assessment-body mb-1"
+                                        style={{ fontSize: '12px' }}
+                                      >
+                                        <strong>Outcome:</strong> {ar.outcome}
+                                      </p>
+                                    )}
+                                    {ar.commands_executed && ar.commands_executed.length > 0 && (
+                                      <div style={{ fontSize: '12px', marginBottom: '4px' }}>
+                                        <strong>Commands:</strong>
+                                        <ul style={{ paddingLeft: '18px', marginBottom: '4px' }}>
+                                          {ar.commands_executed.map((cmd, j) => (
+                                            <li key={j}>
+                                              <code>{cmd}</code>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {ar.recovery_state && (
+                                      <div style={{ marginTop: '4px' }}>
+                                        <RecoveryStateBadges state={ar.recovery_state} />
+                                      </div>
+                                    )}
+                                    {ar.service_state && ar.service_state.length > 0 && (
+                                      <div
+                                        style={{
+                                          marginTop: '4px',
+                                          fontSize: '12px',
+                                          display: 'flex',
+                                          flexWrap: 'wrap',
+                                          gap: '4px'
+                                        }}
+                                      >
+                                        {ar.service_state.map((ss, j) => (
+                                          <span
+                                            key={j}
+                                            className={`badge badge-${ss.passed ? 'success' : 'danger'}`}
+                                          >
+                                            {ss.passed ? '\u2713' : '\u2717'} {ss.description}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           )}
 
@@ -896,4 +1000,4 @@ function PenetrationTestAgent() {
   )
 }
 
-export default PenetrationTestAgent
+export default ValidationAgent

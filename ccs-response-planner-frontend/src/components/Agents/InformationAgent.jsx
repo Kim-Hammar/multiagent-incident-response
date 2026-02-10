@@ -148,8 +148,11 @@ function InformationAgent() {
   const [promptText, setPromptText] = useState('')
   const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(false)
+  const [hasNewActivity, setHasNewActivity] = useState(false)
   const logEndRef = useRef(null)
+  const logContainerRef = useRef(null)
   const streamingTraceRef = useRef(null)
+  const isNearBottomRef = useRef(true)
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -180,13 +183,32 @@ function InformationAgent() {
   }, [autopilot, pendingProposal])
 
   useEffect(() => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    if (isNearBottomRef.current) {
+      if (logEndRef.current) {
+        logEndRef.current.scrollIntoView({ behavior: 'smooth' })
+      }
+    } else {
+      setHasNewActivity(true)
     }
     if (streamingTraceRef.current) {
       streamingTraceRef.current.scrollTop = streamingTraceRef.current.scrollHeight
     }
   }, [conversationHistory])
+
+  const handleLogScroll = () => {
+    const el = logContainerRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    isNearBottomRef.current = nearBottom
+    if (nearBottom) setHasNewActivity(false)
+  }
+
+  const scrollToBottom = () => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+    setHasNewActivity(false)
+  }
 
   const callStep = async (history) => {
     setRunning(true)
@@ -617,7 +639,7 @@ function InformationAgent() {
       {conversationHistory.length > 0 && (
         <div style={{ marginTop: '28px' }}>
           <p className="ia-log-title">Activity log</p>
-          <div className="ia-log">
+          <div className="ia-log" ref={logContainerRef} onScroll={handleLogScroll}>
             {conversationHistory.map((entry, index) => {
               if (entry.type === 'streaming') {
                 return (
@@ -897,6 +919,11 @@ function InformationAgent() {
               </div>
             )}
             <div ref={logEndRef} />
+            {hasNewActivity && (
+              <button type="button" className="ia-new-activity-btn" onClick={scrollToBottom}>
+                <i className="fa fa-arrow-down" aria-hidden="true" /> New activity
+              </button>
+            )}
           </div>
         </div>
       )}
