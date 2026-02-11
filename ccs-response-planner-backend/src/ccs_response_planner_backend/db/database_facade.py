@@ -259,6 +259,8 @@ class DatabaseFacade:
                 )
                 row = cur.fetchone()
             conn.commit()
+            if row is None:
+                return {}
             return {
                 "id": row[0],
                 "agent_type": row[1],

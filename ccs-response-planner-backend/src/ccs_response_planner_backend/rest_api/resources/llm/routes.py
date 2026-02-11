@@ -67,7 +67,7 @@ def llm_status() -> tuple[Response, int]:
             actions = m.supported_actions or []
             if "generateContent" not in actions:
                 continue
-            if not _supports_thinking(m.name):
+            if not m.name or not _supports_thinking(m.name):
                 continue
             models.append({
                 "name": m.name,
