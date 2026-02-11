@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Database connection configuration for CRM application -->
+<database>
+    <host>10.0.2.10</host>
+    <port>5432</port>
+    <name>crm_production</name>
+    <username>app_svc</username>
+    <password>SuperSecret123!</password>
+</database>

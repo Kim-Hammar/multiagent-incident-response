@@ -132,13 +132,14 @@ class GENERAL:
     APP_NAME = "CCS Incident Response Planner"
 
 
-def _load_example_image() -> str:
+def _load_example_image(filename: str = "incident_1.png") -> str:
     """
     Load the example system diagram as a base64 data URL.
 
+    :param filename: name of the image file in the docs/ directory
     :return: a data URL string, or empty string if the file is not found
     """
-    path = Path(__file__).resolve().parents[4] / "docs" / "incident_1.png"
+    path = Path(__file__).resolve().parents[4] / "docs" / filename
     try:
         data = base64.b64encode(path.read_bytes()).decode("ascii")
         return f"data:image/png;base64,{data}"
@@ -616,6 +617,333 @@ class DIGITAL_TWIN:
         ],
     }
 
+    INCIDENT_2_CONFIG: dict[str, Any] = {
+        "networks": [
+            {
+                "id": "internet",
+                "name": "Internet",
+                "subnet": "10.1.0.0/24",
+                "gateway": "10.1.0.100",
+            },
+            {
+                "id": "dmz",
+                "name": "DMZ",
+                "subnet": "10.0.1.0/24",
+                "gateway": "10.0.1.100",
+            },
+            {
+                "id": "lan",
+                "name": "Internal LAN",
+                "subnet": "10.0.2.0/24",
+                "gateway": "10.0.2.100",
+            },
+        ],
+        "hosts": [
+            {
+                "id": "attacker",
+                "name": "Attacker",
+                "docker_image": "ccs-dt-attacker:latest",
+                "ip_addresses": {"internet": "10.1.0.10"},
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.1.0.1"},
+                    {"destination": "10.0.2.0/24",
+                     "via": "10.1.0.1"},
+                ],
+                "use_image_entrypoint": False,
+                "capabilities": ["NET_ADMIN", "NET_RAW"],
+            },
+            {
+                "id": "i2_server_1",
+                "name": "Server 1",
+                "docker_image": "ccs-dt-i2server1:latest",
+                "ip_addresses": {
+                    "internet": "10.1.0.1",
+                    "dmz": "10.0.1.1",
+                    "lan": "10.0.2.1",
+                },
+                "routes": [],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN", "NET_RAW"],
+                "sysctls": {"net.ipv4.ip_forward": "1"},
+            },
+            {
+                "id": "i2_server_2",
+                "name": "Server 2",
+                "docker_image": "ccs-dt-i2server2:latest",
+                "ip_addresses": {"dmz": "10.0.1.10"},
+                "routes": [
+                    {"destination": "10.0.2.10/32",
+                     "via": "10.0.1.1"},
+                    {"destination": "10.1.0.0/24",
+                     "via": "10.0.1.1"},
+                ],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
+            },
+            {
+                "id": "i2_server_3",
+                "name": "Server 3",
+                "docker_image": "ccs-dt-i2server3:latest",
+                "ip_addresses": {"dmz": "10.0.1.20"},
+                "routes": [
+                    {"destination": "10.0.2.0/24",
+                     "via": "10.0.1.1"},
+                    {"destination": "10.1.0.0/24",
+                     "via": "10.0.1.1"},
+                ],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
+            },
+            {
+                "id": "i2_server_4",
+                "name": "Server 4",
+                "docker_image": "ccs-dt-i2server4:latest",
+                "ip_addresses": {"lan": "10.0.2.10"},
+                "routes": [
+                    {"destination": "10.0.1.10/32",
+                     "via": "10.0.2.1"},
+                    {"destination": "10.1.0.0/24",
+                     "via": "10.0.2.1"},
+                ],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
+            },
+            {
+                "id": "i2_server_5",
+                "name": "Server 5",
+                "docker_image": "ccs-dt-i2server5:latest",
+                "ip_addresses": {"lan": "10.0.2.50"},
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.2.1"},
+                ],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
+            },
+            {
+                "id": "i2_server_6",
+                "name": "Server 6",
+                "docker_image": "ccs-dt-i2server6:latest",
+                "ip_addresses": {"lan": "10.0.2.60"},
+                "routes": [
+                    {"destination": "10.0.1.0/24",
+                     "via": "10.0.2.1"},
+                ],
+                "use_image_entrypoint": True,
+                "capabilities": ["NET_ADMIN"],
+            },
+        ],
+        "links": [
+            {"source": "attacker", "target": "i2_server_1"},
+            {"source": "i2_server_1", "target": "i2_server_2"},
+            {"source": "i2_server_1", "target": "i2_server_3"},
+            {"source": "i2_server_1", "target": "i2_server_4"},
+            {"source": "i2_server_1", "target": "i2_server_5"},
+            {"source": "i2_server_1", "target": "i2_server_6"},
+            {"source": "i2_server_2", "target": "i2_server_3"},
+            {"source": "i2_server_2", "target": "i2_server_4"},
+            {"source": "i2_server_4", "target": "i2_server_5"},
+            {"source": "i2_server_4", "target": "i2_server_6"},
+            {"source": "i2_server_5", "target": "i2_server_6"},
+        ],
+        "specification_commands": [
+            # Service checks (5)
+            {
+                "host": "attacker",
+                "command": (
+                    "bash -c 'echo > /dev/tcp/10.0.1.10/80'"
+                ),
+                "description": (
+                    "Verify Server 2 HTTP is reachable"
+                ),
+            },
+            {
+                "host": "attacker",
+                "command": (
+                    "bash -c 'echo > /dev/tcp/10.0.1.20/22'"
+                ),
+                "description": (
+                    "Verify Server 3 SSH is reachable"
+                ),
+            },
+            {
+                "host": "i2_server_2",
+                "command": (
+                    "python3 -c \"import socket;"
+                    " s=socket.create_connection("
+                    "('10.0.2.10', 5432), timeout=3);"
+                    " s.close()\""
+                ),
+                "description": (
+                    "Verify Server 4 PostgreSQL is"
+                    " reachable from Server 2"
+                ),
+            },
+            {
+                "host": "i2_server_4",
+                "command": (
+                    "bash -c 'echo > /dev/tcp/10.0.2.50/53'"
+                ),
+                "description": (
+                    "Verify Server 5 DNS is reachable"
+                    " from Server 4"
+                ),
+            },
+            {
+                "host": "i2_server_4",
+                "command": (
+                    "python3 -c \"import socket;"
+                    " s=socket.create_connection("
+                    "('10.0.2.60', 445), timeout=3);"
+                    " s.close()\""
+                ),
+                "description": (
+                    "Verify Server 6 Samba is reachable"
+                    " from Server 4"
+                ),
+            },
+            # Positive reachability (10)
+            {
+                "host": "attacker",
+                "command": "ping -c 1 -W 2 10.1.0.1",
+                "description": (
+                    "Server 1 reachable from Attacker"
+                    " (internet)"
+                ),
+            },
+            {
+                "host": "i2_server_1",
+                "command": "ping -c 1 -W 2 10.0.1.10",
+                "description": (
+                    "Server 2 reachable from Server 1"
+                    " (dmz)"
+                ),
+            },
+            {
+                "host": "i2_server_1",
+                "command": "ping -c 1 -W 2 10.0.1.20",
+                "description": (
+                    "Server 3 reachable from Server 1"
+                    " (dmz)"
+                ),
+            },
+            {
+                "host": "i2_server_1",
+                "command": "ping -c 1 -W 2 10.0.2.10",
+                "description": (
+                    "Server 4 reachable from Server 1"
+                    " (lan)"
+                ),
+            },
+            {
+                "host": "i2_server_1",
+                "command": "ping -c 1 -W 2 10.0.2.50",
+                "description": (
+                    "Server 5 reachable from Server 1"
+                    " (lan)"
+                ),
+            },
+            {
+                "host": "i2_server_1",
+                "command": "ping -c 1 -W 2 10.0.2.60",
+                "description": (
+                    "Server 6 reachable from Server 1"
+                    " (lan)"
+                ),
+            },
+            {
+                "host": "i2_server_2",
+                "command": "ping -c 1 -W 2 10.0.2.10",
+                "description": (
+                    "Server 4 reachable from Server 2"
+                    " (dmz-to-db)"
+                ),
+            },
+            {
+                "host": "i2_server_4",
+                "command": "ping -c 1 -W 2 10.0.2.50",
+                "description": (
+                    "Server 5 reachable from Server 4"
+                    " (lan)"
+                ),
+            },
+            {
+                "host": "i2_server_4",
+                "command": "ping -c 1 -W 2 10.0.2.60",
+                "description": (
+                    "Server 6 reachable from Server 4"
+                    " (lan)"
+                ),
+            },
+            {
+                "host": "i2_server_5",
+                "command": "ping -c 1 -W 2 10.0.2.60",
+                "description": (
+                    "Server 6 reachable from Server 5"
+                    " (lan)"
+                ),
+            },
+            # Negative reachability (7)
+            {
+                "host": "attacker",
+                "command": "! ping -c 1 -W 2 10.0.2.10",
+                "description": (
+                    "Server 4 not reachable from"
+                    " Attacker (firewall blocks)"
+                ),
+            },
+            {
+                "host": "attacker",
+                "command": "! ping -c 1 -W 2 10.0.2.50",
+                "description": (
+                    "Server 5 not reachable from"
+                    " Attacker (firewall blocks)"
+                ),
+            },
+            {
+                "host": "attacker",
+                "command": "! ping -c 1 -W 2 10.0.2.60",
+                "description": (
+                    "Server 6 not reachable from"
+                    " Attacker (firewall blocks)"
+                ),
+            },
+            {
+                "host": "i2_server_2",
+                "command": "! ping -c 1 -W 2 10.0.2.50",
+                "description": (
+                    "Server 5 not reachable from"
+                    " Server 2 (firewall blocks)"
+                ),
+            },
+            {
+                "host": "i2_server_2",
+                "command": "! ping -c 1 -W 2 10.0.2.60",
+                "description": (
+                    "Server 6 not reachable from"
+                    " Server 2 (firewall blocks)"
+                ),
+            },
+            {
+                "host": "i2_server_5",
+                "command": "! ping -c 1 -W 2 10.1.0.10",
+                "description": (
+                    "Attacker not reachable from"
+                    " Server 5 (lan outbound blocked)"
+                ),
+            },
+            {
+                "host": "i2_server_6",
+                "command": "! ping -c 1 -W 2 10.1.0.10",
+                "description": (
+                    "Attacker not reachable from"
+                    " Server 6 (lan outbound blocked)"
+                ),
+            },
+        ],
+    }
+
 
 class EXAMPLES:
     """
@@ -810,4 +1138,286 @@ class EXAMPLES:
         "actions. Check that FTP on Server 2, SSH on Server 3, "
         "PostgreSQL on Server 6, and SMTP on Server 4 are all "
         "reachable and functional."
+    )
+
+
+class EXAMPLES_2:
+    """
+    Example incident 2 data: Tomcat RCE + PostgreSQL lateral movement.
+    """
+    SYSTEM_DESCRIPTION = (
+        "The system is the on-premises network of a mid-size "
+        "enterprise, consisting of 6 servers behind a central "
+        "firewall. The network is segmented into three zones: "
+        "Internet (10.1.0.0/24), DMZ (10.0.1.0/24), and "
+        "Internal LAN (10.0.2.0/24). The network topology is "
+        "shown in the attached figure.\n\n"
+        "Server 1 is the central firewall connecting all three "
+        "zones. It forwards traffic between zones according to "
+        "strict iptables rules. Only HTTP/HTTPS/8080 traffic "
+        "from the Internet is allowed into the DMZ (to "
+        "Server 2). SSH from the Internet is allowed to "
+        "Server 3. The DMZ web server (Server 2) can reach "
+        "the database (Server 4) on port 5432 only. No direct "
+        "Internet-to-LAN traffic is permitted.\n\n"
+        "The adjacency links are: "
+        "Attacker-S1 (Internet), S1-S2 (DMZ), S1-S3 (DMZ), "
+        "S1-S4 (LAN), S1-S5 (LAN), S1-S6 (LAN), "
+        "S2-S3 (DMZ peers), S2-S4 (DMZ-to-DB), "
+        "S4-S5 (LAN), S4-S6 (LAN), S5-S6 (LAN). "
+        "All connections not listed above are blocked by "
+        "the firewall.\n\n"
+        "Server 1 (10.1.0.1 / 10.0.1.1 / 10.0.2.1, "
+        "Ubuntu 22): Central firewall, iptables, Suricata "
+        "IDS\n"
+        "Server 2 (10.0.1.10, Ubuntu 22): Nginx reverse "
+        "proxy, Apache Tomcat 9.0.30, Java web application\n"
+        "Server 3 (10.0.1.20, Debian 11): SSH jump host, "
+        "key-based authentication only\n"
+        "Server 4 (10.0.2.10, Debian 11): PostgreSQL "
+        "database, SSH\n"
+        "Server 5 (10.0.2.50, Debian 11): dnsmasq DNS/DHCP "
+        "server\n"
+        "Server 6 (10.0.2.60, Debian 11): Samba file server, "
+        "rsync nightly backups"
+    )
+    SYSTEM_DESCRIPTION_IMAGE = _load_example_image("incident_2.png")
+    SECURITY_ALERTS = (
+        "02/10-14:32:07.881442 [**] [1:2027369:2] ET EXPLOIT "
+        "Apache Tomcat Deserialization RCE Attempt "
+        "(CVE-2020-9484) [**] [Classification: Attempted "
+        "Administrator Privilege Gain] [Priority: 1] {TCP} "
+        "198.51.100.45:48210 -> 10.0.1.10:8080\n\n"
+        "Tomcat access.log (Server 2, 10.0.1.10):\n"
+        "198.51.100.45 - - [10/Feb/2026:14:32:08 +0000] "
+        "\"POST /api/v1/upload HTTP/1.1\" 200 412 \"-\" "
+        "\"python-requests/2.28.1\"\n"
+        "198.51.100.45 - - [10/Feb/2026:14:33:15 +0000] "
+        "\"GET /shell.jsp HTTP/1.1\" 200 89 \"-\" "
+        "\"Mozilla/5.0\"\n\n"
+        "PostgreSQL log (Server 4, 10.0.2.10):\n"
+        "2026-02-10 14:45:22.103 UTC [5432] app_svc@"
+        "crm_production LOG: statement: CREATE TABLE "
+        "cmd_exec(cmd_output text);\n"
+        "2026-02-10 14:45:23.207 UTC [5432] app_svc@"
+        "crm_production LOG: statement: COPY cmd_exec "
+        "FROM PROGRAM 'id';\n\n"
+        "Syslog (Server 4, 10.0.2.10):\n"
+        "Feb 10 14:55:01 server4 kernel: CPU 98%: process "
+        "'kworker/0:2' pid 31337\n"
+        "Feb 10 14:55:12 server4 kernel: xmrig[31337]: "
+        "segfault at 0x0 ip 00007f3a2b rsp 00007ffd3c "
+        "error 4 in xmrig[400000+1c6000]\n"
+        "Feb 10 14:58:33 server4 dnsmasq[892]: query[TXT] "
+        "aHR0cDovL2V4ZmlsLmV4YW1wbGUu.t.evil.example.com "
+        "from 10.0.2.10\n"
+        "Feb 10 14:58:34 server4 dnsmasq[892]: query[TXT] "
+        "Y29tL2NvbGxlY3Q/ZD1jcmVkcw==.t.evil.example.com "
+        "from 10.0.2.10"
+    )
+    OPERATOR_FEEDBACK = (
+        "The Suricata alert on the firewall caught the "
+        "initial Tomcat deserialization exploit from "
+        "198.51.100.45. The Tomcat access.log confirms "
+        "a malicious upload followed by a JSP webshell "
+        "access. The attacker then used the plaintext "
+        "database credentials found in Server 2's "
+        "db_config.xml to connect to PostgreSQL on "
+        "Server 4, where they leveraged COPY FROM PROGRAM "
+        "for OS command execution. The syslog entries on "
+        "Server 4 show a crypto-miner (xmrig) consuming "
+        "98% CPU and DNS tunneling queries to "
+        "evil.example.com for data exfiltration."
+    )
+    SPECIFICATION = (
+        "- PostgreSQL on Server 4 must remain accessible "
+        "from Server 2 (application dependency)\n"
+        "- Web server (Server 2) downtime must not exceed "
+        "10 minutes; serve a maintenance page via Nginx "
+        "while Tomcat is offline\n"
+        "- Firewall rules on Server 1 must remain intact "
+        "and operational\n"
+        "- SSH on Server 3 must remain operational for "
+        "administrator access\n"
+        "- DNS service on Server 5 must not be disrupted\n"
+        "- Backup jobs on Server 6 must continue running\n"
+        "- All topology links between adjacent hosts must "
+        "remain operational\n"
+        "- Internet hosts must not be able to reach LAN "
+        "servers (4, 5, 6) directly"
+    )
+    INCIDENT_REPORT = (
+        "Incident Summary:\n"
+        "A five-stage attack was detected targeting the "
+        "enterprise network. The attacker (198.51.100.45) "
+        "exploited CVE-2020-9484 (Apache Tomcat session "
+        "deserialization) on the DMZ web server "
+        "(Server 2, 10.0.1.10) at 14:32 on 02/10, "
+        "uploading a JSP webshell for persistent access. "
+        "From Server 2, the attacker retrieved plaintext "
+        "PostgreSQL credentials from db_config.xml and "
+        "pivoted to the internal database server "
+        "(Server 4, 10.0.2.10). On Server 4, the attacker "
+        "leveraged CVE-2019-9193 (PostgreSQL COPY FROM "
+        "PROGRAM) to execute OS commands, deployed a "
+        "crypto-miner (xmrig), and established DNS "
+        "tunneling for data exfiltration.\n\n"
+        "Attack Vector Analysis:\n"
+        "1. Initial access: Exploitation of CVE-2020-9484 "
+        "on Tomcat 9.0.30 via a crafted serialized session "
+        "file upload (198.51.100.45 -> 10.0.1.10:8080). "
+        "The FileStore PersistentManager deserialized the "
+        "malicious payload.\n"
+        "2. Persistence: JSP webshell deployed at "
+        "/shell.jsp and cron job installed at "
+        "/etc/cron.d/.cleanup.sh for callback "
+        "persistence.\n"
+        "3. Credential theft: Plaintext database "
+        "credentials (app_svc / SuperSecret123!) extracted "
+        "from /opt/tomcat/conf/db_config.xml on "
+        "Server 2.\n"
+        "4. Lateral movement: The attacker connected from "
+        "Server 2 to Server 4's PostgreSQL (port 5432) "
+        "using the stolen credentials and exploited COPY "
+        "FROM PROGRAM to gain OS-level command "
+        "execution.\n"
+        "5. Impact: Crypto-miner (xmrig) deployed as "
+        "/tmp/.kworker consuming 98% CPU, and DNS "
+        "tunneling established to evil.example.com for "
+        "exfiltrating CRM database contents.\n\n"
+        "Affected Assets:\n"
+        "- Server 2 (10.0.1.10): Compromised via Tomcat "
+        "deserialization. Webshell + cron persistence "
+        "installed.\n"
+        "- Server 4 (10.0.2.10): Compromised via "
+        "PostgreSQL COPY FROM PROGRAM. Crypto-miner + DNS "
+        "tunneling active.\n\n"
+        "Indicators of Compromise:\n"
+        "- Attacker IP: 198.51.100.45 (external)\n"
+        "- Webshell: /opt/tomcat/webapps/ROOT/shell.jsp\n"
+        "- Cron persistence: /etc/cron.d/.cleanup.sh\n"
+        "- Crypto-miner: /tmp/.kworker (xmrig)\n"
+        "- DNS tunneling: *.t.evil.example.com TXT "
+        "queries\n"
+        "- Stolen credentials: app_svc / SuperSecret123!\n"
+        "- PostgreSQL artifact: cmd_exec table in "
+        "crm_production\n"
+        "- MITRE ATT&CK: T1190 (Exploit Public-Facing "
+        "Application), T1505.003 (Web Shell), T1053.003 "
+        "(Cron), T1552.001 (Credentials In Files), "
+        "T1210 (Exploitation of Remote Services), "
+        "T1496 (Resource Hijacking), T1048.001 "
+        "(Exfiltration Over DNS)\n\n"
+        "Severity: Critical\n"
+        "Two servers compromised with active crypto-mining "
+        "and data exfiltration. Immediate containment "
+        "required."
+    )
+    RESPONSE_PLAN = (
+        "Action 1 — Block attacker at firewall:\n"
+        "Add an iptables rule on Server 1 (10.1.0.1) to "
+        "DROP all traffic from the attacker IP "
+        "198.51.100.45. This stops further exploitation "
+        "from the external attacker.\n"
+        "Command on Server 1:\n"
+        "  iptables -I FORWARD -s 198.51.100.45 -j DROP\n"
+        "\n"
+        "Action 2 — Contain Server 2 (DMZ web server):\n"
+        "Block outbound traffic from Server 2 to the "
+        "Internal LAN to prevent further lateral movement. "
+        "Switch Nginx to serve a static maintenance page "
+        "while Tomcat is taken offline.\n"
+        "Commands on Server 1:\n"
+        "  iptables -I FORWARD -s 10.0.1.10 "
+        "-d 10.0.2.0/24 -j DROP\n"
+        "Commands on Server 2:\n"
+        "  cp /etc/nginx/sites-available/maintenance "
+        "/etc/nginx/sites-enabled/default\n"
+        "  nginx -s reload\n"
+        "\n"
+        "Action 3 — Kill crypto-miner and block DNS "
+        "tunneling on Server 4:\n"
+        "Terminate the xmrig process and block outbound "
+        "DNS tunneling traffic to the malicious domain.\n"
+        "Commands on Server 4:\n"
+        "  pkill -f kworker_fake || true\n"
+        "  kill $(pgrep -f '.kworker') 2>/dev/null "
+        "|| true\n"
+        "  iptables -I OUTPUT -d evil.example.com "
+        "-j DROP 2>/dev/null || true\n"
+        "\n"
+        "Action 4 — Preserve forensic evidence:\n"
+        "Collect attack artifacts from Server 2 and "
+        "Server 4 before cleanup.\n"
+        "Commands on Server 2:\n"
+        "  tar czf /tmp/forensics_s2.tar.gz "
+        "/opt/tomcat/logs/access.log "
+        "/opt/tomcat/webapps/ROOT/shell.jsp "
+        "/etc/cron.d/.cleanup.sh "
+        "/root/.bash_history 2>/dev/null\n"
+        "Commands on Server 4:\n"
+        "  tar czf /tmp/forensics_s4.tar.gz "
+        "/var/log/postgresql/ /var/log/syslog "
+        "/root/.bash_history 2>/dev/null\n"
+        "\n"
+        "Action 5 — Eradicate webshell and persistence "
+        "on Server 2:\n"
+        "Remove the JSP webshell, cron persistence, and "
+        "any uploaded malicious files.\n"
+        "Commands on Server 2:\n"
+        "  rm -f /opt/tomcat/webapps/ROOT/shell.jsp\n"
+        "  rm -f /etc/cron.d/.cleanup.sh\n"
+        "  find /opt/tomcat/webapps/ -name '*.jsp' "
+        "-newer /opt/tomcat/webapps/ROOT/index.jsp "
+        "-delete\n"
+        "\n"
+        "Action 6 — Eradicate attacker foothold on "
+        "Server 4:\n"
+        "Drop the cmd_exec table used for OS command "
+        "execution, rotate the compromised database "
+        "credentials, and remove the crypto-miner "
+        "binary.\n"
+        "Commands on Server 4:\n"
+        "  sudo -u postgres psql -d crm_production "
+        "-c \"DROP TABLE IF EXISTS cmd_exec;\"\n"
+        "  sudo -u postgres psql -c \"ALTER USER app_svc "
+        "WITH PASSWORD 'new_secure_password_here';\"\n"
+        "  rm -f /tmp/.kworker /tmp/.kworker_fake\n"
+        "\n"
+        "Action 7 — Harden Server 2 (patch Tomcat):\n"
+        "Remove the vulnerable FileStore session "
+        "persistence configuration and upgrade Tomcat to "
+        "a patched version.\n"
+        "Commands on Server 2:\n"
+        "  Remove the PersistentManager configuration "
+        "from context.xml to disable FileStore session "
+        "deserialization.\n"
+        "  Update Tomcat to version >= 9.0.35 to patch "
+        "CVE-2020-9484.\n"
+        "\n"
+        "Action 8 — Harden Server 4 (revoke SUPERUSER):\n"
+        "Revoke unnecessary SUPERUSER privileges from the "
+        "application database user to prevent future COPY "
+        "FROM PROGRAM abuse.\n"
+        "Commands on Server 4:\n"
+        "  sudo -u postgres psql -c \"ALTER USER app_svc "
+        "NOSUPERUSER;\"\n"
+        "\n"
+        "Action 9 — Restore Server 2 to production:\n"
+        "Re-enable the Nginx reverse proxy to Tomcat and "
+        "restore DMZ-to-DB connectivity on the firewall.\n"
+        "Commands on Server 1:\n"
+        "  iptables -D FORWARD -s 10.0.1.10 "
+        "-d 10.0.2.0/24 -j DROP\n"
+        "Commands on Server 2:\n"
+        "  cp /etc/nginx/sites-available/production "
+        "/etc/nginx/sites-enabled/default\n"
+        "  nginx -s reload\n"
+        "\n"
+        "Action 10 — Verify service restoration:\n"
+        "Run the specification commands to confirm all "
+        "required services are operational after the "
+        "response actions. Check HTTP on Server 2, SSH on "
+        "Server 3, PostgreSQL on Server 4, DNS on "
+        "Server 5, and Samba on Server 6."
     )

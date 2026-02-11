@@ -46,20 +46,29 @@ test.describe('Response Planner page', () => {
     await expect(page.locator('button', { hasText: 'Generate plan' })).toBeVisible()
   })
 
-  test('Fetch example incident button is visible', async ({ page }) => {
-    await expect(page.locator('button', { hasText: 'Fetch example' })).toBeVisible()
+  test('Load example button is visible', async ({ page }) => {
+    await expect(page.locator('button', { hasText: 'Load example' })).toBeVisible()
   })
 
-  test('Fetch example populates all four fields', async ({ page }) => {
-    await page.locator('button', { hasText: 'Fetch example' }).click()
-    await expect(page.locator('#systemDescription')).not.toHaveValue('')
+  test('Load example populates all four fields', async ({ page }) => {
+    const select = page.locator('select').filter({ hasText: 'Select an incident' })
+    await select.waitFor({ state: 'visible', timeout: 5000 })
+    // Wait for the dropdown to have options loaded from API
+    await expect(select.locator('option')).not.toHaveCount(1, { timeout: 5000 })
+    await select.selectOption({ label: 'Incident 1' })
+    await page.locator('button', { hasText: 'Load example' }).click()
+    await expect(page.locator('#systemDescription')).not.toHaveValue('', { timeout: 5000 })
     await expect(page.locator('#securityAlerts')).not.toHaveValue('')
     await expect(page.locator('#operatorFeedback')).not.toHaveValue('')
     await expect(page.locator('#specification')).not.toHaveValue('')
   })
 
   test('Fetch example populates fields from API', async ({ page }) => {
-    await page.locator('button', { hasText: 'Fetch example' }).click()
+    const select = page.locator('select').filter({ hasText: 'Select an incident' })
+    await select.waitFor({ state: 'visible', timeout: 5000 })
+    await expect(select.locator('option')).not.toHaveCount(1, { timeout: 5000 })
+    await select.selectOption({ label: 'Incident 1' })
+    await page.locator('button', { hasText: 'Load example' }).click()
     await expect(page.locator('#systemDescription')).not.toHaveValue('', { timeout: 5000 })
     const sysDesc = await page.locator('#systemDescription').inputValue()
     expect(sysDesc).toContain('SaaS company')

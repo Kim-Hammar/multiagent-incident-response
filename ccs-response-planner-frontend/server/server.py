@@ -6,6 +6,7 @@ import ccs_response_planner_backend.rest_api.rest_api as rest_api
 from ccs_response_planner_backend.constants.constants import (
     DIGITAL_TWIN,
     EXAMPLES,
+    EXAMPLES_2,
 )
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 
@@ -58,6 +59,20 @@ if __name__ == '__main__':
             "response_plan": EXAMPLES.RESPONSE_PLAN,
         },
         dt_config=DIGITAL_TWIN.DEFAULT_CONFIG,
+    )
+    DatabaseFacade.seed_example_incident(
+        name="Incident 2",
+        data={
+            "system_description": EXAMPLES_2.SYSTEM_DESCRIPTION,
+            "system_description_image":
+                EXAMPLES_2.SYSTEM_DESCRIPTION_IMAGE,
+            "security_alerts": EXAMPLES_2.SECURITY_ALERTS,
+            "operator_feedback": EXAMPLES_2.OPERATOR_FEEDBACK,
+            "specification": EXAMPLES_2.SPECIFICATION,
+            "incident_report": EXAMPLES_2.INCIDENT_REPORT,
+            "response_plan": EXAMPLES_2.RESPONSE_PLAN,
+        },
+        dt_config=DIGITAL_TWIN.INCIDENT_2_CONFIG,
     )
     logger.info("Example incidents seeded")
 
