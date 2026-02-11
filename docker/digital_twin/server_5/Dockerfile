@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     redis-server \
     curl \
+    iptables \
     iproute2 \
     iputils-ping \
     net-tools \

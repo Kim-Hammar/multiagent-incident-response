@@ -87,10 +87,9 @@ function CodeReviewerConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="cr-specification">Specification commands (optional)</label>
+        <label htmlFor="cr-specification">Specification commands</label>
         <p className="ia-hint">
-          JSON array of specification commands that define service-level requirements. If left
-          empty, the default digital twin specification will be used.
+          JSON array of specification commands that define service-level requirements of the system.
         </p>
         <textarea
           id="cr-specification"
@@ -118,8 +117,7 @@ function CodeReviewerConfigTab({
       <div className="ia-section">
         <label htmlFor="cr-code-report">Code Agent report (required)</label>
         <p className="ia-hint">
-          Paste the JSON code report produced by the Code Agent, or use &quot;Fetch example&quot; to
-          load the latest report from the database.
+          Paste the JSON code report produced by the Code Agent.
         </p>
         <textarea
           id="cr-code-report"

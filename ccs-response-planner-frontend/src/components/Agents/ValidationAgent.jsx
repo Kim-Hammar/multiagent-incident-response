@@ -24,6 +24,8 @@ function ValidationAgent() {
   const [incidentReport, setIncidentReport] = useState('')
   const [responsePlan, setResponsePlan] = useState('')
   const [specification, setSpecification] = useState('')
+  const [codeReport, setCodeReport] = useState('')
+  const [plannerReport, setPlannerReport] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
@@ -126,6 +128,8 @@ function ValidationAgent() {
           incident_report: incidentReport,
           response_plan: responsePlan,
           specification: specification,
+          code_report: codeReport,
+          planner_report: plannerReport,
           conversation_history: history,
           images: systemDescriptionImages,
           model_name: selectedModel || undefined
@@ -225,7 +229,9 @@ function ValidationAgent() {
             },
             final_service_state: [],
             overall_result: 'Plan validation failed',
-            recommendations: []
+            recommendations: [],
+            actual_total_cost: 0,
+            simulated_total_cost: 0
           }
         }
         setConversationHistory([
@@ -338,6 +344,28 @@ function ValidationAgent() {
       setResponsePlan(data.response_plan || '')
       setSpecification(data.specification || '')
       setSystemDescriptionImages(data.system_description_images || [])
+
+      // Fetch latest Code Agent report
+      const codeRes = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (codeRes.ok) {
+        const codeReports = await codeRes.json()
+        if (codeReports.length > 0) {
+          setCodeReport(JSON.stringify(codeReports[0].report || {}, null, 2))
+        }
+      }
+
+      // Fetch latest MDP Planner report
+      const plannerRes = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=mdp_planner`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (plannerRes.ok) {
+        const plannerReports = await plannerRes.json()
+        if (plannerReports.length > 0) {
+          setPlannerReport(JSON.stringify(plannerReports[0].report || {}, null, 2))
+        }
+      }
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to fetch example: ${err.message}` })
     }
@@ -348,6 +376,8 @@ function ValidationAgent() {
     setIncidentReport('')
     setResponsePlan('')
     setSpecification('')
+    setCodeReport('')
+    setPlannerReport('')
     setSystemDescriptionImages([])
     setConversationHistory([])
     setPendingProposal(null)
@@ -367,7 +397,9 @@ function ValidationAgent() {
           system_description: systemDescription,
           incident_report: incidentReport,
           response_plan: responsePlan,
-          specification: specification
+          specification: specification,
+          code_report: codeReport,
+          planner_report: plannerReport
         })
       })
       if (res.status === 401) {
@@ -497,6 +529,10 @@ function ValidationAgent() {
           setResponsePlan={setResponsePlan}
           specification={specification}
           setSpecification={setSpecification}
+          codeReport={codeReport}
+          setCodeReport={setCodeReport}
+          plannerReport={plannerReport}
+          setPlannerReport={setPlannerReport}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
           handlePaste={handlePaste}

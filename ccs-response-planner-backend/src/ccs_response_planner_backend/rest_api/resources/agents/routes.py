@@ -270,6 +270,18 @@ def agents_validation_step() -> Response | tuple[Response, int]:
     conversation_history = body.get("conversation_history", [])
     images = body.get("images", [])
     model_name = body.get("model_name") or None
+    planner_report = body.get("planner_report")
+    code_report = body.get("code_report")
+    if isinstance(planner_report, str):
+        try:
+            planner_report = json.loads(planner_report)
+        except (json.JSONDecodeError, ValueError):
+            planner_report = {}
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            code_report = {}
     if not isinstance(images, list):
         images = []
     if not system_description and not incident_report:
@@ -300,6 +312,8 @@ def agents_validation_step() -> Response | tuple[Response, int]:
                 incident_report=incident_report,
                 response_plan=response_plan,
                 specification=specification,
+                planner_report=planner_report or {},
+                code_report=code_report or {},
                 conversation_history=conversation_history,
                 images=images,
                 model_name=model_name,
@@ -330,6 +344,18 @@ def agents_validation_prompt() -> tuple[Response, int]:
             ],
             indent=2,
         )
+    planner_report = body.get("planner_report")
+    code_report = body.get("code_report")
+    if isinstance(planner_report, str):
+        try:
+            planner_report = json.loads(planner_report)
+        except (json.JSONDecodeError, ValueError):
+            planner_report = {}
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            code_report = {}
     prompt = VALIDATION_PROMPT_TEMPLATE.format(
         system_description=body.get(
             "system_description", "",
@@ -341,6 +367,16 @@ def agents_validation_prompt() -> tuple[Response, int]:
             "response_plan", "",
         ) or "N/A",
         specification=specification or "N/A",
+        planner_report_formatted=(
+            ValidationAgent._format_planner_report(
+                planner_report or {},
+            )
+        ),
+        code_report_formatted=(
+            ValidationAgent._format_code_report(
+                code_report or {},
+            )
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 

@@ -13,6 +13,10 @@ function ValidationAgentConfigTab({
   setResponsePlan,
   specification,
   setSpecification,
+  codeReport,
+  setCodeReport,
+  plannerReport,
+  setPlannerReport,
   systemDescriptionImages,
   setSystemDescriptionImages,
   handlePaste,
@@ -48,6 +52,10 @@ function ValidationAgentConfigTab({
             </li>
             <li>
               Produce a structured validation report with per-action results and overall outcome.
+            </li>
+            <li>
+              Compute actual cost from digital twin execution and compare with the simulated MDP
+              cost from the planner report.
             </li>
           </ol>
         </p>
@@ -103,10 +111,9 @@ function ValidationAgentConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="va-specification">Specification commands (optional)</label>
+        <label htmlFor="va-specification">Specification commands</label>
         <p className="ia-hint">
-          JSON array of specification commands. If left empty, the default digital twin
-          specification will be used.
+          JSON array of specification commands used to verify service state after each action.
         </p>
         <textarea
           id="va-specification"
@@ -115,7 +122,40 @@ function ValidationAgentConfigTab({
           value={specification}
           onChange={(e) => setSpecification(e.target.value)}
           disabled={isAgentBusy}
-          placeholder="Leave empty to use default specification commands from the digital twin config."
+          placeholder='[{"host": "server_1", "command": "...", "description": "..."}]'
+        />
+      </div>
+      <div className="ia-section">
+        <label htmlFor="va-code-report">Code Agent report</label>
+        <p className="ia-hint">
+          JSON report from the Code Agent containing MDP environment code, actions, and state
+          description.
+        </p>
+        <textarea
+          id="va-code-report"
+          className="form-control ia-textarea"
+          rows="8"
+          value={codeReport}
+          onChange={(e) => setCodeReport(e.target.value)}
+          disabled={isAgentBusy}
+          style={{ fontFamily: 'monospace', fontSize: '12px' }}
+          placeholder="Paste the Code Agent report JSON..."
+        />
+      </div>
+      <div className="ia-section">
+        <label htmlFor="va-planner-report">MDP Planner report</label>
+        <p className="ia-hint">
+          JSON report from the MDP Planner Agent containing action sequence and expected total cost.
+        </p>
+        <textarea
+          id="va-planner-report"
+          className="form-control ia-textarea"
+          rows="8"
+          value={plannerReport}
+          onChange={(e) => setPlannerReport(e.target.value)}
+          disabled={isAgentBusy}
+          style={{ fontFamily: 'monospace', fontSize: '12px' }}
+          placeholder="Paste the MDP Planner report JSON..."
         />
       </div>
       <button

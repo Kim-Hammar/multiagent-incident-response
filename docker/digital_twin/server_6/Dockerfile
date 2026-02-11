@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --force-yes --no-install-recommends \
     samba \
     gcc \
     libc6-dev \
+    iptables \
     iproute2 \
     iputils-ping \
     net-tools \

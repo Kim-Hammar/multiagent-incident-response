@@ -88,11 +88,9 @@ function CodeAgentConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="ca-specification">Specification commands (optional)</label>
+        <label htmlFor="ca-specification">Specification commands</label>
         <p className="ia-hint">
-          JSON array of specification commands that define service-level requirements. Each command
-          becomes a state dimension in the MDP. If left empty, the default digital twin
-          specification will be used.
+          JSON array of specification commands that define service-level requirements of the system.
         </p>
         <textarea
           id="ca-specification"

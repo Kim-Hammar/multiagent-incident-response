@@ -1,12 +1,15 @@
 """
 Docker management facade for digital-twin deployment.
 """
+import logging
 from typing import Any, Generator
 
 import docker
 from docker.errors import NotFound
 
 from ccs_response_planner_backend.constants.constants import DOCKER
+
+logger = logging.getLogger(__name__)
 
 
 class DockerManager:
@@ -207,6 +210,28 @@ class DockerManager:
             except Exception:
                 pass
 
+        # Apply post-deploy commands (e.g. iptables rules)
+        for host in hosts:
+            post_cmds = host.get("post_deploy_commands", [])
+            if not post_cmds:
+                continue
+            container_name = f"{DOCKER.CONTAINER_PREFIX}{host['id']}"
+            for cmd in post_cmds:
+                yield {
+                    "type": "progress",
+                    "message":
+                        f"Running post-deploy command on "
+                        f"{host['id']}: {cmd}",
+                }
+                try:
+                    exec_id = client.api.exec_create(
+                        container_name,
+                        ["/bin/sh", "-c", cmd],
+                    )["Id"]
+                    client.api.exec_start(exec_id)
+                except Exception:
+                    pass
+
         yield {"type": "progress",
                "message": "Deployment complete"}
         yield {
@@ -304,6 +329,34 @@ class DockerManager:
             "networks": network_names,
             "containers": containers,
         }
+
+    @staticmethod
+    def ensure_deployed() -> None:
+        """
+        Ensure the digital twin is deployed.
+
+        If no DT containers exist, auto-deploy using saved config
+        or the default configuration.
+        """
+        status = DockerManager.status()
+        if status.get("deployed"):
+            return
+        logger.info(
+            "Digital twin not deployed; auto-deploying..."
+        )
+        from ccs_response_planner_backend.constants.constants \
+            import DIGITAL_TWIN
+        from ccs_response_planner_backend.db.database_facade \
+            import DatabaseFacade
+        config = DatabaseFacade.get_digital_twin_config()
+        if config is None:
+            config = DIGITAL_TWIN.DEFAULT_CONFIG
+        for item in DockerManager.deploy(config):
+            if item.get("type") == "progress":
+                logger.info(
+                    "Auto-deploy: %s", item.get("message"),
+                )
+        logger.info("Digital twin auto-deploy complete")
 
     @staticmethod
     def validate(

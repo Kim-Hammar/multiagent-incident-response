@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsmasq \
     sqlite3 \
     curl \
+    iptables \
     iproute2 \
     iputils-ping \
     net-tools \

@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postfix \
     python3 \
     curl \
+    iptables \
     iproute2 \
     iputils-ping \
     net-tools \

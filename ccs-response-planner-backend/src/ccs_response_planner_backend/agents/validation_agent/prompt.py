@@ -22,6 +22,12 @@ after each action.
 ### Specification Commands
 {specification}
 
+### MDP Planner Report
+{planner_report_formatted}
+
+### Code Agent Report (MDP Environment)
+{code_report_formatted}
+
 ## Instructions
 
 1. Carefully read the response plan above. Identify the ordered list of \
@@ -47,10 +53,14 @@ operation.
 specification commands listed above. Each specification command tests a \
 specific connectivity or service requirement. A command passes if it exits \
 with code 0 and fails otherwise.
-   d. Record the action name, description, commands you executed, outcome, \
-recovery state, and service state for this action.
-3. After applying ALL actions, call `produce_validation_report` with the \
-complete per-action results.
+   d. **Compute the step cost**: count the number of violated (failed) specification \
+commands after applying the action. The per-step cost = 1 + number_of_failed_specs \
+(following the MDP cost function: cost = -reward = 1 + number_of_violated_specs).
+   e. Record the action name, description, commands executed, outcome, recovery state, \
+service state, and **actual_step_cost** for this action.
+3. After applying ALL actions, compute the **actual_total_cost** by summing all per-step \
+costs. Compare this with the `expected_total_cost` from the MDP planner report. \
+Then call `produce_validation_report` with the complete per-action results.
 
 ## Available Tools
 
@@ -67,17 +77,31 @@ You can use `dt_exec` to run shell commands on any container.
 
 ### Available containers
 
-| Container   | IP addresses                                          | Role                                    |
-|-------------|-------------------------------------------------------|-----------------------------------------|
-| gateway     | 10.0.1.254                                            | Snort IDS v2.9                          |
-| firewall    | 10.0.1.253                                            | iptables packet filtering               |
-| ids         | 10.0.1.252, 10.0.2.252, 10.0.3.252, 10.0.4.252       | rsyslog log aggregation, tcpdump        |
-| server_1    | 10.0.2.1, 10.0.3.1, 10.0.4.1                          | Nginx, PHP-FPM portal, dnsmasq DNS      |
-| server_2    | 10.0.2.2, 10.0.3.2, 10.0.4.2                          | vsftpd FTP, cron backups                |
-| server_3    | 10.0.3.3, 10.0.4.3                                    | SSH, cron CI/CD build pipeline          |
-| server_4    | 10.0.3.4, 10.0.4.4                                    | Postfix SMTP mail server                |
-| server_5    | 10.0.4.5                                              | SSH, Python REST API, Redis cache       |
-| server_6    | 10.0.4.6                                              | PostgreSQL database, Samba file shares  |
+| Container   | Zone       | IP address  | Role                                    |
+|-------------|------------|-------------|-----------------------------------------|
+| gateway     | perimeter  | 10.0.1.254  | Snort IDS v2.9                          |
+| firewall    | perimeter  | 10.0.1.253  | iptables packet filtering               |
+| ids         | all zones  | 10.0.1.252, 10.0.2.252, 10.0.3.252, 10.0.4.252 | rsyslog, tcpdump |
+| server_1    | Zone 1     | 10.0.2.1    | Nginx, PHP-FPM portal, dnsmasq DNS      |
+| server_2    | Zone 1     | 10.0.2.2    | vsftpd FTP, cron backups                |
+| server_3    | Zone 2     | 10.0.3.3    | SSH, cron CI/CD build pipeline          |
+| server_4    | Zone 2     | 10.0.3.4    | Postfix SMTP mail server                |
+| server_5    | Zone 3     | 10.0.4.5    | SSH, Python REST API, Redis cache       |
+| server_6    | Zone 3     | 10.0.4.6    | PostgreSQL database, Samba file shares  |
+
+### Network connectivity
+
+Each server resides on exactly one zone and can only reach specific \
+neighboring servers via point-to-point routes through the IDS — **not** \
+the entire zone subnet. The adjacency links are: \
+S1–S2 (Zone 1), S1–S4 (cross-zone), S1–S6 (cross-zone), \
+S2–S3 (cross-zone), S2–S5 (cross-zone), S3–S6 (cross-zone), \
+S4–S5 (cross-zone), S5–S6 (Zone 3). \
+S3 and S4 share Zone 2 but are **isolated** from each other by iptables \
+rules. All other server-to-server connections are blocked. \
+When running specification commands, a ping test between non-adjacent \
+servers is expected to fail — this is correct segmentation, not a broken \
+service.
 
 ## Recovery State Assessment Guidelines
 
@@ -99,6 +123,15 @@ been patched, weak credentials changed, and security configurations tightened.
 - **are_services_restored**: Set to true when all business-critical services \
 are confirmed operational by specification commands passing.
 
+## Cost Computation
+
+The MDP uses negative rewards where reward = -1 - number_of_violated_specs per step. \
+Cost is the negation: cost = 1 + number_of_violated_specs per step. \
+After each action, run ALL specification commands and count failures. \
+Per-step cost = 1 + (number of failed specification commands). \
+Total actual cost = sum of all per-step costs. \
+Compare actual_total_cost with the simulated expected_total_cost from the planner report.
+
 ## CRITICAL RULES
 
 - You MUST always respond with a tool call. Either call `dt_exec` to apply \
@@ -116,4 +149,7 @@ When calling `produce_validation_report`:
 - All string fields must be non-empty.
 - Each `action_results` entry must include the recovery state and service \
 state as assessed after that action was applied.
+- `actual_total_cost` must be the sum of all per-step actual costs.
+- `simulated_total_cost` must match the expected_total_cost from the planner report.
+- Each `action_results` entry must include `actual_step_cost`.
 """

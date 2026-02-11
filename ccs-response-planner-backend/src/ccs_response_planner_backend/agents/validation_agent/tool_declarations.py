@@ -136,6 +136,14 @@ TOOL_DECLARATIONS = [
                                     ],
                                 },
                             },
+                            "actual_step_cost": {
+                                "type": "number",
+                                "description": (
+                                    "Actual cost for this step: "
+                                    "1 + number of failed "
+                                    "specification commands."
+                                ),
+                            },
                         },
                         "required": [
                             "action_name",
@@ -144,6 +152,7 @@ TOOL_DECLARATIONS = [
                             "outcome",
                             "recovery_state",
                             "service_state",
+                            "actual_step_cost",
                         ],
                     },
                 },
@@ -211,6 +220,21 @@ TOOL_DECLARATIONS = [
                         "the response plan."
                     ),
                 },
+                "actual_total_cost": {
+                    "type": "number",
+                    "description": (
+                        "Total actual cost from digital "
+                        "twin execution (sum of all "
+                        "per-step costs)."
+                    ),
+                },
+                "simulated_total_cost": {
+                    "type": "number",
+                    "description": (
+                        "Expected total cost from the "
+                        "MDP planner report."
+                    ),
+                },
             },
             "required": [
                 "executive_summary",
@@ -219,6 +243,8 @@ TOOL_DECLARATIONS = [
                 "final_service_state",
                 "overall_result",
                 "recommendations",
+                "actual_total_cost",
+                "simulated_total_cost",
             ],
         },
     ),

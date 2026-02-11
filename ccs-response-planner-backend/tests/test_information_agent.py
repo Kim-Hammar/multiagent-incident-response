@@ -201,8 +201,7 @@ def test_otx_search(mock_otx_cls: MagicMock) -> None:
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
-    ".tools.docker",
+    "ccs_response_planner_backend.agents.shared_tools.docker",
 )
 def test_dt_exec_returns_output(
     mock_docker: MagicMock,
@@ -227,15 +226,19 @@ def test_dt_exec_returns_output(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
-    ".tools.docker",
+    "ccs_response_planner_backend.agents.shared_tools"
+    ".DockerManager",
+)
+@patch(
+    "ccs_response_planner_backend.agents.shared_tools.docker",
 )
 def test_dt_exec_container_not_found(
     mock_docker: MagicMock,
+    mock_manager: MagicMock,
 ) -> None:
     """
-    dt_exec should return an error with valid container names
-    when the container is not found.
+    dt_exec should return an error when the container is not
+    found and auto-deploy fails.
     """
     mock_client = MagicMock()
     mock_client.containers.get.side_effect = (
@@ -243,6 +246,9 @@ def test_dt_exec_container_not_found(
     )
     mock_docker.from_env.return_value = mock_client
     mock_docker.errors.NotFound = docker_module.errors.NotFound
+    mock_manager.ensure_deployed.side_effect = (
+        RuntimeError("deploy failed")
+    )
     result = dt_exec("gateway", "ps aux")
     assert "error" in result
     assert "not found" in result["error"].lower()

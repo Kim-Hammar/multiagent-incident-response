@@ -105,12 +105,155 @@ class ValidationAgent:
             ),
         )
 
+    @staticmethod
+    def _format_code_report(
+        report: dict[str, Any],
+    ) -> str:
+        """
+        Format a code agent report into readable text for the
+        system prompt.
+
+        :param report: the code report dict
+        :return: a formatted string
+        """
+        sections: list[str] = []
+        summary = report.get("executive_summary", "")
+        if summary:
+            sections.append(
+                f"### Executive Summary\n{summary}"
+            )
+        state_desc = report.get("state_description", "")
+        if state_desc:
+            sections.append(
+                f"### State Description\n{state_desc}"
+            )
+        actions = report.get("actions", [])
+        if actions:
+            lines = ["### Actions"]
+            for i, a in enumerate(actions):
+                name = a.get("name", f"Action {i}")
+                desc = a.get("description", "")
+                effect = a.get("state_effect", "")
+                prob = a.get("success_probability", "")
+                cmds = a.get("commands", [])
+                lines.append(f"\n**{i}. {name}**")
+                if desc:
+                    lines.append(f"  Description: {desc}")
+                if effect:
+                    lines.append(
+                        f"  State effect: {effect}"
+                    )
+                if prob:
+                    lines.append(
+                        f"  P(success): {prob}"
+                    )
+                if cmds:
+                    for c in cmds:
+                        ct = c.get("container", "?")
+                        cmd = c.get("command", "?")
+                        lines.append(
+                            f"  Command: {ct}: {cmd}"
+                        )
+            sections.append("\n".join(lines))
+        verification = report.get(
+            "verification_result", "",
+        )
+        checks = report.get("verification_checks", [])
+        if verification or checks:
+            lines = ["### Verification"]
+            if verification:
+                lines.append(verification)
+            for c in checks:
+                status = (
+                    "PASS" if c.get("passed") else "FAIL"
+                )
+                detail = c.get("detail", "")
+                check_name = c.get("check", "?")
+                lines.append(
+                    f"  [{status}] {check_name}"
+                    + (f": {detail}" if detail else "")
+                )
+            sections.append("\n".join(lines))
+        code = report.get("generated_code", "")
+        if code:
+            sections.append(
+                f"### Generated Code\n\n```python\n"
+                f"{code}\n```"
+            )
+        return "\n\n".join(sections) if sections else "N/A"
+
+    @staticmethod
+    def _format_planner_report(
+        report: dict[str, Any],
+    ) -> str:
+        """
+        Format an MDP planner report into readable text for the
+        system prompt.
+
+        :param report: the planner report dict
+        :return: a formatted string
+        """
+        sections: list[str] = []
+        summary = report.get("executive_summary", "")
+        if summary:
+            sections.append(
+                f"### Executive Summary\n{summary}"
+            )
+        algorithm = report.get("algorithm", "")
+        if algorithm:
+            sections.append(
+                f"### Algorithm\n{algorithm}"
+            )
+        training = report.get("training_summary", "")
+        if training:
+            sections.append(
+                f"### Training Summary\n{training}"
+            )
+        action_seq = report.get("action_sequence", [])
+        if action_seq:
+            lines = ["### Action Sequence"]
+            for i, a in enumerate(action_seq):
+                name = a.get("name", f"Action {i}")
+                desc = a.get("description", "")
+                cmds = a.get("commands", [])
+                lines.append(f"\n**{i}. {name}**")
+                if desc:
+                    lines.append(f"  Description: {desc}")
+                if cmds:
+                    for c in cmds:
+                        ct = c.get("container", "?")
+                        cmd = c.get("command", "?")
+                        lines.append(
+                            f"  Command: {ct}: {cmd}"
+                        )
+            sections.append("\n".join(lines))
+        cost = report.get("expected_total_cost")
+        if cost is not None:
+            sections.append(
+                f"### Expected Total Cost\n{cost}"
+            )
+        contingencies = report.get("contingencies", [])
+        if contingencies:
+            lines = ["### Contingencies"]
+            for c in contingencies:
+                lines.append(f"- {c}")
+            sections.append("\n".join(lines))
+        risks = report.get("risks", [])
+        if risks:
+            lines = ["### Risks"]
+            for r in risks:
+                lines.append(f"- {r}")
+            sections.append("\n".join(lines))
+        return "\n\n".join(sections) if sections else "N/A"
+
     def step_stream(
         self,
         system_description: str,
         incident_report: str,
         response_plan: str,
         specification: str,
+        planner_report: dict[str, Any],
+        code_report: dict[str, Any],
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
@@ -129,6 +272,8 @@ class ValidationAgent:
         :param incident_report: the incident report/assessment
         :param response_plan: the response plan to validate
         :param specification: specification commands as text
+        :param planner_report: MDP planner report dict
+        :param code_report: code agent report dict
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
@@ -142,6 +287,16 @@ class ValidationAgent:
             incident_report=incident_report or "N/A",
             response_plan=response_plan or "N/A",
             specification=specification or "N/A",
+            planner_report_formatted=(
+                self._format_planner_report(
+                    planner_report or {},
+                )
+            ),
+            code_report_formatted=(
+                self._format_code_report(
+                    code_report or {},
+                )
+            ),
         )
 
         config = self._make_config(system_prompt)
@@ -406,6 +561,8 @@ class ValidationAgent:
                     "final_service_state": [],
                     "overall_result": "Plan validation failed",
                     "recommendations": [],
+                    "actual_total_cost": 0,
+                    "simulated_total_cost": 0,
                 },
             }
 

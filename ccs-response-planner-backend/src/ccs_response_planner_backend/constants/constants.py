@@ -254,12 +254,12 @@ class DIGITAL_TWIN:
                 "id": "server_1",
                 "name": "Server 1",
                 "docker_image": "ccs-dt-server1:latest",
-                "ip_addresses": {
-                    "zone1": "10.0.2.1",
-                    "zone2": "10.0.3.1",
-                    "zone3": "10.0.4.1",
-                },
+                "ip_addresses": {"zone1": "10.0.2.1"},
                 "routes": [
+                    {"destination": "10.0.3.4/32",
+                     "via": "10.0.2.252"},
+                    {"destination": "10.0.4.6/32",
+                     "via": "10.0.2.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.2.252"},
                 ],
@@ -270,12 +270,12 @@ class DIGITAL_TWIN:
                 "id": "server_2",
                 "name": "Server 2",
                 "docker_image": "ccs-dt-server2:latest",
-                "ip_addresses": {
-                    "zone1": "10.0.2.2",
-                    "zone2": "10.0.3.2",
-                    "zone3": "10.0.4.2",
-                },
+                "ip_addresses": {"zone1": "10.0.2.2"},
                 "routes": [
+                    {"destination": "10.0.3.3/32",
+                     "via": "10.0.2.252"},
+                    {"destination": "10.0.4.5/32",
+                     "via": "10.0.2.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.2.252"},
                 ],
@@ -286,13 +286,18 @@ class DIGITAL_TWIN:
                 "id": "server_3",
                 "name": "Server 3",
                 "docker_image": "ccs-dt-server3:latest",
-                "ip_addresses": {
-                    "zone2": "10.0.3.3",
-                    "zone3": "10.0.4.3",
-                },
+                "ip_addresses": {"zone2": "10.0.3.3"},
                 "routes": [
+                    {"destination": "10.0.2.2/32",
+                     "via": "10.0.3.252"},
+                    {"destination": "10.0.4.6/32",
+                     "via": "10.0.3.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.3.252"},
+                ],
+                "post_deploy_commands": [
+                    "iptables -I INPUT -s 10.0.3.4 -j DROP",
+                    "iptables -I OUTPUT -d 10.0.3.4 -j DROP",
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -301,13 +306,18 @@ class DIGITAL_TWIN:
                 "id": "server_4",
                 "name": "Server 4",
                 "docker_image": "ccs-dt-server4:latest",
-                "ip_addresses": {
-                    "zone2": "10.0.3.4",
-                    "zone3": "10.0.4.4",
-                },
+                "ip_addresses": {"zone2": "10.0.3.4"},
                 "routes": [
+                    {"destination": "10.0.2.1/32",
+                     "via": "10.0.3.252"},
+                    {"destination": "10.0.4.5/32",
+                     "via": "10.0.3.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.3.252"},
+                ],
+                "post_deploy_commands": [
+                    "iptables -I INPUT -s 10.0.3.3 -j DROP",
+                    "iptables -I OUTPUT -d 10.0.3.3 -j DROP",
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -318,6 +328,10 @@ class DIGITAL_TWIN:
                 "docker_image": "ccs-dt-server5:latest",
                 "ip_addresses": {"zone3": "10.0.4.5"},
                 "routes": [
+                    {"destination": "10.0.2.2/32",
+                     "via": "10.0.4.252"},
+                    {"destination": "10.0.3.4/32",
+                     "via": "10.0.4.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.4.252"},
                 ],
@@ -330,6 +344,10 @@ class DIGITAL_TWIN:
                 "docker_image": "ccs-dt-server6:latest",
                 "ip_addresses": {"zone3": "10.0.4.6"},
                 "routes": [
+                    {"destination": "10.0.2.1/32",
+                     "via": "10.0.4.252"},
+                    {"destination": "10.0.3.3/32",
+                     "via": "10.0.4.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.4.252"},
                 ],
@@ -364,13 +382,13 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_1",
+                "host": "server_2",
                 "command": (
                     "bash -c 'echo > /dev/tcp/10.0.3.3/22'"
                 ),
                 "description": (
                     "Verify Server 3 SSH is reachable"
-                    " from Server 1"
+                    " from Server 2"
                 ),
             },
             {
@@ -441,7 +459,7 @@ class DIGITAL_TWIN:
                 "command": "ping -c 1 -W 2 10.0.3.4",
                 "description": (
                     "Server 4 reachable from Server 1"
-                    " (zone2)"
+                    " (cross-zone)"
                 ),
             },
             {
@@ -449,7 +467,7 @@ class DIGITAL_TWIN:
                 "command": "ping -c 1 -W 2 10.0.4.6",
                 "description": (
                     "Server 6 reachable from Server 1"
-                    " (zone3)"
+                    " (cross-zone)"
                 ),
             },
             {
@@ -457,7 +475,7 @@ class DIGITAL_TWIN:
                 "command": "ping -c 1 -W 2 10.0.3.3",
                 "description": (
                     "Server 3 reachable from Server 2"
-                    " (zone2)"
+                    " (cross-zone)"
                 ),
             },
             {
@@ -465,7 +483,7 @@ class DIGITAL_TWIN:
                 "command": "ping -c 1 -W 2 10.0.4.5",
                 "description": (
                     "Server 5 reachable from Server 2"
-                    " (zone3)"
+                    " (cross-zone)"
                 ),
             },
             {
@@ -473,7 +491,7 @@ class DIGITAL_TWIN:
                 "command": "ping -c 1 -W 2 10.0.4.6",
                 "description": (
                     "Server 6 reachable from Server 3"
-                    " (zone3)"
+                    " (cross-zone)"
                 ),
             },
             {
@@ -481,7 +499,7 @@ class DIGITAL_TWIN:
                 "command": "ping -c 1 -W 2 10.0.4.5",
                 "description": (
                     "Server 5 reachable from Server 4"
-                    " (zone3)"
+                    " (cross-zone)"
                 ),
             },
             {
@@ -583,6 +601,14 @@ class DIGITAL_TWIN:
                     " Server 3 (zone isolation)"
                 ),
             },
+            {
+                "host": "server_3",
+                "command": "! ping -c 1 -W 2 10.0.3.4",
+                "description": (
+                    "Server 4 not reachable from"
+                    " Server 3 (zone2 isolation)"
+                ),
+            },
         ],
     }
 
@@ -596,14 +622,24 @@ class EXAMPLES:
         "company, consisting of 6 servers behind a gateway with "
         "Snort IDS. The network is segmented into a perimeter zone "
         "(10.0.1.0/24) and three internal zones: Zone 1 "
-        "(10.0.2.0/24), Zone 2 (10.0.3.0/24), and Zone 3 "
-        "(10.0.4.0/24). The network topology is shown in the "
-        "attached figure.\n\n"
+        "(10.0.2.0/24, Servers 1-2), Zone 2 "
+        "(10.0.3.0/24, Servers 3-4), and Zone 3 "
+        "(10.0.4.0/24, Servers 5-6). The network topology is shown "
+        "in the attached figure.\n\n"
         "The perimeter firewall only forwards traffic from the "
         "perimeter network to two hosts: Server 2 (10.0.2.2) and "
         "Server 3 (10.0.3.3). All other internal servers are not "
         "directly reachable from the perimeter and can only be "
         "accessed by pivoting through an internal host.\n\n"
+        "Each server resides on exactly one internal zone. "
+        "Cross-zone connectivity uses point-to-point routes through "
+        "the IDS. The adjacency links are: "
+        "S1-S2 (Zone 1), S1-S4 (cross-zone), S1-S6 (cross-zone), "
+        "S2-S3 (cross-zone), S2-S5 (cross-zone), "
+        "S3-S6 (cross-zone), S4-S5 (cross-zone), S5-S6 (Zone 3). "
+        "S3 and S4 share Zone 2 but are isolated from each other "
+        "by iptables rules. All connections not listed above are "
+        "blocked.\n\n"
         "Gateway (10.0.1.254, Ubuntu 22): Snort IDS v2.9\n"
         "Firewall (10.0.1.253, Ubuntu 22): iptables packet "
         "filtering\n"
@@ -642,17 +678,19 @@ class EXAMPLES:
     )
     SPECIFICATION = (
         "- Server 2 FTP service must remain accessible from "
-        "the gateway\n"
-        "- Server 3 CI/CD build pipeline must remain accessible "
-        "from the gateway\n"
+        "Server 1\n"
+        "- Server 3 CI/CD build pipeline (SSH) must remain "
+        "accessible from Server 2\n"
         "- Server 6 PostgreSQL must not be taken offline (all "
         "services depend on it)\n"
         "- Server 4 Postfix mail delivery must not be interrupted "
         "(SLA obligation)\n"
         "- All topology links between adjacent hosts must remain "
         "operational\n"
-        "- Zone 2 hosts (Server 3, Server 4) must not have direct "
-        "routes to Zone 1 (10.0.2.0/24)"
+        "- Servers may only communicate with their designated "
+        "adjacent neighbors (network segmentation)\n"
+        "- Server 3 and Server 4 must not communicate with each "
+        "other despite sharing Zone 2"
     )
     INCIDENT_REPORT = (
         "Incident Summary:\n"
@@ -671,8 +709,8 @@ class EXAMPLES:
         "the perimeter (192.168.1.50 -> 10.0.3.3:22). The "
         "firewall allows perimeter-to-Server 3 traffic.\n"
         "2. Lateral movement: The attacker pivoted from Server 3 "
-        "(Zone 2) to Server 6 (Zone 3) via the zone2-zone3 "
-        "network adjacency.\n"
+        "(Zone 2) to Server 6 (Zone 3) via the cross-zone route "
+        "through the IDS.\n"
         "3. SQL injection: From Server 6 (10.0.4.6), the "
         "attacker targeted Server 1's Nginx/PHP portal with "
         "UNION SELECT injection, attempting privilege "
@@ -708,13 +746,12 @@ class EXAMPLES:
         "\n"
         "Action 2 — Contain the attack (isolate compromised "
         "Server 3):\n"
-        "Block outbound traffic from Server 3 to other internal "
-        "zones to prevent further lateral movement. The rules "
-        "must be applied directly on Server 3 (not the "
-        "firewall), because Server 3 has direct interfaces on "
-        "zone2 (10.0.3.3) and zone3 (10.0.4.3) with L2 "
-        "adjacency to Server 6 and other hosts, bypassing the "
-        "firewall entirely.\n"
+        "Block outbound traffic from Server 3 to other zones "
+        "to prevent further lateral movement. Server 3 reaches "
+        "Server 6 (10.0.4.6) and Server 2 (10.0.2.2) via "
+        "cross-zone routes through the IDS. Blocking those "
+        "subnets on Server 3 severs the attacker's lateral "
+        "movement path.\n"
         "Commands on Server 3:\n"
         "  iptables -I OUTPUT -d 10.0.4.0/24 -j DROP\n"
         "  iptables -I OUTPUT -d 10.0.2.0/24 -j DROP\n"

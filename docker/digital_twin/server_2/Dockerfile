@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vsftpd \
     cron \
     curl \
+    iptables \
     iproute2 \
     iputils-ping \
     net-tools \

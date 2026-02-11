@@ -55,6 +55,28 @@ function ValidationAgentReport({ entry, index, isExpanded, toggleEntry }) {
               </div>
             )}
 
+            {(r.actual_total_cost !== undefined || r.simulated_total_cost !== undefined) && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Cost Comparison</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <span className="badge badge-secondary">
+                    Simulated (MDP): {r.simulated_total_cost ?? 'N/A'}
+                  </span>
+                  <span className="badge badge-dark">
+                    Actual (Digital Twin): {r.actual_total_cost ?? 'N/A'}
+                  </span>
+                  {r.actual_total_cost !== undefined && r.simulated_total_cost !== undefined && (
+                    <span
+                      className={`badge badge-${Math.abs(r.actual_total_cost - r.simulated_total_cost) < 1 ? 'success' : 'warning'}`}
+                    >
+                      Difference: {r.actual_total_cost - r.simulated_total_cost > 0 ? '+' : ''}
+                      {(r.actual_total_cost - r.simulated_total_cost).toFixed(1)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {r.executive_summary && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Executive Summary</div>
@@ -147,6 +169,12 @@ function ValidationAgentReport({ entry, index, isExpanded, toggleEntry }) {
                               {ss.passed ? '\u2713' : '\u2717'} {ss.description}
                             </span>
                           ))}
+                        </div>
+                      )}
+                      {ar.actual_step_cost !== undefined && (
+                        <div style={{ marginTop: '4px', fontSize: '12px' }}>
+                          <strong>Step cost:</strong>{' '}
+                          <span className="badge badge-dark">{ar.actual_step_cost}</span>
                         </div>
                       )}
                     </div>
