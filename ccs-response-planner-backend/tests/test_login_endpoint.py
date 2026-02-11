@@ -74,9 +74,27 @@ def test_login_empty_body(client: FlaskClient) -> None:
     assert response.status_code == 400
 
 
-def test_login_get_not_allowed(client: FlaskClient) -> None:
+def test_session_check_valid_token(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    response = client.get("/api/login", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["valid"] is True
+    assert data["username"] == "admin"
+
+
+def test_session_check_invalid_token(client: FlaskClient) -> None:
+    response = client.get(
+        "/api/login",
+        headers={"Authorization": "Bearer bad-token"},
+    )
+    assert response.status_code == 401
+
+
+def test_session_check_no_token(client: FlaskClient) -> None:
     response = client.get("/api/login")
-    assert response.status_code in (404, 405)
+    assert response.status_code == 401
 
 
 def test_protected_endpoint_without_token(client: FlaskClient) -> None:

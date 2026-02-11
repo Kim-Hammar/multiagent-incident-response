@@ -1,5 +1,5 @@
 .Agents {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   text-align: left;
 }
@@ -18,12 +18,32 @@
   margin: 16px 0 24px;
 }
 
-/* Tabs — same as planner */
-.agents-tabs {
+/* Agent selector dropdown */
+.ia-agent-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 20px;
 }
 
-.agents-tabs .nav-link {
+.ia-agent-selector label {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.ia-agent-selector select {
+  width: auto;
+  font-size: 14px;
+}
+
+/* Inner tabs (Configuration | Planning process | History) */
+.ia-inner-tabs {
+  margin-bottom: 0;
+}
+
+.ia-inner-tabs .nav-link {
   cursor: pointer;
   font-size: 14px;
   color: #495057;
@@ -31,11 +51,28 @@
   padding: 8px 16px;
 }
 
-.agents-tabs .nav-link.active {
+.ia-inner-tabs .nav-link.active {
   color: #212529;
   font-weight: 600;
   background-color: #fff;
   border-color: #dee2e6 #dee2e6 #fff;
+}
+
+/* Status dot on Planning tab */
+.ia-inner-tabs .status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.ia-inner-tabs .status-dot.active {
+  background-color: #28a745;
+}
+
+.ia-inner-tabs .status-dot.inactive {
+  background-color: #dc3545;
 }
 
 /* Agent description */
@@ -138,6 +175,27 @@
 
 .ia-new-activity-btn .fa {
   margin-right: 4px;
+}
+
+.ia-log-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.ia-log-header .ia-log-title {
+  margin-bottom: 0;
+}
+
+.ia-context-indicator {
+  font-size: 12px;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.ia-context-indicator.high-usage {
+  color: #dc3545;
+  font-weight: 600;
 }
 
 .ia-log-title {
@@ -663,4 +721,55 @@
 
 .ia-attack-path ol li {
   margin-bottom: 2px;
+}
+
+/* Model selector label + dropdown */
+.ia-model-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.ia-model-select {
+  display: inline-block;
+  width: auto;
+  font-size: 13px;
+  margin-top: 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* History section */
+.ia-history-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ia-history-entry {
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+}
+
+.ia-history-entry:last-child {
+  border-bottom: none;
+}
+
+.ia-history-detail {
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.ia-history-detail pre {
+  font-size: 12px;
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin-bottom: 0;
 }

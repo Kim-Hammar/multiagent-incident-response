@@ -380,6 +380,7 @@ def _mock_client_stream(
         candidate.content.parts = chunk_parts
         chunk = MagicMock()
         chunk.candidates = [candidate]
+        chunk.usage_metadata = None
         stream_chunks.append(chunk)
 
     mock_client = MagicMock()

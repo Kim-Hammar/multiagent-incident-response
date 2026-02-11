@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
-def test_create_tables_executes_three_statements(mock_psycopg: MagicMock) -> None:
+def test_create_tables_executes_four_statements(mock_psycopg: MagicMock) -> None:
     """
-    Verify create_tables issues three CREATE TABLE statements.
+    Verify create_tables issues four CREATE TABLE statements.
     """
     mock_conn = MagicMock()
     mock_cur = MagicMock()
@@ -17,7 +17,7 @@ def test_create_tables_executes_three_statements(mock_psycopg: MagicMock) -> Non
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
 
-    assert mock_cur.execute.call_count == 3
+    assert mock_cur.execute.call_count == 4
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")

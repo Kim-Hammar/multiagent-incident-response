@@ -22,6 +22,7 @@ from ccs_response_planner_backend.agents.penetration_test_agent.tools import (
 )
 
 MODEL_NAME = "gemini-3-pro-preview"
+CONTEXT_LIMIT = 1_048_576
 
 REPORT_TOOL_NAME = "produce_report"
 
@@ -111,6 +112,7 @@ class PenetrationTestAgent:
         system_description: str,
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
+        model_name: str | None = None,
     ) -> dict[str, Any]:
         """
         Advance the agent loop by one step.
@@ -118,9 +120,11 @@ class PenetrationTestAgent:
         :param system_description: description of the target system
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
+        :param model_name: optional LLM model name override
         :return: a dict with type tool_proposal or report
         """
         client = self._create_client()
+        effective_model = model_name or MODEL_NAME
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
@@ -134,7 +138,7 @@ class PenetrationTestAgent:
         )
 
         response = client.models.generate_content(
-            model=MODEL_NAME,
+            model=effective_model,
             contents=contents,
             config=config,
         )
@@ -191,6 +195,7 @@ class PenetrationTestAgent:
         system_description: str,
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
+        model_name: str | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -205,9 +210,11 @@ class PenetrationTestAgent:
         :param system_description: description of the target system
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
+        :param model_name: optional LLM model name override
         :return: a generator of event dicts
         """
         client = self._create_client()
+        effective_model = model_name or MODEL_NAME
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
@@ -224,12 +231,15 @@ class PenetrationTestAgent:
         thinking_trace = ""
         function_call = None
         all_parts: list[Any] = []
+        usage_metadata = None
 
         for chunk in client.models.generate_content_stream(
-            model=MODEL_NAME,
+            model=effective_model,
             contents=contents,
             config=config,
         ):
+            if chunk.usage_metadata:
+                usage_metadata = chunk.usage_metadata
             if not chunk.candidates:
                 continue
             candidate = chunk.candidates[0]
@@ -252,6 +262,21 @@ class PenetrationTestAgent:
                         }
                 if part.function_call and part.function_call.name:
                     function_call = part.function_call
+
+        if usage_metadata:
+            yield {
+                "type": "context_usage",
+                "prompt_tokens": (
+                    usage_metadata.prompt_token_count or 0
+                ),
+                "candidates_tokens": (
+                    usage_metadata.candidates_token_count or 0
+                ),
+                "total_tokens": (
+                    usage_metadata.total_token_count or 0
+                ),
+                "context_limit": CONTEXT_LIMIT,
+            }
 
         raw_parts = [
             d for d in (

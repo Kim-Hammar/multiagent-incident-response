@@ -66,6 +66,16 @@ class DatabaseFacade:
                         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
                 """)
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS
+                        {DB.AGENT_REPORTS_TABLE} (
+                        id SERIAL PRIMARY KEY,
+                        agent_type VARCHAR(50) NOT NULL,
+                        username VARCHAR(255) NOT NULL,
+                        report JSONB NOT NULL,
+                        created_at TIMESTAMP DEFAULT NOW()
+                    )
+                """)
             conn.commit()
 
     @staticmethod
@@ -224,3 +234,128 @@ class DatabaseFacade:
                     f"DELETE FROM {DB.DIGITAL_TWIN_CONFIGS_TABLE}"
                 )
             conn.commit()
+
+    @staticmethod
+    def save_agent_report(
+        agent_type: str, username: str, report: Any
+    ) -> dict[str, Any]:
+        """
+        Insert a new agent report and return the created row.
+
+        :param agent_type: the type of agent (e.g. information, pentest, validation)
+        :param username: the username who created the report
+        :param report: the report data (stored as JSONB)
+        :return: a dict with id, agent_type, username, report, created_at
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"INSERT INTO {DB.AGENT_REPORTS_TABLE} "
+                    f"(agent_type, username, report) "
+                    f"VALUES (%s, %s, %s) "
+                    f"RETURNING id, agent_type, username, "
+                    f"report, created_at",
+                    (agent_type, username, json.dumps(report)),
+                )
+                row = cur.fetchone()
+            conn.commit()
+            return {
+                "id": row[0],
+                "agent_type": row[1],
+                "username": row[2],
+                "report": row[3],
+                "created_at": str(row[4]),
+            }
+
+    @staticmethod
+    def list_agent_reports(
+        agent_type: Optional[str] = None, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """
+        List agent reports, optionally filtered by agent_type.
+
+        :param agent_type: if provided, filter by this agent type
+        :param limit: maximum number of reports to return
+        :return: a list of report dicts ordered by created_at DESC
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                if agent_type:
+                    cur.execute(
+                        f"SELECT id, agent_type, username, "
+                        f"report, created_at "
+                        f"FROM {DB.AGENT_REPORTS_TABLE} "
+                        f"WHERE agent_type = %s "
+                        f"ORDER BY created_at DESC "
+                        f"LIMIT %s",
+                        (agent_type, limit),
+                    )
+                else:
+                    cur.execute(
+                        f"SELECT id, agent_type, username, "
+                        f"report, created_at "
+                        f"FROM {DB.AGENT_REPORTS_TABLE} "
+                        f"ORDER BY created_at DESC "
+                        f"LIMIT %s",
+                        (limit,),
+                    )
+                rows = cur.fetchall()
+                return [
+                    {
+                        "id": r[0],
+                        "agent_type": r[1],
+                        "username": r[2],
+                        "report": r[3],
+                        "created_at": str(r[4]),
+                    }
+                    for r in rows
+                ]
+
+    @staticmethod
+    def get_agent_report(
+        report_id: int,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get a single agent report by id.
+
+        :param report_id: the report id
+        :return: a report dict or None if not found
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id, agent_type, username, "
+                    f"report, created_at "
+                    f"FROM {DB.AGENT_REPORTS_TABLE} "
+                    f"WHERE id = %s",
+                    (report_id,),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "id": row[0],
+                    "agent_type": row[1],
+                    "username": row[2],
+                    "report": row[3],
+                    "created_at": str(row[4]),
+                }
+
+    @staticmethod
+    def delete_agent_report(report_id: int) -> bool:
+        """
+        Delete an agent report by id.
+
+        :param report_id: the report id to delete
+        :return: True if a row was deleted, False otherwise
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"DELETE FROM {DB.AGENT_REPORTS_TABLE} "
+                    f"WHERE id = %s",
+                    (report_id,),
+                )
+                deleted = cur.rowcount > 0
+            conn.commit()
+            return deleted

@@ -4,7 +4,7 @@ Authentication utilities for the REST API.
 from functools import wraps
 from typing import Any, Callable
 
-from flask import jsonify, request
+from flask import g, jsonify, request
 
 from ccs_response_planner_backend.constants.constants import AUTH
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -31,5 +31,6 @@ def token_required(f: Callable[..., Any]) -> Callable[..., Any]:
         session = DatabaseFacade.get_session_token_by_token(token)
         if session is None:
             return jsonify({"error": "Missing or invalid token"}), 401
+        g.username = session["username"]
         return f(*args, **kwargs)
     return decorated

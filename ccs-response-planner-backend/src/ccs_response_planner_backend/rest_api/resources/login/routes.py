@@ -4,15 +4,27 @@ Routes and sub-resources for the /login resource.
 import secrets
 
 import bcrypt
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, g, jsonify, request
 
 from ccs_response_planner_backend.constants.constants import API, AUTH
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+from ccs_response_planner_backend.rest_api.util.auth import token_required
 
 login_bp = Blueprint(
     API.LOGIN_RESOURCE, __name__,
     url_prefix=f"{API.PREFIX}/{API.LOGIN_RESOURCE}",
 )
+
+
+@login_bp.route("", methods=["GET"])
+@token_required
+def session_check() -> tuple[Response, int]:
+    """
+    Validate the current session token.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    return jsonify({"valid": True, "username": g.username}), 200
 
 
 @login_bp.route("", methods=["POST"])

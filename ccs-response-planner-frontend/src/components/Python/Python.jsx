@@ -1,3 +1,4 @@
+import './Python.css'
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {

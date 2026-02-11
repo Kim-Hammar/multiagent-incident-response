@@ -68,6 +68,8 @@ class API:
     AGENTS_VALIDATION_STEP_ROUTE = "/api/agents/validation/step"
     AGENTS_VALIDATION_TOOL_ROUTE = "/api/agents/validation/tool"
     AGENTS_VALIDATION_PROMPT_ROUTE = "/api/agents/validation/prompt"
+    AGENTS_REPORTS_ROUTE = "/api/agents/reports"
+    AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
 
 
 class DB:
@@ -81,6 +83,7 @@ class DB:
     MANAGEMENT_USERS_TABLE = "management_users"
     SESSION_TOKENS_TABLE = "session_tokens"
     DIGITAL_TWIN_CONFIGS_TABLE = "digital_twin_configs"
+    AGENT_REPORTS_TABLE = "agent_reports"
 
 
 class AUTH:

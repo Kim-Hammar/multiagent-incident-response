@@ -1,137 +1,25 @@
 import { useState, useEffect, useRef } from 'react'
-import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLE_URL,
   API_AGENTS_INFO_STEP_URL,
   API_AGENTS_INFO_TOOL_URL,
-  API_AGENTS_INFO_PROMPT_URL
+  API_AGENTS_INFO_PROMPT_URL,
+  API_LLM_URL,
+  API_AGENTS_REPORTS_URL
 } from '../Common/constants'
-
-/**
- * Renders a strip of image thumbnails with remove buttons.
- * Clicking a thumbnail opens a full-size lightbox overlay.
- */
-function ImageThumbnails({ images, setImages, disabled }) {
-  const [lightboxSrc, setLightboxSrc] = useState(null)
-
-  if (images.length === 0) return null
-
-  const removeImage = (index) => {
-    if (disabled) return
-    setImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  return (
-    <>
-      <div className="ia-image-thumbnails">
-        {images.map((src, index) => (
-          <div key={index} className="ia-thumbnail-wrapper">
-            <img
-              src={src}
-              alt={`Pasted ${index + 1}`}
-              className="ia-thumbnail-img"
-              onClick={() => setLightboxSrc(src)}
-            />
-            {!disabled && (
-              <button
-                type="button"
-                className="ia-thumbnail-remove"
-                onClick={() => removeImage(index)}
-                aria-label="Remove image"
-              >
-                &times;
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      {lightboxSrc && (
-        <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
-          <button
-            type="button"
-            className="lightbox-close"
-            onClick={() => setLightboxSrc(null)}
-            aria-label="Close preview"
-          >
-            &times;
-          </button>
-          <img
-            src={lightboxSrc}
-            alt="Full size preview"
-            className="lightbox-img"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-    </>
-  )
-}
-
-const TOOL_LABELS = {
-  tavily_search: { label: 'Web Search', icon: 'fa-search' },
-  nvd_search: { label: 'Vulnerability Database (NVD)', icon: 'fa-shield' },
-  mitre_search: { label: 'MITRE ATT&CK Lookup', icon: 'fa-crosshairs' },
-  virustotal_scan: { label: 'VirusTotal Scan', icon: 'fa-bug' },
-  abuseipdb_check: { label: 'AbuseIPDB Check', icon: 'fa-exclamation-triangle' },
-  otx_search: { label: 'Threat Intelligence (OTX)', icon: 'fa-globe' },
-  dt_exec: { label: 'Digital Twin Terminal', icon: 'fa-terminal' },
-  dt_python_exec: { label: 'Python script to execute in the digital twin sandbox', icon: 'fa-code' }
-}
-
-function formatToolArgs(toolName, args) {
-  if (!args) return []
-  switch (toolName) {
-    case 'tavily_search':
-      return [['Query', args.query || '']]
-    case 'nvd_search':
-      if (args.cve_id) return [['CVE ID', args.cve_id]]
-      return [['Keyword', args.keyword || '']]
-    case 'mitre_search':
-      if (args.technique_id) return [['Technique ID', args.technique_id]]
-      return [['Search', args.search || '']]
-    case 'virustotal_scan':
-      return [
-        ['Type', args.scan_type || ''],
-        ['Value', args.value || '']
-      ]
-    case 'abuseipdb_check':
-      return [['IP address', args.ip || '']]
-    case 'otx_search':
-      return [
-        ['Indicator type', args.indicator_type || ''],
-        ['Value', args.value || '']
-      ]
-    case 'dt_exec':
-      return [
-        ['Container', args.container || ''],
-        ['Command', args.command || '']
-      ]
-    case 'dt_python_exec':
-      return [['Code', args.code || '']]
-    default:
-      return [['Arguments', JSON.stringify(args)]]
-  }
-}
-
-/**
- * Small component that displays elapsed seconds since mount.
- */
-function ElapsedTimer() {
-  const [seconds, setSeconds] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setSeconds((s) => s + 1), 1000)
-    return () => clearInterval(id)
-  }, [])
-  return <span className="ia-elapsed">{seconds}s</span>
-}
+import InformationAgentConfigTab from './InformationAgentConfigTab.jsx'
+import InformationAgentReport from './InformationAgentReport.jsx'
+import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
+import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 
 /**
  * InformationAgent component — drives the agent loop with
- * human-in-the-loop tool approval.
+ * human-in-the-loop tool approval. Renders 3 inner tabs.
  */
 function InformationAgent() {
   const { token, logout } = useAuth()
+  const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
   const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
@@ -147,8 +35,12 @@ function InformationAgent() {
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
   const [loadingPrompt, setLoadingPrompt] = useState(false)
-  const [autopilot, setAutopilot] = useState(false)
+  const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
+  const [contextUsage, setContextUsage] = useState(null)
+  const [models, setModels] = useState([])
+  const [selectedModel, setSelectedModel] = useState('')
+  const [reportHistory, setReportHistory] = useState([])
   const logEndRef = useRef(null)
   const logContainerRef = useRef(null)
   const streamingTraceRef = useRef(null)
@@ -177,15 +69,27 @@ function InformationAgent() {
   }, [alert])
 
   useEffect(() => {
+    fetch(API_LLM_URL, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => (res.ok ? res.json() : { models: [] }))
+      .then((data) => setModels(data.models || []))
+      .catch(() => {})
+  }, [token])
+
+  useEffect(() => {
     if (autopilot && pendingProposal) {
       handleApprove()
     }
   }, [autopilot, pendingProposal])
 
   useEffect(() => {
-    if (isNearBottomRef.current) {
-      if (logEndRef.current) {
-        logEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    const logEl = logContainerRef.current
+    const logBottomVisible =
+      logEl && logEl.getBoundingClientRect().bottom <= window.innerHeight + 80
+    if (isNearBottomRef.current && logBottomVisible) {
+      if (logEl) {
+        logEl.scrollTop = logEl.scrollHeight
       }
     } else {
       setHasNewActivity(true)
@@ -227,7 +131,8 @@ function InformationAgent() {
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
           conversation_history: history,
-          images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages]
+          images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
+          model_name: selectedModel || undefined
         })
       })
       if (res.status === 401) {
@@ -281,6 +186,8 @@ function InformationAgent() {
               assessment: event.assessment,
               thinking_trace: event.thinking_trace || ''
             }
+          } else if (event.type === 'context_usage') {
+            setContextUsage(event)
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
@@ -301,6 +208,9 @@ function InformationAgent() {
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
+        if (finalEntry.type === 'assessment') {
+          saveReport(finalEntry.assessment)
+        }
       } else if (accumulated) {
         let assessment
         try {
@@ -316,6 +226,7 @@ function InformationAgent() {
           }
         }
         setConversationHistory([...history, { role: 'model', type: 'assessment', assessment }])
+        saveReport(assessment)
       } else {
         setConversationHistory([
           ...history,
@@ -334,6 +245,8 @@ function InformationAgent() {
     setPendingProposal(null)
     setConversationHistory([])
     setExpandedEntries({})
+    setContextUsage(null)
+    setActiveTab('planning')
     callStep([])
   }
 
@@ -466,14 +379,66 @@ function InformationAgent() {
     }
   }
 
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=information`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        setReportHistory(await res.json())
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const saveReport = async (report) => {
+    try {
+      await fetch(API_AGENTS_REPORTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ agent_type: 'information', report })
+      })
+      await fetchHistory()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const deleteReport = async (id) => {
+    try {
+      await fetch(`${API_AGENTS_REPORTS_URL}/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchHistory()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  useEffect(() => {
+    fetchHistory()
+  }, [token])
+
   const toggleEntry = (index) => {
     setExpandedEntries((prev) => ({ ...prev, [index]: !prev[index] }))
   }
 
-  const toolLabel = (name) => (TOOL_LABELS[name] || { label: name, icon: 'fa-cog' }).label
-  const toolIcon = (name) => (TOOL_LABELS[name] || { label: name, icon: 'fa-cog' }).icon
-
   const isAgentBusy = running || executingTool
+
+  const renderFinalReport = (entry, index, isExpanded) => (
+    <InformationAgentReport
+      key={index}
+      entry={entry}
+      index={index}
+      isExpanded={isExpanded}
+      toggleEntry={toggleEntry}
+    />
+  )
 
   return (
     <div>
@@ -486,446 +451,92 @@ function InformationAgent() {
         </div>
       )}
 
-      <div className="ia-description">
-        <p>
-          The tasks of this agent are threefold:
-          <ol>
-            <li>
-              Analyze the available information about the incident and determine whether we have
-              sufficient information to proceed with incident response planning.
-            </li>
-            <li>
-              If we do not have sufficient information, select tools to call in order to collect the
-              necessary information.{' '}
-            </li>
-            <li>
-              Once sufficient information has been collected, produce an incident report/assessment.
-            </li>
-          </ol>
-        </p>
-      </div>
+      <ul className="nav nav-tabs ia-inner-tabs">
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'config' ? ' active' : ''}`}
+            onClick={() => setActiveTab('config')}
+          >
+            Configuration
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'planning' ? ' active' : ''}`}
+            onClick={() => setActiveTab('planning')}
+          >
+            <span className={`status-dot ${isAgentBusy ? 'active' : 'inactive'}`} />
+            Planning process
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'history' ? ' active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            History{reportHistory.length > 0 && ` (${reportHistory.length})`}
+          </button>
+        </li>
+      </ul>
 
-      <div className="ia-section">
-        <label htmlFor="ia-system-desc">System description</label>
-        <p className="ia-hint">
-          Describe the target system, its architecture, hosts, and services.
-        </p>
-        <textarea
-          id="ia-system-desc"
-          className="form-control ia-textarea"
-          rows="8"
-          value={systemDescription}
-          onChange={(e) => setSystemDescription(e.target.value)}
-          onPaste={handlePaste(setSystemDescriptionImages)}
-          disabled={isAgentBusy}
-          placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
+      {activeTab === 'config' && (
+        <InformationAgentConfigTab
+          systemDescription={systemDescription}
+          setSystemDescription={setSystemDescription}
+          securityAlerts={securityAlerts}
+          setSecurityAlerts={setSecurityAlerts}
+          operatorFeedback={operatorFeedback}
+          setOperatorFeedback={setOperatorFeedback}
+          systemDescriptionImages={systemDescriptionImages}
+          setSystemDescriptionImages={setSystemDescriptionImages}
+          securityAlertsImages={securityAlertsImages}
+          setSecurityAlertsImages={setSecurityAlertsImages}
+          operatorFeedbackImages={operatorFeedbackImages}
+          setOperatorFeedbackImages={setOperatorFeedbackImages}
+          handlePaste={handlePaste}
+          isAgentBusy={isAgentBusy}
+          handleRun={handleRun}
+          fetchExample={fetchExample}
+          handleClear={handleClear}
+          fetchPrompt={fetchPrompt}
+          loadingPrompt={loadingPrompt}
+          models={models}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          autopilot={autopilot}
+          setAutopilot={setAutopilot}
+          showPromptModal={showPromptModal}
+          promptText={promptText}
+          setShowPromptModal={setShowPromptModal}
         />
-        <ImageThumbnails
-          images={systemDescriptionImages}
-          setImages={setSystemDescriptionImages}
-          disabled={isAgentBusy}
-        />
-      </div>
-      <div className="ia-section">
-        <label htmlFor="ia-alerts">Security alerts and logs</label>
-        <p className="ia-hint">
-          Paste relevant security alerts, IDS logs, or other indicators of compromise.
-        </p>
-        <textarea
-          id="ia-alerts"
-          className="form-control ia-textarea"
-          rows="8"
-          value={securityAlerts}
-          onChange={(e) => setSecurityAlerts(e.target.value)}
-          onPaste={handlePaste(setSecurityAlertsImages)}
-          disabled={isAgentBusy}
-          placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
-        />
-        <ImageThumbnails
-          images={securityAlertsImages}
-          setImages={setSecurityAlertsImages}
-          disabled={isAgentBusy}
-        />
-      </div>
-      <div className="ia-section">
-        <label htmlFor="ia-feedback">Operator input</label>
-        <p className="ia-hint">
-          Optionally provide additional context or instructions for the agent.
-        </p>
-        <textarea
-          id="ia-feedback"
-          className="form-control ia-textarea"
-          rows="6"
-          value={operatorFeedback}
-          onChange={(e) => setOperatorFeedback(e.target.value)}
-          onPaste={handlePaste(setOperatorFeedbackImages)}
-          disabled={isAgentBusy}
-          placeholder="e.g., The SSH brute force alert on server 3 likely led to a compromise, since the SQL injection originates from that host..."
-        />
-        <ImageThumbnails
-          images={operatorFeedbackImages}
-          setImages={setOperatorFeedbackImages}
-          disabled={isAgentBusy}
-        />
-      </div>
-      <button
-        type="button"
-        className="btn btn-dark btn-sm ia-btn"
-        onClick={handleRun}
-        disabled={isAgentBusy || (!systemDescription && !securityAlerts)}
-      >
-        <i className="fa fa-bolt" aria-hidden="true" />
-        {isAgentBusy ? ' Running...' : ' Run agent'}
-      </button>
-      <button
-        type="button"
-        className="btn btn-outline-dark btn-sm ia-btn"
-        onClick={fetchExample}
-        disabled={isAgentBusy}
-      >
-        <i className="fa fa-download" aria-hidden="true" /> Fetch example incident
-      </button>
-      <button
-        type="button"
-        className="btn btn-outline-secondary btn-sm ia-btn"
-        onClick={handleClear}
-        disabled={isAgentBusy}
-      >
-        <i className="fa fa-eraser" aria-hidden="true" /> Clear all
-      </button>
-      <button
-        type="button"
-        className="btn btn-outline-dark btn-sm ia-btn"
-        onClick={fetchPrompt}
-        disabled={loadingPrompt}
-      >
-        <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
-        {loadingPrompt ? 'Loading...' : 'Show prompt'}
-      </button>
-      <div className="form-check form-check-inline ia-btn">
-        <input
-          className="form-check-input"
-          type="checkbox"
-          id="ia-autopilot"
-          checked={autopilot}
-          onChange={(e) => setAutopilot(e.target.checked)}
-        />
-        <label className="form-check-label" htmlFor="ia-autopilot">
-          Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
-        </label>
-      </div>
-
-      {showPromptModal && (
-        <div className="ia-modal-backdrop" onClick={() => setShowPromptModal(false)}>
-          <div className="ia-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="ia-modal-header">
-              <span className="ia-modal-title">System Prompt</span>
-              <button
-                type="button"
-                className="close"
-                aria-label="Close"
-                onClick={() => setShowPromptModal(false)}
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-            <div className="ia-modal-body">
-              <pre className="ia-prompt-text">{promptText}</pre>
-            </div>
-          </div>
-        </div>
       )}
 
-      {conversationHistory.length > 0 && (
-        <div style={{ marginTop: '28px' }}>
-          <p className="ia-log-title">Activity log</p>
-          <div className="ia-log" ref={logContainerRef} onScroll={handleLogScroll}>
-            {conversationHistory.map((entry, index) => {
-              if (entry.type === 'streaming') {
-                return (
-                  <div key={index} className="card ia-entry ia-streaming-entry">
-                    <div className="card-body">
-                      <div className="ia-thinking-header">
-                        <div className="spinner-border spinner-border-sm" role="status">
-                          <span className="sr-only">Loading...</span>
-                        </div>
-                        <span className="ia-thinking-title">Agent is thinking...</span>
-                        <ElapsedTimer />
-                      </div>
-                      {entry.text && (
-                        <div className="ia-streaming-trace" ref={streamingTraceRef}>
-                          <ReactMarkdown>{entry.text}</ReactMarkdown>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
+      {activeTab === 'planning' && (
+        <AgentPlanningTab
+          running={running}
+          conversationHistory={conversationHistory}
+          expandedEntries={expandedEntries}
+          toggleEntry={toggleEntry}
+          pendingProposal={pendingProposal}
+          executingTool={executingTool}
+          handleApprove={handleApprove}
+          handleDeny={handleDeny}
+          contextUsage={contextUsage}
+          hasNewActivity={hasNewActivity}
+          scrollToBottom={scrollToBottom}
+          logContainerRef={logContainerRef}
+          logEndRef={logEndRef}
+          streamingTraceRef={streamingTraceRef}
+          handleLogScroll={handleLogScroll}
+          renderFinalReport={renderFinalReport}
+        />
+      )}
 
-              if (entry.type === 'reasoning') {
-                const isExpanded = expandedEntries[index]
-                return (
-                  <div key={index} className="card ia-entry ia-reasoning-entry">
-                    <div className="card-body">
-                      <div className="ia-reasoning-header" onClick={() => toggleEntry(index)}>
-                        <i className="fa fa-lightbulb-o" aria-hidden="true" />
-                        <span className="ia-reasoning-label">Agent reasoning</span>
-                        <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
-                      </div>
-                      {isExpanded && (
-                        <div className="ia-thinking-trace">
-                          <ReactMarkdown>{entry.text}</ReactMarkdown>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-
-              if (entry.type === 'tool_proposal') {
-                const isCurrentPending = pendingProposal && index === conversationHistory.length - 1
-                const isExpanded = isCurrentPending || expandedEntries[index]
-                const argPairs = formatToolArgs(entry.tool_name, entry.tool_args)
-                return (
-                  <div key={index} className="card ia-entry ia-proposal-entry">
-                    <div className="card-body">
-                      <div
-                        className="ia-proposal-header"
-                        onClick={!isCurrentPending ? () => toggleEntry(index) : undefined}
-                      >
-                        <i className={`fa ${toolIcon(entry.tool_name)}`} aria-hidden="true" />
-                        <span className="ia-proposal-label">
-                          {isCurrentPending ? 'The agent wants to call tool' : 'Called tool'}
-                        </span>
-                        <span className="ia-proposal-tool-inline">
-                          {toolLabel(entry.tool_name)}
-                        </span>
-                        {!isCurrentPending && (
-                          <span className="ia-toggle-hint">
-                            {isExpanded ? 'collapse' : 'expand'}
-                          </span>
-                        )}
-                      </div>
-                      {isExpanded && (
-                        <div className="ia-proposal-details">
-                          <div className="ia-proposal-tool">Tool: {toolLabel(entry.tool_name)}</div>
-                          {argPairs.map(([label, value], i) => (
-                            <div key={i} className="ia-proposal-arg-row">
-                              <span className="ia-proposal-arg-label">{label}:</span>
-                              <span className="ia-proposal-arg-value">{value}</span>
-                            </div>
-                          ))}
-                          {isCurrentPending && (
-                            <div className="ia-proposal-actions">
-                              <button
-                                type="button"
-                                className="btn btn-dark btn-sm"
-                                onClick={handleApprove}
-                                disabled={executingTool}
-                              >
-                                {executingTool ? 'Executing...' : 'Approve'}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline-secondary btn-sm"
-                                onClick={handleDeny}
-                                disabled={executingTool}
-                              >
-                                Deny
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-
-              if (entry.type === 'tool_approval') {
-                return (
-                  <div key={index} className="card ia-entry ia-approval-entry">
-                    <div className="card-body">
-                      <div className="ia-entry-header">
-                        <span className={`badge badge-${entry.approved ? 'success' : 'danger'}`}>
-                          {entry.approved ? 'Approved' : 'Denied'}
-                        </span>
-                        <span className="ia-approval-tool">{toolLabel(entry.tool_name)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              }
-
-              if (entry.type === 'tool_result') {
-                const isExpanded = expandedEntries[index]
-                return (
-                  <div key={index} className="card ia-entry ia-result-entry">
-                    <div className="card-body">
-                      <div className="ia-result-header" onClick={() => toggleEntry(index)}>
-                        <i className={`fa ${toolIcon(entry.tool_name)}`} aria-hidden="true" />
-                        <span className="ia-result-label">{toolLabel(entry.tool_name)} result</span>
-                        <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
-                      </div>
-                      {isExpanded && (
-                        <pre className="ia-result-data mb-0">
-                          {JSON.stringify(entry.result, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-
-              if (entry.type === 'error') {
-                return (
-                  <div key={index} className="card ia-entry border-danger">
-                    <div className="card-body">
-                      <div className="ia-entry-header">
-                        <span className="badge badge-danger">Error</span>
-                        <span className="ia-tool-name">Agent step failed</span>
-                      </div>
-                      <p className="ia-error-message mb-0">{entry.message}</p>
-                    </div>
-                  </div>
-                )
-              }
-
-              if (entry.type === 'assessment') {
-                const a = entry.assessment || {}
-                const severityClass = {
-                  Critical: 'danger',
-                  High: 'warning',
-                  Medium: 'info',
-                  Low: 'success'
-                }
-                const isExpanded = expandedEntries[index] !== false
-                return (
-                  <div key={index} className="card ia-entry border-dark">
-                    <div className="card-body">
-                      <div
-                        className="ia-result-header"
-                        onClick={() =>
-                          setExpandedEntries((prev) => ({
-                            ...prev,
-                            [index]: prev[index] === false
-                          }))
-                        }
-                      >
-                        <span className="badge badge-dark">Assessment</span>
-                        <span className="ia-tool-name">Final Incident Assessment</span>
-                        <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
-                      </div>
-
-                      {isExpanded && (
-                        <div style={{ marginTop: '10px' }}>
-                          {a.incident_summary && (
-                            <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Incident Summary</div>
-                              <p className="ia-assessment-body mb-0">{a.incident_summary}</p>
-                            </div>
-                          )}
-
-                          {a.attack_vector_analysis && (
-                            <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Attack Vector Analysis</div>
-                              <p className="ia-assessment-body mb-0">{a.attack_vector_analysis}</p>
-                            </div>
-                          )}
-
-                          {a.severity && (
-                            <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Severity</div>
-                              <span
-                                className={`badge ia-severity-badge badge-${severityClass[a.severity] || 'secondary'}`}
-                              >
-                                {a.severity}
-                              </span>
-                              {a.severity_justification && (
-                                <p className="ia-assessment-body mb-0 mt-1">
-                                  {a.severity_justification}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {a.indicators_of_compromise && a.indicators_of_compromise.length > 0 && (
-                            <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Indicators of Compromise</div>
-                              <table className="ia-ioc-table">
-                                <thead>
-                                  <tr>
-                                    <th>Type</th>
-                                    <th>Value</th>
-                                    <th>Context</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {a.indicators_of_compromise.map((ioc, i) => (
-                                    <tr key={i}>
-                                      <td>{ioc.type}</td>
-                                      <td>{ioc.value}</td>
-                                      <td>{ioc.context}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-
-                          {a.affected_assets && a.affected_assets.length > 0 && (
-                            <div className="ia-assessment-section">
-                              <div className="ia-assessment-label">Affected Assets</div>
-                              <table className="ia-asset-table">
-                                <thead>
-                                  <tr>
-                                    <th>Asset</th>
-                                    <th>Impact</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {a.affected_assets.map((asset, i) => (
-                                    <tr key={i}>
-                                      <td>{asset.asset}</td>
-                                      <td>{asset.impact}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-
-              return null
-            })}
-            {executingTool && (
-              <div className="card ia-entry ia-streaming-entry">
-                <div className="card-body">
-                  <div className="ia-thinking-header">
-                    <div className="spinner-border spinner-border-sm" role="status">
-                      <span className="sr-only">Loading...</span>
-                    </div>
-                    <i className={`fa ${toolIcon(executingTool)}`} aria-hidden="true" />
-                    <span className="ia-thinking-title">
-                      Executing {toolLabel(executingTool)}...
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={logEndRef} />
-            {hasNewActivity && (
-              <button type="button" className="ia-new-activity-btn" onClick={scrollToBottom}>
-                <i className="fa fa-arrow-down" aria-hidden="true" /> New activity
-              </button>
-            )}
-          </div>
-        </div>
+      {activeTab === 'history' && (
+        <AgentHistoryTab reportHistory={reportHistory} deleteReport={deleteReport} />
       )}
     </div>
   )

@@ -5,10 +5,10 @@ import ValidationAgent from './ValidationAgent.jsx'
 import './Agents.css'
 
 /**
- * Agents page with sub-tabs for individual agents.
+ * Agents page with dropdown selector for individual agents.
  */
 function Agents() {
-  const [activeTab, setActiveTab] = useState('information')
+  const [selectedAgent, setSelectedAgent] = useState('information')
 
   return (
     <div className="Agents">
@@ -16,41 +16,23 @@ function Agents() {
       <p className="subtitle">Agents that work collectively for incident response planning.</p>
       <hr />
 
-      <ul className="nav nav-tabs agents-tabs">
-        <li className="nav-item">
-          <button
-            type="button"
-            className={`nav-link${activeTab === 'information' ? ' active' : ''}`}
-            onClick={() => setActiveTab('information')}
-          >
-            Information Agent
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            type="button"
-            className={`nav-link${activeTab === 'pentest' ? ' active' : ''}`}
-            onClick={() => setActiveTab('pentest')}
-          >
-            Penetration Test Agent
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            type="button"
-            className={`nav-link${activeTab === 'validation' ? ' active' : ''}`}
-            onClick={() => setActiveTab('validation')}
-          >
-            Validation Agent
-          </button>
-        </li>
-      </ul>
-
-      <div className="tab-content">
-        {activeTab === 'information' && <InformationAgent />}
-        {activeTab === 'pentest' && <PenetrationTestAgent />}
-        {activeTab === 'validation' && <ValidationAgent />}
+      <div className="ia-agent-selector">
+        <label htmlFor="agent-select">Agent:</label>
+        <select
+          id="agent-select"
+          className="form-control form-control-sm"
+          value={selectedAgent}
+          onChange={(e) => setSelectedAgent(e.target.value)}
+        >
+          <option value="information">Information Agent</option>
+          <option value="pentest">Penetration Test Agent</option>
+          <option value="validation">Validation Agent</option>
+        </select>
       </div>
+
+      {selectedAgent === 'information' && <InformationAgent />}
+      {selectedAgent === 'pentest' && <PenetrationTestAgent />}
+      {selectedAgent === 'validation' && <ValidationAgent />}
     </div>
   )
 }

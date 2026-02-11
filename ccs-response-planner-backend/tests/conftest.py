@@ -46,8 +46,14 @@ def mock_db() -> Generator[MagicMock, None, None]:
     ) as docker_mgr_mock, patch(
         "ccs_response_planner_backend.rest_api.resources.digital_twin"
         ".terminal.DatabaseFacade"
-    ) as terminal_db_mock:
-        for mock in (auth_mock, login_mock, dt_mock, terminal_db_mock):
+    ) as terminal_db_mock, patch(
+        "ccs_response_planner_backend.rest_api.resources.agents"
+        ".routes.DatabaseFacade"
+    ) as agents_db_mock:
+        for mock in (
+            auth_mock, login_mock, dt_mock,
+            terminal_db_mock, agents_db_mock,
+        ):
             mock.get_session_token_by_token.side_effect = _mock_get_token
             mock.get_user_by_username.return_value = None
             mock.update_session_token.return_value = None
@@ -65,6 +71,16 @@ def mock_db() -> Generator[MagicMock, None, None]:
             "containers": [],
         }
         docker_mgr_mock.validate.return_value = []
+        agents_db_mock.save_agent_report.return_value = {
+            "id": 1,
+            "agent_type": "information",
+            "username": "admin",
+            "report": {},
+            "created_at": "2026-01-01 00:00:00",
+        }
+        agents_db_mock.list_agent_reports.return_value = []
+        agents_db_mock.get_agent_report.return_value = None
+        agents_db_mock.delete_agent_report.return_value = False
         yield login_mock
 
 

@@ -7,7 +7,7 @@ function MainContainer() {
   return (
     <div>
       <Header />
-      <div className="container">
+      <div className="container-fluid main-content">
         <Outlet />
       </div>
       <Footer />

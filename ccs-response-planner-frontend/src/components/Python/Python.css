@@ -1,0 +1,55 @@
+.Python {
+  max-width: 1600px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.Python h2 {
+  margin-bottom: 6px;
+}
+
+.Python .subtitle {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.Python hr {
+  margin: 16px 0 24px;
+}
+
+.Python p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.Python .badge {
+  font-size: 12px;
+}
+
+.Python .card {
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.Python .card-header {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.Python .card-body {
+  padding: 12px 14px;
+}
+
+.Python .form-control {
+  font-size: 13px;
+}
+
+.Python .form-check-label {
+  font-size: 13px;
+}
+
+.Python .btn {
+  font-size: 13px;
+}
