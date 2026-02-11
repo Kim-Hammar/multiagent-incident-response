@@ -71,6 +71,20 @@ class API:
     AGENTS_CODE_STEP_ROUTE = "/api/agents/code/step"
     AGENTS_CODE_TOOL_ROUTE = "/api/agents/code/tool"
     AGENTS_CODE_PROMPT_ROUTE = "/api/agents/code/prompt"
+    AGENTS_CODE_REVIEW_STEP_ROUTE = "/api/agents/code-review/step"
+    AGENTS_CODE_REVIEW_TOOL_ROUTE = "/api/agents/code-review/tool"
+    AGENTS_CODE_REVIEW_PROMPT_ROUTE = (
+        "/api/agents/code-review/prompt"
+    )
+    AGENTS_MDP_PLANNER_STEP_ROUTE = (
+        "/api/agents/mdp-planner/step"
+    )
+    AGENTS_MDP_PLANNER_TOOL_ROUTE = (
+        "/api/agents/mdp-planner/tool"
+    )
+    AGENTS_MDP_PLANNER_PROMPT_ROUTE = (
+        "/api/agents/mdp-planner/prompt"
+    )
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
 

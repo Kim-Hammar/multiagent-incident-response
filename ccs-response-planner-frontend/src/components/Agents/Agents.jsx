@@ -3,6 +3,8 @@ import InformationAgent from './InformationAgent.jsx'
 import PenetrationTestAgent from './PenetrationTestAgent.jsx'
 import ValidationAgent from './ValidationAgent.jsx'
 import CodeAgent from './CodeAgent.jsx'
+import CodeReviewerAgent from './CodeReviewerAgent.jsx'
+import MdpPlannerAgent from './MdpPlannerAgent.jsx'
 import './Agents.css'
 
 /**
@@ -29,6 +31,8 @@ function Agents() {
           <option value="pentest">Penetration Test Agent</option>
           <option value="validation">Validation Agent</option>
           <option value="code">Code Agent</option>
+          <option value="code-review">Code Reviewer Agent</option>
+          <option value="mdp-planner">MDP Planner Agent</option>
         </select>
       </div>
 
@@ -36,6 +40,8 @@ function Agents() {
       {selectedAgent === 'pentest' && <PenetrationTestAgent />}
       {selectedAgent === 'validation' && <ValidationAgent />}
       {selectedAgent === 'code' && <CodeAgent />}
+      {selectedAgent === 'code-review' && <CodeReviewerAgent />}
+      {selectedAgent === 'mdp-planner' && <MdpPlannerAgent />}
     </div>
   )
 }

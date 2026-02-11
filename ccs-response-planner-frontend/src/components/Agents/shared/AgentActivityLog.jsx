@@ -19,7 +19,8 @@ function AgentActivityLog({
   scrollToBottom,
   logEndRef,
   streamingTraceRef,
-  renderFinalReport
+  renderFinalReport,
+  renderExecutingTool
 }) {
   return (
     <div style={{ marginTop: '28px' }}>
@@ -189,19 +190,22 @@ function AgentActivityLog({
 
           return null
         })}
-        {executingTool && (
-          <div className="card ia-entry ia-streaming-entry">
-            <div className="card-body">
-              <div className="ia-thinking-header">
-                <div className="spinner-border spinner-border-sm" role="status">
-                  <span className="sr-only">Loading...</span>
+        {executingTool &&
+          (renderExecutingTool && renderExecutingTool(executingTool) ? (
+            renderExecutingTool(executingTool)
+          ) : (
+            <div className="card ia-entry ia-streaming-entry">
+              <div className="card-body">
+                <div className="ia-thinking-header">
+                  <div className="spinner-border spinner-border-sm" role="status">
+                    <span className="sr-only">Loading...</span>
+                  </div>
+                  <i className={`fa ${toolIcon(executingTool)}`} aria-hidden="true" />
+                  <span className="ia-thinking-title">Executing {toolLabel(executingTool)}...</span>
                 </div>
-                <i className={`fa ${toolIcon(executingTool)}`} aria-hidden="true" />
-                <span className="ia-thinking-title">Executing {toolLabel(executingTool)}...</span>
               </div>
             </div>
-          </div>
-        )}
+          ))}
         <div ref={logEndRef} />
         {hasNewActivity && (
           <button type="button" className="ia-new-activity-btn" onClick={scrollToBottom}>

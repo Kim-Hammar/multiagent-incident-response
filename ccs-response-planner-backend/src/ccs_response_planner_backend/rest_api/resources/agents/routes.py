@@ -42,6 +42,25 @@ from ccs_response_planner_backend.agents.code_agent.prompt import (
 from ccs_response_planner_backend.agents.code_agent.tools import (
     TOOL_DISPATCH as CODE_TOOL_DISPATCH,
 )
+from ccs_response_planner_backend.agents.code_reviewer_agent.agent import (
+    CodeReviewerAgent,
+)
+from ccs_response_planner_backend.agents.code_reviewer_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as CODE_REVIEW_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.code_reviewer_agent.tools import (
+    TOOL_DISPATCH as CODE_REVIEW_TOOL_DISPATCH,
+)
+from ccs_response_planner_backend.agents.mdp_planner_agent.agent import (
+    MdpPlannerAgent,
+)
+from ccs_response_planner_backend.agents.mdp_planner_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as MDP_PLANNER_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.mdp_planner_agent.tools import (
+    STREAMING_TOOL_DISPATCH as MDP_STREAMING_DISPATCH,
+    TOOL_DISPATCH as MDP_PLANNER_TOOL_DISPATCH,
+)
 from ccs_response_planner_backend.constants.constants import API, DIGITAL_TWIN
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 from ccs_response_planner_backend.rest_api.util.auth import token_required
@@ -461,6 +480,304 @@ def agents_code_tool() -> tuple[Response, int]:
         }), 400
     try:
         agent = CodeAgent()
+        result = agent.execute_tool(tool_name, tool_args)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/code-review/step", methods=["POST"])
+@token_required
+def agents_code_review_step() -> Response | tuple[Response, int]:
+    """
+    Advance the CodeReviewerAgent loop by one step (NDJSON stream).
+
+    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get("system_description", "")
+    incident_report = body.get("incident_report", "")
+    specification = body.get("specification", "")
+    operator_feedback = body.get("operator_feedback", "")
+    code_report = body.get("code_report")
+    conversation_history = body.get("conversation_history", [])
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    if not isinstance(images, list):
+        images = []
+    if not code_report:
+        return jsonify({
+            "error": "code_report is required",
+        }), 400
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            return jsonify({
+                "error": "code_report must be valid JSON",
+            }), 400
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: a generator of newline-delimited JSON strings
+        """
+        try:
+            agent = CodeReviewerAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                incident_report=incident_report,
+                specification=specification,
+                operator_feedback=operator_feedback,
+                code_report=code_report,
+                conversation_history=conversation_history,
+                images=images,
+                model_name=model_name,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error", "message": str(e),
+            }) + "\n"
+
+    return Response(generate(), mimetype="application/x-ndjson")
+
+
+@agents_bp.route("/code-review/prompt", methods=["POST"])
+@token_required
+def agents_code_review_prompt() -> tuple[Response, int]:
+    """
+    Render the CodeReviewerAgent system prompt from the given context.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    specification = body.get("specification", "")
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+    code_report = body.get("code_report")
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            code_report = {}
+    formatted_report = (
+        CodeReviewerAgent._format_code_report(
+            code_report or {},
+        )
+    )
+    prompt = CODE_REVIEW_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        incident_report=body.get(
+            "incident_report", "",
+        ) or "N/A",
+        specification=specification or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        code_report_formatted=formatted_report,
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route("/code-review/tool", methods=["POST"])
+@token_required
+def agents_code_review_tool() -> tuple[Response, int]:
+    """
+    Execute an approved tool call for the CodeReviewerAgent.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    if not tool_name:
+        return jsonify({"error": "tool_name is required"}), 400
+    if tool_name not in CODE_REVIEW_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = CodeReviewerAgent()
+        result = agent.execute_tool(tool_name, tool_args)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/mdp-planner/step", methods=["POST"])
+@token_required
+def agents_mdp_planner_step() -> Response | tuple[Response, int]:
+    """
+    Advance the MdpPlannerAgent loop by one step (NDJSON stream).
+
+    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get("system_description", "")
+    incident_report = body.get("incident_report", "")
+    specification = body.get("specification", "")
+    operator_feedback = body.get("operator_feedback", "")
+    code_report = body.get("code_report")
+    conversation_history = body.get("conversation_history", [])
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    time_limit_minutes = body.get("time_limit_minutes", 5)
+    if not isinstance(images, list):
+        images = []
+    if not code_report:
+        return jsonify({
+            "error": "code_report is required",
+        }), 400
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            return jsonify({
+                "error": "code_report must be valid JSON",
+            }), 400
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: a generator of newline-delimited JSON strings
+        """
+        try:
+            agent = MdpPlannerAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                incident_report=incident_report,
+                specification=specification,
+                operator_feedback=operator_feedback,
+                code_report=code_report,
+                conversation_history=conversation_history,
+                images=images,
+                model_name=model_name,
+                time_limit_minutes=time_limit_minutes,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error", "message": str(e),
+            }) + "\n"
+
+    return Response(generate(), mimetype="application/x-ndjson")
+
+
+@agents_bp.route("/mdp-planner/prompt", methods=["POST"])
+@token_required
+def agents_mdp_planner_prompt() -> tuple[Response, int]:
+    """
+    Render the MdpPlannerAgent system prompt from the given context.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    specification = body.get("specification", "")
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+    code_report = body.get("code_report")
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            code_report = {}
+    formatted_report = (
+        MdpPlannerAgent._format_code_report(
+            code_report or {},
+        )
+    )
+    time_limit = body.get("time_limit_minutes", 5)
+    prompt = MDP_PLANNER_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        incident_report=body.get(
+            "incident_report", "",
+        ) or "N/A",
+        specification=specification or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        code_report_formatted=formatted_report,
+        time_limit_minutes=time_limit,
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route("/mdp-planner/tool", methods=["POST"])
+@token_required
+def agents_mdp_planner_tool() -> Response | tuple[Response, int]:
+    """
+    Execute an approved tool call for the MdpPlannerAgent.
+
+    For ``rl_train``, streams NDJSON progress events.
+    For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    if not tool_name:
+        return jsonify({"error": "tool_name is required"}), 400
+
+    if tool_name in MDP_STREAMING_DISPATCH:
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: a generator of newline-delimited JSON strings
+            """
+            try:
+                agent = MdpPlannerAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error", "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(), mimetype="application/x-ndjson",
+        )
+
+    if tool_name not in MDP_PLANNER_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = MdpPlannerAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:
