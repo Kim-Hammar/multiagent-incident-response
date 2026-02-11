@@ -70,6 +70,33 @@ def reset_digital_twin() -> tuple[Response, int]:
     return jsonify(DIGITAL_TWIN.DEFAULT_CONFIG), 200
 
 
+@digital_twin_bp.route("/configs", methods=["GET"])
+@token_required
+def list_configs() -> tuple[Response, int]:
+    """
+    List all digital twin configurations (summary only).
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    configs = DatabaseFacade.list_digital_twin_configs()
+    return jsonify(configs), 200
+
+
+@digital_twin_bp.route("/configs/<int:config_id>", methods=["GET"])
+@token_required
+def get_config(config_id: int) -> tuple[Response, int]:
+    """
+    Get a full digital twin configuration by id.
+
+    :param config_id: the config id
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    config = DatabaseFacade.get_digital_twin_config_by_id(config_id)
+    if config is None:
+        return jsonify({"error": "Config not found"}), 404
+    return jsonify(config), 200
+
+
 @digital_twin_bp.route("/deploy", methods=["POST"])
 @token_required
 def deploy_digital_twin() -> Response:

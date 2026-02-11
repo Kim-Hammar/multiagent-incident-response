@@ -1,5 +1,6 @@
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import PromptModal from './shared/PromptModal.jsx'
+import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
  * Configuration tab for the Validation Agent.
@@ -22,7 +23,7 @@ function ValidationAgentConfigTab({
   handlePaste,
   isAgentBusy,
   handleRun,
-  fetchExample,
+  loadExample,
   handleClear,
   fetchPrompt,
   loadingPrompt,
@@ -167,14 +168,7 @@ function ValidationAgentConfigTab({
         <i className="fa fa-bolt" aria-hidden="true" />
         {isAgentBusy ? ' Running...' : ' Run agent'}
       </button>
-      <button
-        type="button"
-        className="btn btn-outline-dark btn-sm ia-btn"
-        onClick={fetchExample}
-        disabled={isAgentBusy}
-      >
-        <i className="fa fa-download" aria-hidden="true" /> Fetch example
-      </button>
+      <ExampleSelector onLoad={loadExample} disabled={isAgentBusy} />
       <button
         type="button"
         className="btn btn-outline-secondary btn-sm ia-btn"

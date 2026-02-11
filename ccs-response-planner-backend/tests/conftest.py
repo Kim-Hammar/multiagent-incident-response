@@ -49,10 +49,14 @@ def mock_db() -> Generator[MagicMock, None, None]:
     ) as terminal_db_mock, patch(
         "ccs_response_planner_backend.rest_api.resources.agents"
         ".routes.DatabaseFacade"
-    ) as agents_db_mock:
+    ) as agents_db_mock, patch(
+        "ccs_response_planner_backend.rest_api.resources.example"
+        ".routes.DatabaseFacade"
+    ) as example_db_mock:
         for mock in (
             auth_mock, login_mock, dt_mock,
             terminal_db_mock, agents_db_mock,
+            example_db_mock,
         ):
             mock.get_session_token_by_token.side_effect = _mock_get_token
             mock.get_user_by_username.return_value = None
@@ -60,6 +64,8 @@ def mock_db() -> Generator[MagicMock, None, None]:
         dt_mock.get_digital_twin_config.return_value = None
         dt_mock.save_digital_twin_config.return_value = None
         dt_mock.delete_digital_twin_config.return_value = None
+        dt_mock.list_digital_twin_configs.return_value = []
+        dt_mock.get_digital_twin_config_by_id.return_value = None
         docker_mgr_mock.deploy.return_value = {
             "networks": [],
             "containers": [],
@@ -81,6 +87,8 @@ def mock_db() -> Generator[MagicMock, None, None]:
         agents_db_mock.list_agent_reports.return_value = []
         agents_db_mock.get_agent_report.return_value = None
         agents_db_mock.delete_agent_report.return_value = False
+        example_db_mock.get_example_incident.return_value = None
+        example_db_mock.list_example_incidents.return_value = []
         yield login_mock
 
 

@@ -36,7 +36,7 @@ class DatabaseFacade:
     @staticmethod
     def create_tables() -> None:
         """
-        Create the management_users and session_tokens tables if they do not exist.
+        Create all application tables if they do not exist.
         """
         with psycopg.connect(DatabaseFacade._connection_string()) as conn:
             with conn.cursor() as cur:
@@ -58,6 +58,21 @@ class DatabaseFacade:
                 """)
                 cur.execute(f"""
                     CREATE TABLE IF NOT EXISTS
+                        {DB.EXAMPLE_INCIDENTS_TABLE} (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(255) UNIQUE NOT NULL,
+                        system_description TEXT NOT NULL DEFAULT '',
+                        system_description_image TEXT NOT NULL DEFAULT '',
+                        security_alerts TEXT NOT NULL DEFAULT '',
+                        operator_feedback TEXT NOT NULL DEFAULT '',
+                        specification TEXT NOT NULL DEFAULT '',
+                        incident_report TEXT NOT NULL DEFAULT '',
+                        response_plan TEXT NOT NULL DEFAULT '',
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                """)
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS
                         {DB.DIGITAL_TWIN_CONFIGS_TABLE} (
                         id SERIAL PRIMARY KEY,
                         name VARCHAR(255) UNIQUE NOT NULL DEFAULT 'default',
@@ -65,6 +80,12 @@ class DatabaseFacade:
                         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
+                """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.DIGITAL_TWIN_CONFIGS_TABLE}
+                    ADD COLUMN IF NOT EXISTS example_incident_id INTEGER
+                        REFERENCES {DB.EXAMPLE_INCIDENTS_TABLE}(id)
+                        ON DELETE SET NULL
                 """)
                 cur.execute(f"""
                     CREATE TABLE IF NOT EXISTS
@@ -361,3 +382,164 @@ class DatabaseFacade:
                 deleted = cur.rowcount > 0
             conn.commit()
             return deleted
+
+    @staticmethod
+    def seed_example_incident(
+        name: str, data: dict[str, Any],
+        dt_config: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """
+        Idempotently insert an example incident and optional DT config.
+
+        Uses ON CONFLICT DO NOTHING so repeated calls are safe.
+
+        :param name: unique name for the example incident
+        :param data: dict with keys matching example_incidents columns
+        :param dt_config: optional digital twin config to link
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"INSERT INTO {DB.EXAMPLE_INCIDENTS_TABLE} "
+                    f"(name, system_description, "
+                    f"system_description_image, security_alerts, "
+                    f"operator_feedback, specification, "
+                    f"incident_report, response_plan) "
+                    f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                    f"ON CONFLICT (name) DO NOTHING "
+                    f"RETURNING id",
+                    (
+                        name,
+                        data.get("system_description", ""),
+                        data.get("system_description_image", ""),
+                        data.get("security_alerts", ""),
+                        data.get("operator_feedback", ""),
+                        data.get("specification", ""),
+                        data.get("incident_report", ""),
+                        data.get("response_plan", ""),
+                    ),
+                )
+                row = cur.fetchone()
+                if row is not None and dt_config is not None:
+                    incident_id = row[0]
+                    cur.execute(
+                        f"INSERT INTO "
+                        f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                        f"(name, config, example_incident_id) "
+                        f"VALUES (%s, %s, %s) "
+                        f"ON CONFLICT (name) DO NOTHING",
+                        (
+                            name,
+                            json.dumps(dt_config),
+                            incident_id,
+                        ),
+                    )
+            conn.commit()
+
+    @staticmethod
+    def list_example_incidents() -> list[dict[str, Any]]:
+        """
+        List all example incidents (summary only).
+
+        :return: a list of dicts with id and name
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id, name FROM "
+                    f"{DB.EXAMPLE_INCIDENTS_TABLE} "
+                    f"ORDER BY id"
+                )
+                return [
+                    {"id": r[0], "name": r[1]}
+                    for r in cur.fetchall()
+                ]
+
+    @staticmethod
+    def get_example_incident(
+        incident_id: int,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get a full example incident by id.
+
+        :param incident_id: the example incident id
+        :return: a dict with all fields or None if not found
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id, name, system_description, "
+                    f"system_description_image, security_alerts, "
+                    f"operator_feedback, specification, "
+                    f"incident_report, response_plan "
+                    f"FROM {DB.EXAMPLE_INCIDENTS_TABLE} "
+                    f"WHERE id = %s",
+                    (incident_id,),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "id": row[0],
+                    "name": row[1],
+                    "system_description": row[2],
+                    "system_description_image": row[3],
+                    "security_alerts": row[4],
+                    "operator_feedback": row[5],
+                    "specification": row[6],
+                    "incident_report": row[7],
+                    "response_plan": row[8],
+                }
+
+    @staticmethod
+    def list_digital_twin_configs() -> list[dict[str, Any]]:
+        """
+        List all digital twin configs (summary only).
+
+        :return: a list of dicts with id, name, example_incident_id
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id, name, example_incident_id "
+                    f"FROM {DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                    f"ORDER BY id"
+                )
+                return [
+                    {
+                        "id": r[0],
+                        "name": r[1],
+                        "example_incident_id": r[2],
+                    }
+                    for r in cur.fetchall()
+                ]
+
+    @staticmethod
+    def get_digital_twin_config_by_id(
+        config_id: int,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get a full digital twin config by id.
+
+        :param config_id: the config id
+        :return: a dict with id, name, config, example_incident_id
+                 or None if not found
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id, name, config, "
+                    f"example_incident_id "
+                    f"FROM {DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                    f"WHERE id = %s",
+                    (config_id,),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "id": row[0],
+                    "name": row[1],
+                    "config": row[2],
+                    "example_incident_id": row[3],
+                }

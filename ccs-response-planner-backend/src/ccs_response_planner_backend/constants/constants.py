@@ -87,6 +87,9 @@ class API:
     )
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
+    EXAMPLES_RESOURCE = "examples"
+    EXAMPLES_ROUTE = "/api/examples"
+    DIGITAL_TWIN_CONFIGS_ROUTE = "/api/digital-twin/configs"
 
 
 class DB:
@@ -101,6 +104,7 @@ class DB:
     SESSION_TOKENS_TABLE = "session_tokens"
     DIGITAL_TWIN_CONFIGS_TABLE = "digital_twin_configs"
     AGENT_REPORTS_TABLE = "agent_reports"
+    EXAMPLE_INCIDENTS_TABLE = "example_incidents"
 
 
 class AUTH:
@@ -134,7 +138,7 @@ def _load_example_image() -> str:
 
     :return: a data URL string, or empty string if the file is not found
     """
-    path = Path(__file__).resolve().parents[4] / "docs" / "example_system.png"
+    path = Path(__file__).resolve().parents[4] / "docs" / "incident_1.png"
     try:
         data = base64.b64encode(path.read_bytes()).decode("ascii")
         return f"data:image/png;base64,{data}"

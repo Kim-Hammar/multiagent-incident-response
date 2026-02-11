@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
-  API_EXAMPLE_URL,
+  API_EXAMPLES_URL,
   API_AGENTS_VALIDATION_STEP_URL,
   API_AGENTS_VALIDATION_TOOL_URL,
   API_AGENTS_VALIDATION_PROMPT_URL,
@@ -329,9 +329,9 @@ function ValidationAgent() {
     await callStep(updated)
   }
 
-  const fetchExample = async () => {
+  const loadExample = async (incidentId) => {
     try {
-      const res = await fetch(API_EXAMPLE_URL, {
+      const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.status === 401) {
@@ -367,7 +367,7 @@ function ValidationAgent() {
         }
       }
     } catch (err) {
-      setAlert({ type: 'danger', message: `Failed to fetch example: ${err.message}` })
+      setAlert({ type: 'danger', message: `Failed to load example: ${err.message}` })
     }
   }
 
@@ -538,7 +538,7 @@ function ValidationAgent() {
           handlePaste={handlePaste}
           isAgentBusy={isAgentBusy}
           handleRun={handleRun}
-          fetchExample={fetchExample}
+          loadExample={loadExample}
           handleClear={handleClear}
           fetchPrompt={fetchPrompt}
           loadingPrompt={loadingPrompt}

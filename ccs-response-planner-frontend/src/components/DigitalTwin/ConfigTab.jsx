@@ -20,7 +20,11 @@ function ConfigTab({
   updateSpecCommand,
   removeSpecCommand,
   saveConfig,
-  resetConfig
+  resetConfig,
+  savedConfigs,
+  selectedConfigId,
+  setSelectedConfigId,
+  loadSelectedConfig
 }) {
   const setHostIp = (hostIndex, netId, ip) => {
     const current = hosts[hostIndex].ip_addresses || {}
@@ -44,6 +48,33 @@ function ConfigTab({
 
   return (
     <>
+      {savedConfigs && savedConfigs.length > 0 && (
+        <div style={{ marginBottom: '16px', marginTop: '8px' }}>
+          <label style={{ marginRight: '8px', fontWeight: 500 }}>Load saved config:</label>
+          <select
+            className="form-control form-control-sm"
+            style={{ width: '200px', display: 'inline-block', marginRight: '8px' }}
+            value={selectedConfigId}
+            onChange={(e) => setSelectedConfigId(e.target.value)}
+          >
+            <option value="">Select a config...</option>
+            {savedConfigs.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn btn-outline-dark btn-sm"
+            onClick={() => loadSelectedConfig(selectedConfigId)}
+            disabled={!selectedConfigId}
+          >
+            <i className="fa fa-download" aria-hidden="true" /> Load
+          </button>
+        </div>
+      )}
+
       <div className="section-header">
         <h5>Networks</h5>
         <button type="button" className="btn btn-sm btn-outline-dark" onClick={addNetwork}>

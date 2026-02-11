@@ -3,6 +3,10 @@ import os
 import time
 
 import ccs_response_planner_backend.rest_api.rest_api as rest_api
+from ccs_response_planner_backend.constants.constants import (
+    DIGITAL_TWIN,
+    EXAMPLES,
+)
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 
 logger = logging.getLogger(__name__)
@@ -42,5 +46,23 @@ if __name__ == '__main__':
     DatabaseFacade.save_user(admin_username, admin_password)
     logger.info("Admin user ensured: %s", admin_username)
 
-    rest_api.start_server(static_folder=static_folder_path, port=8888, num_threads=100, host=host,
-                          https=False)
+    DatabaseFacade.seed_example_incident(
+        name="Incident 1",
+        data={
+            "system_description": EXAMPLES.SYSTEM_DESCRIPTION,
+            "system_description_image": EXAMPLES.SYSTEM_DESCRIPTION_IMAGE,
+            "security_alerts": EXAMPLES.SECURITY_ALERTS,
+            "operator_feedback": EXAMPLES.OPERATOR_FEEDBACK,
+            "specification": EXAMPLES.SPECIFICATION,
+            "incident_report": EXAMPLES.INCIDENT_REPORT,
+            "response_plan": EXAMPLES.RESPONSE_PLAN,
+        },
+        dt_config=DIGITAL_TWIN.DEFAULT_CONFIG,
+    )
+    logger.info("Example incidents seeded")
+
+    rest_api.start_server(
+        static_folder=static_folder_path,
+        port=8888, num_threads=100,
+        host=host, https=False,
+    )

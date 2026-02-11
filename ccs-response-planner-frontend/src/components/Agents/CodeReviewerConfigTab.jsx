@@ -1,5 +1,6 @@
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import PromptModal from './shared/PromptModal.jsx'
+import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
  * Configuration tab for the Code Reviewer Agent.
@@ -20,7 +21,7 @@ function CodeReviewerConfigTab({
   handlePaste,
   isAgentBusy,
   handleRun,
-  fetchExample,
+  loadExample,
   handleClear,
   fetchPrompt,
   loadingPrompt,
@@ -116,9 +117,7 @@ function CodeReviewerConfigTab({
       </div>
       <div className="ia-section">
         <label htmlFor="cr-code-report">Code Agent report (required)</label>
-        <p className="ia-hint">
-          Paste the JSON code report produced by the Code Agent.
-        </p>
+        <p className="ia-hint">Paste the JSON code report produced by the Code Agent.</p>
         <textarea
           id="cr-code-report"
           className="form-control ia-textarea"
@@ -139,14 +138,7 @@ function CodeReviewerConfigTab({
         <i className="fa fa-bolt" aria-hidden="true" />
         {isAgentBusy ? ' Running...' : ' Run agent'}
       </button>
-      <button
-        type="button"
-        className="btn btn-outline-dark btn-sm ia-btn"
-        onClick={fetchExample}
-        disabled={isAgentBusy}
-      >
-        <i className="fa fa-download" aria-hidden="true" /> Fetch example
-      </button>
+      <ExampleSelector onLoad={loadExample} disabled={isAgentBusy} />
       <button
         type="button"
         className="btn btn-outline-secondary btn-sm ia-btn"

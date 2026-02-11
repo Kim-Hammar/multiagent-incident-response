@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
-  API_EXAMPLE_URL,
+  API_EXAMPLES_URL,
   API_AGENTS_CODE_REVIEW_STEP_URL,
   API_AGENTS_CODE_REVIEW_TOOL_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
@@ -318,9 +318,9 @@ function CodeReviewerAgent() {
     await callStep(updated)
   }
 
-  const fetchExample = async () => {
+  const loadExample = async (incidentId) => {
     try {
-      const exampleRes = await fetch(API_EXAMPLE_URL, {
+      const exampleRes = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (exampleRes.status === 401) {
@@ -346,7 +346,7 @@ function CodeReviewerAgent() {
         }
       }
     } catch (err) {
-      setAlert({ type: 'danger', message: `Failed to fetch example: ${err.message}` })
+      setAlert({ type: 'danger', message: `Failed to load example: ${err.message}` })
     }
   }
 
@@ -513,7 +513,7 @@ function CodeReviewerAgent() {
           handlePaste={handlePaste}
           isAgentBusy={isAgentBusy}
           handleRun={handleRun}
-          fetchExample={fetchExample}
+          loadExample={loadExample}
           handleClear={handleClear}
           fetchPrompt={fetchPrompt}
           loadingPrompt={loadingPrompt}

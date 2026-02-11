@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { API_DIGITAL_TWIN_URL, API_DIGITAL_TWIN_RESET_URL } from '../Common/constants'
+import {
+  API_DIGITAL_TWIN_URL,
+  API_DIGITAL_TWIN_RESET_URL,
+  API_DIGITAL_TWIN_CONFIGS_URL
+} from '../Common/constants'
 import ConfigTab from './ConfigTab.jsx'
 import DeployTab from './DeployTab.jsx'
 import ValidationTab from './ValidationTab.jsx'
@@ -17,6 +21,8 @@ function DigitalTwin() {
   const [specificationCommands, setSpecificationCommands] = useState([])
   const [alert, setAlert] = useState(null)
   const [activeTab, setActiveTab] = useState('config')
+  const [savedConfigs, setSavedConfigs] = useState([])
+  const [selectedConfigId, setSelectedConfigId] = useState('')
 
   const loadConfig = useCallback(async () => {
     try {
@@ -40,6 +46,38 @@ function DigitalTwin() {
   useEffect(() => {
     loadConfig()
   }, [loadConfig])
+
+  useEffect(() => {
+    fetch(API_DIGITAL_TWIN_CONFIGS_URL, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setSavedConfigs(data))
+      .catch(() => {})
+  }, [token])
+
+  const loadSelectedConfig = async (configId) => {
+    if (!configId) return
+    try {
+      const res = await fetch(`${API_DIGITAL_TWIN_CONFIGS_URL}/${configId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.status === 401) {
+        logout()
+        return
+      }
+      if (!res.ok) return
+      const data = await res.json()
+      const cfg = data.config || {}
+      setNetworks(cfg.networks || [])
+      setHosts(cfg.hosts || [])
+      setLinks(cfg.links || [])
+      setSpecificationCommands(cfg.specification_commands || [])
+      setAlert({ type: 'success', message: `Loaded config: ${data.name}` })
+    } catch (err) {
+      setAlert({ type: 'danger', message: `Failed to load config: ${err.message}` })
+    }
+  }
 
   useEffect(() => {
     if (!alert) return
@@ -218,6 +256,10 @@ function DigitalTwin() {
             removeSpecCommand={removeSpecCommand}
             saveConfig={saveConfig}
             resetConfig={resetConfig}
+            savedConfigs={savedConfigs}
+            selectedConfigId={selectedConfigId}
+            setSelectedConfigId={setSelectedConfigId}
+            loadSelectedConfig={loadSelectedConfig}
           />
         )}
         {activeTab === 'deploy' && <DeployTab token={token} logout={logout} />}

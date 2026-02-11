@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { API_EXAMPLE_URL, API_PLAN_URL } from '../Common/constants'
+import { API_EXAMPLES_URL, API_PLAN_URL } from '../Common/constants'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import ConfigTab from './ConfigTab.jsx'
 import PlanningTab from './PlanningTab.jsx'
@@ -38,8 +38,8 @@ function ResponsePlanner() {
     }
   }
 
-  const fetchExample = async () => {
-    const res = await fetch(API_EXAMPLE_URL, {
+  const loadExample = async (incidentId) => {
+    const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (res.status === 401) {
@@ -152,7 +152,7 @@ function ResponsePlanner() {
             specificationImages={specificationImages}
             setSpecificationImages={setSpecificationImages}
             handlePaste={handlePaste}
-            fetchExample={fetchExample}
+            loadExample={loadExample}
             onClear={handleClear}
             onGenerate={handleGenerate}
             generating={generating}

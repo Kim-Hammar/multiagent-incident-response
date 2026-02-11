@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ExampleSelector from '../Agents/shared/ExampleSelector.jsx'
 
 /**
  * Renders a strip of image thumbnails with remove buttons.
@@ -79,7 +80,7 @@ function ConfigTab({
   specificationImages,
   setSpecificationImages,
   handlePaste,
-  fetchExample,
+  loadExample,
   onClear,
   onGenerate,
   generating
@@ -158,13 +159,7 @@ function ConfigTab({
       <button type="submit" className="btn btn-dark btn-sm btn-generate" disabled={generating}>
         <i className="fa fa-bolt" aria-hidden="true" /> Generate plan
       </button>
-      <button
-        type="button"
-        className="btn btn-outline-dark btn-sm btn-example"
-        onClick={fetchExample}
-      >
-        <i className="fa fa-download" aria-hidden="true" /> Fetch example incident
-      </button>
+      <ExampleSelector onLoad={loadExample} disabled={generating} />
       <button
         type="button"
         className="btn btn-outline-secondary btn-sm btn-clear"

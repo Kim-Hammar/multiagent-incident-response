@@ -16,6 +16,7 @@ from ccs_response_planner_backend.rest_api.resources.digital_twin.terminal impor
 )
 from ccs_response_planner_backend.rest_api.resources.example.routes import (
     example_bp,
+    examples_bp,
 )
 from ccs_response_planner_backend.rest_api.resources.health.routes import (
     health_bp,
@@ -76,6 +77,7 @@ def create_app(static_folder: str) -> Flask:
 
     app.register_blueprint(health_bp)
     app.register_blueprint(example_bp)
+    app.register_blueprint(examples_bp)
     app.register_blueprint(plan_bp)
     app.register_blueprint(login_bp)
     app.register_blueprint(llm_bp)
