@@ -2,6 +2,7 @@ import { useState } from 'react'
 import InformationAgent from './InformationAgent.jsx'
 import PenetrationTestAgent from './PenetrationTestAgent.jsx'
 import ValidationAgent from './ValidationAgent.jsx'
+import CodeAgent from './CodeAgent.jsx'
 import './Agents.css'
 
 /**
@@ -27,12 +28,14 @@ function Agents() {
           <option value="information">Information Agent</option>
           <option value="pentest">Penetration Test Agent</option>
           <option value="validation">Validation Agent</option>
+          <option value="code">Code Agent</option>
         </select>
       </div>
 
       {selectedAgent === 'information' && <InformationAgent />}
       {selectedAgent === 'pentest' && <PenetrationTestAgent />}
       {selectedAgent === 'validation' && <ValidationAgent />}
+      {selectedAgent === 'code' && <CodeAgent />}
     </div>
   )
 }

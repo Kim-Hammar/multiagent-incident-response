@@ -10,7 +10,9 @@ export const TOOL_LABELS = {
     label: 'Python script to execute in the digital twin sandbox',
     icon: 'fa-code'
   },
-  pentest_exec: { label: 'Attacker Terminal', icon: 'fa-terminal' }
+  pentest_exec: { label: 'Attacker Terminal', icon: 'fa-terminal' },
+  python_exec: { label: 'Python Sandbox', icon: 'fa-code' },
+  gym_verify: { label: 'Gymnasium Verify', icon: 'fa-check-circle' }
 }
 
 export function formatToolArgs(toolName, args) {
@@ -45,6 +47,10 @@ export function formatToolArgs(toolName, args) {
       return [['Code', args.code || '']]
     case 'pentest_exec':
       return [['Command', args.command || '']]
+    case 'python_exec':
+      return [['Code', args.code || '']]
+    case 'gym_verify':
+      return [['Code', args.code || '']]
     default:
       return [['Arguments', JSON.stringify(args)]]
   }

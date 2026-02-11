@@ -33,6 +33,15 @@ from ccs_response_planner_backend.agents.validation_agent.prompt import (
 from ccs_response_planner_backend.agents.validation_agent.tools import (
     TOOL_DISPATCH as VALIDATION_TOOL_DISPATCH,
 )
+from ccs_response_planner_backend.agents.code_agent.agent import (
+    CodeAgent,
+)
+from ccs_response_planner_backend.agents.code_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as CODE_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.code_agent.tools import (
+    TOOL_DISPATCH as CODE_TOOL_DISPATCH,
+)
 from ccs_response_planner_backend.constants.constants import API, DIGITAL_TWIN
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 from ccs_response_planner_backend.rest_api.util.auth import token_required
@@ -336,6 +345,122 @@ def agents_validation_tool() -> tuple[Response, int]:
         }), 400
     try:
         agent = ValidationAgent()
+        result = agent.execute_tool(tool_name, tool_args)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/code/step", methods=["POST"])
+@token_required
+def agents_code_step() -> Response | tuple[Response, int]:
+    """
+    Advance the CodeAgent loop by one step (NDJSON stream).
+
+    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get("system_description", "")
+    incident_report = body.get("incident_report", "")
+    specification = body.get("specification", "")
+    operator_feedback = body.get("operator_feedback", "")
+    conversation_history = body.get("conversation_history", [])
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    if not isinstance(images, list):
+        images = []
+    if not system_description and not incident_report:
+        return jsonify({
+            "error": (
+                "system_description or incident_report "
+                "is required"
+            ),
+        }), 400
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: a generator of newline-delimited JSON strings
+        """
+        try:
+            agent = CodeAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                incident_report=incident_report,
+                specification=specification,
+                operator_feedback=operator_feedback,
+                conversation_history=conversation_history,
+                images=images,
+                model_name=model_name,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error", "message": str(e),
+            }) + "\n"
+
+    return Response(generate(), mimetype="application/x-ndjson")
+
+
+@agents_bp.route("/code/prompt", methods=["POST"])
+@token_required
+def agents_code_prompt() -> tuple[Response, int]:
+    """
+    Render the CodeAgent system prompt from the given context.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    specification = body.get("specification", "")
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+    prompt = CODE_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        incident_report=body.get(
+            "incident_report", "",
+        ) or "N/A",
+        specification=specification or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route("/code/tool", methods=["POST"])
+@token_required
+def agents_code_tool() -> tuple[Response, int]:
+    """
+    Execute an approved tool call for the CodeAgent.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    if not tool_name:
+        return jsonify({"error": "tool_name is required"}), 400
+    if tool_name not in CODE_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = CodeAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:

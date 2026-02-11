@@ -68,6 +68,9 @@ class API:
     AGENTS_VALIDATION_STEP_ROUTE = "/api/agents/validation/step"
     AGENTS_VALIDATION_TOOL_ROUTE = "/api/agents/validation/tool"
     AGENTS_VALIDATION_PROMPT_ROUTE = "/api/agents/validation/prompt"
+    AGENTS_CODE_STEP_ROUTE = "/api/agents/code/step"
+    AGENTS_CODE_TOOL_ROUTE = "/api/agents/code/tool"
+    AGENTS_CODE_PROMPT_ROUTE = "/api/agents/code/prompt"
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
 
