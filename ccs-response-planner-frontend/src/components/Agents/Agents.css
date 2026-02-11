@@ -142,20 +142,15 @@
 
 /* Activity log */
 .ia-log {
-  max-height: 600px;
-  overflow-y: auto;
   padding-right: 4px;
-  position: relative;
 }
 
 /* "New activity" indicator */
 .ia-new-activity-btn {
-  position: sticky;
-  bottom: 16px;
+  position: fixed;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  display: block;
-  margin: 0 auto;
   padding: 4px 16px;
   font-size: 12px;
   font-weight: 500;
@@ -165,7 +160,7 @@
   border-radius: 16px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  z-index: 10;
+  z-index: 1040;
   transition: background 0.15s;
 }
 

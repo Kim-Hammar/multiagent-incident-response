@@ -38,7 +38,6 @@ function PenetrationTestAgent() {
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
   const logEndRef = useRef(null)
-  const logContainerRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
 
@@ -81,13 +80,8 @@ function PenetrationTestAgent() {
   }, [autopilot, pendingProposal])
 
   useEffect(() => {
-    const logEl = logContainerRef.current
-    const logBottomVisible =
-      logEl && logEl.getBoundingClientRect().bottom <= window.innerHeight + 80
-    if (isNearBottomRef.current && logBottomVisible) {
-      if (logEl) {
-        logEl.scrollTop = logEl.scrollHeight
-      }
+    if (isNearBottomRef.current) {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' })
     } else {
       setHasNewActivity(true)
     }
@@ -96,18 +90,19 @@ function PenetrationTestAgent() {
     }
   }, [conversationHistory])
 
-  const handleLogScroll = () => {
-    const el = logContainerRef.current
-    if (!el) return
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    isNearBottomRef.current = nearBottom
-    if (nearBottom) setHasNewActivity(false)
-  }
+  useEffect(() => {
+    const onScroll = () => {
+      const nearBottom =
+        document.documentElement.scrollHeight - window.scrollY - window.innerHeight < 120
+      isNearBottomRef.current = nearBottom
+      if (nearBottom) setHasNewActivity(false)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const scrollToBottom = () => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
     setHasNewActivity(false)
   }
 
@@ -503,16 +498,25 @@ function PenetrationTestAgent() {
           contextUsage={contextUsage}
           hasNewActivity={hasNewActivity}
           scrollToBottom={scrollToBottom}
-          logContainerRef={logContainerRef}
           logEndRef={logEndRef}
           streamingTraceRef={streamingTraceRef}
-          handleLogScroll={handleLogScroll}
           renderFinalReport={renderFinalReport}
         />
       )}
 
       {activeTab === 'history' && (
-        <AgentHistoryTab reportHistory={reportHistory} deleteReport={deleteReport} />
+        <AgentHistoryTab
+          reportHistory={reportHistory}
+          deleteReport={deleteReport}
+          renderReport={(report) => (
+            <PentestAgentReport
+              entry={{ type: 'report', report }}
+              index="history"
+              isExpanded={true}
+              toggleEntry={() => {}}
+            />
+          )}
+        />
       )}
     </div>
   )

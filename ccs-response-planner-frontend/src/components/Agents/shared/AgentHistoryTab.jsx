@@ -3,8 +3,9 @@ import { useState } from 'react'
 /**
  * Shared history tab for all agents.
  * Displays a list of saved reports with expand/collapse and delete.
+ * Uses a renderReport render prop to display agent-specific report formatting.
  */
-function AgentHistoryTab({ reportHistory, deleteReport }) {
+function AgentHistoryTab({ reportHistory, deleteReport, renderReport }) {
   const [historyExpanded, setHistoryExpanded] = useState({})
 
   if (reportHistory.length === 0) {
@@ -17,51 +18,53 @@ function AgentHistoryTab({ reportHistory, deleteReport }) {
 
   return (
     <div style={{ marginTop: '16px' }}>
-      <div className="card">
-        <div className="card-body" style={{ padding: '0' }}>
-          {reportHistory.map((entry) => (
-            <div key={entry.id} className="ia-history-entry">
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  cursor: 'pointer'
-                }}
-                onClick={() =>
-                  setHistoryExpanded((prev) => ({
-                    ...prev,
-                    [entry.id]: !prev[entry.id]
-                  }))
-                }
-              >
-                <span style={{ fontSize: '12px', color: '#495057' }}>
-                  {new Date(entry.created_at).toLocaleString()}
-                  <span style={{ color: '#888', marginLeft: '8px' }}>{entry.username}</span>
-                </span>
-                <i
-                  className={`fa fa-caret-${historyExpanded[entry.id] ? 'down' : 'right'}`}
-                  aria-hidden="true"
-                  style={{ color: '#6c757d' }}
-                />
-              </div>
-              {historyExpanded[entry.id] && (
-                <div className="ia-history-detail">
-                  <pre>{JSON.stringify(entry.report, null, 2)}</pre>
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm"
-                    style={{ fontSize: '11px', padding: '2px 10px' }}
-                    onClick={() => deleteReport(entry.id)}
-                  >
-                    <i className="fa fa-trash" aria-hidden="true" /> Delete
-                  </button>
-                </div>
-              )}
+      {reportHistory.map((entry) => (
+        <div key={entry.id} style={{ marginBottom: '12px' }}>
+          <div
+            className="card"
+            style={{ cursor: 'pointer' }}
+            onClick={() =>
+              setHistoryExpanded((prev) => ({
+                ...prev,
+                [entry.id]: !prev[entry.id]
+              }))
+            }
+          >
+            <div
+              className="card-body"
+              style={{
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <span style={{ fontSize: '12px', color: '#495057' }}>
+                {new Date(entry.created_at).toLocaleString()}
+                <span style={{ color: '#888', marginLeft: '8px' }}>{entry.username}</span>
+              </span>
+              <i
+                className={`fa fa-caret-${historyExpanded[entry.id] ? 'down' : 'right'}`}
+                aria-hidden="true"
+                style={{ color: '#6c757d' }}
+              />
             </div>
-          ))}
+          </div>
+          {historyExpanded[entry.id] && (
+            <div style={{ marginTop: '8px' }}>
+              {renderReport(entry.report)}
+              <button
+                type="button"
+                className="btn btn-outline-danger btn-sm"
+                style={{ fontSize: '11px', padding: '2px 10px', marginTop: '8px' }}
+                onClick={() => deleteReport(entry.id)}
+              >
+                <i className="fa fa-trash" aria-hidden="true" /> Delete
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      ))}
     </div>
   )
 }

@@ -16,10 +16,8 @@ function AgentPlanningTab({
   contextUsage,
   hasNewActivity,
   scrollToBottom,
-  logContainerRef,
   logEndRef,
   streamingTraceRef,
-  handleLogScroll,
   renderFinalReport
 }) {
   if (conversationHistory.length === 0 && !running) {
@@ -42,10 +40,8 @@ function AgentPlanningTab({
       contextUsage={contextUsage}
       hasNewActivity={hasNewActivity}
       scrollToBottom={scrollToBottom}
-      logContainerRef={logContainerRef}
       logEndRef={logEndRef}
       streamingTraceRef={streamingTraceRef}
-      handleLogScroll={handleLogScroll}
       renderFinalReport={renderFinalReport}
     />
   )

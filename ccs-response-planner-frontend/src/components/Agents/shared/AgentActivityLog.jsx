@@ -17,10 +17,8 @@ function AgentActivityLog({
   contextUsage,
   hasNewActivity,
   scrollToBottom,
-  logContainerRef,
   logEndRef,
   streamingTraceRef,
-  handleLogScroll,
   renderFinalReport
 }) {
   return (
@@ -37,7 +35,7 @@ function AgentActivityLog({
           </span>
         )}
       </div>
-      <div className="ia-log" ref={logContainerRef} onScroll={handleLogScroll}>
+      <div className="ia-log">
         {conversationHistory.map((entry, index) => {
           if (entry.type === 'streaming') {
             return (
