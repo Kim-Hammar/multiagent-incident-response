@@ -116,7 +116,7 @@ function CodeReviewerConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="cr-code-report">Code Agent report (required)</label>
+        <label htmlFor="cr-code-report">Code Agent report</label>
         <p className="ia-hint">Paste the JSON code report produced by the Code Agent.</p>
         <textarea
           id="cr-code-report"

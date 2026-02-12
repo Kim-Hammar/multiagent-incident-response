@@ -1,22 +1,99 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { API_DIGITAL_TWIN_VALIDATE_URL, API_DIGITAL_TWIN_STATUS_URL } from '../Common/constants'
+import {
+  API_DIGITAL_TWIN_VALIDATE_URL,
+  API_DIGITAL_TWIN_STATUS_URL,
+  apiDigitalTwinConfigValidateUrl,
+  apiDigitalTwinConfigStatusUrl,
+  apiDigitalTwinConfigValidationResultsUrl
+} from '../Common/constants'
 
 /**
  * Validation tab for the digital twin.
  * Runs specification commands against the deployed DT and shows pass/fail results.
+ * Supports per-config validation when savedConfigs are available.
  */
-function ValidationTab({ token, logout, specificationCommands }) {
+function ValidationTab({ token, logout, specificationCommands, savedConfigs }) {
   const [status, setStatus] = useState(null)
   const [validating, setValidating] = useState(false)
   const [logLines, setLogLines] = useState([])
   const [results, setResults] = useState([])
   const [lastTested, setLastTested] = useState(null)
+  const [selectedConfigId, setSelectedConfigId] = useState('')
+  const [runningConfigs, setRunningConfigs] = useState([])
   const intervalRef = useRef(null)
   const logEndRef = useRef(null)
 
+  const fetchRunningConfigs = useCallback(async () => {
+    if (!savedConfigs || savedConfigs.length === 0) {
+      setRunningConfigs([])
+      return
+    }
+    const running = []
+    for (const cfg of savedConfigs) {
+      try {
+        const res = await fetch(apiDigitalTwinConfigStatusUrl(cfg.id), {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.deployed) {
+            running.push(cfg)
+          }
+        }
+      } catch {
+        /* skip unreachable configs */
+      }
+    }
+    setRunningConfigs(running)
+  }, [token, savedConfigs])
+
+  useEffect(() => {
+    fetchRunningConfigs()
+    const id = setInterval(fetchRunningConfigs, 10000)
+    return () => clearInterval(id)
+  }, [fetchRunningConfigs])
+
+  const hasRunning = runningConfigs.length > 0
+
+  useEffect(() => {
+    const ids = runningConfigs.map((c) => String(c.id))
+    if (selectedConfigId && !ids.includes(selectedConfigId)) {
+      setSelectedConfigId(ids[0] || '')
+    } else if (!selectedConfigId && ids.length > 0) {
+      setSelectedConfigId(ids[0])
+    }
+  }, [runningConfigs])
+
+  useEffect(() => {
+    if (!selectedConfigId) return
+    const loadSaved = async () => {
+      try {
+        const res = await fetch(apiDigitalTwinConfigValidationResultsUrl(selectedConfigId), {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data && data.results) {
+            setResults(data.results)
+            setLastTested(new Date(data.tested_at))
+          } else {
+            setResults([])
+            setLastTested(null)
+          }
+        }
+      } catch {
+        /* ignore fetch errors */
+      }
+    }
+    loadSaved()
+  }, [selectedConfigId, token])
+
   const fetchStatus = useCallback(async () => {
     try {
-      const response = await fetch(API_DIGITAL_TWIN_STATUS_URL, {
+      const url = selectedConfigId
+        ? apiDigitalTwinConfigStatusUrl(selectedConfigId)
+        : API_DIGITAL_TWIN_STATUS_URL
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (response.status === 401) {
@@ -28,7 +105,7 @@ function ValidationTab({ token, logout, specificationCommands }) {
     } catch {
       /* polling failure is silent */
     }
-  }, [token, logout])
+  }, [token, logout, selectedConfigId])
 
   useEffect(() => {
     fetchStatus()
@@ -47,7 +124,10 @@ function ValidationTab({ token, logout, specificationCommands }) {
     setLogLines([])
     setResults([])
     try {
-      const response = await fetch(API_DIGITAL_TWIN_VALIDATE_URL, {
+      const url = selectedConfigId
+        ? apiDigitalTwinConfigValidateUrl(selectedConfigId)
+        : API_DIGITAL_TWIN_VALIDATE_URL
+      const response = await fetch(url, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -93,28 +173,48 @@ function ValidationTab({ token, logout, specificationCommands }) {
 
   const deployed = status?.deployed || false
 
-  if (status && !deployed) {
-    return (
-      <div className="validation-tab">
-        <div className="alert alert-info" role="alert">
-          The digital twin is not currently deployed. Switch to the <strong>Deployment</strong> tab
-          to deploy it before running validation.
-        </div>
-      </div>
-    )
-  }
-
   const passCount = results.filter((r) => r.passed).length
   const failCount = results.filter((r) => !r.passed).length
 
   return (
     <div className="validation-tab">
+      {hasRunning && (
+        <div style={{ marginBottom: 12 }}>
+          <label htmlFor="validate-config-select" style={{ marginRight: 8, fontWeight: 600 }}>
+            Digital twin:
+          </label>
+          <select
+            id="validate-config-select"
+            className="form-control form-control-sm"
+            style={{ display: 'inline-block', width: 'auto' }}
+            value={selectedConfigId}
+            onChange={(e) => {
+              setSelectedConfigId(e.target.value)
+              setLogLines([])
+            }}
+          >
+            {runningConfigs.map((cfg) => (
+              <option key={cfg.id} value={cfg.id}>
+                {cfg.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {status && !deployed && (
+        <div className="alert alert-info" role="alert">
+          The digital twin is not currently deployed. Switch to the <strong>Deployment</strong> tab
+          to deploy it before running validation.
+        </div>
+      )}
+
       <div className="deploy-controls">
         <button
           type="button"
           className="btn btn-dark deploy-btn"
           onClick={handleValidate}
-          disabled={validating}
+          disabled={validating || !deployed}
         >
           {validating ? (
             <>
@@ -203,13 +303,16 @@ function ValidationTab({ token, logout, specificationCommands }) {
         </>
       )}
 
-      {!validating && results.length === 0 && specificationCommands.length > 0 && (
-        <p style={{ fontSize: 13, color: '#6c757d' }}>
-          {specificationCommands.length} specification command
-          {specificationCommands.length !== 1 ? 's' : ''} configured. Click{' '}
-          <strong>Run validation</strong> to test them.
-        </p>
-      )}
+      {!validating &&
+        results.length === 0 &&
+        specificationCommands.length > 0 &&
+        !selectedConfigId && (
+          <p style={{ fontSize: 13, color: '#6c757d' }}>
+            {specificationCommands.length} specification command
+            {specificationCommands.length !== 1 ? 's' : ''} configured. Click{' '}
+            <strong>Run validation</strong> to test them.
+          </p>
+        )}
     </div>
   )
 }

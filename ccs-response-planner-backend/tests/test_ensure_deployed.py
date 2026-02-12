@@ -32,7 +32,7 @@ class TestEnsureDeployed:
         client = MagicMock()
         mock_docker.from_env.return_value = client
         c1 = MagicMock()
-        c1.name = "ccs_dt_server_1"
+        c1.name = "ccs_dt_i1_server_1"
         c1.status = "running"
         c1.image.tags = ["ubuntu:22.04"]
         client.containers.list.return_value = [c1]
@@ -148,7 +148,7 @@ class TestDtExecAutoDeploy:
             "ExitCode": 0
         }
 
-        result = dt_exec("gateway", "echo hello")
+        result = dt_exec("i1_gateway", "echo hello")
 
         mock_manager.ensure_deployed.assert_called_once()
         assert result["exit_code"] == 0
@@ -178,7 +178,7 @@ class TestDtExecAutoDeploy:
             RuntimeError("deploy boom")
         )
 
-        result = dt_exec("gateway", "echo hi")
+        result = dt_exec("i1_gateway", "echo hi")
         assert "error" in result
         assert "auto-deploy failed" in result["error"]
 
@@ -194,8 +194,8 @@ class TestPentestExecAutoDeploy:
         mock_manager: MagicMock,
     ) -> None:
         """
-        pentest_exec should auto-deploy and retry when the
-        attacker container is not found.
+        pentest_exec should auto-deploy and retry when no
+        attacker container is found.
         """
         from ccs_response_planner_backend.agents \
             .penetration_test_agent.tools import pentest_exec
@@ -207,9 +207,12 @@ class TestPentestExecAutoDeploy:
 
         ct = MagicMock()
         ct.id = "att123"
-        client.containers.get.side_effect = [
-            NotFound("not found"),
-            ct,
+        ct.name = "ccs_dt_i1_attacker"
+        # First call: no containers found (triggers auto-deploy)
+        # Second call: attacker container exists after deploy
+        client.containers.list.side_effect = [
+            [],
+            [ct],
         ]
         client.api.exec_create.return_value = {
             "Id": "exec1"
@@ -242,9 +245,8 @@ class TestPentestExecAutoDeploy:
         mock_docker.from_env.return_value = client
         from docker.errors import NotFound
         mock_docker.errors.NotFound = NotFound
-        client.containers.get.side_effect = NotFound(
-            "not found"
-        )
+        # No attacker container found
+        client.containers.list.return_value = []
         mock_manager.ensure_deployed.side_effect = (
             RuntimeError("deploy boom")
         )
@@ -252,3 +254,39 @@ class TestPentestExecAutoDeploy:
         result = pentest_exec("nmap 10.0.2.1")
         assert "error" in result
         assert "auto-deploy failed" in result["error"]
+
+    @patch(f"{PENTEST_MODULE}.docker")
+    def test_finds_attacker_dynamically(
+        self,
+        mock_docker: MagicMock,
+    ) -> None:
+        """
+        pentest_exec should dynamically discover any running
+        attacker container matching ccs_dt_*_attacker.
+        """
+        from ccs_response_planner_backend.agents \
+            .penetration_test_agent.tools import pentest_exec
+
+        client = MagicMock()
+        mock_docker.from_env.return_value = client
+        from docker.errors import NotFound
+        mock_docker.errors.NotFound = NotFound
+
+        ct = MagicMock()
+        ct.id = "att456"
+        ct.name = "ccs_dt_i2_attacker"
+        other = MagicMock()
+        other.name = "ccs_dt_i2_server_1"
+        # Returns both containers; should pick the attacker
+        client.containers.list.return_value = [other, ct]
+        client.api.exec_create.return_value = {
+            "Id": "exec2"
+        }
+        client.api.exec_start.return_value = b"result"
+        client.api.exec_inspect.return_value = {
+            "ExitCode": 0
+        }
+
+        result = pentest_exec("whoami")
+        assert result["exit_code"] == 0
+        assert result["output"] == "result"

@@ -237,8 +237,9 @@ Gymnasium environment. Checks for required methods, state shape, action \
 space, and runs a basic episode.
 - **dt_exec**: Execute a shell command on a digital-twin container. Use \
 this to test whether specific incident response commands work on the \
-target hosts. Valid containers: gateway, firewall, ids, server_1, \
-server_2, server_3, server_4, server_5, server_6.
+target hosts. Valid containers: i1_gateway, i1_firewall, i1_ids, \
+i1_server_1–i1_server_6 (Incident 1) or i2_server_1–i2_server_6 \
+(Incident 2).
 - **produce_code_report**: Call this ONLY after `gym_verify` passes. \
 Provide the final code and metadata.
 

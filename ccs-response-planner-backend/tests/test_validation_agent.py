@@ -70,7 +70,7 @@ def test_validation_step_streams_events(
             "type": "tool_proposal",
             "tool_name": "dt_exec",
             "tool_args": {
-                "container": "firewall",
+                "container": "i1_firewall",
                 "command": "iptables -A INPUT -s 10.0.1.10 "
                            "-j DROP",
             },
@@ -133,7 +133,7 @@ def test_validation_tool_executes_dt_exec(
     mock_agent.execute_tool.return_value = {
         "tool_name": "dt_exec",
         "result": {
-            "container": "firewall",
+            "container": "i1_firewall",
             "command": "iptables -L",
             "exit_code": 0,
             "output": "Chain INPUT...",
@@ -145,7 +145,7 @@ def test_validation_tool_executes_dt_exec(
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
-                "container": "firewall",
+                "container": "i1_firewall",
                 "command": "iptables -L",
             },
         }),

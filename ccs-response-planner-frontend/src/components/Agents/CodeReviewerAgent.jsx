@@ -41,6 +41,7 @@ function CodeReviewerAgent() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -271,7 +272,8 @@ function CodeReviewerAgent() {
         },
         body: JSON.stringify({
           tool_name: proposal.tool_name,
-          tool_args: proposal.tool_args
+          tool_args: proposal.tool_args,
+          incident_id: selectedIncidentId
         })
       })
       if (res.status === 401) {
@@ -319,6 +321,7 @@ function CodeReviewerAgent() {
   }
 
   const loadExample = async (incidentId) => {
+    setSelectedIncidentId(incidentId)
     try {
       const exampleRes = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -334,15 +337,31 @@ function CodeReviewerAgent() {
       setOperatorFeedback('')
       setSystemDescriptionImages(exampleData.system_description_images || [])
 
-      const reportsRes = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const reportsRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=code&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       if (reportsRes.ok) {
         const reports = await reportsRes.json()
         if (reports.length > 0) {
           const latest = reports[0]
           const report = latest.report || {}
           setCodeReport(JSON.stringify(report, null, 2))
+        }
+      }
+
+      const infoRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=information&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (infoRes.ok) {
+        const infoReports = await infoRes.json()
+        if (infoReports.length > 0) {
+          setIncidentReport(JSON.stringify(infoReports[0].report || {}, null, 2))
+          const attackImg = infoReports[0].report?.attack_path_image
+          if (attackImg) {
+            setSystemDescriptionImages((prev) => [...prev, attackImg])
+          }
         }
       }
     } catch (err) {
@@ -360,6 +379,7 @@ function CodeReviewerAgent() {
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
+    setSelectedIncidentId(null)
   }
 
   const fetchPrompt = async () => {
@@ -414,7 +434,7 @@ function CodeReviewerAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'code_review', report })
+        body: JSON.stringify({ agent_type: 'code_review', report, incident_id: selectedIncidentId })
       })
       await fetchHistory()
     } catch {

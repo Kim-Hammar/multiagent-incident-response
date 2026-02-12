@@ -40,6 +40,7 @@ function CodeAgent() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -268,7 +269,8 @@ function CodeAgent() {
         },
         body: JSON.stringify({
           tool_name: proposal.tool_name,
-          tool_args: proposal.tool_args
+          tool_args: proposal.tool_args,
+          incident_id: selectedIncidentId
         })
       })
       if (res.status === 401) {
@@ -316,6 +318,7 @@ function CodeAgent() {
   }
 
   const loadExample = async (incidentId) => {
+    setSelectedIncidentId(incidentId)
     try {
       const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -330,6 +333,21 @@ function CodeAgent() {
       setSpecification(data.specification || '')
       setOperatorFeedback('')
       setSystemDescriptionImages(data.system_description_images || [])
+
+      const infoRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=information&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (infoRes.ok) {
+        const infoReports = await infoRes.json()
+        if (infoReports.length > 0) {
+          setIncidentReport(JSON.stringify(infoReports[0].report || {}, null, 2))
+          const attackImg = infoReports[0].report?.attack_path_image
+          if (attackImg) {
+            setSystemDescriptionImages((prev) => [...prev, attackImg])
+          }
+        }
+      }
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to load example: ${err.message}` })
     }
@@ -344,6 +362,7 @@ function CodeAgent() {
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
+    setSelectedIncidentId(null)
   }
 
   const fetchPrompt = async () => {
@@ -397,7 +416,7 @@ function CodeAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'code', report })
+        body: JSON.stringify({ agent_type: 'code', report, incident_id: selectedIncidentId })
       })
       await fetchHistory()
     } catch {

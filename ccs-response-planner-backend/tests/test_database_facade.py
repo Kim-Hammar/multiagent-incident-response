@@ -3,10 +3,11 @@ from unittest.mock import MagicMock, patch
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
-def test_create_tables_executes_six_statements(mock_psycopg: MagicMock) -> None:
+def test_create_tables_executes_eight_statements(mock_psycopg: MagicMock) -> None:
     """
-    Verify create_tables issues six SQL statements (five CREATE TABLE
-    plus one ALTER TABLE for the example_incident_id FK).
+    Verify create_tables issues eight SQL statements (five CREATE TABLE
+    plus three ALTER TABLE for example_incident_id, incident_id,
+    and validation_results).
     """
     mock_conn = MagicMock()
     mock_cur = MagicMock()
@@ -18,7 +19,7 @@ def test_create_tables_executes_six_statements(mock_psycopg: MagicMock) -> None:
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
 
-    assert mock_cur.execute.call_count == 6
+    assert mock_cur.execute.call_count == 8
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
@@ -145,3 +146,46 @@ def test_delete_digital_twin_config_calls_execute(
     DatabaseFacade.delete_digital_twin_config()
 
     mock_cur.execute.assert_called_once()
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_config_id_by_incident_returns_id(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_config_id_by_incident returns config id when found.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    mock_cur.fetchone.return_value = (42,)
+
+    from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+    result = DatabaseFacade.get_config_id_by_incident(1)
+
+    assert result == 42
+    mock_cur.execute.assert_called_once()
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_config_id_by_incident_returns_none(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_config_id_by_incident returns None when not found.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    mock_cur.fetchone.return_value = None
+
+    from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+    result = DatabaseFacade.get_config_id_by_incident(999)
+
+    assert result is None

@@ -42,6 +42,7 @@ function ValidationAgent() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -282,7 +283,8 @@ function ValidationAgent() {
         },
         body: JSON.stringify({
           tool_name: proposal.tool_name,
-          tool_args: proposal.tool_args
+          tool_args: proposal.tool_args,
+          incident_id: selectedIncidentId
         })
       })
       if (res.status === 401) {
@@ -330,6 +332,7 @@ function ValidationAgent() {
   }
 
   const loadExample = async (incidentId) => {
+    setSelectedIncidentId(incidentId)
     try {
       const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -345,10 +348,11 @@ function ValidationAgent() {
       setSpecification(data.specification || '')
       setSystemDescriptionImages(data.system_description_images || [])
 
-      // Fetch latest Code Agent report
-      const codeRes = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      // Fetch latest Code Agent report for this incident
+      const codeRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=code&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       if (codeRes.ok) {
         const codeReports = await codeRes.json()
         if (codeReports.length > 0) {
@@ -356,14 +360,31 @@ function ValidationAgent() {
         }
       }
 
-      // Fetch latest MDP Planner report
-      const plannerRes = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=mdp_planner`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      // Fetch latest MDP Planner report for this incident
+      const plannerRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=mdp_planner&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
       if (plannerRes.ok) {
         const plannerReports = await plannerRes.json()
         if (plannerReports.length > 0) {
           setPlannerReport(JSON.stringify(plannerReports[0].report || {}, null, 2))
+        }
+      }
+
+      // Fetch latest Information Agent report for this incident
+      const infoRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=information&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (infoRes.ok) {
+        const infoReports = await infoRes.json()
+        if (infoReports.length > 0) {
+          setIncidentReport(JSON.stringify(infoReports[0].report || {}, null, 2))
+          const attackImg = infoReports[0].report?.attack_path_image
+          if (attackImg) {
+            setSystemDescriptionImages((prev) => [...prev, attackImg])
+          }
         }
       }
     } catch (err) {
@@ -382,6 +403,7 @@ function ValidationAgent() {
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
+    setSelectedIncidentId(null)
   }
 
   const fetchPrompt = async () => {
@@ -437,7 +459,7 @@ function ValidationAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'validation', report })
+        body: JSON.stringify({ agent_type: 'validation', report, incident_id: selectedIncidentId })
       })
       await fetchHistory()
     } catch {

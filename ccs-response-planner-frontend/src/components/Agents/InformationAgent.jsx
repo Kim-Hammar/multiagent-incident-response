@@ -41,6 +41,8 @@ function InformationAgent() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null)
+  const [attackPathImage, setAttackPathImage] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -241,6 +243,7 @@ function InformationAgent() {
     setConversationHistory([])
     setExpandedEntries({})
     setContextUsage(null)
+    setAttackPathImage(null)
     setActiveTab('planning')
     callStep([])
   }
@@ -265,7 +268,8 @@ function InformationAgent() {
         },
         body: JSON.stringify({
           tool_name: proposal.tool_name,
-          tool_args: proposal.tool_args
+          tool_args: proposal.tool_args,
+          incident_id: selectedIncidentId
         })
       })
       if (res.status === 401) {
@@ -282,11 +286,21 @@ function InformationAgent() {
         return
       }
       const data = await res.json()
+      let resultForHistory = data.error ? { error: data.error } : data.result
+
+      if (proposal.tool_name === 'generate_attack_image' && resultForHistory?.image) {
+        setAttackPathImage(resultForHistory.image)
+        resultForHistory = {
+          status: 'success',
+          message: 'Attack path image generated successfully'
+        }
+      }
+
       const resultEntry = {
         role: 'tool',
         type: 'tool_result',
         tool_name: proposal.tool_name,
-        result: data.error ? { error: data.error } : data.result
+        result: resultForHistory
       }
       const updated = [...conversationHistory, approvalEntry, resultEntry]
       setConversationHistory(updated)
@@ -313,6 +327,7 @@ function InformationAgent() {
   }
 
   const loadExample = async (incidentId) => {
+    setSelectedIncidentId(incidentId)
     try {
       const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -343,6 +358,8 @@ function InformationAgent() {
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
+    setSelectedIncidentId(null)
+    setAttackPathImage(null)
   }
 
   const fetchPrompt = async () => {
@@ -388,6 +405,9 @@ function InformationAgent() {
   }
 
   const saveReport = async (report) => {
+    if (attackPathImage) {
+      report.attack_path_image = attackPathImage
+    }
     try {
       await fetch(API_AGENTS_REPORTS_URL, {
         method: 'POST',
@@ -395,7 +415,7 @@ function InformationAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'information', report })
+        body: JSON.stringify({ agent_type: 'information', report, incident_id: selectedIncidentId })
       })
       await fetchHistory()
     } catch {

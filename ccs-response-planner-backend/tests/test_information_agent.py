@@ -20,7 +20,7 @@ from ccs_response_planner_backend.agents.information_agent.tools import (
 
 def test_tool_dispatch_has_all_tools() -> None:
     """
-    TOOL_DISPATCH must contain all eight tool functions.
+    TOOL_DISPATCH must contain all nine tool functions.
     """
     expected = {
         "tavily_search",
@@ -31,6 +31,7 @@ def test_tool_dispatch_has_all_tools() -> None:
         "otx_search",
         "dt_exec",
         "dt_python_exec",
+        "generate_attack_image",
     }
     assert set(TOOL_DISPATCH.keys()) == expected
 
@@ -218,8 +219,8 @@ def test_dt_exec_returns_output(
     mock_client.api.exec_start.return_value = b"root  1  0.0\n"
     mock_client.api.exec_inspect.return_value = {"ExitCode": 0}
     mock_docker.from_env.return_value = mock_client
-    result = dt_exec("gateway", "ps aux")
-    assert result["container"] == "gateway"
+    result = dt_exec("i1_gateway", "ps aux")
+    assert result["container"] == "i1_gateway"
     assert result["command"] == "ps aux"
     assert result["exit_code"] == 0
     assert "root" in result["output"]
@@ -249,10 +250,10 @@ def test_dt_exec_container_not_found(
     mock_manager.ensure_deployed.side_effect = (
         RuntimeError("deploy failed")
     )
-    result = dt_exec("gateway", "ps aux")
+    result = dt_exec("i1_gateway", "ps aux")
     assert "error" in result
     assert "not found" in result["error"].lower()
-    assert "gateway" in result["error"]
+    assert "i1_gateway" in result["error"]
 
 
 @patch(

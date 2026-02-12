@@ -90,6 +90,10 @@ class API:
     EXAMPLES_RESOURCE = "examples"
     EXAMPLES_ROUTE = "/api/examples"
     DIGITAL_TWIN_CONFIGS_ROUTE = "/api/digital-twin/configs"
+    DIGITAL_TWIN_CONFIG_VALIDATION_RESULTS_ROUTE = (
+        "/api/digital-twin/configs/<int:config_id>"
+        "/validation-results"
+    )
 
 
 class DB:
@@ -125,6 +129,15 @@ class SERVER:
     DEFAULT_NUM_THREADS = 100
 
 
+class LLM:
+    """
+    Constants related to LLM models.
+    """
+    IMAGE_GENERATION_MODEL = (
+        "gemini-2.0-flash-preview-image-generation"
+    )
+
+
 class GENERAL:
     """
     General constants
@@ -156,7 +169,6 @@ class DOCKER:
     PYTHON_SANDBOX_IMAGE = "ccs-dt-python-sandbox:latest"
     PYTHON_SANDBOX_CONTAINER = "ccs_python_sandbox"
     ATTACKER_IMAGE = "ccs-dt-attacker:latest"
-    ATTACKER_CONTAINER = "ccs_dt_attacker"
 
 
 class DIGITAL_TWIN:
@@ -628,14 +640,14 @@ class DIGITAL_TWIN:
             {
                 "id": "dmz",
                 "name": "DMZ",
-                "subnet": "10.0.1.0/24",
-                "gateway": "10.0.1.100",
+                "subnet": "10.1.1.0/24",
+                "gateway": "10.1.1.100",
             },
             {
                 "id": "lan",
                 "name": "Internal LAN",
-                "subnet": "10.0.2.0/24",
-                "gateway": "10.0.2.100",
+                "subnet": "10.1.2.0/24",
+                "gateway": "10.1.2.100",
             },
         ],
         "hosts": [
@@ -645,9 +657,9 @@ class DIGITAL_TWIN:
                 "docker_image": "ccs-dt-attacker:latest",
                 "ip_addresses": {"internet": "10.1.0.10"},
                 "routes": [
-                    {"destination": "10.0.1.0/24",
+                    {"destination": "10.1.1.0/24",
                      "via": "10.1.0.1"},
-                    {"destination": "10.0.2.0/24",
+                    {"destination": "10.1.2.0/24",
                      "via": "10.1.0.1"},
                 ],
                 "use_image_entrypoint": False,
@@ -659,8 +671,8 @@ class DIGITAL_TWIN:
                 "docker_image": "ccs-dt-i2-server1:latest",
                 "ip_addresses": {
                     "internet": "10.1.0.1",
-                    "dmz": "10.0.1.1",
-                    "lan": "10.0.2.1",
+                    "dmz": "10.1.1.1",
+                    "lan": "10.1.2.1",
                 },
                 "routes": [],
                 "use_image_entrypoint": True,
@@ -671,12 +683,12 @@ class DIGITAL_TWIN:
                 "id": "i2_server_2",
                 "name": "Server 2",
                 "docker_image": "ccs-dt-i2-server2:latest",
-                "ip_addresses": {"dmz": "10.0.1.10"},
+                "ip_addresses": {"dmz": "10.1.1.10"},
                 "routes": [
-                    {"destination": "10.0.2.10/32",
-                     "via": "10.0.1.1"},
+                    {"destination": "10.1.2.10/32",
+                     "via": "10.1.1.1"},
                     {"destination": "10.1.0.0/24",
-                     "via": "10.0.1.1"},
+                     "via": "10.1.1.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -685,12 +697,12 @@ class DIGITAL_TWIN:
                 "id": "i2_server_3",
                 "name": "Server 3",
                 "docker_image": "ccs-dt-i2-server3:latest",
-                "ip_addresses": {"dmz": "10.0.1.20"},
+                "ip_addresses": {"dmz": "10.1.1.20"},
                 "routes": [
-                    {"destination": "10.0.2.0/24",
-                     "via": "10.0.1.1"},
+                    {"destination": "10.1.2.0/24",
+                     "via": "10.1.1.1"},
                     {"destination": "10.1.0.0/24",
-                     "via": "10.0.1.1"},
+                     "via": "10.1.1.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -699,12 +711,12 @@ class DIGITAL_TWIN:
                 "id": "i2_server_4",
                 "name": "Server 4",
                 "docker_image": "ccs-dt-i2-server4:latest",
-                "ip_addresses": {"lan": "10.0.2.10"},
+                "ip_addresses": {"lan": "10.1.2.10"},
                 "routes": [
-                    {"destination": "10.0.1.10/32",
-                     "via": "10.0.2.1"},
+                    {"destination": "10.1.1.10/32",
+                     "via": "10.1.2.1"},
                     {"destination": "10.1.0.0/24",
-                     "via": "10.0.2.1"},
+                     "via": "10.1.2.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -713,10 +725,10 @@ class DIGITAL_TWIN:
                 "id": "i2_server_5",
                 "name": "Server 5",
                 "docker_image": "ccs-dt-i2-server5:latest",
-                "ip_addresses": {"lan": "10.0.2.50"},
+                "ip_addresses": {"lan": "10.1.2.50"},
                 "routes": [
-                    {"destination": "10.0.1.0/24",
-                     "via": "10.0.2.1"},
+                    {"destination": "10.1.1.0/24",
+                     "via": "10.1.2.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -725,10 +737,10 @@ class DIGITAL_TWIN:
                 "id": "i2_server_6",
                 "name": "Server 6",
                 "docker_image": "ccs-dt-i2-server6:latest",
-                "ip_addresses": {"lan": "10.0.2.60"},
+                "ip_addresses": {"lan": "10.1.2.60"},
                 "routes": [
-                    {"destination": "10.0.1.0/24",
-                     "via": "10.0.2.1"},
+                    {"destination": "10.1.1.0/24",
+                     "via": "10.1.2.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -752,7 +764,7 @@ class DIGITAL_TWIN:
             {
                 "host": "i2_attacker",
                 "command": (
-                    "bash -c 'echo > /dev/tcp/10.0.1.10/80'"
+                    "bash -c 'echo > /dev/tcp/10.1.1.10/80'"
                 ),
                 "description": (
                     "Verify Server 2 HTTP is reachable"
@@ -761,7 +773,7 @@ class DIGITAL_TWIN:
             {
                 "host": "i2_attacker",
                 "command": (
-                    "bash -c 'echo > /dev/tcp/10.0.1.20/22'"
+                    "bash -c 'echo > /dev/tcp/10.1.1.20/22'"
                 ),
                 "description": (
                     "Verify Server 3 SSH is reachable"
@@ -772,7 +784,7 @@ class DIGITAL_TWIN:
                 "command": (
                     "python3 -c \"import socket;"
                     " s=socket.create_connection("
-                    "('10.0.2.10', 5432), timeout=3);"
+                    "('10.1.2.10', 5432), timeout=3);"
                     " s.close()\""
                 ),
                 "description": (
@@ -783,7 +795,7 @@ class DIGITAL_TWIN:
             {
                 "host": "i2_server_4",
                 "command": (
-                    "bash -c 'echo > /dev/tcp/10.0.2.50/53'"
+                    "bash -c 'echo > /dev/tcp/10.1.2.50/53'"
                 ),
                 "description": (
                     "Verify Server 5 DNS is reachable"
@@ -793,10 +805,7 @@ class DIGITAL_TWIN:
             {
                 "host": "i2_server_4",
                 "command": (
-                    "python3 -c \"import socket;"
-                    " s=socket.create_connection("
-                    "('10.0.2.60', 445), timeout=3);"
-                    " s.close()\""
+                    "bash -c 'echo > /dev/tcp/10.1.2.60/445'"
                 ),
                 "description": (
                     "Verify Server 6 Samba is reachable"
@@ -814,7 +823,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_1",
-                "command": "ping -c 1 -W 2 10.0.1.10",
+                "command": "ping -c 1 -W 2 10.1.1.10",
                 "description": (
                     "Server 2 reachable from Server 1"
                     " (dmz)"
@@ -822,7 +831,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_1",
-                "command": "ping -c 1 -W 2 10.0.1.20",
+                "command": "ping -c 1 -W 2 10.1.1.20",
                 "description": (
                     "Server 3 reachable from Server 1"
                     " (dmz)"
@@ -830,7 +839,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_1",
-                "command": "ping -c 1 -W 2 10.0.2.10",
+                "command": "ping -c 1 -W 2 10.1.2.10",
                 "description": (
                     "Server 4 reachable from Server 1"
                     " (lan)"
@@ -838,7 +847,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_1",
-                "command": "ping -c 1 -W 2 10.0.2.50",
+                "command": "ping -c 1 -W 2 10.1.2.50",
                 "description": (
                     "Server 5 reachable from Server 1"
                     " (lan)"
@@ -846,7 +855,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_1",
-                "command": "ping -c 1 -W 2 10.0.2.60",
+                "command": "ping -c 1 -W 2 10.1.2.60",
                 "description": (
                     "Server 6 reachable from Server 1"
                     " (lan)"
@@ -854,7 +863,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_2",
-                "command": "ping -c 1 -W 2 10.0.2.10",
+                "command": "ping -c 1 -W 2 10.1.2.10",
                 "description": (
                     "Server 4 reachable from Server 2"
                     " (dmz-to-db)"
@@ -862,7 +871,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_4",
-                "command": "ping -c 1 -W 2 10.0.2.50",
+                "command": "ping -c 1 -W 2 10.1.2.50",
                 "description": (
                     "Server 5 reachable from Server 4"
                     " (lan)"
@@ -870,7 +879,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_4",
-                "command": "ping -c 1 -W 2 10.0.2.60",
+                "command": "ping -c 1 -W 2 10.1.2.60",
                 "description": (
                     "Server 6 reachable from Server 4"
                     " (lan)"
@@ -878,7 +887,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_5",
-                "command": "ping -c 1 -W 2 10.0.2.60",
+                "command": "ping -c 1 -W 2 10.1.2.60",
                 "description": (
                     "Server 6 reachable from Server 5"
                     " (lan)"
@@ -887,7 +896,7 @@ class DIGITAL_TWIN:
             # Negative reachability (7)
             {
                 "host": "i2_attacker",
-                "command": "! ping -c 1 -W 2 10.0.2.10",
+                "command": "! ping -c 1 -W 2 10.1.2.10",
                 "description": (
                     "Server 4 not reachable from"
                     " Attacker (firewall blocks)"
@@ -895,7 +904,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_attacker",
-                "command": "! ping -c 1 -W 2 10.0.2.50",
+                "command": "! ping -c 1 -W 2 10.1.2.50",
                 "description": (
                     "Server 5 not reachable from"
                     " Attacker (firewall blocks)"
@@ -903,7 +912,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_attacker",
-                "command": "! ping -c 1 -W 2 10.0.2.60",
+                "command": "! ping -c 1 -W 2 10.1.2.60",
                 "description": (
                     "Server 6 not reachable from"
                     " Attacker (firewall blocks)"
@@ -911,7 +920,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_2",
-                "command": "! ping -c 1 -W 2 10.0.2.50",
+                "command": "! ping -c 1 -W 2 10.1.2.50",
                 "description": (
                     "Server 5 not reachable from"
                     " Server 2 (firewall blocks)"
@@ -919,7 +928,7 @@ class DIGITAL_TWIN:
             },
             {
                 "host": "i2_server_2",
-                "command": "! ping -c 1 -W 2 10.0.2.60",
+                "command": "! ping -c 1 -W 2 10.1.2.60",
                 "description": (
                     "Server 6 not reachable from"
                     " Server 2 (firewall blocks)"
@@ -1149,8 +1158,8 @@ class EXAMPLES_2:
         "The system is the on-premises network of a mid-size "
         "enterprise, consisting of 6 servers behind a central "
         "firewall. The network is segmented into three zones: "
-        "Internet (10.1.0.0/24), DMZ (10.0.1.0/24), and "
-        "Internal LAN (10.0.2.0/24). The network topology is "
+        "Internet (10.1.0.0/24), DMZ (10.1.1.0/24), and "
+        "Internal LAN (10.1.2.0/24). The network topology is "
         "shown in the attached figure.\n\n"
         "Server 1 is the central firewall connecting all three "
         "zones. It forwards traffic between zones according to "
@@ -1167,18 +1176,18 @@ class EXAMPLES_2:
         "S4-S5 (LAN), S4-S6 (LAN), S5-S6 (LAN). "
         "All connections not listed above are blocked by "
         "the firewall.\n\n"
-        "Server 1 (10.1.0.1 / 10.0.1.1 / 10.0.2.1, "
+        "Server 1 (10.1.0.1 / 10.1.1.1 / 10.1.2.1, "
         "Ubuntu 22): Central firewall, iptables, Suricata "
         "IDS\n"
-        "Server 2 (10.0.1.10, Ubuntu 22): Nginx reverse "
+        "Server 2 (10.1.1.10, Ubuntu 22): Nginx reverse "
         "proxy, Apache Tomcat 9.0.30, Java web application\n"
-        "Server 3 (10.0.1.20, Debian 11): SSH jump host, "
+        "Server 3 (10.1.1.20, Debian 11): SSH jump host, "
         "key-based authentication only\n"
-        "Server 4 (10.0.2.10, Debian 11): PostgreSQL "
+        "Server 4 (10.1.2.10, Debian 11): PostgreSQL "
         "database, SSH\n"
-        "Server 5 (10.0.2.50, Debian 11): dnsmasq DNS/DHCP "
+        "Server 5 (10.1.2.50, Debian 11): dnsmasq DNS/DHCP "
         "server\n"
-        "Server 6 (10.0.2.60, Debian 11): Samba file server, "
+        "Server 6 (10.1.2.60, Debian 11): Samba file server, "
         "rsync nightly backups"
     )
     SYSTEM_DESCRIPTION_IMAGE = _load_example_image("incident_2.png")
@@ -1187,22 +1196,22 @@ class EXAMPLES_2:
         "Apache Tomcat Deserialization RCE Attempt "
         "(CVE-2020-9484) [**] [Classification: Attempted "
         "Administrator Privilege Gain] [Priority: 1] {TCP} "
-        "198.51.100.45:48210 -> 10.0.1.10:8080\n\n"
-        "Tomcat access.log (Server 2, 10.0.1.10):\n"
+        "198.51.100.45:48210 -> 10.1.1.10:8080\n\n"
+        "Tomcat access.log (Server 2, 10.1.1.10):\n"
         "198.51.100.45 - - [10/Feb/2026:14:32:08 +0000] "
         "\"POST /api/v1/upload HTTP/1.1\" 200 412 \"-\" "
         "\"python-requests/2.28.1\"\n"
         "198.51.100.45 - - [10/Feb/2026:14:33:15 +0000] "
         "\"GET /shell.jsp HTTP/1.1\" 200 89 \"-\" "
         "\"Mozilla/5.0\"\n\n"
-        "PostgreSQL log (Server 4, 10.0.2.10):\n"
+        "PostgreSQL log (Server 4, 10.1.2.10):\n"
         "2026-02-10 14:45:22.103 UTC [5432] app_svc@"
         "crm_production LOG: statement: CREATE TABLE "
         "cmd_exec(cmd_output text);\n"
         "2026-02-10 14:45:23.207 UTC [5432] app_svc@"
         "crm_production LOG: statement: COPY cmd_exec "
         "FROM PROGRAM 'id';\n\n"
-        "Syslog (Server 4, 10.0.2.10):\n"
+        "Syslog (Server 4, 10.1.2.10):\n"
         "Feb 10 14:55:01 server4 kernel: CPU 98%: process "
         "'kworker/0:2' pid 31337\n"
         "Feb 10 14:55:12 server4 kernel: xmrig[31337]: "
@@ -1210,10 +1219,10 @@ class EXAMPLES_2:
         "error 4 in xmrig[400000+1c6000]\n"
         "Feb 10 14:58:33 server4 dnsmasq[892]: query[TXT] "
         "aHR0cDovL2V4ZmlsLmV4YW1wbGUu.t.evil.example.com "
-        "from 10.0.2.10\n"
+        "from 10.1.2.10\n"
         "Feb 10 14:58:34 server4 dnsmasq[892]: query[TXT] "
         "Y29tL2NvbGxlY3Q/ZD1jcmVkcw==.t.evil.example.com "
-        "from 10.0.2.10"
+        "from 10.1.2.10"
     )
     OPERATOR_FEEDBACK = (
         "The Suricata alert on the firewall caught the "
@@ -1252,12 +1261,12 @@ class EXAMPLES_2:
         "enterprise network. The attacker (198.51.100.45) "
         "exploited CVE-2020-9484 (Apache Tomcat session "
         "deserialization) on the DMZ web server "
-        "(Server 2, 10.0.1.10) at 14:32 on 02/10, "
+        "(Server 2, 10.1.1.10) at 14:32 on 02/10, "
         "uploading a JSP webshell for persistent access. "
         "From Server 2, the attacker retrieved plaintext "
         "PostgreSQL credentials from db_config.xml and "
         "pivoted to the internal database server "
-        "(Server 4, 10.0.2.10). On Server 4, the attacker "
+        "(Server 4, 10.1.2.10). On Server 4, the attacker "
         "leveraged CVE-2019-9193 (PostgreSQL COPY FROM "
         "PROGRAM) to execute OS commands, deployed a "
         "crypto-miner (xmrig), and established DNS "
@@ -1265,7 +1274,7 @@ class EXAMPLES_2:
         "Attack Vector Analysis:\n"
         "1. Initial access: Exploitation of CVE-2020-9484 "
         "on Tomcat 9.0.30 via a crafted serialized session "
-        "file upload (198.51.100.45 -> 10.0.1.10:8080). "
+        "file upload (198.51.100.45 -> 10.1.1.10:8080). "
         "The FileStore PersistentManager deserialized the "
         "malicious payload.\n"
         "2. Persistence: JSP webshell deployed at "
@@ -1286,10 +1295,10 @@ class EXAMPLES_2:
         "tunneling established to evil.example.com for "
         "exfiltrating CRM database contents.\n\n"
         "Affected Assets:\n"
-        "- Server 2 (10.0.1.10): Compromised via Tomcat "
+        "- Server 2 (10.1.1.10): Compromised via Tomcat "
         "deserialization. Webshell + cron persistence "
         "installed.\n"
-        "- Server 4 (10.0.2.10): Compromised via "
+        "- Server 4 (10.1.2.10): Compromised via "
         "PostgreSQL COPY FROM PROGRAM. Crypto-miner + DNS "
         "tunneling active.\n\n"
         "Indicators of Compromise:\n"
@@ -1328,8 +1337,8 @@ class EXAMPLES_2:
         "Switch Nginx to serve a static maintenance page "
         "while Tomcat is taken offline.\n"
         "Commands on Server 1:\n"
-        "  iptables -I FORWARD -s 10.0.1.10 "
-        "-d 10.0.2.0/24 -j DROP\n"
+        "  iptables -I FORWARD -s 10.1.1.10 "
+        "-d 10.1.2.0/24 -j DROP\n"
         "Commands on Server 2:\n"
         "  cp /etc/nginx/sites-available/maintenance "
         "/etc/nginx/sites-enabled/default\n"
@@ -1407,8 +1416,8 @@ class EXAMPLES_2:
         "Re-enable the Nginx reverse proxy to Tomcat and "
         "restore DMZ-to-DB connectivity on the firewall.\n"
         "Commands on Server 1:\n"
-        "  iptables -D FORWARD -s 10.0.1.10 "
-        "-d 10.0.2.0/24 -j DROP\n"
+        "  iptables -D FORWARD -s 10.1.1.10 "
+        "-d 10.1.2.0/24 -j DROP\n"
         "Commands on Server 2:\n"
         "  cp /etc/nginx/sites-available/production "
         "/etc/nginx/sites-enabled/default\n"

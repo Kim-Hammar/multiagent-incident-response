@@ -37,6 +37,22 @@ function InformationAgentReport({ entry, index, isExpanded, toggleEntry }) {
               </div>
             )}
 
+            {a.attack_path_image && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Attack Path Visualization</div>
+                <img
+                  src={a.attack_path_image}
+                  alt="Attack path diagram"
+                  style={{
+                    maxWidth: '100%',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '4px',
+                    marginTop: '8px'
+                  }}
+                />
+              </div>
+            )}
+
             {a.severity && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Severity</div>

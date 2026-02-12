@@ -18,10 +18,16 @@ from mitreattack.stix20 import MitreAttackData
 from OTXv2 import IndicatorTypes, OTXv2
 from tavily import TavilyClient
 
+from google import genai  # type: ignore[attr-defined]
+from google.genai import types as genai_types  # type: ignore[attr-defined]
+
 from ccs_response_planner_backend.agents.shared_tools import (
     dt_exec,
 )
-from ccs_response_planner_backend.constants.constants import DOCKER
+from ccs_response_planner_backend.constants.constants import DOCKER, LLM
+from ccs_response_planner_backend.db.database_facade import (
+    DatabaseFacade,
+)
 
 _STIX_URL = (
     "https://raw.githubusercontent.com/mitre/cti"
@@ -391,6 +397,93 @@ def dt_python_exec(code: str) -> dict[str, Any]:
     }
 
 
+def generate_attack_image(
+    prompt: str, incident_id: int | None = None,
+) -> dict[str, Any]:
+    """
+    Generate an attack path diagram using AI image generation.
+
+    If *incident_id* is provided the topology image from the
+    corresponding example incident is used as a reference so
+    that the attack path is overlaid on the network diagram.
+
+    :param prompt: description of the attack path to illustrate
+    :param incident_id: optional example incident id for the
+                        topology image
+    :return: a dict with ``image`` (base64 data URL) and
+             ``prompt``, or ``error`` and ``prompt`` on failure
+    """
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    client = genai.Client(api_key=api_key)
+
+    contents: list[Any] = []
+
+    if incident_id is not None:
+        try:
+            example = DatabaseFacade.get_example_incident(
+                incident_id,
+            )
+            if example:
+                img_url = example.get(
+                    "system_description_image", "",
+                )
+                if img_url and img_url.startswith(
+                    "data:image/",
+                ):
+                    header, b64data = img_url.split(",", 1)
+                    mime = header.split(":")[1].split(";")[0]
+                    raw = base64.b64decode(b64data)
+                    contents.append(
+                        genai_types.Part.from_bytes(
+                            data=raw, mime_type=mime,
+                        ),
+                    )
+        except Exception:
+            pass
+
+    contents.append(prompt)
+
+    try:
+        response = client.models.generate_content(
+            model=LLM.IMAGE_GENERATION_MODEL,
+            contents=contents,
+            config=genai_types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+            ),
+        )
+        candidates = response.candidates or []
+        if not candidates:
+            return {
+                "error": (
+                    "Image generation returned no candidates."
+                ),
+                "prompt": prompt,
+            }
+        content = candidates[0].content
+        parts = (content.parts if content else None) or []
+        for part in parts:
+            if (part.inline_data is not None
+                    and part.inline_data.data is not None):
+                img_b64 = base64.b64encode(
+                    part.inline_data.data,
+                ).decode("ascii")
+                mime = part.inline_data.mime_type or (
+                    "image/png"
+                )
+                return {
+                    "image": f"data:{mime};base64,{img_b64}",
+                    "prompt": prompt,
+                }
+        return {
+            "error": (
+                "Image generation produced no image output."
+            ),
+            "prompt": prompt,
+        }
+    except Exception as exc:
+        return {"error": str(exc), "prompt": prompt}
+
+
 TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "tavily_search": tavily_search,
     "nvd_search": nvd_search,
@@ -400,4 +493,5 @@ TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "otx_search": otx_search,
     "dt_exec": dt_exec,
     "dt_python_exec": dt_python_exec,
+    "generate_attack_image": generate_attack_image,
 }

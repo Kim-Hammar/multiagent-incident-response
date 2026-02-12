@@ -352,3 +352,144 @@ def test_prompt_uses_na_for_empty_fields(
         operator_feedback="N/A",
     )
     assert data["prompt"] == expected
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.InformationAgent",
+)
+def test_tool_injects_incident_id_for_dt_exec(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/information/tool with dt_exec injects incident_id.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool.return_value = {
+        "container": "i1_server_1",
+        "command": "whoami",
+        "exit_code": 0,
+        "output": "root",
+    }
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/information/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_server_1",
+                "command": "whoami",
+            },
+            "incident_id": 7,
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    call_args = mock_agent.execute_tool.call_args
+    assert call_args[0][1]["incident_id"] == 7
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.InformationAgent",
+)
+def test_tool_no_incident_id_for_non_dt_tool(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/information/tool with non-DT tool omits incident_id.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool.return_value = {
+        "tool_name": "tavily_search",
+        "result": {"query": "test", "results": []},
+    }
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/information/tool",
+        data=json.dumps({
+            "tool_name": "tavily_search",
+            "tool_args": {"query": "test"},
+            "incident_id": 7,
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    call_args = mock_agent.execute_tool.call_args
+    assert "incident_id" not in call_args[0][1]
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.InformationAgent",
+)
+def test_tool_injects_incident_id_for_generate_attack_image(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/information/tool with generate_attack_image
+    injects incident_id into tool_args.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool.return_value = {
+        "image": "data:image/png;base64,abc",
+        "prompt": "test attack path",
+    }
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/information/tool",
+        data=json.dumps({
+            "tool_name": "generate_attack_image",
+            "tool_args": {"prompt": "test attack path"},
+            "incident_id": 5,
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    call_args = mock_agent.execute_tool.call_args
+    assert call_args[0][1]["incident_id"] == 5
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.PenetrationTestAgent",
+)
+def test_pentest_tool_injects_incident_id(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/pentest/tool with pentest_exec injects incident_id.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool.return_value = {
+        "command": "nmap -sV 10.0.1.1",
+        "exit_code": 0,
+        "output": "scan results",
+    }
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/pentest/tool",
+        data=json.dumps({
+            "tool_name": "pentest_exec",
+            "tool_args": {
+                "command": "nmap -sV 10.0.1.1",
+            },
+            "incident_id": 3,
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    call_args = mock_agent.execute_tool.call_args
+    assert call_args[0][1]["incident_id"] == 3

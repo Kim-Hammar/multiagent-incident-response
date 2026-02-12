@@ -307,7 +307,7 @@ def test_specification_commands_include_reachability() -> None:
 def test_examples_2_system_description() -> None:
     assert isinstance(EXAMPLES_2.SYSTEM_DESCRIPTION, str)
     assert "Tomcat" in EXAMPLES_2.SYSTEM_DESCRIPTION
-    assert "10.0.1.0/24" in EXAMPLES_2.SYSTEM_DESCRIPTION
+    assert "10.1.1.0/24" in EXAMPLES_2.SYSTEM_DESCRIPTION
 
 
 def test_examples_2_security_alerts() -> None:
@@ -405,3 +405,22 @@ def test_incident_2_specification_commands_reachability() -> None:
                 if c["command"].startswith("!")]
     assert len(positive) == 10
     assert len(negative) == 7
+
+
+def test_incident_2_subnets_do_not_overlap_incident_1() -> None:
+    """
+    Incident 2 subnets must not overlap with incident 1 subnets
+    so both digital twins can be deployed in parallel.
+    """
+    i1_subnets = {
+        n["subnet"]
+        for n in DIGITAL_TWIN.DEFAULT_CONFIG["networks"]
+    }
+    i2_subnets = {
+        n["subnet"]
+        for n in DIGITAL_TWIN.INCIDENT_2_CONFIG["networks"]
+    }
+    overlap = i1_subnets & i2_subnets
+    assert overlap == set(), (
+        f"Overlapping subnets: {overlap}"
+    )

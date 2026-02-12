@@ -267,13 +267,14 @@ function DigitalTwin() {
           />
         )}
         {activeTab === 'deploy' && (
-          <DeployTab token={token} logout={logout} saveConfig={saveConfig} />
+          <DeployTab token={token} logout={logout} savedConfigs={savedConfigs} />
         )}
         {activeTab === 'validate' && (
           <ValidationTab
             token={token}
             logout={logout}
             specificationCommands={specificationCommands}
+            savedConfigs={savedConfigs}
           />
         )}
       </div>

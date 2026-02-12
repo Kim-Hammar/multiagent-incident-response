@@ -37,6 +37,7 @@ function PenetrationTestAgent() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -259,7 +260,8 @@ function PenetrationTestAgent() {
         },
         body: JSON.stringify({
           tool_name: proposal.tool_name,
-          tool_args: proposal.tool_args
+          tool_args: proposal.tool_args,
+          incident_id: selectedIncidentId
         })
       })
       if (res.status === 401) {
@@ -307,6 +309,7 @@ function PenetrationTestAgent() {
   }
 
   const loadExample = async (incidentId) => {
+    setSelectedIncidentId(incidentId)
     try {
       const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -329,6 +332,7 @@ function PenetrationTestAgent() {
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
+    setSelectedIncidentId(null)
   }
 
   const fetchPrompt = async () => {
@@ -379,7 +383,7 @@ function PenetrationTestAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'pentest', report })
+        body: JSON.stringify({ agent_type: 'pentest', report, incident_id: selectedIncidentId })
       })
       await fetchHistory()
     } catch {

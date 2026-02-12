@@ -42,6 +42,11 @@ function AgentHistoryTab({ reportHistory, deleteReport, renderReport }) {
               <span style={{ fontSize: '12px', color: '#495057' }}>
                 {new Date(entry.created_at).toLocaleString()}
                 <span style={{ color: '#888', marginLeft: '8px' }}>{entry.username}</span>
+                {entry.incident_name && (
+                  <span style={{ color: '#007bff', marginLeft: '8px' }}>
+                    <i className="fa fa-tag" aria-hidden="true" /> {entry.incident_name}
+                  </span>
+                )}
               </span>
               <i
                 className={`fa fa-caret-${historyExpanded[entry.id] ? 'down' : 'right'}`}

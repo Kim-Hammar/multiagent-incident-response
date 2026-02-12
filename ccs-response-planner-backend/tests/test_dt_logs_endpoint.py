@@ -14,7 +14,7 @@ def test_dt_logs_returns_connected_status(
     auth_headers: dict[str, str],
 ) -> None:
     mock_container = MagicMock()
-    mock_container.name = "ccs_dt_server_1"
+    mock_container.name = "ccs_dt_i1_server_1"
     mock_client = MagicMock()
     mock_client.containers.list.return_value = [mock_container]
     mock_docker.from_env.return_value = mock_client
@@ -25,7 +25,7 @@ def test_dt_logs_returns_connected_status(
     assert response.status_code == 200
     assert data["status"] == "connected"
     assert data["count"] == 1
-    assert "ccs_dt_server_1" in data["containers"]
+    assert "ccs_dt_i1_server_1" in data["containers"]
     assert "timestamp" in data
 
 
@@ -81,13 +81,13 @@ def test_dt_logs_fetch_returns_logs(
 
     response = client.post(
         "/api/dt-logs/fetch",
-        json={"container": "server_1", "tail": 50},
+        json={"container": "i1_server_1", "tail": 50},
         headers=auth_headers,
     )
     data = response.get_json()
 
     assert response.status_code == 200
-    assert data["container"] == "server_1"
+    assert data["container"] == "i1_server_1"
     assert data["lines"] == 3
     assert "line1" in data["output"]
 
@@ -145,7 +145,7 @@ def test_dt_logs_fetch_returns_500_on_failure(
 
     response = client.post(
         "/api/dt-logs/fetch",
-        json={"container": "server_1"},
+        json={"container": "i1_server_1"},
         headers=auth_headers,
     )
     data = response.get_json()
@@ -159,7 +159,7 @@ def test_dt_logs_fetch_returns_401_without_token(
 ) -> None:
     response = client.post(
         "/api/dt-logs/fetch",
-        json={"container": "server_1"},
+        json={"container": "i1_server_1"},
     )
     assert response.status_code == 401
 

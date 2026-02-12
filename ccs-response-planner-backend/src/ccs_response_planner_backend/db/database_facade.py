@@ -97,6 +97,17 @@ class DatabaseFacade:
                         created_at TIMESTAMP DEFAULT NOW()
                     )
                 """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
+                    ADD COLUMN IF NOT EXISTS incident_id INTEGER
+                        REFERENCES {DB.EXAMPLE_INCIDENTS_TABLE}(id)
+                        ON DELETE SET NULL
+                """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.DIGITAL_TWIN_CONFIGS_TABLE}
+                    ADD COLUMN IF NOT EXISTS
+                        validation_results JSONB
+                """)
             conn.commit()
 
     @staticmethod
@@ -218,7 +229,8 @@ class DatabaseFacade:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT config FROM "
-                    f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} LIMIT 1"
+                    f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                    f"WHERE name = 'default' LIMIT 1"
                 )
                 row = cur.fetchone()
                 if row is None:
@@ -257,8 +269,30 @@ class DatabaseFacade:
             conn.commit()
 
     @staticmethod
+    def _get_incident_name(
+        incident_id: int,
+    ) -> Optional[str]:
+        """
+        Look up an example incident name by id.
+
+        :param incident_id: the example incident id
+        :return: the incident name or None
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT name FROM "
+                    f"{DB.EXAMPLE_INCIDENTS_TABLE} "
+                    f"WHERE id = %s",
+                    (incident_id,),
+                )
+                row = cur.fetchone()
+                return row[0] if row else None
+
+    @staticmethod
     def save_agent_report(
-        agent_type: str, username: str, report: Any
+        agent_type: str, username: str, report: Any,
+        incident_id: Optional[int] = None,
     ) -> dict[str, Any]:
         """
         Insert a new agent report and return the created row.
@@ -266,62 +300,78 @@ class DatabaseFacade:
         :param agent_type: the type of agent (e.g. information, pentest, validation)
         :param username: the username who created the report
         :param report: the report data (stored as JSONB)
-        :return: a dict with id, agent_type, username, report, created_at
+        :param incident_id: optional FK to example_incidents
+        :return: a dict with id, agent_type, username, report, created_at,
+                 incident_id, incident_name
         """
         with psycopg.connect(DatabaseFacade._connection_string()) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"INSERT INTO {DB.AGENT_REPORTS_TABLE} "
-                    f"(agent_type, username, report) "
-                    f"VALUES (%s, %s, %s) "
+                    f"(agent_type, username, report, incident_id) "
+                    f"VALUES (%s, %s, %s, %s) "
                     f"RETURNING id, agent_type, username, "
-                    f"report, created_at",
-                    (agent_type, username, json.dumps(report)),
+                    f"report, created_at, incident_id",
+                    (agent_type, username, json.dumps(report),
+                     incident_id),
                 )
                 row = cur.fetchone()
             conn.commit()
             if row is None:
                 return {}
+            incident_name = None
+            if row[5] is not None:
+                incident_name = DatabaseFacade._get_incident_name(
+                    row[5]
+                )
             return {
                 "id": row[0],
                 "agent_type": row[1],
                 "username": row[2],
                 "report": row[3],
                 "created_at": str(row[4]),
+                "incident_id": row[5],
+                "incident_name": incident_name,
             }
 
     @staticmethod
     def list_agent_reports(
-        agent_type: Optional[str] = None, limit: int = 50
+        agent_type: Optional[str] = None,
+        incident_id: Optional[int] = None,
+        limit: int = 50,
     ) -> list[dict[str, Any]]:
         """
-        List agent reports, optionally filtered by agent_type.
+        List agent reports, optionally filtered by agent_type and/or
+        incident_id.
 
         :param agent_type: if provided, filter by this agent type
+        :param incident_id: if provided, filter by this incident
         :param limit: maximum number of reports to return
         :return: a list of report dicts ordered by created_at DESC
         """
         with psycopg.connect(DatabaseFacade._connection_string()) as conn:
             with conn.cursor() as cur:
+                base = (
+                    f"SELECT ar.id, ar.agent_type, ar.username, "
+                    f"ar.report, ar.created_at, ar.incident_id, "
+                    f"ei.name "
+                    f"FROM {DB.AGENT_REPORTS_TABLE} ar "
+                    f"LEFT JOIN {DB.EXAMPLE_INCIDENTS_TABLE} ei "
+                    f"ON ar.incident_id = ei.id"
+                )
+                conditions: list[str] = []
+                params: list[Any] = []
                 if agent_type:
-                    cur.execute(
-                        f"SELECT id, agent_type, username, "
-                        f"report, created_at "
-                        f"FROM {DB.AGENT_REPORTS_TABLE} "
-                        f"WHERE agent_type = %s "
-                        f"ORDER BY created_at DESC "
-                        f"LIMIT %s",
-                        (agent_type, limit),
-                    )
-                else:
-                    cur.execute(
-                        f"SELECT id, agent_type, username, "
-                        f"report, created_at "
-                        f"FROM {DB.AGENT_REPORTS_TABLE} "
-                        f"ORDER BY created_at DESC "
-                        f"LIMIT %s",
-                        (limit,),
-                    )
+                    conditions.append("ar.agent_type = %s")
+                    params.append(agent_type)
+                if incident_id is not None:
+                    conditions.append("ar.incident_id = %s")
+                    params.append(incident_id)
+                if conditions:
+                    base += " WHERE " + " AND ".join(conditions)
+                base += " ORDER BY ar.created_at DESC LIMIT %s"
+                params.append(limit)
+                cur.execute(base, tuple(params))
                 rows = cur.fetchall()
                 return [
                     {
@@ -330,6 +380,8 @@ class DatabaseFacade:
                         "username": r[2],
                         "report": r[3],
                         "created_at": str(r[4]),
+                        "incident_id": r[5],
+                        "incident_name": r[6],
                     }
                     for r in rows
                 ]
@@ -347,10 +399,13 @@ class DatabaseFacade:
         with psycopg.connect(DatabaseFacade._connection_string()) as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    f"SELECT id, agent_type, username, "
-                    f"report, created_at "
-                    f"FROM {DB.AGENT_REPORTS_TABLE} "
-                    f"WHERE id = %s",
+                    f"SELECT ar.id, ar.agent_type, ar.username, "
+                    f"ar.report, ar.created_at, ar.incident_id, "
+                    f"ei.name "
+                    f"FROM {DB.AGENT_REPORTS_TABLE} ar "
+                    f"LEFT JOIN {DB.EXAMPLE_INCIDENTS_TABLE} ei "
+                    f"ON ar.incident_id = ei.id "
+                    f"WHERE ar.id = %s",
                     (report_id,),
                 )
                 row = cur.fetchone()
@@ -362,6 +417,8 @@ class DatabaseFacade:
                     "username": row[2],
                     "report": row[3],
                     "created_at": str(row[4]),
+                    "incident_id": row[5],
+                    "incident_name": row[6],
                 }
 
     @staticmethod
@@ -427,7 +484,8 @@ class DatabaseFacade:
                         f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} "
                         f"(name, config, example_incident_id) "
                         f"VALUES (%s, %s, %s) "
-                        f"ON CONFLICT (name) DO NOTHING",
+                        f"ON CONFLICT (name) DO UPDATE "
+                        f"SET config = EXCLUDED.config",
                         (
                             name,
                             json.dumps(dt_config),
@@ -515,6 +573,28 @@ class DatabaseFacade:
                 ]
 
     @staticmethod
+    def get_config_id_by_incident(
+        incident_id: int,
+    ) -> Optional[int]:
+        """
+        Look up the digital twin config linked to an example incident.
+
+        :param incident_id: the example incident id
+        :return: the config id or None
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id FROM "
+                    f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                    f"WHERE example_incident_id = %s "
+                    f"LIMIT 1",
+                    (incident_id,),
+                )
+                row = cur.fetchone()
+                return row[0] if row else None
+
+    @staticmethod
     def get_digital_twin_config_by_id(
         config_id: int,
     ) -> Optional[dict[str, Any]]:
@@ -543,3 +623,57 @@ class DatabaseFacade:
                     "config": row[2],
                     "example_incident_id": row[3],
                 }
+
+    @staticmethod
+    def save_validation_results(
+        config_id: int, results: list[dict[str, Any]],
+    ) -> None:
+        """
+        Save validation results for a digital twin config.
+
+        Overwrites any previous results for this config.
+
+        :param config_id: the config id
+        :param results: list of validation result dicts
+        """
+        from datetime import datetime, timezone
+        payload = {
+            "results": results,
+            "tested_at": datetime.now(timezone.utc).isoformat(),
+        }
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"UPDATE {DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                    f"SET validation_results = %s "
+                    f"WHERE id = %s",
+                    (json.dumps(payload), config_id),
+                )
+            conn.commit()
+
+    @staticmethod
+    def get_validation_results(
+        config_id: int,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get the stored validation results for a config.
+
+        :param config_id: the config id
+        :return: a dict with results and tested_at, or None
+        """
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT validation_results FROM "
+                    f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} "
+                    f"WHERE id = %s",
+                    (config_id,),
+                )
+                row = cur.fetchone()
+                if row is None or row[0] is None:
+                    return None
+                return row[0]  # type: ignore[no-any-return]

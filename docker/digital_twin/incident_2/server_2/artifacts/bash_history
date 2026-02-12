@@ -1,5 +1,5 @@
 cat /opt/tomcat/conf/db_config.xml
-psql -h 10.0.2.10 -U app_svc -d crm_production -c "SELECT version();"
+psql -h 10.1.2.10 -U app_svc -d crm_production -c "SELECT version();"
 cat /etc/passwd
 uname -a
 id

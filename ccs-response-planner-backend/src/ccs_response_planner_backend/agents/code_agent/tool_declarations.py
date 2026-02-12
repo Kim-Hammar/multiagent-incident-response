@@ -56,9 +56,9 @@ DT_EXEC_DECL = genai_types.FunctionDeclaration(
         "container. Use this to test whether a "
         "specific incident response command works "
         "on a given host. Valid container names: "
-        "gateway, firewall, ids, server_1, "
-        "server_2, server_3, server_4, server_5, "
-        "server_6."
+        "i1_gateway, i1_firewall, i1_ids, "
+        "i1_server_1–i1_server_6 (Incident 1) or "
+        "i2_server_1–i2_server_6 (Incident 2)."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
@@ -67,7 +67,7 @@ DT_EXEC_DECL = genai_types.FunctionDeclaration(
                 "type": "string",
                 "description": (
                     "The host id of the container "
-                    "(e.g. gateway, server_1)."
+                    "(e.g. i1_firewall, i1_server_1)."
                 ),
             },
             "command": {

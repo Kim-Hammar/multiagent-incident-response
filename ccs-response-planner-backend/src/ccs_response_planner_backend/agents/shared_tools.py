@@ -5,11 +5,12 @@ Provides ``dt_exec`` with automatic digital-twin deployment so
 that agents do not fail when the DT containers are not yet running.
 """
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import docker
 
 from ccs_response_planner_backend.constants.constants import DOCKER
+from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 from ccs_response_planner_backend.docker_manager.docker_manager \
     import DockerManager
 
@@ -31,7 +32,7 @@ def _exec_on_container(
     """
     Run a shell command on a digital-twin container.
 
-    :param container: host id (e.g. gateway, server_1)
+    :param container: host id (e.g. i1_firewall, i1_server_1)
     :param command: the shell command to run
     :return: a dict with container, command, exit_code, and output
     """
@@ -58,6 +59,7 @@ def _exec_on_container(
 
 def dt_exec(
     container: str, command: str,
+    incident_id: Optional[int] = None,
 ) -> dict[str, Any]:
     """
     Execute a shell command on a digital-twin container.
@@ -65,8 +67,9 @@ def dt_exec(
     If the container is not found, the digital twin is
     auto-deployed and the command is retried once.
 
-    :param container: host id (e.g. gateway, server_1)
+    :param container: host id (e.g. i1_firewall, i1_server_1)
     :param command: the shell command to run
+    :param incident_id: optional incident id for config lookup
     :return: a dict with container, command, exit_code, and output
     """
     container_name = f"{DOCKER.CONTAINER_PREFIX}{container}"
@@ -78,7 +81,16 @@ def dt_exec(
             "auto-deploy...", container_name,
         )
         try:
-            DockerManager.ensure_deployed()
+            config_id = None
+            if incident_id is not None:
+                config_id = (
+                    DatabaseFacade.get_config_id_by_incident(
+                        incident_id,
+                    )
+                )
+            DockerManager.ensure_deployed(
+                config_id=config_id,
+            )
             return _exec_on_container(container, command)
         except Exception as exc:
             return {

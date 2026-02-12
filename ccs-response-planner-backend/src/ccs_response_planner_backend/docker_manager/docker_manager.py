@@ -2,7 +2,7 @@
 Docker management facade for digital-twin deployment.
 """
 import logging
-from typing import Any, Generator
+from typing import Any, Generator, Optional
 
 import docker
 from docker.errors import NotFound
@@ -27,8 +27,27 @@ class DockerManager:
         return docker.from_env()
 
     @staticmethod
+    def _net_name(
+        net_id: str,
+        config_id: Optional[int] = None,
+    ) -> str:
+        """
+        Build a Docker network name, optionally scoped by config id.
+
+        :param net_id: the network identifier from the config
+        :param config_id: optional config id for namespacing
+        :return: the Docker network name
+        """
+        if config_id is not None:
+            return (
+                f"{DOCKER.NETWORK_PREFIX}{config_id}_{net_id}"
+            )
+        return f"{DOCKER.NETWORK_PREFIX}{net_id}"
+
+    @staticmethod
     def deploy(
         config: dict[str, Any],
+        config_id: Optional[int] = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Deploy the digital twin on multiple segmented Docker networks.
@@ -38,6 +57,7 @@ class DockerManager:
         dict with networks and containers lists.
 
         :param config: the digital twin configuration with networks/hosts
+        :param config_id: optional config id for namespacing networks
         :return: a generator of progress/result dicts
         """
         client = DockerManager._client()
@@ -46,7 +66,9 @@ class DockerManager:
         networks_by_id: dict[str, Any] = {}
         network_names: list[str] = []
         for net_def in config.get("networks", []):
-            net_name = f"{DOCKER.NETWORK_PREFIX}{net_def['id']}"
+            net_name = DockerManager._net_name(
+                net_def["id"], config_id,
+            )
             try:
                 net_obj = client.networks.get(net_name)
                 yield {"type": "progress",
@@ -243,21 +265,47 @@ class DockerManager:
         }
 
     @staticmethod
-    def stop() -> Generator[dict[str, Any], None, None]:
+    def stop(
+        config: Optional[dict[str, Any]] = None,
+        config_id: Optional[int] = None,
+    ) -> Generator[dict[str, Any], None, None]:
         """
-        Stop and remove all digital twin containers and networks.
+        Stop and remove digital twin containers and networks.
 
-        Yields progress dicts as each step completes. The final
-        yield is a result dict with the removed container names.
+        When config is provided, only remove that config's containers
+        and networks. When both are None, remove all ccs_dt_* resources.
 
+        :param config: optional config dict to scope removal
+        :param config_id: optional config id for network namespacing
         :return: a generator of progress/result dicts
         """
         client = DockerManager._client()
         removed: list[str] = []
 
+        if config is not None:
+            host_ids = {
+                h["id"] for h in config.get("hosts", [])
+            }
+            container_names = {
+                f"{DOCKER.CONTAINER_PREFIX}{hid}"
+                for hid in host_ids
+            }
+            network_ids = {
+                n["id"] for n in config.get("networks", [])
+            }
+            network_names = {
+                DockerManager._net_name(nid, config_id)
+                for nid in network_ids
+            }
+        else:
+            container_names = None
+            network_names = None
+
         dt_containers = [
             c for c in client.containers.list(all=True)
             if c.name.startswith(DOCKER.CONTAINER_PREFIX)
+            and (container_names is None
+                 or c.name in container_names)
         ]
         total = len(dt_containers)
         for idx, container in enumerate(dt_containers, 1):
@@ -276,16 +324,19 @@ class DockerManager:
 
         for network in client.networks.list():
             if network.name.startswith(DOCKER.NETWORK_PREFIX):
-                yield {
-                    "type": "progress",
-                    "message": f"Removing network "
-                               f"{network.name}",
-                }
-                network.remove()
-                yield {
-                    "type": "progress",
-                    "message": f"Network {network.name} removed",
-                }
+                if (network_names is None
+                        or network.name in network_names):
+                    yield {
+                        "type": "progress",
+                        "message": f"Removing network "
+                                   f"{network.name}",
+                    }
+                    network.remove()
+                    yield {
+                        "type": "progress",
+                        "message": f"Network {network.name} "
+                                   f"removed",
+                    }
 
         yield {"type": "progress",
                "message": "Shutdown complete"}
@@ -295,23 +346,58 @@ class DockerManager:
         }
 
     @staticmethod
-    def status() -> dict[str, Any]:
+    def status(
+        config: Optional[dict[str, Any]] = None,
+        config_id: Optional[int] = None,
+    ) -> dict[str, Any]:
         """
         Get the status of digital twin containers and networks.
 
+        When config is provided, only return that config's resources.
+        When None, return all ccs_dt_* resources.
+
+        :param config: optional config dict to scope status
+        :param config_id: optional config id for network namespacing
         :return: a dict with deployed flag, networks list, and container list
         """
         client = DockerManager._client()
 
+        if config is not None:
+            host_ids = {
+                h["id"] for h in config.get("hosts", [])
+            }
+            expected_containers = {
+                f"{DOCKER.CONTAINER_PREFIX}{hid}"
+                for hid in host_ids
+            }
+            expected_networks = {
+                DockerManager._net_name(nid, config_id)
+                for nid in (
+                    n["id"]
+                    for n in config.get("networks", [])
+                )
+            }
+        else:
+            expected_containers = None
+            expected_networks = None
+
         network_names = [
             n.name for n in client.networks.list()
             if n.name.startswith(DOCKER.NETWORK_PREFIX)
+            and (expected_networks is None
+                 or n.name in expected_networks)
         ]
 
         containers = []
         for container in client.containers.list(all=True):
             if container.name.startswith(DOCKER.CONTAINER_PREFIX):
-                host_id = container.name[len(DOCKER.CONTAINER_PREFIX):]
+                if (expected_containers is not None
+                        and container.name
+                        not in expected_containers):
+                    continue
+                host_id = container.name[
+                    len(DOCKER.CONTAINER_PREFIX):
+                ]
                 try:
                     image_name = (container.image.tags
                                   or ["unknown"])[0]
@@ -331,23 +417,62 @@ class DockerManager:
         }
 
     @staticmethod
-    def ensure_deployed() -> None:
+    def ensure_deployed(
+        config_id: Optional[int] = None,
+    ) -> None:
         """
         Ensure the digital twin is deployed.
 
-        If no DT containers exist, auto-deploy using saved config
-        or the default configuration.
+        When config_id is provided, load that config from the DB and
+        check if its containers exist. When None, auto-deploy using
+        saved config or the default configuration.
+
+        :param config_id: optional config id to deploy
         """
+        from ccs_response_planner_backend.constants.constants \
+            import DIGITAL_TWIN
+        from ccs_response_planner_backend.db.database_facade \
+            import DatabaseFacade
+
+        if config_id is not None:
+            row = DatabaseFacade.get_digital_twin_config_by_id(
+                config_id,
+            )
+            if row is None:
+                logger.warning(
+                    "Config id %d not found; skipping deploy",
+                    config_id,
+                )
+                return
+            config = row.get("config", {})
+            scoped_status = DockerManager.status(
+                config=config, config_id=config_id,
+            )
+            if scoped_status.get("deployed"):
+                return
+            logger.info(
+                "Config %d not deployed; auto-deploying...",
+                config_id,
+            )
+            for item in DockerManager.deploy(
+                config, config_id=config_id,
+            ):
+                if item.get("type") == "progress":
+                    logger.info(
+                        "Auto-deploy: %s",
+                        item.get("message"),
+                    )
+            logger.info(
+                "Config %d auto-deploy complete", config_id,
+            )
+            return
+
         status = DockerManager.status()
         if status.get("deployed"):
             return
         logger.info(
             "Digital twin not deployed; auto-deploying..."
         )
-        from ccs_response_planner_backend.constants.constants \
-            import DIGITAL_TWIN
-        from ccs_response_planner_backend.db.database_facade \
-            import DatabaseFacade
         config = DatabaseFacade.get_digital_twin_config()
         if config is None:
             config = DIGITAL_TWIN.DEFAULT_CONFIG
@@ -390,7 +515,9 @@ class DockerManager:
                 tty=False,
             )["Id"]
             output_bytes = client.api.exec_start(exec_id)
-            exit_code = client.api.exec_inspect(exec_id)["ExitCode"]
+            exit_code = client.api.exec_inspect(exec_id)[
+                "ExitCode"
+            ]
             passed = exit_code == 0
             output = output_bytes.decode(
                 "utf-8", errors="replace"

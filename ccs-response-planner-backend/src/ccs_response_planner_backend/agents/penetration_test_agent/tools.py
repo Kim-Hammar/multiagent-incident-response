@@ -7,17 +7,41 @@ on victim containers.
 """
 import logging
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import docker
 
 from ccs_response_planner_backend.constants.constants import DOCKER
+from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 from ccs_response_planner_backend.docker_manager.docker_manager \
     import DockerManager
 
 logger = logging.getLogger(__name__)
 
 EXEC_TIMEOUT_SECONDS = 120
+
+
+def _find_attacker_container(
+    client: docker.DockerClient,
+) -> Any:
+    """
+    Find a running attacker container by name pattern.
+
+    Searches for containers whose name matches
+    ``ccs_dt_*_attacker`` or ``ccs_dt_attacker``.
+
+    :param client: a Docker client instance
+    :return: the first matching container object
+    :raises docker.errors.NotFound: if no attacker container exists
+    """
+    for ct in client.containers.list():
+        name = ct.name
+        if (name.startswith(DOCKER.CONTAINER_PREFIX)
+                and name.endswith("_attacker")):
+            return ct
+    raise docker.errors.NotFound(
+        "No running attacker container found"
+    )
 
 
 def _run_pentest_command(
@@ -85,39 +109,51 @@ def _run_pentest_command(
     }
 
 
-def pentest_exec(command: str) -> dict[str, Any]:
+def pentest_exec(
+    command: str,
+    incident_id: Optional[int] = None,
+) -> dict[str, Any]:
     """
     Execute a shell command on the attacker container.
 
-    Commands are killed after EXEC_TIMEOUT_SECONDS to prevent
-    long-running scans from blocking the UI indefinitely.
-    If the container is not found, the digital twin is
-    auto-deployed and the command is retried once.
+    Dynamically discovers the attacker container by searching for
+    running containers matching ``ccs_dt_*_attacker``. Commands
+    are killed after EXEC_TIMEOUT_SECONDS to prevent long-running
+    scans from blocking the UI indefinitely. If no attacker
+    container is found, the digital twin is auto-deployed and the
+    command is retried once.
 
     :param command: the shell command to run
+    :param incident_id: optional incident id for config lookup
     :return: a dict with command, exit_code, and output
     """
-    container_name = DOCKER.ATTACKER_CONTAINER
     try:
         client = docker.from_env()
-        ct = client.containers.get(container_name)
+        ct = _find_attacker_container(client)
         return _run_pentest_command(client, ct, command)
     except docker.errors.NotFound:
         logger.info(
-            "Attacker container '%s' not found; "
+            "No attacker container found; "
             "triggering auto-deploy...",
-            container_name,
         )
         try:
-            DockerManager.ensure_deployed()
+            config_id = None
+            if incident_id is not None:
+                config_id = (
+                    DatabaseFacade.get_config_id_by_incident(
+                        incident_id,
+                    )
+                )
+            DockerManager.ensure_deployed(
+                config_id=config_id,
+            )
             client = docker.from_env()
-            ct = client.containers.get(container_name)
+            ct = _find_attacker_container(client)
             return _run_pentest_command(client, ct, command)
         except Exception as exc:
             return {
                 "error": (
-                    f"Attacker container "
-                    f"'{container_name}' not found and "
+                    f"Attacker container not found and "
                     f"auto-deploy failed: {exc}"
                 ),
             }

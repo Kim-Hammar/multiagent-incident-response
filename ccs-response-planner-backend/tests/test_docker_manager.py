@@ -30,7 +30,7 @@ def _make_config(
     if hosts is None:
         hosts = [
             {
-                "id": "server_1",
+                "id": "i1_server_1",
                 "docker_image": "ubuntu:22.04",
                 "ip_addresses": {"zone1": "10.0.2.1"},
             }
@@ -55,7 +55,7 @@ class TestDeploy:
         network = MagicMock()
         client.networks.create.return_value = network
         container = MagicMock()
-        container.name = "ccs_dt_server_1"
+        container.name = "ccs_dt_i1_server_1"
         container.status = "running"
         client.containers.get.side_effect = NotFound("not found")
         client.containers.create.return_value = container
@@ -67,7 +67,7 @@ class TestDeploy:
         assert len(result["networks"]) == 1
         assert result["networks"][0] == "ccs_dt_net_zone1"
         assert len(result["containers"]) == 1
-        assert result["containers"][0]["host_id"] == "server_1"
+        assert result["containers"][0]["host_id"] == "i1_server_1"
 
     @patch(DOCKER_MODULE)
     def test_deploy_reuses_existing_network(
@@ -112,7 +112,7 @@ class TestDeploy:
         network = MagicMock()
         client.networks.get.return_value = network
         existing = MagicMock()
-        existing.name = "ccs_dt_server_1"
+        existing.name = "ccs_dt_i1_server_1"
         existing.status = "running"
         client.containers.get.return_value = existing
 
@@ -136,14 +136,14 @@ class TestDeploy:
         from docker.errors import NotFound
         client.containers.get.side_effect = NotFound("not found")
         container = MagicMock()
-        container.name = "ccs_dt_server_1"
+        container.name = "ccs_dt_i1_server_1"
         container.status = "running"
         client.containers.create.return_value = container
 
         config = _make_config(
             hosts=[{
-                "id": "server_1",
-                "docker_image": "ccs-dt-server1:latest",
+                "id": "i1_server_1",
+                "docker_image": "ccs-dt-i1-server1:latest",
                 "ip_addresses": {"zone1": "10.0.2.1"},
                 "use_image_entrypoint": True,
             }],
@@ -166,7 +166,7 @@ class TestDeploy:
         from docker.errors import NotFound
         client.containers.get.side_effect = NotFound("not found")
         container = MagicMock()
-        container.name = "ccs_dt_gateway"
+        container.name = "ccs_dt_i1_gateway"
         container.status = "running"
         client.containers.create.return_value = container
 
@@ -176,8 +176,8 @@ class TestDeploy:
                  "gateway": "10.0.1.100"},
             ],
             hosts=[{
-                "id": "gateway",
-                "docker_image": "ccs-dt-gateway:latest",
+                "id": "i1_gateway",
+                "docker_image": "ccs-dt-i1-gateway:latest",
                 "ip_addresses": {"perimeter": "10.0.1.254"},
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
@@ -202,7 +202,7 @@ class TestDeploy:
         from docker.errors import NotFound
         client.containers.get.side_effect = NotFound("not found")
         container = MagicMock()
-        container.name = "ccs_dt_server_1"
+        container.name = "ccs_dt_i1_server_1"
         container.status = "running"
         client.containers.create.return_value = container
 
@@ -264,7 +264,7 @@ class TestDeploy:
         from docker.errors import NotFound
         client.containers.get.side_effect = NotFound("not found")
         container = MagicMock()
-        container.name = "ccs_dt_ids"
+        container.name = "ccs_dt_i1_ids"
         container.status = "running"
         client.containers.create.return_value = container
 
@@ -276,8 +276,8 @@ class TestDeploy:
                  "gateway": "10.0.3.100"},
             ],
             hosts=[{
-                "id": "ids",
-                "docker_image": "ccs-dt-ids:latest",
+                "id": "i1_ids",
+                "docker_image": "ccs-dt-i1-ids:latest",
                 "ip_addresses": {
                     "zone1": "10.0.2.252",
                     "zone2": "10.0.3.252",
@@ -303,9 +303,9 @@ class TestStop:
         client = MagicMock()
         mock_docker.from_env.return_value = client
         c1 = MagicMock()
-        c1.name = "ccs_dt_server_1"
+        c1.name = "ccs_dt_i1_server_1"
         c2 = MagicMock()
-        c2.name = "ccs_dt_server_2"
+        c2.name = "ccs_dt_i1_server_2"
         client.containers.list.return_value = [c1, c2]
         n1 = MagicMock()
         n1.name = "ccs_dt_net_zone1"
@@ -351,7 +351,7 @@ class TestStop:
         client = MagicMock()
         mock_docker.from_env.return_value = client
         c1 = MagicMock()
-        c1.name = "ccs_dt_server_1"
+        c1.name = "ccs_dt_i1_server_1"
         client.containers.list.return_value = [c1]
         n1 = MagicMock()
         n1.name = "ccs_dt_net_zone1"
@@ -360,8 +360,8 @@ class TestStop:
         items = list(DockerManager.stop())
         messages = [i["message"] for i in items
                     if i["type"] == "progress"]
-        assert any("Removing ccs_dt_server_1" in m for m in messages)
-        assert any("Removed ccs_dt_server_1" in m for m in messages)
+        assert any("Removing ccs_dt_i1_server_1" in m for m in messages)
+        assert any("Removed ccs_dt_i1_server_1" in m for m in messages)
         assert any("Shutdown complete" in m for m in messages)
 
 
@@ -381,7 +381,7 @@ class TestStatus:
         n1.name = "ccs_dt_net_zone1"
         client.networks.list.return_value = [n1]
         c1 = MagicMock()
-        c1.name = "ccs_dt_server_1"
+        c1.name = "ccs_dt_i1_server_1"
         c1.status = "running"
         c1.image.tags = ["ubuntu:22.04"]
         client.containers.list.return_value = [c1]
@@ -443,3 +443,99 @@ class TestExec:
         client.api.exec_resize.assert_called_once_with(
             "exec123", height=24, width=80
         )
+
+
+class TestConfigIdScoping:
+    """Tests for config_id-scoped deploy, stop, and status."""
+
+    @patch(DOCKER_MODULE)
+    def test_deploy_uses_config_id_in_network_name(
+        self, mock_docker: MagicMock
+    ) -> None:
+        """
+        Deploy with config_id should prefix network names.
+        """
+        client = MagicMock()
+        mock_docker.from_env.return_value = client
+        from docker.errors import NotFound
+        client.networks.get.side_effect = NotFound("not found")
+        network = MagicMock()
+        client.networks.create.return_value = network
+        client.containers.get.side_effect = NotFound("not found")
+        container = MagicMock()
+        container.name = "ccs_dt_i1_server_1"
+        container.status = "running"
+        client.containers.create.return_value = container
+
+        items = list(DockerManager.deploy(
+            _make_config(), config_id=42,
+        ))
+        result = [i for i in items
+                  if i["type"] == "result"][0]["data"]
+        assert result["networks"][0] == "ccs_dt_net_42_zone1"
+
+    @patch(DOCKER_MODULE)
+    def test_stop_scoped_by_config(
+        self, mock_docker: MagicMock
+    ) -> None:
+        """
+        Stop with config should only remove matching containers.
+        """
+        client = MagicMock()
+        mock_docker.from_env.return_value = client
+        c1 = MagicMock()
+        c1.name = "ccs_dt_i1_server_1"
+        c2 = MagicMock()
+        c2.name = "ccs_dt_i2_server_1"
+        client.containers.list.return_value = [c1, c2]
+        n1 = MagicMock()
+        n1.name = "ccs_dt_net_1_zone1"
+        n2 = MagicMock()
+        n2.name = "ccs_dt_net_2_internet"
+        client.networks.list.return_value = [n1, n2]
+
+        config = _make_config()
+        items = list(DockerManager.stop(
+            config=config, config_id=1,
+        ))
+        result = [i for i in items
+                  if i["type"] == "result"][0]["data"]
+        assert len(result["removed"]) == 1
+        assert result["removed"][0] == "ccs_dt_i1_server_1"
+        c1.remove.assert_called_once_with(force=True)
+        c2.remove.assert_not_called()
+
+    @patch(DOCKER_MODULE)
+    def test_status_scoped_by_config(
+        self, mock_docker: MagicMock
+    ) -> None:
+        """
+        Status with config should only return matching containers.
+        """
+        client = MagicMock()
+        mock_docker.from_env.return_value = client
+        c1 = MagicMock()
+        c1.name = "ccs_dt_i1_server_1"
+        c1.status = "running"
+        c1.image.tags = ["ubuntu:22.04"]
+        c2 = MagicMock()
+        c2.name = "ccs_dt_i2_server_1"
+        c2.status = "running"
+        c2.image.tags = ["ubuntu:22.04"]
+        client.containers.list.return_value = [c1, c2]
+        n1 = MagicMock()
+        n1.name = "ccs_dt_net_1_zone1"
+        n2 = MagicMock()
+        n2.name = "ccs_dt_net_2_internet"
+        client.networks.list.return_value = [n1, n2]
+
+        config = _make_config()
+        result = DockerManager.status(
+            config=config, config_id=1,
+        )
+        assert result["deployed"] is True
+        assert len(result["containers"]) == 1
+        assert result["containers"][0]["host_id"] == (
+            "i1_server_1"
+        )
+        assert result["networks"] == ["ccs_dt_net_1_zone1"]

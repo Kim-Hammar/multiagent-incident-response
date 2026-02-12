@@ -102,8 +102,8 @@ Use this to test the MDP — run a few episodes, check action effects, \
 verify state transitions, and validate the reward function.
 - **dt_exec**: Execute a shell command on a digital-twin container. Use \
 this to verify commands from the ACTION_TABLE on the live digital twin. \
-Valid containers: gateway, firewall, ids, server_1, server_2, server_3, \
-server_4, server_5, server_6.
+Valid containers: i1_gateway, i1_firewall, i1_ids, i1_server_1–i1_server_6 \
+(Incident 1) or i2_server_1–i2_server_6 (Incident 2).
 - **produce_review_report**: Call this ONLY after you have thoroughly \
 reviewed the code. You must have called at least one tool (python_exec \
 or dt_exec) before producing the review report.

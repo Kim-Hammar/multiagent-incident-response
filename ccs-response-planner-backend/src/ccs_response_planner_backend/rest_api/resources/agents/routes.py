@@ -65,6 +65,8 @@ from ccs_response_planner_backend.constants.constants import API, DIGITAL_TWIN
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 from ccs_response_planner_backend.rest_api.util.auth import token_required
 
+_DT_TOOLS = {"dt_exec", "pentest_exec", "generate_attack_image"}
+
 agents_bp = Blueprint(
     API.AGENTS_RESOURCE, __name__,
     url_prefix=f"{API.PREFIX}/{API.AGENTS_RESOURCE}",
@@ -155,12 +157,15 @@ def agents_information_tool() -> tuple[Response, int]:
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
     tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
     if tool_name not in TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
     try:
         agent = InformationAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -240,12 +245,15 @@ def agents_pentest_tool() -> tuple[Response, int]:
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
     tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
     if tool_name not in PENTEST_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
     try:
         agent = PenetrationTestAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -392,12 +400,15 @@ def agents_validation_tool() -> tuple[Response, int]:
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
     tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
     if tool_name not in VALIDATION_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
     try:
         agent = ValidationAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -508,12 +519,15 @@ def agents_code_tool() -> tuple[Response, int]:
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
     tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
     if tool_name not in CODE_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
     try:
         agent = CodeAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -642,12 +656,15 @@ def agents_code_review_tool() -> tuple[Response, int]:
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
     tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
     if tool_name not in CODE_REVIEW_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
     try:
         agent = CodeReviewerAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -835,10 +852,12 @@ def save_agent_report() -> tuple[Response, int]:
         return jsonify({
             "error": "agent_type and report are required",
         }), 400
+    incident_id = body.get("incident_id")
     saved = DatabaseFacade.save_agent_report(
         agent_type=agent_type,
         username=g.username,
         report=report,
+        incident_id=incident_id,
     )
     return jsonify(saved), 201
 
@@ -852,8 +871,10 @@ def list_agent_reports() -> tuple[Response, int]:
     :return: a tuple of (JSON response, HTTP status code)
     """
     agent_type = request.args.get("agent_type")
+    incident_id = request.args.get("incident_id", type=int)
     reports = DatabaseFacade.list_agent_reports(
         agent_type=agent_type,
+        incident_id=incident_id,
     )
     return jsonify(reports), 200
 

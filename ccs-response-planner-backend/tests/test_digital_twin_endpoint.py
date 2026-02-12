@@ -132,3 +132,112 @@ def test_delete_returns_405(
         "/api/digital-twin", headers=auth_headers
     )
     assert response.status_code == 405
+
+
+def test_validation_results_saved_after_validate(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    mock_config_row = {
+        "id": 1,
+        "name": "test",
+        "config": {
+            "specification_commands": [
+                {
+                    "host": "h1",
+                    "command": "echo ok",
+                    "description": "test cmd",
+                },
+            ],
+        },
+        "example_incident_id": None,
+    }
+    mock_results = [
+        {
+            "type": "result",
+            "host": "h1",
+            "command": "echo ok",
+            "description": "test cmd",
+            "passed": True,
+            "output": "ok",
+        },
+    ]
+    with patch(
+        "ccs_response_planner_backend.rest_api.resources"
+        ".digital_twin.routes.DatabaseFacade"
+    ) as m:
+        m.get_digital_twin_config_by_id.return_value = (
+            mock_config_row
+        )
+        m.get_session_token_by_token.return_value = {
+            "token": "t", "username": "u", "timestamp": "now",
+        }
+        with patch(
+            "ccs_response_planner_backend.rest_api.resources"
+            ".digital_twin.routes.DockerManager"
+        ) as dm:
+            dm.status.return_value = {"deployed": True}
+            dm.validate.return_value = iter(mock_results)
+            response = client.post(
+                "/api/digital-twin/configs/1/validate",
+                headers=auth_headers,
+            )
+            assert response.status_code == 200
+            lines = [
+                line for line in
+                response.data.decode().strip().split("\n")
+                if line.strip()
+            ]
+            import json
+            parsed = [json.loads(l) for l in lines]
+            assert any(p["type"] == "done" for p in parsed)
+            m.save_validation_results.assert_called_once()
+            call_args = (
+                m.save_validation_results.call_args[0]
+            )
+            assert call_args[0] == 1
+            assert len(call_args[1]) == 1
+            assert call_args[1][0]["passed"] is True
+
+
+def test_get_validation_results_empty(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    with patch(
+        "ccs_response_planner_backend.rest_api.resources"
+        ".digital_twin.routes.DatabaseFacade"
+    ) as m:
+        m.get_session_token_by_token.return_value = {
+            "token": "t", "username": "u", "timestamp": "now",
+        }
+        m.get_validation_results.return_value = None
+        response = client.get(
+            "/api/digital-twin/configs/1/validation-results",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert response.get_json() is None
+
+
+def test_get_validation_results_returns_data(
+    client: FlaskClient, auth_headers: dict[str, str]
+) -> None:
+    stored = {
+        "results": [{"passed": True, "host": "h1"}],
+        "tested_at": "2026-02-12T10:00:00+00:00",
+    }
+    with patch(
+        "ccs_response_planner_backend.rest_api.resources"
+        ".digital_twin.routes.DatabaseFacade"
+    ) as m:
+        m.get_session_token_by_token.return_value = {
+            "token": "t", "username": "u", "timestamp": "now",
+        }
+        m.get_validation_results.return_value = stored
+        response = client.get(
+            "/api/digital-twin/configs/1/validation-results",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["results"][0]["passed"] is True
+        assert data["tested_at"] == "2026-02-12T10:00:00+00:00"

@@ -152,6 +152,64 @@ def test_save_report_no_auth(client):
     assert res.status_code == 401
 
 
+def test_save_report_with_incident_id(client, auth_headers, mock_db):
+    """
+    POST /api/agents/reports with incident_id returns 201.
+    """
+    from unittest.mock import patch
+    with patch(
+        "ccs_response_planner_backend.rest_api.resources.agents"
+        ".routes.DatabaseFacade"
+    ) as m:
+        m.save_agent_report.return_value = {
+            "id": 2,
+            "agent_type": "information",
+            "username": "admin",
+            "report": {"summary": "test"},
+            "created_at": "2026-01-01 00:00:00",
+            "incident_id": 1,
+            "incident_name": "Example Incident 1",
+        }
+        res = client.post(
+            "/api/agents/reports",
+            data=json.dumps({
+                "agent_type": "information",
+                "report": {"summary": "test"},
+                "incident_id": 1,
+            }),
+            content_type="application/json",
+            headers=auth_headers,
+        )
+    assert res.status_code == 201
+    data = res.get_json()
+    assert data["incident_id"] == 1
+    assert data["incident_name"] == "Example Incident 1"
+
+
+def test_list_reports_with_incident_filter(client, auth_headers):
+    """
+    GET /api/agents/reports?incident_id=1 returns 200.
+    """
+    res = client.get(
+        "/api/agents/reports?incident_id=1",
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert isinstance(res.get_json(), list)
+
+
+def test_list_reports_with_both_filters(client, auth_headers):
+    """
+    GET /api/agents/reports?agent_type=code&incident_id=1 returns 200.
+    """
+    res = client.get(
+        "/api/agents/reports?agent_type=code&incident_id=1",
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert isinstance(res.get_json(), list)
+
+
 def test_list_reports_no_auth(client):
     """
     GET /api/agents/reports without token returns 401.

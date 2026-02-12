@@ -83,6 +83,8 @@ def mock_db() -> Generator[MagicMock, None, None]:
             "username": "admin",
             "report": {},
             "created_at": "2026-01-01 00:00:00",
+            "incident_id": None,
+            "incident_name": None,
         }
         agents_db_mock.list_agent_reports.return_value = []
         agents_db_mock.get_agent_report.return_value = None

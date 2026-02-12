@@ -14,7 +14,7 @@ def test_dt_exec_returns_connected_status(
     auth_headers: dict[str, str],
 ) -> None:
     mock_container = MagicMock()
-    mock_container.name = "ccs_dt_gateway"
+    mock_container.name = "ccs_dt_i1_gateway"
     mock_client = MagicMock()
     mock_client.containers.list.return_value = [mock_container]
     mock_docker.from_env.return_value = mock_client
@@ -25,7 +25,7 @@ def test_dt_exec_returns_connected_status(
     assert response.status_code == 200
     assert data["status"] == "connected"
     assert data["count"] == 1
-    assert "ccs_dt_gateway" in data["containers"]
+    assert "ccs_dt_i1_gateway" in data["containers"]
     assert "timestamp" in data
 
 
@@ -84,13 +84,13 @@ def test_dt_exec_run_returns_output(
 
     response = client.post(
         "/api/dt-exec/run",
-        json={"container": "gateway", "command": "echo hello"},
+        json={"container": "i1_gateway", "command": "echo hello"},
         headers=auth_headers,
     )
     data = response.get_json()
 
     assert response.status_code == 200
-    assert data["container"] == "gateway"
+    assert data["container"] == "i1_gateway"
     assert data["command"] == "echo hello"
     assert data["exit_code"] == 0
     assert data["output"] == "hello world\n"
@@ -149,7 +149,7 @@ def test_dt_exec_run_returns_500_on_failure(
 
     response = client.post(
         "/api/dt-exec/run",
-        json={"container": "gateway", "command": "ls"},
+        json={"container": "i1_gateway", "command": "ls"},
         headers=auth_headers,
     )
     data = response.get_json()
@@ -163,7 +163,7 @@ def test_dt_exec_run_returns_401_without_token(
 ) -> None:
     response = client.post(
         "/api/dt-exec/run",
-        json={"container": "gateway", "command": "ls"},
+        json={"container": "i1_gateway", "command": "ls"},
     )
     assert response.status_code == 401
 

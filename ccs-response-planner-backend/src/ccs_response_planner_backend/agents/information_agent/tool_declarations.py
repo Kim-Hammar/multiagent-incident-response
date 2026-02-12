@@ -155,9 +155,9 @@ TOOL_DECLARATIONS = [
             "container. Use this to inspect processes, "
             "network connections, logs, services, and "
             "file systems on DT hosts. Valid container "
-            "names: gateway, firewall, ids, server_1, "
-            "server_2, server_3, server_4, server_5, "
-            "server_6."
+            "names: i1_gateway, i1_firewall, i1_ids, "
+            "i1_server_1–i1_server_6 (Incident 1) or "
+            "i2_server_1–i2_server_6 (Incident 2)."
         ),
         parameters={  # type: ignore[arg-type]
             "type": "object",
@@ -166,7 +166,7 @@ TOOL_DECLARATIONS = [
                     "type": "string",
                     "description": (
                         "The host id of the container "
-                        "(e.g. gateway, server_1)."
+                        "(e.g. i1_firewall, i1_server_1)."
                     ),
                 },
                 "command": {
@@ -198,6 +198,33 @@ TOOL_DECLARATIONS = [
                 },
             },
             "required": ["code"],
+        },
+    ),
+    genai_types.FunctionDeclaration(
+        name="generate_attack_image",
+        description=(
+            "Generate a visual attack path diagram using AI "
+            "image generation, overlaid on the network "
+            "topology. Call this once you have gathered "
+            "enough evidence to illustrate the attack path, "
+            "but before producing the final assessment."
+        ),
+        parameters={  # type: ignore[arg-type]
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": (
+                        "A detailed description of the "
+                        "attack path to illustrate, "
+                        "including which hosts were "
+                        "compromised, in what order, and "
+                        "what protocols/techniques were "
+                        "used at each step."
+                    ),
+                },
+            },
+            "required": ["prompt"],
         },
     ),
     genai_types.FunctionDeclaration(

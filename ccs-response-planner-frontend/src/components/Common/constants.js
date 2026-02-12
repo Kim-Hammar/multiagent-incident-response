@@ -64,3 +64,9 @@ export const API_AGENTS_MDP_PLANNER_PROMPT_URL = '/api/agents/mdp-planner/prompt
 export const API_AGENTS_REPORTS_URL = '/api/agents/reports'
 export const API_EXAMPLES_URL = '/api/examples'
 export const API_DIGITAL_TWIN_CONFIGS_URL = '/api/digital-twin/configs'
+export const apiDigitalTwinConfigDeployUrl = (id) => `/api/digital-twin/configs/${id}/deploy`
+export const apiDigitalTwinConfigStopUrl = (id) => `/api/digital-twin/configs/${id}/stop`
+export const apiDigitalTwinConfigStatusUrl = (id) => `/api/digital-twin/configs/${id}/status`
+export const apiDigitalTwinConfigValidateUrl = (id) => `/api/digital-twin/configs/${id}/validate`
+export const apiDigitalTwinConfigValidationResultsUrl = (id) =>
+  `/api/digital-twin/configs/${id}/validation-results`

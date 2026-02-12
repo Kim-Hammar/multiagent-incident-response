@@ -64,8 +64,9 @@ Then call `produce_validation_report` with the complete per-action results.
 
 ## Available Tools
 
-- **dt_exec**: `container` is one of `gateway`, `firewall`, `ids`, \
-`server_1`--`server_6`. `command` is the shell command to run. Use this to \
+- **dt_exec**: `container` is one of `i1_gateway`, `i1_firewall`, `i1_ids`, \
+`i1_server_1`--`i1_server_6` (Incident 1) or `i2_server_1`--`i2_server_6` \
+(Incident 2). `command` is the shell command to run. Use this to \
 apply response actions and check state on DT containers.
 - **produce_validation_report**: Call this ONLY after applying all response \
 actions and gathering all results.
@@ -77,17 +78,17 @@ You can use `dt_exec` to run shell commands on any container.
 
 ### Available containers
 
-| Container   | Zone       | IP address  | Role                                    |
-|-------------|------------|-------------|-----------------------------------------|
-| gateway     | perimeter  | 10.0.1.254  | Snort IDS v2.9                          |
-| firewall    | perimeter  | 10.0.1.253  | iptables packet filtering               |
-| ids         | all zones  | 10.0.1.252, 10.0.2.252, 10.0.3.252, 10.0.4.252 | rsyslog, tcpdump |
-| server_1    | Zone 1     | 10.0.2.1    | Nginx, PHP-FPM portal, dnsmasq DNS      |
-| server_2    | Zone 1     | 10.0.2.2    | vsftpd FTP, cron backups                |
-| server_3    | Zone 2     | 10.0.3.3    | SSH, cron CI/CD build pipeline          |
-| server_4    | Zone 2     | 10.0.3.4    | Postfix SMTP mail server                |
-| server_5    | Zone 3     | 10.0.4.5    | SSH, Python REST API, Redis cache       |
-| server_6    | Zone 3     | 10.0.4.6    | PostgreSQL database, Samba file shares  |
+| Container     | Zone       | IP address  | Role                                    |
+|---------------|------------|-------------|-----------------------------------------|
+| i1_gateway    | perimeter  | 10.0.1.254  | Snort IDS v2.9                          |
+| i1_firewall   | perimeter  | 10.0.1.253  | iptables packet filtering               |
+| i1_ids        | all zones  | 10.0.1.252, 10.0.2.252, 10.0.3.252, 10.0.4.252 | rsyslog, tcpdump |
+| i1_server_1   | Zone 1     | 10.0.2.1    | Nginx, PHP-FPM portal, dnsmasq DNS      |
+| i1_server_2   | Zone 1     | 10.0.2.2    | vsftpd FTP, cron backups                |
+| i1_server_3   | Zone 2     | 10.0.3.3    | SSH, cron CI/CD build pipeline          |
+| i1_server_4   | Zone 2     | 10.0.3.4    | Postfix SMTP mail server                |
+| i1_server_5   | Zone 3     | 10.0.4.5    | SSH, Python REST API, Redis cache       |
+| i1_server_6   | Zone 3     | 10.0.4.6    | PostgreSQL database, Samba file shares  |
 
 ### Network connectivity
 

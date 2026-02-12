@@ -41,8 +41,9 @@ your assessment. Available tools:
    - **abuseipdb_check**: `ip` — a single IP address (e.g. `203.0.113.45`).
    - **otx_search**: `indicator_type` must be one of `IPv4`, `IPv6`, \
 `domain`, `hostname`, `url`, `hash`, `cve`. `value` is the indicator.
-   - **dt_exec**: `container` is one of `gateway`, `firewall`, `ids`, \
-`server_1`–`server_6`. `command` is the shell command to run.
+   - **dt_exec**: `container` is one of `i1_gateway`, `i1_firewall`, `i1_ids`, \
+`i1_server_1`–`i1_server_6` (Incident 1) or `i2_server_1`–`i2_server_6` \
+(Incident 2). `command` is the shell command to run.
    - **dt_python_exec**: `code` — Python 3 source code to execute.
 
 3. **Before each tool call**, briefly explain your rationale in text, then \
@@ -51,7 +52,13 @@ immediately make the function call in the same response.
 what additional information you still need. Then call the next tool.
 5. Do NOT produce the final assessment until you have gathered information \
 from multiple sources and have a comprehensive understanding of the incident.
-6. When you are confident you have sufficient information, call the \
+6. Once you have gathered sufficient evidence and understand the attack path, \
+call `generate_attack_image` to create a visual attack path diagram. Provide a \
+detailed prompt describing the believed attack path step-by-step: which hosts \
+were targeted, in what order, what techniques/exploits were used, and how the \
+attacker moved laterally — so the image generator can illustrate it on top of \
+the network topology. Only call it once.
+7. After receiving the image result, call the \
 `produce_assessment` tool with the structured assessment data.
 
 ## Digital Twin Environment
@@ -78,17 +85,17 @@ investigating why a standard log file is missing or empty.
 
 ### Available containers
 
-| Container   | Zone       | IP address  | Role                                    |
-|-------------|------------|-------------|-----------------------------------------|
-| gateway     | perimeter  | 10.0.1.254  | Snort IDS v2.9                          |
-| firewall    | perimeter  | 10.0.1.253  | iptables packet filtering               |
-| ids         | all zones  | 10.0.1.252, 10.0.2.252, 10.0.3.252, 10.0.4.252 | rsyslog, tcpdump |
-| server_1    | Zone 1     | 10.0.2.1    | Nginx, PHP-FPM portal, dnsmasq DNS      |
-| server_2    | Zone 1     | 10.0.2.2    | vsftpd FTP, cron backups                |
-| server_3    | Zone 2     | 10.0.3.3    | SSH, cron CI/CD build pipeline          |
-| server_4    | Zone 2     | 10.0.3.4    | Postfix SMTP mail server                |
-| server_5    | Zone 3     | 10.0.4.5    | SSH, Python REST API, Redis cache       |
-| server_6    | Zone 3     | 10.0.4.6    | PostgreSQL database, Samba file shares  |
+| Container     | Zone       | IP address  | Role                                    |
+|---------------|------------|-------------|-----------------------------------------|
+| i1_gateway    | perimeter  | 10.0.1.254  | Snort IDS v2.9                          |
+| i1_firewall   | perimeter  | 10.0.1.253  | iptables packet filtering               |
+| i1_ids        | all zones  | 10.0.1.252, 10.0.2.252, 10.0.3.252, 10.0.4.252 | rsyslog, tcpdump |
+| i1_server_1   | Zone 1     | 10.0.2.1    | Nginx, PHP-FPM portal, dnsmasq DNS      |
+| i1_server_2   | Zone 1     | 10.0.2.2    | vsftpd FTP, cron backups                |
+| i1_server_3   | Zone 2     | 10.0.3.3    | SSH, cron CI/CD build pipeline          |
+| i1_server_4   | Zone 2     | 10.0.3.4    | Postfix SMTP mail server                |
+| i1_server_5   | Zone 3     | 10.0.4.5    | SSH, Python REST API, Redis cache       |
+| i1_server_6   | Zone 3     | 10.0.4.6    | PostgreSQL database, Samba file shares  |
 
 ### Network connectivity
 
@@ -108,8 +115,8 @@ and Server 6.
 - `ps aux` — list running processes
 - `netstat -tlnp` — list listening TCP ports
 - `cat /var/log/syslog` or `journalctl` — system logs
-- `iptables -L -n -v` — firewall rules (on firewall/ids)
-- `cat /var/log/snort/alert.log` — Snort alerts (on gateway)
+- `iptables -L -n -v` — firewall rules (on i1_firewall/i1_ids)
+- `cat /var/log/snort/alert.log` — Snort alerts (on i1_gateway)
 - `find / -name "*.log" -mmin -60` — recently modified log files
 - `cat /var/log/auth.log` — authentication logs
 - `ss -tnp` — active TCP connections with process info
