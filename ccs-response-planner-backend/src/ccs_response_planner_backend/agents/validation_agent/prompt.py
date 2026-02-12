@@ -76,6 +76,12 @@ actions and gathering all results.
 A digital twin of the target system is deployed as Docker containers. \
 You can use `dt_exec` to run shell commands on any container.
 
+**Important:** The containers are minimal Docker images and may not have \
+every tool pre-installed. If a command or utility is missing (e.g. ssh, \
+nc, curl, nmap), you have full root access and **can and should install \
+it** using `apt-get update && apt-get install -y <package>`. Do NOT \
+waste time working around missing tools — just install what you need.
+
 ### Available containers
 
 | Container     | Zone       | IP address  | Role                                    |

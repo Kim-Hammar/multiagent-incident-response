@@ -41,6 +41,7 @@ function PenetrationTestAgent() {
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
+  const abortControllerRef = useRef(null)
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -107,8 +108,24 @@ function PenetrationTestAgent() {
     setHasNewActivity(false)
   }
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setRunning(false)
+    setExecutingTool(null)
+    setPendingProposal(null)
+    setConversationHistory((prev) => [
+      ...prev,
+      { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
+    ])
+  }
+
   const callStep = async (history) => {
     setRunning(true)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
@@ -124,7 +141,8 @@ function PenetrationTestAgent() {
           conversation_history: history,
           images: systemDescriptionImages,
           model_name: selectedModel || undefined
-        })
+        }),
+        signal: controller.signal
       })
       if (res.status === 401) {
         logout()
@@ -224,6 +242,7 @@ function PenetrationTestAgent() {
         ])
       }
     } catch (err) {
+      if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
     } finally {
@@ -252,6 +271,8 @@ function PenetrationTestAgent() {
     setPendingProposal(null)
     setExecutingTool(proposal.tool_name)
     try {
+      const controller = new AbortController()
+      abortControllerRef.current = controller
       const res = await fetch(API_AGENTS_PENTEST_TOOL_URL, {
         method: 'POST',
         headers: {
@@ -262,7 +283,8 @@ function PenetrationTestAgent() {
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
           incident_id: selectedIncidentId
-        })
+        }),
+        signal: controller.signal
       })
       if (res.status === 401) {
         logout()
@@ -289,6 +311,7 @@ function PenetrationTestAgent() {
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {
+      if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
       setExecutingTool(null)
     }
@@ -505,6 +528,7 @@ function PenetrationTestAgent() {
           logEndRef={logEndRef}
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
+          onStop={handleStop}
         />
       )}
 

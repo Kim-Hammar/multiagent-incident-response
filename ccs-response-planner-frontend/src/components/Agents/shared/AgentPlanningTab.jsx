@@ -20,8 +20,11 @@ function AgentPlanningTab({
   streamingTraceRef,
   renderFinalReport,
   renderExecutingTool,
-  renderToolResult
+  renderToolResult,
+  onStop
 }) {
+  const isAgentBusy = running || !!executingTool
+
   if (conversationHistory.length === 0 && !running) {
     return (
       <p style={{ fontSize: '13px', color: '#6c757d', marginTop: '16px' }}>
@@ -31,23 +34,32 @@ function AgentPlanningTab({
   }
 
   return (
-    <AgentActivityLog
-      conversationHistory={conversationHistory}
-      expandedEntries={expandedEntries}
-      toggleEntry={toggleEntry}
-      pendingProposal={pendingProposal}
-      executingTool={executingTool}
-      handleApprove={handleApprove}
-      handleDeny={handleDeny}
-      contextUsage={contextUsage}
-      hasNewActivity={hasNewActivity}
-      scrollToBottom={scrollToBottom}
-      logEndRef={logEndRef}
-      streamingTraceRef={streamingTraceRef}
-      renderFinalReport={renderFinalReport}
-      renderExecutingTool={renderExecutingTool}
-      renderToolResult={renderToolResult}
-    />
+    <>
+      {isAgentBusy && onStop && (
+        <div style={{ marginTop: '12px', marginBottom: '-16px', textAlign: 'right' }}>
+          <button type="button" className="btn btn-outline-danger btn-sm" onClick={onStop}>
+            <i className="fa fa-stop-circle" aria-hidden="true" /> Stop
+          </button>
+        </div>
+      )}
+      <AgentActivityLog
+        conversationHistory={conversationHistory}
+        expandedEntries={expandedEntries}
+        toggleEntry={toggleEntry}
+        pendingProposal={pendingProposal}
+        executingTool={executingTool}
+        handleApprove={handleApprove}
+        handleDeny={handleDeny}
+        contextUsage={contextUsage}
+        hasNewActivity={hasNewActivity}
+        scrollToBottom={scrollToBottom}
+        logEndRef={logEndRef}
+        streamingTraceRef={streamingTraceRef}
+        renderFinalReport={renderFinalReport}
+        renderExecutingTool={renderExecutingTool}
+        renderToolResult={renderToolResult}
+      />
+    </>
   )
 }
 

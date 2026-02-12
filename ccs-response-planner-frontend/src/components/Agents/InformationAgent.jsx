@@ -46,6 +46,7 @@ function InformationAgent() {
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
+  const abortControllerRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -111,6 +112,20 @@ function InformationAgent() {
     setHasNewActivity(false)
   }
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setRunning(false)
+    setExecutingTool(null)
+    setPendingProposal(null)
+    setConversationHistory((prev) => [
+      ...prev,
+      { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
+    ])
+  }
+
   const stripImagesFromHistory = (history) =>
     history.map((entry) => {
       if (entry.type === 'tool_result' && entry.result?.image) {
@@ -124,6 +139,8 @@ function InformationAgent() {
 
   const callStep = async (history) => {
     setRunning(true)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
@@ -141,7 +158,8 @@ function InformationAgent() {
           conversation_history: stripImagesFromHistory(history),
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           model_name: selectedModel || undefined
-        })
+        }),
+        signal: controller.signal
       })
       if (res.status === 401) {
         logout()
@@ -248,6 +266,7 @@ function InformationAgent() {
         ])
       }
     } catch (err) {
+      if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
     } finally {
@@ -276,6 +295,8 @@ function InformationAgent() {
     }
     setPendingProposal(null)
     setExecutingTool(proposal.tool_name)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     try {
       const res = await fetch(API_AGENTS_INFO_TOOL_URL, {
         method: 'POST',
@@ -287,7 +308,8 @@ function InformationAgent() {
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
           incident_id: selectedIncidentId
-        })
+        }),
+        signal: controller.signal
       })
       if (res.status === 401) {
         logout()
@@ -320,6 +342,7 @@ function InformationAgent() {
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {
+      if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
       setExecutingTool(null)
     }
@@ -558,6 +581,7 @@ function InformationAgent() {
           logEndRef={logEndRef}
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
+          onStop={handleStop}
         />
       )}
 

@@ -48,8 +48,8 @@ function ValidationAgentConfigTab({
               commands.
             </li>
             <li>
-              After each action, check the recovery state and service state
-              (specification commands).
+              After each action, check the recovery state and service state (specification
+              commands).
             </li>
             <li>
               Produce a structured validation report with per-action results and overall outcome.

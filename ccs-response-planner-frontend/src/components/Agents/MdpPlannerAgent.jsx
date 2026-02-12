@@ -53,6 +53,7 @@ function MdpPlannerAgent() {
   const isNearBottomRef = useRef(true)
   const trainingRunsRef = useRef({})
   const runIdCounterRef = useRef(0)
+  const abortControllerRef = useRef(null)
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -119,14 +120,32 @@ function MdpPlannerAgent() {
     setHasNewActivity(false)
   }
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setRunning(false)
+    setExecutingTool(null)
+    setPendingProposal(null)
+    setTrainingStartTime(null)
+    setConversationHistory((prev) => [
+      ...prev,
+      { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
+    ])
+  }
+
   const callStep = async (history) => {
     setRunning(true)
     const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     try {
       const res = await fetch(API_AGENTS_MDP_PLANNER_STEP_URL, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -251,6 +270,7 @@ function MdpPlannerAgent() {
         ])
       }
     } catch (err) {
+      if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
     } finally {
@@ -287,9 +307,12 @@ function MdpPlannerAgent() {
         algorithm: proposal.tool_args.algorithm || '',
         hyperparameters: proposal.tool_args.hyperparameters || ''
       })
+      const controller = new AbortController()
+      abortControllerRef.current = controller
       try {
         const res = await fetch(API_AGENTS_MDP_PLANNER_TOOL_URL, {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
@@ -372,14 +395,18 @@ function MdpPlannerAgent() {
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
+        if (err.name === 'AbortError') return
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
         setTrainingStartTime(null)
         setExecutingTool(null)
       }
     } else {
+      const controller = new AbortController()
+      abortControllerRef.current = controller
       try {
         const res = await fetch(API_AGENTS_MDP_PLANNER_TOOL_URL, {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
@@ -414,6 +441,7 @@ function MdpPlannerAgent() {
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
+        if (err.name === 'AbortError') return
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
         setExecutingTool(null)
       }
@@ -715,6 +743,7 @@ function MdpPlannerAgent() {
           renderFinalReport={renderFinalReport}
           renderExecutingTool={renderExecutingTool}
           renderToolResult={renderToolResult}
+          onStop={handleStop}
         />
       )}
 

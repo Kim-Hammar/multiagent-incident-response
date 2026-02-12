@@ -44,6 +44,7 @@ function CodeAgent() {
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
+  const abortControllerRef = useRef(null)
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -110,8 +111,24 @@ function CodeAgent() {
     setHasNewActivity(false)
   }
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setRunning(false)
+    setExecutingTool(null)
+    setPendingProposal(null)
+    setConversationHistory((prev) => [
+      ...prev,
+      { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
+    ])
+  }
+
   const callStep = async (history) => {
     setRunning(true)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
@@ -122,6 +139,7 @@ function CodeAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
+        signal: controller.signal,
         body: JSON.stringify({
           system_description: systemDescription,
           incident_report: incidentReport,
@@ -233,6 +251,7 @@ function CodeAgent() {
         ])
       }
     } catch (err) {
+      if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
     } finally {
@@ -260,6 +279,8 @@ function CodeAgent() {
     }
     setPendingProposal(null)
     setExecutingTool(proposal.tool_name)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     try {
       const res = await fetch(API_AGENTS_CODE_TOOL_URL, {
         method: 'POST',
@@ -267,6 +288,7 @@ function CodeAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
+        signal: controller.signal,
         body: JSON.stringify({
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
@@ -298,6 +320,7 @@ function CodeAgent() {
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {
+      if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
       setExecutingTool(null)
     }
@@ -542,6 +565,7 @@ function CodeAgent() {
           logEndRef={logEndRef}
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
+          onStop={handleStop}
         />
       )}
 
