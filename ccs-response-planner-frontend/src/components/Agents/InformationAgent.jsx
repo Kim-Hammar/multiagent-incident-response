@@ -42,7 +42,7 @@ function InformationAgent() {
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
-  const [attackPathImage, setAttackPathImage] = useState(null)
+  const attackPathImageRef = useRef(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -111,6 +111,17 @@ function InformationAgent() {
     setHasNewActivity(false)
   }
 
+  const stripImagesFromHistory = (history) =>
+    history.map((entry) => {
+      if (entry.type === 'tool_result' && entry.result?.image) {
+        return {
+          ...entry,
+          result: { status: 'success', message: 'Attack path image generated successfully' }
+        }
+      }
+      return entry
+    })
+
   const callStep = async (history) => {
     setRunning(true)
     const streamingIdx = history.length
@@ -127,7 +138,7 @@ function InformationAgent() {
           system_description: systemDescription,
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
-          conversation_history: history,
+          conversation_history: stripImagesFromHistory(history),
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           model_name: selectedModel || undefined
         })
@@ -206,6 +217,9 @@ function InformationAgent() {
           setPendingProposal(finalEntry)
         }
         if (finalEntry.type === 'assessment') {
+          if (attackPathImageRef.current) {
+            finalEntry.assessment.attack_path_image = attackPathImageRef.current
+          }
           saveReport(finalEntry.assessment)
         }
       } else if (accumulated) {
@@ -221,6 +235,9 @@ function InformationAgent() {
             severity_justification: '',
             affected_assets: []
           }
+        }
+        if (attackPathImageRef.current) {
+          assessment.attack_path_image = attackPathImageRef.current
         }
         setConversationHistory([...history, { role: 'model', type: 'assessment', assessment }])
         saveReport(assessment)
@@ -243,7 +260,7 @@ function InformationAgent() {
     setConversationHistory([])
     setExpandedEntries({})
     setContextUsage(null)
-    setAttackPathImage(null)
+    attackPathImageRef.current = null
     setActiveTab('planning')
     callStep([])
   }
@@ -289,11 +306,7 @@ function InformationAgent() {
       let resultForHistory = data.error ? { error: data.error } : data.result
 
       if (proposal.tool_name === 'generate_attack_image' && resultForHistory?.image) {
-        setAttackPathImage(resultForHistory.image)
-        resultForHistory = {
-          status: 'success',
-          message: 'Attack path image generated successfully'
-        }
+        attackPathImageRef.current = resultForHistory.image
       }
 
       const resultEntry = {
@@ -359,7 +372,7 @@ function InformationAgent() {
     setPendingProposal(null)
     setExpandedEntries({})
     setSelectedIncidentId(null)
-    setAttackPathImage(null)
+    attackPathImageRef.current = null
   }
 
   const fetchPrompt = async () => {
@@ -405,8 +418,8 @@ function InformationAgent() {
   }
 
   const saveReport = async (report) => {
-    if (attackPathImage) {
-      report.attack_path_image = attackPathImage
+    if (attackPathImageRef.current) {
+      report.attack_path_image = attackPathImageRef.current
     }
     try {
       await fetch(API_AGENTS_REPORTS_URL, {

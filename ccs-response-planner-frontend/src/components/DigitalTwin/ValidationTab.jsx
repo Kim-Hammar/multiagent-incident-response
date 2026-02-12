@@ -20,12 +20,15 @@ function ValidationTab({ token, logout, specificationCommands, savedConfigs }) {
   const [lastTested, setLastTested] = useState(null)
   const [selectedConfigId, setSelectedConfigId] = useState('')
   const [runningConfigs, setRunningConfigs] = useState([])
+  const [loadingResults, setLoadingResults] = useState(false)
+  const [loadingConfigs, setLoadingConfigs] = useState(true)
   const intervalRef = useRef(null)
   const logEndRef = useRef(null)
 
   const fetchRunningConfigs = useCallback(async () => {
     if (!savedConfigs || savedConfigs.length === 0) {
       setRunningConfigs([])
+      setLoadingConfigs(false)
       return
     }
     const running = []
@@ -45,6 +48,7 @@ function ValidationTab({ token, logout, specificationCommands, savedConfigs }) {
       }
     }
     setRunningConfigs(running)
+    setLoadingConfigs(false)
   }, [token, savedConfigs])
 
   useEffect(() => {
@@ -67,6 +71,7 @@ function ValidationTab({ token, logout, specificationCommands, savedConfigs }) {
   useEffect(() => {
     if (!selectedConfigId) return
     const loadSaved = async () => {
+      setLoadingResults(true)
       try {
         const res = await fetch(apiDigitalTwinConfigValidationResultsUrl(selectedConfigId), {
           headers: { Authorization: `Bearer ${token}` }
@@ -83,6 +88,8 @@ function ValidationTab({ token, logout, specificationCommands, savedConfigs }) {
         }
       } catch {
         /* ignore fetch errors */
+      } finally {
+        setLoadingResults(false)
       }
     }
     loadSaved()
@@ -178,28 +185,35 @@ function ValidationTab({ token, logout, specificationCommands, savedConfigs }) {
 
   return (
     <div className="validation-tab">
-      {hasRunning && (
+      {loadingConfigs ? (
         <div style={{ marginBottom: 12 }}>
-          <label htmlFor="validate-config-select" style={{ marginRight: 8, fontWeight: 600 }}>
-            Digital twin:
-          </label>
-          <select
-            id="validate-config-select"
-            className="form-control form-control-sm"
-            style={{ display: 'inline-block', width: 'auto' }}
-            value={selectedConfigId}
-            onChange={(e) => {
-              setSelectedConfigId(e.target.value)
-              setLogLines([])
-            }}
-          >
-            {runningConfigs.map((cfg) => (
-              <option key={cfg.id} value={cfg.id}>
-                {cfg.name}
-              </option>
-            ))}
-          </select>
+          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />{' '}
+          Loading digital twins...
         </div>
+      ) : (
+        hasRunning && (
+          <div style={{ marginBottom: 12 }}>
+            <label htmlFor="validate-config-select" style={{ marginRight: 8, fontWeight: 600 }}>
+              Digital twin:
+            </label>
+            <select
+              id="validate-config-select"
+              className="form-control form-control-sm"
+              style={{ display: 'inline-block', width: 'auto' }}
+              value={selectedConfigId}
+              onChange={(e) => {
+                setSelectedConfigId(e.target.value)
+                setLogLines([])
+              }}
+            >
+              {runningConfigs.map((cfg) => (
+                <option key={cfg.id} value={cfg.id}>
+                  {cfg.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
       )}
 
       {status && !deployed && (
@@ -233,7 +247,16 @@ function ValidationTab({ token, logout, specificationCommands, savedConfigs }) {
       </div>
 
       <div className="last-tested">
-        {lastTested ? `Last tested: ${lastTested.toLocaleTimeString()}` : 'Not yet tested'}
+        {loadingResults ? (
+          <>
+            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />{' '}
+            Loading results...
+          </>
+        ) : lastTested ? (
+          `Last tested: ${lastTested.toLocaleTimeString()}`
+        ) : (
+          'Not yet tested'
+        )}
       </div>
 
       {logLines.length > 0 && (

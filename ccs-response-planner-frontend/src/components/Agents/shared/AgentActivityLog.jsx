@@ -152,6 +152,10 @@ function AgentActivityLog({
 
           if (entry.type === 'tool_result') {
             const isExpanded = expandedEntries[index]
+            const hasImage = entry.result?.image
+            const displayResult = hasImage
+              ? { status: 'success', message: 'Attack path image generated successfully' }
+              : entry.result
             return (
               <div key={index} className="card ia-entry ia-result-entry">
                 <div className="card-body">
@@ -161,9 +165,23 @@ function AgentActivityLog({
                     <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
                   </div>
                   {isExpanded && (
-                    <pre className="ia-result-data mb-0">
-                      {JSON.stringify(entry.result, null, 2)}
-                    </pre>
+                    <>
+                      <pre className="ia-result-data mb-0">
+                        {JSON.stringify(displayResult, null, 2)}
+                      </pre>
+                      {hasImage && (
+                        <img
+                          src={entry.result.image}
+                          alt="Generated attack path"
+                          style={{
+                            maxWidth: '100%',
+                            border: '1px solid #dee2e6',
+                            borderRadius: '4px',
+                            marginTop: '8px'
+                          }}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               </div>

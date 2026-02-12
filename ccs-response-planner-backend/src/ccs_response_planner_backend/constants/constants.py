@@ -133,9 +133,7 @@ class LLM:
     """
     Constants related to LLM models.
     """
-    IMAGE_GENERATION_MODEL = (
-        "gemini-2.0-flash-preview-image-generation"
-    )
+    IMAGE_GENERATION_MODEL = "gemini-2.5-flash-image"
 
 
 class GENERAL:
