@@ -205,33 +205,6 @@ class DockerManager:
                 except Exception:
                     pass
 
-        # Collect Docker-host gateway IPs from the network defs
-        gateway_ips = [
-            net_def["gateway"]
-            for net_def in config.get("networks", [])
-            if net_def.get("gateway")
-        ]
-
-        # Delete Docker-added default routes and blackhole the
-        # Docker-host gateway IPs so containers cannot reach the
-        # Docker host and it stays invisible to scanners
-        for host in hosts:
-            container_name = f"{DOCKER.CONTAINER_PREFIX}{host['id']}"
-            cmds = ["ip route del default 2>/dev/null || true"]
-            for gw_ip in gateway_ips:
-                cmds.append(
-                    f"ip route add blackhole {gw_ip}/32 "
-                    f"2>/dev/null || true"
-                )
-            try:
-                exec_id = client.api.exec_create(
-                    container_name,
-                    ["/bin/sh", "-c", " && ".join(cmds)],
-                )["Id"]
-                client.api.exec_start(exec_id)
-            except Exception:
-                pass
-
         # Apply post-deploy commands (e.g. iptables rules)
         for host in hosts:
             post_cmds = host.get("post_deploy_commands", [])

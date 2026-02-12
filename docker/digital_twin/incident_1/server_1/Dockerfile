@@ -15,7 +15,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     net-tools \
     procps \
-    && rm -rf /var/lib/apt/lists/*
+    openssh-client \
+    netcat-openbsd \
+    nmap \
+    telnet \
+    wget \
+    ftp \
+    dnsutils \
+    tcpdump \
+    traceroute \
+    python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
 
 # Configure Nginx
 COPY nginx-default.conf /etc/nginx/sites-available/default

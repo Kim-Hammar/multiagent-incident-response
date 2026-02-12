@@ -10,7 +10,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     procps \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    openssh-client \
+    netcat-openbsd \
+    nmap \
+    telnet \
+    wget \
+    ftp \
+    dnsutils \
+    tcpdump \
+    traceroute \
+    python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
 
 # Configure SSH: key-based only, no password auth
 RUN mkdir -p /run/sshd && \

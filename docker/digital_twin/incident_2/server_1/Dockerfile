@@ -10,6 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     curl \
     procps \
+    openssh-client \
+    netcat-openbsd \
+    nmap \
+    telnet \
+    wget \
+    ftp \
+    dnsutils \
+    tcpdump \
+    traceroute \
+    python3 \
+    python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY iptables-rules.sh /iptables-rules.sh

@@ -12,11 +12,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libc6-dev \
     python3 \
     python3-pip \
+    python-is-python3 \
     curl \
     iproute2 \
     iputils-ping \
     net-tools \
     tcpdump \
+    nmap \
+    netcat-openbsd \
+    telnet \
+    wget \
+    ftp \
+    dnsutils \
+    traceroute \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir impacket

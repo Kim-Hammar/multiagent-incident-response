@@ -23,6 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iproute2 \
     iputils-ping \
     net-tools \
+    netcat-openbsd \
+    telnet \
+    traceroute \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv && \

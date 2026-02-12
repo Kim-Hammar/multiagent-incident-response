@@ -9,11 +9,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     cron \
     python3 \
+    python-is-python3 \
     iptables \
     iproute2 \
     iputils-ping \
     net-tools \
     procps \
+    openssh-client \
+    netcat-openbsd \
+    nmap \
+    telnet \
+    ftp \
+    dnsutils \
+    tcpdump \
+    traceroute \
     && rm -rf /var/lib/apt/lists/*
 
 # Download Tomcat 9.0.30 (vulnerable to CVE-2020-9484)

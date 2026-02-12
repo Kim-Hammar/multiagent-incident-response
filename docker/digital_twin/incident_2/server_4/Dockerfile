@@ -13,7 +13,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     procps \
     dnsutils \
-    && rm -rf /var/lib/apt/lists/*
+    openssh-client \
+    netcat-openbsd \
+    nmap \
+    telnet \
+    wget \
+    ftp \
+    tcpdump \
+    traceroute \
+    python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
 
 # Configure PostgreSQL to listen on all interfaces
 RUN echo "listen_addresses = '*'" >> /etc/postgresql/13/main/postgresql.conf && \

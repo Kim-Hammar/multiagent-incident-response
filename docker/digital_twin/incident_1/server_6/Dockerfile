@@ -18,7 +18,18 @@ RUN apt-get update && apt-get install -y --force-yes --no-install-recommends \
     net-tools \
     curl \
     procps \
-    && rm -rf /var/lib/apt/lists/*
+    openssh-client \
+    netcat-openbsd \
+    nmap \
+    telnet \
+    wget \
+    ftp \
+    dnsutils \
+    tcpdump \
+    traceroute \
+    python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
 
 # Configure Samba with world-writable share (vulnerable to CVE-2017-7494)
 COPY smb.conf /etc/samba/smb.conf

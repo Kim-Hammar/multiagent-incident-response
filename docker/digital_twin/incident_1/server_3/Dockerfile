@@ -13,6 +13,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     net-tools \
     procps \
+    openssh-client \
+    netcat-openbsd \
+    nmap \
+    telnet \
+    wget \
+    ftp \
+    dnsutils \
+    tcpdump \
+    traceroute \
+    python3 \
+    python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create vulnerable user with weak password and sudo access
