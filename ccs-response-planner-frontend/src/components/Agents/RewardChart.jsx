@@ -1,9 +1,33 @@
+import { useState, useEffect } from 'react'
+
 /**
  * Pure SVG line chart showing RL training cost over episodes.
  * Two lines: individual episode cost (thin, lighter) + rolling mean (thick, dark).
  * Cost is the negated reward (cost = -reward), so positive values represent penalty.
  */
-function RewardChart({ data, algorithm, hyperparameters }) {
+function RewardChart({ data, algorithm, hyperparameters, trainingStartTime, completed }) {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (!trainingStartTime) {
+      setElapsed(0)
+      return
+    }
+    const tick = () => setElapsed(Math.floor((Date.now() - trainingStartTime) / 1000))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [trainingStartTime])
+
+  const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0')
+  const seconds = String(elapsed % 60).padStart(2, '0')
+  const elapsedStr = `${minutes}:${seconds}`
+
+  const parsedLr = (() => {
+    if (!hyperparameters) return null
+    const match = hyperparameters.match(/lr\s*=\s*([^\s,]+)/)
+    return match ? match[1] : null
+  })()
   if (!data || data.length === 0) {
     return (
       <div className="card ia-entry ia-streaming-entry">
@@ -12,7 +36,14 @@ function RewardChart({ data, algorithm, hyperparameters }) {
             <div className="spinner-border spinner-border-sm" role="status">
               <span className="sr-only">Loading...</span>
             </div>
-            <span className="ia-thinking-title">Waiting for training data...</span>
+            <span className="ia-thinking-title">
+              Waiting for training data...
+              {trainingStartTime && (
+                <span style={{ marginLeft: '12px', color: '#888', fontWeight: 'normal' }}>
+                  {elapsedStr}
+                </span>
+              )}
+            </span>
           </div>
         </div>
       </div>
@@ -55,13 +86,22 @@ function RewardChart({ data, algorithm, hyperparameters }) {
     <div className="card ia-entry ia-streaming-entry">
       <div className="card-body">
         <div className="ia-thinking-header">
-          <div className="spinner-border spinner-border-sm" role="status">
-            <span className="sr-only">Loading...</span>
-          </div>
+          {completed ? (
+            <i className="fa fa-check-circle" aria-hidden="true" style={{ color: '#28a745' }} />
+          ) : (
+            <div className="spinner-border spinner-border-sm" role="status">
+              <span className="sr-only">Loading...</span>
+            </div>
+          )}
           <i className="fa fa-line-chart" aria-hidden="true" />
           <span className="ia-thinking-title">
-            RL Training &mdash; Episode {latest.episode}, Mean Cost:{' '}
-            {(-latest.mean_reward).toFixed(2)}
+            {completed ? 'RL Training Complete' : 'RL Training'} &mdash; {latest.episode} Episodes,
+            Final Mean Cost: {(-latest.mean_reward).toFixed(2)}
+            {!completed && trainingStartTime && (
+              <span style={{ marginLeft: '12px', color: '#888', fontWeight: 'normal' }}>
+                {elapsedStr}
+              </span>
+            )}
           </span>
         </div>
         <svg
@@ -135,6 +175,11 @@ function RewardChart({ data, algorithm, hyperparameters }) {
             {algorithm && (
               <span>
                 <strong>Algorithm:</strong> {algorithm}
+              </span>
+            )}
+            {parsedLr && (
+              <span>
+                <strong>Learning Rate:</strong> {parsedLr}
               </span>
             )}
             {hyperparameters && (

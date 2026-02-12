@@ -341,11 +341,9 @@ function CodeAgent() {
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
-          setIncidentReport(JSON.stringify(infoReports[0].report || {}, null, 2))
-          const attackImg = infoReports[0].report?.attack_path_image
-          if (attackImg) {
-            setSystemDescriptionImages((prev) => [...prev, attackImg])
-          }
+          const { attack_path_image, ...reportText } = infoReports[0].report || {}
+          void attack_path_image
+          setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
     } catch (err) {

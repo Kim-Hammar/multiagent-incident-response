@@ -11,6 +11,7 @@ import {
 import MdpPlannerConfigTab from './MdpPlannerConfigTab.jsx'
 import MdpPlannerReport from './MdpPlannerReport.jsx'
 import RewardChart from './RewardChart.jsx'
+import RlTrainResult from './RlTrainResult.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 
@@ -45,10 +46,13 @@ function MdpPlannerAgent() {
   const [reportHistory, setReportHistory] = useState([])
   const [trainingData, setTrainingData] = useState([])
   const [trainingMeta, setTrainingMeta] = useState({ algorithm: '', hyperparameters: '' })
+  const [trainingStartTime, setTrainingStartTime] = useState(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
+  const trainingRunsRef = useRef({})
+  const runIdCounterRef = useRef(0)
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -133,7 +137,11 @@ function MdpPlannerAgent() {
           specification: specification,
           operator_feedback: operatorFeedback,
           code_report: codeReport,
-          conversation_history: history,
+          conversation_history: history.map((e) =>
+            e._runId != null
+              ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== '_runId'))
+              : e
+          ),
           images: systemDescriptionImages,
           model_name: selectedModel || undefined,
           time_limit_minutes: timeLimitMinutes
@@ -274,6 +282,7 @@ function MdpPlannerAgent() {
 
     if (proposal.tool_name === 'rl_train') {
       setTrainingData([])
+      setTrainingStartTime(Date.now())
       setTrainingMeta({
         algorithm: proposal.tool_args.algorithm || '',
         hyperparameters: proposal.tool_args.hyperparameters || ''
@@ -337,6 +346,15 @@ function MdpPlannerAgent() {
           }
         }
 
+        setTrainingStartTime(null)
+        const runId = ++runIdCounterRef.current
+        trainingRunsRef.current[runId] = {
+          data: [...progressEvents],
+          meta: {
+            algorithm: proposal.tool_args.algorithm || '',
+            hyperparameters: proposal.tool_args.hyperparameters || ''
+          }
+        }
         const toolResult = {
           progress_episodes: progressEvents.length,
           result: resultEvent,
@@ -346,7 +364,8 @@ function MdpPlannerAgent() {
           role: 'tool',
           type: 'tool_result',
           tool_name: proposal.tool_name,
-          result: toolResult
+          result: toolResult,
+          _runId: runId
         }
         const updated = [...conversationHistory, approvalEntry, resultEntry]
         setConversationHistory(updated)
@@ -354,6 +373,7 @@ function MdpPlannerAgent() {
         await callStep(updated)
       } catch (err) {
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+        setTrainingStartTime(null)
         setExecutingTool(null)
       }
     } else {
@@ -451,11 +471,9 @@ function MdpPlannerAgent() {
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
-          setIncidentReport(JSON.stringify(infoReports[0].report || {}, null, 2))
-          const attackImg = infoReports[0].report?.attack_path_image
-          if (attackImg) {
-            setSystemDescriptionImages((prev) => [...prev, attackImg])
-          }
+          const { attack_path_image, ...reportText } = infoReports[0].report || {}
+          void attack_path_image
+          setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
     } catch (err) {
@@ -476,6 +494,9 @@ function MdpPlannerAgent() {
     setExpandedEntries({})
     setTrainingData([])
     setTrainingMeta({ algorithm: '', hyperparameters: '' })
+    setTrainingStartTime(null)
+    trainingRunsRef.current = {}
+    runIdCounterRef.current = 0
     setSelectedIncidentId(null)
   }
 
@@ -572,6 +593,20 @@ function MdpPlannerAgent() {
     />
   )
 
+  const renderToolResult = (entry) => {
+    if (entry.tool_name === 'rl_train') {
+      const run = entry._runId ? trainingRunsRef.current[entry._runId] : null
+      return (
+        <RlTrainResult
+          trainingData={run ? run.data : trainingData}
+          trainingMeta={run ? run.meta : trainingMeta}
+          result={entry.result}
+        />
+      )
+    }
+    return null
+  }
+
   const renderExecutingTool = (toolName) => {
     if (toolName === 'rl_train') {
       return (
@@ -579,6 +614,7 @@ function MdpPlannerAgent() {
           data={trainingData}
           algorithm={trainingMeta.algorithm}
           hyperparameters={trainingMeta.hyperparameters}
+          trainingStartTime={trainingStartTime}
         />
       )
     }
@@ -678,6 +714,7 @@ function MdpPlannerAgent() {
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
           renderExecutingTool={renderExecutingTool}
+          renderToolResult={renderToolResult}
         />
       )}
 

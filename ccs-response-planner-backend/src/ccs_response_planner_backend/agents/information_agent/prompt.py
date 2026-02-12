@@ -57,8 +57,15 @@ call `generate_attack_image` to create a visual attack path diagram. Provide a \
 detailed prompt describing the believed attack path step-by-step: which hosts \
 were targeted, in what order, what techniques/exploits were used, and how the \
 attacker moved laterally — so the image generator can illustrate it on top of \
-the network topology. Only call it once.
-7. After receiving the image result, call the \
+the network topology.
+7. After receiving the generated image, **carefully verify** that it accurately \
+depicts the attack path from your assessment. Check that the correct hosts, \
+attack direction, lateral movement steps, and techniques are shown. If the \
+image is inaccurate or misleading (e.g. wrong hosts, missing steps, incorrect \
+arrows), call `generate_attack_image` again with a revised, more specific \
+prompt that corrects the issues. Repeat until the image properly matches your \
+assessment. Only proceed to the next step once you are satisfied with the image.
+8. After the image is verified, call the \
 `produce_assessment` tool with the structured assessment data.
 
 ## Digital Twin Environment

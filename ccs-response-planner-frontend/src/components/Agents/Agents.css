@@ -768,3 +768,26 @@
   white-space: pre-wrap;
   margin-bottom: 0;
 }
+
+.ia-metric-card {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 8px 16px;
+  min-width: 90px;
+  text-align: center;
+}
+
+.ia-metric-label {
+  font-size: 11px;
+  color: #868e96;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ia-metric-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #212529;
+}

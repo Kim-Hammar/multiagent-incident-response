@@ -19,7 +19,8 @@ function AgentPlanningTab({
   logEndRef,
   streamingTraceRef,
   renderFinalReport,
-  renderExecutingTool
+  renderExecutingTool,
+  renderToolResult
 }) {
   if (conversationHistory.length === 0 && !running) {
     return (
@@ -45,6 +46,7 @@ function AgentPlanningTab({
       streamingTraceRef={streamingTraceRef}
       renderFinalReport={renderFinalReport}
       renderExecutingTool={renderExecutingTool}
+      renderToolResult={renderToolResult}
     />
   )
 }

@@ -20,7 +20,8 @@ function AgentActivityLog({
   logEndRef,
   streamingTraceRef,
   renderFinalReport,
-  renderExecutingTool
+  renderExecutingTool,
+  renderToolResult
 }) {
   return (
     <div style={{ marginTop: '28px' }}>
@@ -153,6 +154,7 @@ function AgentActivityLog({
           if (entry.type === 'tool_result') {
             const isExpanded = expandedEntries[index]
             const hasImage = entry.result?.image
+            const customRender = renderToolResult && renderToolResult(entry)
             const displayResult = hasImage
               ? { status: 'success', message: 'Attack path image generated successfully' }
               : entry.result
@@ -164,25 +166,26 @@ function AgentActivityLog({
                     <span className="ia-result-label">{toolLabel(entry.tool_name)} result</span>
                     <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
                   </div>
-                  {isExpanded && (
-                    <>
-                      <pre className="ia-result-data mb-0">
-                        {JSON.stringify(displayResult, null, 2)}
-                      </pre>
-                      {hasImage && (
-                        <img
-                          src={entry.result.image}
-                          alt="Generated attack path"
-                          style={{
-                            maxWidth: '100%',
-                            border: '1px solid #dee2e6',
-                            borderRadius: '4px',
-                            marginTop: '8px'
-                          }}
-                        />
-                      )}
-                    </>
-                  )}
+                  {isExpanded &&
+                    (customRender || (
+                      <>
+                        <pre className="ia-result-data mb-0">
+                          {JSON.stringify(displayResult, null, 2)}
+                        </pre>
+                        {hasImage && (
+                          <img
+                            src={entry.result.image}
+                            alt="Generated attack path"
+                            style={{
+                              maxWidth: '100%',
+                              border: '1px solid #dee2e6',
+                              borderRadius: '4px',
+                              marginTop: '8px'
+                            }}
+                          />
+                        )}
+                      </>
+                    ))}
                 </div>
               </div>
             )

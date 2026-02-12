@@ -48,7 +48,7 @@ function ValidationAgentConfigTab({
               commands.
             </li>
             <li>
-              After each action, check the recovery state (6 booleans) and service state
+              After each action, check the recovery state and service state
               (specification commands).
             </li>
             <li>

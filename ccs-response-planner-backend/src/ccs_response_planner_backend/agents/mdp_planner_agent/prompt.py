@@ -57,6 +57,7 @@ import numpy as np
 import gymnasium
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.evaluation import evaluate_policy
 
 # 1. Write env code to file
 ENV_CODE = \"\"\"
@@ -100,32 +101,46 @@ class ProgressCallback(BaseCallback):
 
 # 4. Train
 env = EnvClass()
-model = PPO("MlpPolicy", env, verbose=0, n_steps=128, batch_size=64)
-model.learn(total_timesteps=50000, callback=ProgressCallback())
+model = PPO("MlpPolicy", env, verbose=0, n_steps=2048, batch_size=128,
+            learning_rate=3e-4)
+model.learn(total_timesteps=100000, callback=ProgressCallback())
 
-# 5. Evaluate — run greedy policy
-obs, _ = env.reset()
+# 5. Evaluate — use SB3's evaluate_policy for accurate reward measurement
+#    (handles env wrapping, observation dtype, etc. identically to training)
+NUM_EVAL_EPISODES = 10
+eval_env = EnvClass()
+mean_eval_reward, std_eval_reward = evaluate_policy(
+    model, eval_env, n_eval_episodes=NUM_EVAL_EPISODES, deterministic=True
+)
+
+# 6. Run one detailed episode to capture the action sequence
+detail_env = EnvClass()
+obs, _ = detail_env.reset()
+obs = np.array(obs, dtype=np.float32)
 actions_taken = []
-total_reward = 0.0
+ep_reward = 0.0
 for _ in range(100):
     action, _ = model.predict(obs, deterministic=True)
-    obs, reward, terminated, truncated, info = env.step(int(action))
+    obs, reward, terminated, truncated, info = detail_env.step(int(action))
+    obs = np.array(obs, dtype=np.float32)
     actions_taken.append(int(action))
-    total_reward += reward
+    ep_reward += reward
     if terminated or truncated:
         break
 
-action_names = [a.get("name", "?") for a in env.get_actions()]
+action_names = [a.get("name", "?") for a in detail_env.get_actions()]
 named_actions = [
     action_names[a] if a < len(action_names) else f"action_{{a}}"
     for a in actions_taken
 ]
 print(json.dumps({{
     "type": "result",
-    "total_reward": round(total_reward, 2),
+    "total_reward": round(float(mean_eval_reward), 2),
+    "detail_episode_reward": round(float(ep_reward), 2),
     "action_sequence": named_actions,
     "action_indices": actions_taken,
     "num_steps": len(actions_taken),
+    "num_eval_episodes": NUM_EVAL_EPISODES,
     "final_state": [round(float(x), 3) for x in obs]
 }}), flush=True)
 ```
@@ -139,8 +154,9 @@ training.
 progress. The code MUST print JSON progress lines to stdout. Use this tool \
 for all RL training runs (NOT python_exec). When calling this tool you MUST \
 also provide the `algorithm` parameter (e.g. "PPO") and `hyperparameters` \
-parameter (e.g. "n_steps=128, batch_size=64, lr=3e-4, total_timesteps=50000") \
-so the UI can display them alongside the training chart.
+parameter (e.g. "n_steps=2048, batch_size=128, lr=3e-4, total_timesteps=100000") \
+so the UI can display them alongside the training chart. \
+**Important:** Always include the learning rate (`lr`) in the hyperparameters string.
 - **produce_planner_report**: Call this ONLY after RL training has \
 completed to produce the final structured incident response plan.
 
@@ -149,8 +165,19 @@ completed to produce the final structured incident response plan.
 The MDP uses negative rewards (reward = -1 - number_of_violated_specs). \
 In the UI we display **cost** instead of reward, where cost = -reward. \
 A lower cost is better. When reporting results in `produce_planner_report`, \
-use the `expected_total_cost` field with the negated total reward (i.e. \
-`expected_total_cost = -total_reward`).
+set `expected_total_cost` to the **exact** negated `total_reward` value \
+from the evaluation result JSON (i.e. `expected_total_cost = -total_reward`). \
+Do NOT estimate or approximate — use the precise number from the evaluation \
+output. This value should closely match the converged mean cost visible in \
+the training chart.
+
+## Training Stability
+
+For stable RL training, prefer larger `n_steps` (e.g. 2048) for \
+smoother rollout collection. A moderate `batch_size` (e.g. 128) is \
+usually sufficient — very large batch sizes can hurt learning. \
+Increase `total_timesteps` proportionally (e.g. 100000+) to ensure \
+enough training episodes with larger rollout buffers.
 
 ## CRITICAL RULES
 
