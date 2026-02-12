@@ -5,10 +5,16 @@ from flask.testing import FlaskClient
 
 
 @patch(
+    "ccs_response_planner_backend.rest_api.resources.llm"
+    ".routes._fetch_anthropic_models",
+    return_value=[],
+)
+@patch(
     "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
 )
 def test_llm_returns_connected_status(
     mock_genai: MagicMock,
+    mock_anthropic: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -35,10 +41,16 @@ def test_llm_returns_connected_status(
 
 
 @patch(
+    "ccs_response_planner_backend.rest_api.resources.llm"
+    ".routes._fetch_anthropic_models",
+    return_value=[],
+)
+@patch(
     "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
 )
 def test_llm_filters_non_thinking_models(
     mock_genai: MagicMock,
+    mock_anthropic: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -76,10 +88,16 @@ def test_llm_filters_non_thinking_models(
 
 
 @patch(
+    "ccs_response_planner_backend.rest_api.resources.llm"
+    ".routes._fetch_anthropic_models",
+    return_value=[],
+)
+@patch(
     "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
 )
 def test_llm_returns_error_status_on_failure(
     mock_genai: MagicMock,
+    mock_anthropic: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -91,7 +109,7 @@ def test_llm_returns_error_status_on_failure(
     assert response.status_code == 200
     assert data["status"] == "error"
     assert "timestamp" in data
-    assert data["error"] == "Invalid API key"
+    assert "Invalid API key" in data["error"]
 
 
 def test_llm_returns_401_without_token(
@@ -102,10 +120,16 @@ def test_llm_returns_401_without_token(
 
 
 @patch(
+    "ccs_response_planner_backend.rest_api.resources.llm"
+    ".routes._fetch_anthropic_models",
+    return_value=[],
+)
+@patch(
     "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
 )
 def test_llm_post_returns_405(
     mock_genai: MagicMock,
+    mock_anthropic: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:

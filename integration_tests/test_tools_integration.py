@@ -337,7 +337,7 @@ class TestDtExecIntegration:
     ) -> None:
         resp = http.post(
             f"{base_url}/api/dt-exec/run",
-            json={"container": "gateway", "command": "echo hello"},
+            json={"container": "i1_gateway", "command": "echo hello"},
             headers=auth_headers, timeout=30,
         )
         data = resp.json()
@@ -370,12 +370,12 @@ class TestDtLogsIntegration:
     ) -> None:
         resp = http.post(
             f"{base_url}/api/dt-logs/fetch",
-            json={"container": "gateway", "tail": 10},
+            json={"container": "i1_gateway", "tail": 10},
             headers=auth_headers, timeout=30,
         )
         data = resp.json()
         assert resp.status_code == 200
-        assert data["container"] == "gateway"
+        assert data["container"] == "i1_gateway"
         assert "output" in data
         assert "lines" in data
 

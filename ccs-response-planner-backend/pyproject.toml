@@ -28,6 +28,7 @@ dependencies = [
     "vt-py==0.22.0",
     "requests==2.32.3",
     "OTXv2==1.5.12",
+    "anthropic==0.79.0",
 ]
 
 [project.optional-dependencies]

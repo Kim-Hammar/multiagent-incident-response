@@ -72,7 +72,7 @@ def test_generate_attack_image_returns_image(
         mock_client.models.generate_content.call_args
     )
     assert call_args.kwargs["model"] == (
-        "gemini-2.0-flash-preview-image-generation"
+        "gemini-3-pro-image-preview"
     )
 
 

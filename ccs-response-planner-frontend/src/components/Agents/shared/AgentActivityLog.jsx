@@ -2,6 +2,62 @@ import ReactMarkdown from 'react-markdown'
 import ElapsedTimer from './ElapsedTimer.jsx'
 import { formatToolArgs, toolLabel, toolIcon } from './toolUtils.js'
 
+const TERMINAL_TOOLS = new Set([
+  'dt_exec',
+  'pentest_exec',
+  'python_exec',
+  'dt_python_exec',
+  'rl_train'
+])
+
+function renderTerminalResult(toolName, result) {
+  if (!result || typeof result !== 'object') return null
+
+  if (toolName === 'gym_verify' && 'valid' in result) {
+    return (
+      <div className="ia-terminal-result">
+        <div className="ia-terminal-meta">
+          <span className={`badge badge-${result.valid ? 'success' : 'danger'}`}>
+            {result.valid ? 'Valid' : 'Invalid'}
+          </span>
+        </div>
+        {result.checks && result.checks.length > 0 && (
+          <ul className="ia-gym-checks">
+            {result.checks.map((check, i) => (
+              <li key={i} className={check.passed ? 'passed' : 'failed'}>
+                {check.passed ? '\u2713' : '\u2717'} {check.name || check.description || check}
+              </li>
+            ))}
+          </ul>
+        )}
+        {result.error && <pre className="ia-terminal-output error">{result.error}</pre>}
+      </div>
+    )
+  }
+
+  if (!TERMINAL_TOOLS.has(toolName) || !('exit_code' in result)) return null
+
+  return (
+    <div className="ia-terminal-result">
+      <div className="ia-terminal-meta">
+        {result.container && (
+          <span className="ia-terminal-container">
+            <i className="fa fa-server" aria-hidden="true" /> {result.container}
+          </span>
+        )}
+        <span className={`badge badge-${result.exit_code === 0 ? 'success' : 'danger'}`}>
+          exit {result.exit_code}
+        </span>
+      </div>
+      {result.output != null && result.output !== '' ? (
+        <pre className="ia-terminal-output">{result.output}</pre>
+      ) : (
+        <span className="ia-terminal-empty">(no output)</span>
+      )}
+    </div>
+  )
+}
+
 /**
  * Shared activity log component for all agents.
  * Uses a render prop (renderFinalReport) for the agent-specific final report entry.
@@ -167,7 +223,7 @@ function AgentActivityLog({
                     <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
                   </div>
                   {isExpanded &&
-                    (customRender || (
+                    (customRender || renderTerminalResult(entry.tool_name, displayResult) || (
                       <>
                         <pre className="ia-result-data mb-0">
                           {JSON.stringify(displayResult, null, 2)}

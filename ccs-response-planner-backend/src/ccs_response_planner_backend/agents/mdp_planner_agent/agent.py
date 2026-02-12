@@ -12,6 +12,10 @@ from typing import Any, Generator
 from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
+from ccs_response_planner_backend.agents.anthropic_adapter import (
+    is_anthropic_model,
+    stream_step as anthropic_stream_step,
+)
 from ccs_response_planner_backend.agents.mdp_planner_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
@@ -220,7 +224,6 @@ class MdpPlannerAgent:
         :param time_limit_minutes: RL training time limit
         :return: a generator of event dicts
         """
-        client = self._create_client()
         effective_model = model_name or MODEL_NAME
 
         formatted_report = self._format_code_report(
@@ -240,6 +243,27 @@ class MdpPlannerAgent:
             if self._has_trained(conversation_history)
             else ITERATING_DECLARATIONS
         )
+
+        if is_anthropic_model(effective_model):
+            yield from anthropic_stream_step(
+                system_prompt=system_prompt,
+                tool_declarations=declarations,
+                history=conversation_history,
+                initial_user_parts=[{"type": "text", "text": (
+                    "Please analyze the provided Gymnasium "
+                    "MDP environment, train an RL policy on "
+                    "it, and produce an incident response "
+                    "plan based on the learned policy."
+                )}],
+                final_tool_name=REPORT_TOOL_NAME,
+                final_event_type="planner_report",
+                thinking_budget=THINKING_BUDGET,
+                images=images,
+                model_name=effective_model,
+            )
+            return
+
+        client = self._create_client()
         config = self._make_config(system_prompt, declarations)
 
         contents = (

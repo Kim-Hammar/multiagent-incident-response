@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python-is-python3 \
     curl \
+    iptables \
     iproute2 \
     iputils-ping \
     net-tools \

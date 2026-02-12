@@ -14,7 +14,7 @@ function formatTimestamp(iso) {
 }
 
 /**
- * LLM status page that tests the connection to the Gemini API
+ * LLM status page that tests the connection to the LLM APIs
  * and displays available model information.
  */
 function Llm() {
@@ -85,6 +85,7 @@ function Llm() {
                 <table className="table table-striped table-sm">
                   <thead>
                     <tr>
+                      <th>Vendor</th>
                       <th>Name</th>
                       <th>Description</th>
                       <th>Input token limit</th>
@@ -94,6 +95,7 @@ function Llm() {
                   <tbody>
                     {data.models.map((m) => (
                       <tr key={m.name}>
+                        <td>{m.vendor || 'gemini'}</td>
                         <td>{m.display_name}</td>
                         <td>{m.description}</td>
                         <td>{m.input_token_limit?.toLocaleString()}</td>

@@ -203,7 +203,10 @@ function InformationAgent() {
               tool_args: event.tool_args,
               rationale: event.rationale,
               thinking_trace: event.thinking_trace || '',
-              _model_parts: event._model_parts
+              _model_parts: event._model_parts,
+              _anthropic_content: event._anthropic_content,
+              _tool_use_id: event._tool_use_id,
+              _vendor: event._vendor
             }
           } else if (event.type === 'assessment') {
             finalEntry = {
@@ -225,8 +228,9 @@ function InformationAgent() {
 
       if (finalEntry) {
         const entries = []
-        if (finalEntry.thinking_trace) {
-          entries.push({ role: 'model', type: 'reasoning', text: finalEntry.thinking_trace })
+        const reasoningText = finalEntry.thinking_trace || accumulated
+        if (reasoningText) {
+          entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
         const updated = [...history, ...entries]

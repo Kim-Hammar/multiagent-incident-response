@@ -791,3 +791,74 @@
   font-weight: 700;
   color: #212529;
 }
+
+/* Terminal-style tool results */
+.ia-terminal-result {
+  margin-top: 6px;
+}
+
+.ia-terminal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.ia-terminal-container {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.ia-terminal-container .fa {
+  margin-right: 3px;
+  font-size: 11px;
+}
+
+.ia-terminal-output {
+  font-size: 12px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 0;
+  max-height: 400px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.ia-terminal-output.error {
+  background: #2d1215;
+  color: #f38ba8;
+  border-color: #45171b;
+}
+
+.ia-terminal-empty {
+  font-size: 12px;
+  color: #868e96;
+  font-style: italic;
+}
+
+.ia-gym-checks {
+  list-style: none;
+  padding-left: 0;
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.ia-gym-checks li {
+  margin-bottom: 2px;
+  color: #495057;
+}
+
+.ia-gym-checks li.passed {
+  color: #28a745;
+}
+
+.ia-gym-checks li.failed {
+  color: #dc3545;
+}

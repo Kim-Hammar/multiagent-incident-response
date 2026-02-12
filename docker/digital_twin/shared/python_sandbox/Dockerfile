@@ -1,4 +1,12 @@
 FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    iptables \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir \
     numpy scipy gymnasium stable-baselines3 \
     matplotlib pandas pytest

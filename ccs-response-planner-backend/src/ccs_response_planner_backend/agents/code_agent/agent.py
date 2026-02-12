@@ -11,6 +11,10 @@ from typing import Any, Generator
 from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
+from ccs_response_planner_backend.agents.anthropic_adapter import (
+    is_anthropic_model,
+    stream_step as anthropic_stream_step,
+)
 from ccs_response_planner_backend.agents.code_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
@@ -137,7 +141,6 @@ class CodeAgent:
         :param model_name: optional LLM model name override
         :return: a generator of event dicts
         """
-        client = self._create_client()
         effective_model = model_name or MODEL_NAME
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
@@ -152,6 +155,28 @@ class CodeAgent:
             if self._gym_verify_passed(conversation_history)
             else ITERATING_DECLARATIONS
         )
+
+        if is_anthropic_model(effective_model):
+            yield from anthropic_stream_step(
+                system_prompt=system_prompt,
+                tool_declarations=declarations,
+                history=conversation_history,
+                initial_user_parts=[{"type": "text", "text": (
+                    "Please generate a Gymnasium MDP "
+                    "environment for incident response "
+                    "recovery planning based on the "
+                    "provided system description, incident "
+                    "report, and specification."
+                )}],
+                final_tool_name=REPORT_TOOL_NAME,
+                final_event_type="code_report",
+                thinking_budget=THINKING_BUDGET,
+                images=images,
+                model_name=effective_model,
+            )
+            return
+
+        client = self._create_client()
         config = self._make_config(system_prompt, declarations)
 
         contents = (
