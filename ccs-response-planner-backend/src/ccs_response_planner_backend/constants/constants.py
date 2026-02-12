@@ -192,7 +192,7 @@ class DIGITAL_TWIN:
         ],
         "hosts": [
             {
-                "id": "attacker",
+                "id": "i1_attacker",
                 "name": "Attacker",
                 "docker_image": "ccs-dt-attacker:latest",
                 "ip_addresses": {"perimeter": "10.0.1.10"},
@@ -208,9 +208,9 @@ class DIGITAL_TWIN:
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
             },
             {
-                "id": "gateway",
+                "id": "i1_gateway",
                 "name": "Gateway",
-                "docker_image": "ccs-dt-gateway:latest",
+                "docker_image": "ccs-dt-i1-gateway:latest",
                 "ip_addresses": {"perimeter": "10.0.1.254"},
                 "routes": [
                     {"destination": "10.0.2.0/24",
@@ -224,9 +224,9 @@ class DIGITAL_TWIN:
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
             },
             {
-                "id": "firewall",
+                "id": "i1_firewall",
                 "name": "Firewall",
-                "docker_image": "ccs-dt-firewall:latest",
+                "docker_image": "ccs-dt-i1-firewall:latest",
                 "ip_addresses": {"perimeter": "10.0.1.253"},
                 "routes": [
                     {"destination": "10.0.2.0/24",
@@ -241,9 +241,9 @@ class DIGITAL_TWIN:
                 "sysctls": {"net.ipv4.ip_forward": "1"},
             },
             {
-                "id": "ids",
+                "id": "i1_ids",
                 "name": "IDS",
-                "docker_image": "ccs-dt-ids:latest",
+                "docker_image": "ccs-dt-i1-ids:latest",
                 "ip_addresses": {
                     "perimeter": "10.0.1.252",
                     "zone1": "10.0.2.252",
@@ -256,9 +256,9 @@ class DIGITAL_TWIN:
                 "sysctls": {"net.ipv4.ip_forward": "1"},
             },
             {
-                "id": "server_1",
+                "id": "i1_server_1",
                 "name": "Server 1",
-                "docker_image": "ccs-dt-server1:latest",
+                "docker_image": "ccs-dt-i1-server1:latest",
                 "ip_addresses": {"zone1": "10.0.2.1"},
                 "routes": [
                     {"destination": "10.0.3.4/32",
@@ -272,9 +272,9 @@ class DIGITAL_TWIN:
                 "capabilities": ["NET_ADMIN"],
             },
             {
-                "id": "server_2",
+                "id": "i1_server_2",
                 "name": "Server 2",
-                "docker_image": "ccs-dt-server2:latest",
+                "docker_image": "ccs-dt-i1-server2:latest",
                 "ip_addresses": {"zone1": "10.0.2.2"},
                 "routes": [
                     {"destination": "10.0.3.3/32",
@@ -288,9 +288,9 @@ class DIGITAL_TWIN:
                 "capabilities": ["NET_ADMIN"],
             },
             {
-                "id": "server_3",
+                "id": "i1_server_3",
                 "name": "Server 3",
-                "docker_image": "ccs-dt-server3:latest",
+                "docker_image": "ccs-dt-i1-server3:latest",
                 "ip_addresses": {"zone2": "10.0.3.3"},
                 "routes": [
                     {"destination": "10.0.2.2/32",
@@ -308,9 +308,9 @@ class DIGITAL_TWIN:
                 "capabilities": ["NET_ADMIN"],
             },
             {
-                "id": "server_4",
+                "id": "i1_server_4",
                 "name": "Server 4",
-                "docker_image": "ccs-dt-server4:latest",
+                "docker_image": "ccs-dt-i1-server4:latest",
                 "ip_addresses": {"zone2": "10.0.3.4"},
                 "routes": [
                     {"destination": "10.0.2.1/32",
@@ -328,9 +328,9 @@ class DIGITAL_TWIN:
                 "capabilities": ["NET_ADMIN"],
             },
             {
-                "id": "server_5",
+                "id": "i1_server_5",
                 "name": "Server 5",
-                "docker_image": "ccs-dt-server5:latest",
+                "docker_image": "ccs-dt-i1-server5:latest",
                 "ip_addresses": {"zone3": "10.0.4.5"},
                 "routes": [
                     {"destination": "10.0.2.2/32",
@@ -344,9 +344,9 @@ class DIGITAL_TWIN:
                 "capabilities": ["NET_ADMIN"],
             },
             {
-                "id": "server_6",
+                "id": "i1_server_6",
                 "name": "Server 6",
-                "docker_image": "ccs-dt-server6:latest",
+                "docker_image": "ccs-dt-i1-server6:latest",
                 "ip_addresses": {"zone3": "10.0.4.6"},
                 "routes": [
                     {"destination": "10.0.2.1/32",
@@ -361,23 +361,23 @@ class DIGITAL_TWIN:
             },
         ],
         "links": [
-            {"source": "attacker", "target": "gateway"},
-            {"source": "gateway", "target": "firewall"},
-            {"source": "firewall", "target": "ids"},
-            {"source": "ids", "target": "server_2"},
-            {"source": "ids", "target": "server_3"},
-            {"source": "server_1", "target": "server_2"},
-            {"source": "server_1", "target": "server_4"},
-            {"source": "server_1", "target": "server_6"},
-            {"source": "server_2", "target": "server_3"},
-            {"source": "server_2", "target": "server_5"},
-            {"source": "server_3", "target": "server_6"},
-            {"source": "server_4", "target": "server_5"},
-            {"source": "server_5", "target": "server_6"},
+            {"source": "i1_attacker", "target": "i1_gateway"},
+            {"source": "i1_gateway", "target": "i1_firewall"},
+            {"source": "i1_firewall", "target": "i1_ids"},
+            {"source": "i1_ids", "target": "i1_server_2"},
+            {"source": "i1_ids", "target": "i1_server_3"},
+            {"source": "i1_server_1", "target": "i1_server_2"},
+            {"source": "i1_server_1", "target": "i1_server_4"},
+            {"source": "i1_server_1", "target": "i1_server_6"},
+            {"source": "i1_server_2", "target": "i1_server_3"},
+            {"source": "i1_server_2", "target": "i1_server_5"},
+            {"source": "i1_server_3", "target": "i1_server_6"},
+            {"source": "i1_server_4", "target": "i1_server_5"},
+            {"source": "i1_server_5", "target": "i1_server_6"},
         ],
         "specification_commands": [
             {
-                "host": "server_1",
+                "host": "i1_server_1",
                 "command": (
                     "bash -c 'echo > /dev/tcp/10.0.2.2/21'"
                 ),
@@ -387,7 +387,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_2",
+                "host": "i1_server_2",
                 "command": (
                     "bash -c 'echo > /dev/tcp/10.0.3.3/22'"
                 ),
@@ -397,7 +397,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_5",
+                "host": "i1_server_5",
                 "command": (
                     "python3 -c \"import socket;"
                     " s=socket.create_connection("
@@ -409,7 +409,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_1",
+                "host": "i1_server_1",
                 "command": (
                     "bash -c 'echo > /dev/tcp/10.0.3.4/25'"
                 ),
@@ -420,7 +420,7 @@ class DIGITAL_TWIN:
             },
             # Positive reachability — one test per topology link
             {
-                "host": "gateway",
+                "host": "i1_gateway",
                 "command": "ping -c 1 -W 2 10.0.1.253",
                 "description": (
                     "Firewall reachable from Gateway"
@@ -428,7 +428,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "firewall",
+                "host": "i1_firewall",
                 "command": "ping -c 1 -W 2 10.0.1.252",
                 "description": (
                     "IDS reachable from Firewall"
@@ -436,7 +436,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "ids",
+                "host": "i1_ids",
                 "command": "ping -c 1 -W 2 10.0.2.2",
                 "description": (
                     "Server 2 reachable from IDS"
@@ -444,7 +444,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "ids",
+                "host": "i1_ids",
                 "command": "ping -c 1 -W 2 10.0.3.3",
                 "description": (
                     "Server 3 reachable from IDS"
@@ -452,7 +452,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_1",
+                "host": "i1_server_1",
                 "command": "ping -c 1 -W 2 10.0.2.2",
                 "description": (
                     "Server 2 reachable from Server 1"
@@ -460,7 +460,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_1",
+                "host": "i1_server_1",
                 "command": "ping -c 1 -W 2 10.0.3.4",
                 "description": (
                     "Server 4 reachable from Server 1"
@@ -468,7 +468,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_1",
+                "host": "i1_server_1",
                 "command": "ping -c 1 -W 2 10.0.4.6",
                 "description": (
                     "Server 6 reachable from Server 1"
@@ -476,7 +476,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_2",
+                "host": "i1_server_2",
                 "command": "ping -c 1 -W 2 10.0.3.3",
                 "description": (
                     "Server 3 reachable from Server 2"
@@ -484,7 +484,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_2",
+                "host": "i1_server_2",
                 "command": "ping -c 1 -W 2 10.0.4.5",
                 "description": (
                     "Server 5 reachable from Server 2"
@@ -492,7 +492,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_3",
+                "host": "i1_server_3",
                 "command": "ping -c 1 -W 2 10.0.4.6",
                 "description": (
                     "Server 6 reachable from Server 3"
@@ -500,7 +500,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_4",
+                "host": "i1_server_4",
                 "command": "ping -c 1 -W 2 10.0.4.5",
                 "description": (
                     "Server 5 reachable from Server 4"
@@ -508,7 +508,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_5",
+                "host": "i1_server_5",
                 "command": "ping -c 1 -W 2 10.0.4.6",
                 "description": (
                     "Server 6 reachable from Server 5"
@@ -517,7 +517,7 @@ class DIGITAL_TWIN:
             },
             # Positive reachability — perimeter to allowed servers
             {
-                "host": "attacker",
+                "host": "i1_attacker",
                 "command": "ping -c 1 -W 2 10.0.2.2",
                 "description": (
                     "Server 2 reachable from Attacker"
@@ -525,7 +525,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "attacker",
+                "host": "i1_attacker",
                 "command": "ping -c 1 -W 2 10.0.3.3",
                 "description": (
                     "Server 3 reachable from Attacker"
@@ -533,7 +533,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "gateway",
+                "host": "i1_gateway",
                 "command": "ping -c 1 -W 2 10.0.2.2",
                 "description": (
                     "Server 2 reachable from Gateway"
@@ -541,7 +541,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "gateway",
+                "host": "i1_gateway",
                 "command": "ping -c 1 -W 2 10.0.3.3",
                 "description": (
                     "Server 3 reachable from Gateway"
@@ -550,7 +550,7 @@ class DIGITAL_TWIN:
             },
             # Negative reachability — firewall blocks
             {
-                "host": "gateway",
+                "host": "i1_gateway",
                 "command": "! ping -c 1 -W 2 10.0.4.6",
                 "description": (
                     "Server 6 not reachable from"
@@ -558,7 +558,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "attacker",
+                "host": "i1_attacker",
                 "command": "! ping -c 1 -W 2 10.0.2.1",
                 "description": (
                     "Server 1 not reachable from"
@@ -566,7 +566,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "attacker",
+                "host": "i1_attacker",
                 "command": "! ping -c 1 -W 2 10.0.4.6",
                 "description": (
                     "Server 6 not reachable from"
@@ -575,7 +575,7 @@ class DIGITAL_TWIN:
             },
             # Negative reachability — zone isolation
             {
-                "host": "server_5",
+                "host": "i1_server_5",
                 "command": "! ping -c 1 -W 2 10.0.2.1",
                 "description": (
                     "Server 1 not reachable from"
@@ -583,7 +583,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_5",
+                "host": "i1_server_5",
                 "command": "! ping -c 1 -W 2 10.0.3.3",
                 "description": (
                     "Server 3 not reachable from"
@@ -591,7 +591,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_6",
+                "host": "i1_server_6",
                 "command": "! ping -c 1 -W 2 10.0.2.2",
                 "description": (
                     "Server 2 not reachable from"
@@ -599,7 +599,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_3",
+                "host": "i1_server_3",
                 "command": "! ping -c 1 -W 2 10.0.2.1",
                 "description": (
                     "Server 1 not reachable from"
@@ -607,7 +607,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "server_3",
+                "host": "i1_server_3",
                 "command": "! ping -c 1 -W 2 10.0.3.4",
                 "description": (
                     "Server 4 not reachable from"
@@ -640,7 +640,7 @@ class DIGITAL_TWIN:
         ],
         "hosts": [
             {
-                "id": "attacker",
+                "id": "i2_attacker",
                 "name": "Attacker",
                 "docker_image": "ccs-dt-attacker:latest",
                 "ip_addresses": {"internet": "10.1.0.10"},
@@ -656,7 +656,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_1",
                 "name": "Server 1",
-                "docker_image": "ccs-dt-i2server1:latest",
+                "docker_image": "ccs-dt-i2-server1:latest",
                 "ip_addresses": {
                     "internet": "10.1.0.1",
                     "dmz": "10.0.1.1",
@@ -670,7 +670,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_2",
                 "name": "Server 2",
-                "docker_image": "ccs-dt-i2server2:latest",
+                "docker_image": "ccs-dt-i2-server2:latest",
                 "ip_addresses": {"dmz": "10.0.1.10"},
                 "routes": [
                     {"destination": "10.0.2.10/32",
@@ -684,7 +684,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_3",
                 "name": "Server 3",
-                "docker_image": "ccs-dt-i2server3:latest",
+                "docker_image": "ccs-dt-i2-server3:latest",
                 "ip_addresses": {"dmz": "10.0.1.20"},
                 "routes": [
                     {"destination": "10.0.2.0/24",
@@ -698,7 +698,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_4",
                 "name": "Server 4",
-                "docker_image": "ccs-dt-i2server4:latest",
+                "docker_image": "ccs-dt-i2-server4:latest",
                 "ip_addresses": {"lan": "10.0.2.10"},
                 "routes": [
                     {"destination": "10.0.1.10/32",
@@ -712,7 +712,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_5",
                 "name": "Server 5",
-                "docker_image": "ccs-dt-i2server5:latest",
+                "docker_image": "ccs-dt-i2-server5:latest",
                 "ip_addresses": {"lan": "10.0.2.50"},
                 "routes": [
                     {"destination": "10.0.1.0/24",
@@ -724,7 +724,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_6",
                 "name": "Server 6",
-                "docker_image": "ccs-dt-i2server6:latest",
+                "docker_image": "ccs-dt-i2-server6:latest",
                 "ip_addresses": {"lan": "10.0.2.60"},
                 "routes": [
                     {"destination": "10.0.1.0/24",
@@ -735,7 +735,7 @@ class DIGITAL_TWIN:
             },
         ],
         "links": [
-            {"source": "attacker", "target": "i2_server_1"},
+            {"source": "i2_attacker", "target": "i2_server_1"},
             {"source": "i2_server_1", "target": "i2_server_2"},
             {"source": "i2_server_1", "target": "i2_server_3"},
             {"source": "i2_server_1", "target": "i2_server_4"},
@@ -750,7 +750,7 @@ class DIGITAL_TWIN:
         "specification_commands": [
             # Service checks (5)
             {
-                "host": "attacker",
+                "host": "i2_attacker",
                 "command": (
                     "bash -c 'echo > /dev/tcp/10.0.1.10/80'"
                 ),
@@ -759,7 +759,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "attacker",
+                "host": "i2_attacker",
                 "command": (
                     "bash -c 'echo > /dev/tcp/10.0.1.20/22'"
                 ),
@@ -805,7 +805,7 @@ class DIGITAL_TWIN:
             },
             # Positive reachability (10)
             {
-                "host": "attacker",
+                "host": "i2_attacker",
                 "command": "ping -c 1 -W 2 10.1.0.1",
                 "description": (
                     "Server 1 reachable from Attacker"
@@ -886,7 +886,7 @@ class DIGITAL_TWIN:
             },
             # Negative reachability (7)
             {
-                "host": "attacker",
+                "host": "i2_attacker",
                 "command": "! ping -c 1 -W 2 10.0.2.10",
                 "description": (
                     "Server 4 not reachable from"
@@ -894,7 +894,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "attacker",
+                "host": "i2_attacker",
                 "command": "! ping -c 1 -W 2 10.0.2.50",
                 "description": (
                     "Server 5 not reachable from"
@@ -902,7 +902,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "attacker",
+                "host": "i2_attacker",
                 "command": "! ping -c 1 -W 2 10.0.2.60",
                 "description": (
                     "Server 6 not reachable from"

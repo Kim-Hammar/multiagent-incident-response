@@ -1,48 +1,64 @@
 # Digital Twin Docker Images
 
-Custom Docker images for the CCS incident response digital twin. Each image runs real network services with three intentional vulnerabilities for security training.
+Custom Docker images for the CCS incident response digital twin. Images are organised per incident with a shared set of common images.
 
-## Scenario
+## Directory Structure
+
+```
+docker/digital_twin/
+├── shared/            # Images used across all incidents
+│   ├── attacker/
+│   └── python_sandbox/
+├── incident_1/        # Incident 1 — SaaS company multi-stage attack
+│   ├── test_fixtures/
+│   ├── gateway/
+│   ├── firewall/
+│   ├── ids/
+│   └── server_1/ .. server_6/
+├── incident_2/        # Incident 2 — Tomcat RCE + PostgreSQL lateral movement
+│   └── server_1/ .. server_6/
+├── build.sh
+└── README.md
+```
+
+## Naming Convention
+
+| Scope | Image name pattern | Container ID pattern |
+|---|---|---|
+| Shared | `ccs-dt-attacker` | `i1_attacker` / `i2_attacker` (per config) |
+| Incident 1 | `ccs-dt-i1-{component}` | `i1_{component}` |
+| Incident 2 | `ccs-dt-i2-{component}` | `i2_{component}` |
+
+## Incident 1 — SaaS Company Infrastructure
 
 A **mid-size SaaS company** infrastructure: web frontend, customer-facing API, database, mail, backups, and CI/CD — all behind a gateway with Snort IDS.
-
-## Images
 
 | Image | Host | Base | Services | Vulnerability |
 |-------|------|------|----------|---------------|
 | `ccs-dt-attacker` | Attacker (10.0.1.10) | debian:bookworm-slim | nmap, hydra, smbclient, impacket | — |
-| `ccs-dt-gateway` | Gateway (10.0.0.254) | ubuntu:22.04 | Snort IDS, pentest tools | — |
-| `ccs-dt-firewall` | Firewall (10.0.0.253) | ubuntu:22.04 | iptables, IP forwarding | — |
-| `ccs-dt-ids` | IDS (10.0.0.252) | ubuntu:22.04 | rsyslog, tcpdump | — |
-| `ccs-dt-server1` | Server 1 (10.0.0.1) | debian:bullseye-slim | Nginx, PHP-FPM, dnsmasq | SQL injection → root |
-| `ccs-dt-server2` | Server 2 (10.0.0.2) | debian:bullseye-slim | vsftpd, cron backups | — |
-| `ccs-dt-server3` | Server 3 (10.0.0.3) | ubuntu:20.04 | OpenSSH, cron CI/CD | Weak SSH password |
-| `ccs-dt-server4` | Server 4 (10.0.0.4) | debian:bullseye-slim | Postfix SMTP, health endpoint | — |
-| `ccs-dt-server5` | Server 5 (10.0.0.5) | debian:bullseye-slim | OpenSSH, Python API, Redis | — |
-| `ccs-dt-server6` | Server 6 (10.0.0.6) | debian:jessie | PostgreSQL, Samba | CVE-2017-7494 |
+| `ccs-dt-i1-gateway` | Gateway (10.0.1.254) | ubuntu:22.04 | Snort IDS, pentest tools | — |
+| `ccs-dt-i1-firewall` | Firewall (10.0.1.253) | ubuntu:22.04 | iptables, IP forwarding | — |
+| `ccs-dt-i1-ids` | IDS (10.0.1.252) | ubuntu:22.04 | rsyslog, tcpdump | — |
+| `ccs-dt-i1-server1` | Server 1 (10.0.2.1) | debian:bullseye-slim | Nginx, PHP-FPM, dnsmasq | SQL injection |
+| `ccs-dt-i1-server2` | Server 2 (10.0.2.2) | debian:bullseye-slim | vsftpd, cron backups | — |
+| `ccs-dt-i1-server3` | Server 3 (10.0.3.3) | ubuntu:20.04 | OpenSSH, cron CI/CD | Weak SSH password |
+| `ccs-dt-i1-server4` | Server 4 (10.0.3.4) | debian:bullseye-slim | Postfix SMTP, health endpoint | — |
+| `ccs-dt-i1-server5` | Server 5 (10.0.4.5) | debian:bullseye-slim | OpenSSH, Python API, Redis | — |
+| `ccs-dt-i1-server6` | Server 6 (10.0.4.6) | debian:jessie | PostgreSQL, Samba | CVE-2017-7494 |
 
-## Vulnerabilities
+## Incident 2 — Enterprise Network (Tomcat RCE)
 
-### Server 1 — SQL Injection (root)
+An **enterprise on-premises network** with a central firewall, DMZ, and internal LAN. Six servers behind strict iptables rules.
 
-- PHP-FPM runs as root (deliberate misconfiguration)
-- `index.php` login form uses unsanitized SQL queries
-- Auth bypass: `admin' OR '1'='1' --`
-- `shell.php` has command injection via `ping` parameter: `; id`
-- Combined: SQL injection → auth bypass → command injection → root
-
-### Server 3 — Weak SSH Password
-
-- User `admin` with password `password123`
-- `admin` has `NOPASSWD:ALL` sudo access
-- SSH password authentication enabled
-- Dictionary attack with ~5 words cracks it instantly
-
-### Server 6 — CVE-2017-7494 (SambaCry)
-
-- Debian Jessie ships Samba ~4.2.x (vulnerable range 3.5.0–4.4.13)
-- World-writable `[public]` share with `nt pipe support = yes`
-- Upload `.so` → trigger `dlopen()` via named pipe → code executes as root
+| Image | Host | Base | Services |
+|-------|------|------|----------|
+| `ccs-dt-attacker` | Attacker (10.1.0.10) | debian:bookworm-slim | nmap, hydra, smbclient, impacket |
+| `ccs-dt-i2-server1` | Server 1 / Firewall (10.1.0.1) | ubuntu:22.04 | iptables, Suricata IDS |
+| `ccs-dt-i2-server2` | Server 2 / Web (10.0.1.10) | ubuntu:22.04 | Nginx, Tomcat 9.0.30 |
+| `ccs-dt-i2-server3` | Server 3 / Jump (10.0.1.20) | debian:bullseye-slim | SSH jump host |
+| `ccs-dt-i2-server4` | Server 4 / DB (10.0.2.10) | debian:bullseye-slim | PostgreSQL, SSH |
+| `ccs-dt-i2-server5` | Server 5 / DNS (10.0.2.50) | debian:bullseye-slim | dnsmasq DNS/DHCP |
+| `ccs-dt-i2-server6` | Server 6 / Files (10.0.2.60) | debian:bullseye-slim | Samba, rsync backups |
 
 ## Building
 
@@ -57,7 +73,7 @@ make dt-build
 make dt-clean
 ```
 
-## IR Constraints
+## IR Constraints (Incident 1)
 
 Each server has a critical service that creates a dilemma for incident responders:
 

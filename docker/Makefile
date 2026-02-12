@@ -37,11 +37,12 @@ dt-build: ## Build all digital twin images
 	bash digital_twin/build.sh
 
 dt-clean: ## Remove all digital twin images
-	docker rmi ccs-dt-gateway ccs-dt-firewall ccs-dt-ids \
-	    ccs-dt-server1 ccs-dt-server2 ccs-dt-server3 \
-	    ccs-dt-server4 ccs-dt-server5 ccs-dt-server6 \
-	    ccs-dt-i2server1 ccs-dt-i2server2 ccs-dt-i2server3 \
-	    ccs-dt-i2server4 ccs-dt-i2server5 ccs-dt-i2server6 2>/dev/null || true
+	docker rmi ccs-dt-i1-gateway ccs-dt-i1-firewall ccs-dt-i1-ids \
+	    ccs-dt-i1-server1 ccs-dt-i1-server2 ccs-dt-i1-server3 \
+	    ccs-dt-i1-server4 ccs-dt-i1-server5 ccs-dt-i1-server6 \
+	    ccs-dt-i2-server1 ccs-dt-i2-server2 ccs-dt-i2-server3 \
+	    ccs-dt-i2-server4 ccs-dt-i2-server5 ccs-dt-i2-server6 \
+	    ccs-dt-attacker ccs-dt-python-sandbox 2>/dev/null || true
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \

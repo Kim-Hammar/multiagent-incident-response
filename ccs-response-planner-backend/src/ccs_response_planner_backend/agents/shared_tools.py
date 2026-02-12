@@ -16,9 +16,12 @@ from ccs_response_planner_backend.docker_manager.docker_manager \
 logger = logging.getLogger(__name__)
 
 _VALID_DT_CONTAINERS = [
-    "gateway", "firewall", "ids",
-    "server_1", "server_2", "server_3",
-    "server_4", "server_5", "server_6",
+    "i1_attacker", "i1_gateway", "i1_firewall", "i1_ids",
+    "i1_server_1", "i1_server_2", "i1_server_3",
+    "i1_server_4", "i1_server_5", "i1_server_6",
+    "i2_attacker",
+    "i2_server_1", "i2_server_2", "i2_server_3",
+    "i2_server_4", "i2_server_5", "i2_server_6",
 ]
 
 

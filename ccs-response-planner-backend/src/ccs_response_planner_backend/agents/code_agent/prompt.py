@@ -138,11 +138,11 @@ health.
 Every action in the MDP must correspond to a **real, executable \
 action** on the target system. The `commands` field must contain \
 actual shell commands, not descriptions. For example:
-- GOOD: `{{"container": "firewall", "command": "iptables -A FORWARD \
+- GOOD: `{{"container": "i1_firewall", "command": "iptables -A FORWARD \
 -s 10.0.0.2 -j DROP"}}`
-- GOOD: `{{"container": "server_3", "command": "systemctl restart \
+- GOOD: `{{"container": "i1_server_3", "command": "systemctl restart \
 postgresql"}}`
-- BAD: `{{"container": "firewall", "command": "block the attacker"}}`
+- BAD: `{{"container": "i1_firewall", "command": "block the attacker"}}`
 
 The environment class must store an `ACTION_TABLE` — a list of dicts \
 (indexed by action id) where each entry contains:

@@ -85,7 +85,7 @@ function DigitalTwin() {
     return () => clearTimeout(timer)
   }, [alert])
 
-  const saveConfig = async () => {
+  const saveConfig = async ({ silent = false } = {}) => {
     try {
       const response = await fetch(API_DIGITAL_TWIN_URL, {
         method: 'PUT',
@@ -102,16 +102,20 @@ function DigitalTwin() {
       })
       if (response.status === 401) {
         logout()
-        return
+        return false
       }
       if (!response.ok) {
         const data = await response.json()
         setAlert({ type: 'danger', message: data.error || 'Failed to save' })
-        return
+        return false
       }
-      setAlert({ type: 'success', message: 'Configuration saved successfully' })
+      if (!silent) {
+        setAlert({ type: 'success', message: 'Configuration saved successfully' })
+      }
+      return true
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to save configuration: ${err.message}` })
+      return false
     }
   }
 
@@ -262,7 +266,9 @@ function DigitalTwin() {
             loadSelectedConfig={loadSelectedConfig}
           />
         )}
-        {activeTab === 'deploy' && <DeployTab token={token} logout={logout} />}
+        {activeTab === 'deploy' && (
+          <DeployTab token={token} logout={logout} saveConfig={saveConfig} />
+        )}
         {activeTab === 'validate' && (
           <ValidationTab
             token={token}

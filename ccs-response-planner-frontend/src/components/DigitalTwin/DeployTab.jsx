@@ -10,7 +10,7 @@ import Terminal from './Terminal.jsx'
  * Deployment tab for the digital twin.
  * Provides deploy/stop controls, a live activity log, container status table, and terminal access.
  */
-function DeployTab({ token, logout }) {
+function DeployTab({ token, logout, saveConfig }) {
   const [status, setStatus] = useState(null)
   const [deploying, setDeploying] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -83,6 +83,11 @@ function DeployTab({ token, logout }) {
   const handleDeploy = async () => {
     setDeploying(true)
     try {
+      const saved = await saveConfig({ silent: true })
+      if (!saved) {
+        setLogLines((prev) => [...prev, 'Error: failed to save config before deploy'])
+        return
+      }
       await readNdjsonStream(API_DIGITAL_TWIN_DEPLOY_URL)
       await fetchStatus()
     } catch {
