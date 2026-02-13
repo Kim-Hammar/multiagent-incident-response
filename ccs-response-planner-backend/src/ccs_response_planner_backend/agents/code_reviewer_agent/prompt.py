@@ -72,10 +72,18 @@ Are ordering constraints between actions properly modeled? For example:
 If an action is taken out of order, does it have reduced effectiveness?
 
 ### 6. Reward Function
-Is the predefined reward `reward = -1 - X` (where X is the number of \
-violated specifications) implemented correctly? Check that:
-- Every step costs at least -1
-- Each violated specification (dimension below 1.0) adds -1 penalty
+Is the phase-weighted reward function implemented correctly? The reward \
+per step must be:
+
+    reward = -(6*(1-containment) + 5*(1-assessment) + 4*(1-preservation)
+              + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
+
+Check that:
+- The weights are correct: containment=6, assessment=5, preservation=4, \
+eviction=3, hardening=2, restoration=1
+- Each penalty term uses `(1 - progress)` where progress is the recovery \
+dimension value (0.0–1.0), so partial progress is rewarded
+- The reward is always <= 0 (zero only when fully recovered)
 - The episode terminates when all 6 recovery dimensions reach 1.0
 
 ### 7. Code Quality

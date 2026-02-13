@@ -53,9 +53,13 @@ operation.
 specification commands listed above. Each specification command tests a \
 specific connectivity or service requirement. A command passes if it exits \
 with code 0 and fails otherwise.
-   d. **Compute the step cost**: count the number of violated (failed) specification \
-commands after applying the action. The per-step cost = 1 + number_of_failed_specs \
-(following the MDP cost function: cost = -reward = 1 + number_of_violated_specs).
+   d. **Compute the step cost**: after applying the action, assess the recovery \
+progress for each of the 6 phases (containment, assessment, preservation, \
+eviction, hardening, restoration) as a fraction 0.0–1.0. The per-step cost \
+uses phase-weighted penalties: \
+cost = 6*(1-containment) + 5*(1-assessment) + 4*(1-preservation) \
++ 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration). \
+Also run the specification commands and record pass/fail counts.
    e. Record the action name, description, commands executed, outcome, recovery state, \
 service state, and **actual_step_cost** for this action.
 3. After applying ALL actions, compute the **actual_total_cost** by summing all per-step \
@@ -132,10 +136,14 @@ are confirmed operational by specification commands passing.
 
 ## Cost Computation
 
-The MDP uses negative rewards where reward = -1 - number_of_violated_specs per step. \
-Cost is the negation: cost = 1 + number_of_violated_specs per step. \
-After each action, run ALL specification commands and count failures. \
-Per-step cost = 1 + (number of failed specification commands). \
+The MDP uses phase-weighted negative rewards. Per step:
+
+    reward = -(6*(1-containment) + 5*(1-assessment) + 4*(1-preservation)
+              + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
+
+Cost = -reward. After each action, assess the progress of each recovery phase \
+(0.0–1.0) and compute the weighted cost. Also run ALL specification commands \
+and record pass/fail counts (spec failures are separate from the phase-weighted cost). \
 Total actual cost = sum of all per-step costs. \
 Compare actual_total_cost with the simulated expected_total_cost from the planner report.
 

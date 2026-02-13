@@ -171,20 +171,56 @@ command — only test the ones you are unsure about.
 The reward function is **predefined** — do NOT design your own. \
 Implement it exactly as follows:
 
+The reward uses **phase-weighted penalties** to incentivize the \
+correct incident response ordering: containment first, then \
+assessment, preservation, eviction, hardening, and finally \
+restoration.
+
+The six recovery-state dimensions correspond to these phases \
+(in priority order) with these weights:
+
+| Phase         | Recovery dimension          | Weight |
+|---------------|-----------------------------|--------|
+| Containment   | `is_attack_contained`       | 6      |
+| Assessment    | `is_attack_assessed`        | 5      |
+| Preservation  | `is_forensic_evidence_preserved` | 4 |
+| Eviction      | `is_attack_evicted`         | 3      |
+| Hardening     | `is_system_hardened`        | 2      |
+| Restoration   | `are_services_restored`     | 1      |
+
 At every time step the reward is:
 
-    reward = -1 - X
+    reward = -(
+        6 * (1 - containment_progress)
+      + 5 * (1 - assessment_progress)
+      + 4 * (1 - preservation_progress)
+      + 3 * (1 - eviction_progress)
+      + 2 * (1 - hardening_progress)
+      + 1 * (1 - restoration_progress)
+    )
 
-where `X` is the number of specification constraints currently \
-violated (i.e. specification dimensions whose value is below 1.0).
+where each `*_progress` value is the current value of the \
+corresponding recovery-state dimension (0.0 = not started, \
+1.0 = fully complete). These are the FIRST 6 dimensions of the \
+observation vector (the recovery state).
 
 This means:
-- Every step costs at least -1, incentivizing reaching the terminal \
-state as quickly as possible.
-- Each violated specification adds an additional -1 penalty, \
-incentivizing plans that avoid breaking specifications.
-- The optimal policy therefore balances speed of recovery against \
-keeping services operational.
+- The reward is always negative (or zero when fully recovered).
+- Higher-weight phases (containment = 6) dominate the penalty, \
+so the optimal policy prioritizes them first.
+- The penalty is proportional to `(1 - progress)`, so partial \
+progress is rewarded — an action that moves containment from \
+0.0 to 0.5 immediately halves the containment penalty.
+- The maximum per-step penalty is -(6+5+4+3+2+1) = -21 (when \
+no recovery has started).
+
+Implementation in the `step()` method:
+
+```python
+PHASE_WEIGHTS = [6, 5, 4, 3, 2, 1]  # containment..restoration
+recovery = self.state[:6]  # first 6 dims are recovery progress
+reward = -sum(w * (1 - p) for w, p in zip(PHASE_WEIGHTS, recovery))
+```
 
 ### Required Methods
 

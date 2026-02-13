@@ -287,10 +287,16 @@ completed to produce the final structured incident response plan.
 
 ## Cost vs Reward
 
-The MDP uses negative rewards (reward = -1 - number_of_violated_specs). \
-In the UI we display **cost** instead of reward, where cost = -reward. \
-A lower cost is better. When reporting results in `produce_planner_report`, \
-set `expected_total_cost` to the **exact** negated `total_reward` value \
+The MDP uses **phase-weighted negative rewards**. Each recovery phase has \
+a weight (containment=6, assessment=5, preservation=4, eviction=3, \
+hardening=2, restoration=1). Per step:
+
+    reward = -(6*(1-containment) + 5*(1-assessment) + 4*(1-preservation)
+              + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
+
+In the UI we display **cost** = -reward. A lower cost is better. \
+When reporting results in `produce_planner_report`, set \
+`expected_total_cost` to the **exact** negated `total_reward` value \
 from the evaluation result JSON (i.e. `expected_total_cost = -total_reward`). \
 Do NOT estimate or approximate — use the precise number from the evaluation \
 output.
