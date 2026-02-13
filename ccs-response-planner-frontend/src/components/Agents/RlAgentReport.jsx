@@ -1,7 +1,7 @@
 /**
- * Renders the final MDP planner report for the MDP Planner Agent.
+ * Renders the final RL agent report for the RL Agent.
  */
-function MdpPlannerReport({ entry, index, isExpanded, toggleEntry }) {
+function RlAgentReport({ entry, index, isExpanded, toggleEntry }) {
   if (entry.type !== 'planner_report') return null
 
   const r = entry.planner_report || {}
@@ -145,4 +145,4 @@ function MdpPlannerReport({ entry, index, isExpanded, toggleEntry }) {
   )
 }
 
-export default MdpPlannerReport
+export default RlAgentReport

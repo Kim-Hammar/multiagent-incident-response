@@ -1,5 +1,5 @@
 """
-Tool dispatch for the MdpPlannerAgent.
+Tool dispatch for the RlAgent.
 
 Provides ``python_exec`` (standard) and ``rl_train`` (streaming)
 tools that run code in the Python sandbox container.

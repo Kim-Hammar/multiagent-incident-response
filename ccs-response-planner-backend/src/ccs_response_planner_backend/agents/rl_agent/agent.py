@@ -1,5 +1,5 @@
 """
-MdpPlannerAgent — uses Gemini with function calling to train
+RlAgent — uses Gemini with function calling to train
 an RL policy on a Gymnasium MDP environment and produce an
 incident response plan.
 """
@@ -16,14 +16,14 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
-from ccs_response_planner_backend.agents.mdp_planner_agent.prompt import (
+from ccs_response_planner_backend.agents.rl_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
-from ccs_response_planner_backend.agents.mdp_planner_agent.tool_declarations import (
+from ccs_response_planner_backend.agents.rl_agent.tool_declarations import (
     ALL_DECLARATIONS,
     ITERATING_DECLARATIONS,
 )
-from ccs_response_planner_backend.agents.mdp_planner_agent.tools import (
+from ccs_response_planner_backend.agents.rl_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
@@ -69,7 +69,7 @@ def _build_initial_message(
 THINKING_BUDGET = 16384
 
 
-class MdpPlannerAgent:
+class RlAgent:
     """
     An agent that uses Gemini function calling to train an
     RL policy on a Gymnasium MDP environment and produce a
@@ -388,12 +388,12 @@ class MdpPlannerAgent:
             return obj
         if hasattr(obj, "items"):
             return {
-                str(k): MdpPlannerAgent._normalize_args(v)
+                str(k): RlAgent._normalize_args(v)
                 for k, v in obj.items()
             }
         if hasattr(obj, "__iter__"):
             return [
-                MdpPlannerAgent._normalize_args(v)
+                RlAgent._normalize_args(v)
                 for v in obj
             ]
         return obj

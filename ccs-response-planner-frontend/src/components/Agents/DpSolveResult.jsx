@@ -1,24 +1,22 @@
-import RewardChart from './RewardChart.jsx'
+import ConvergenceChart from './ConvergenceChart.jsx'
 
 /**
- * Renders an rl_train tool result as a training chart + evaluation summary,
+ * Renders a dp_solve tool result as a convergence chart + evaluation summary,
  * replacing the default raw-JSON display.
  */
-function RlTrainResult({ trainingData, trainingMeta, result }) {
+function DpSolveResult({ solverData, solverMeta, result }) {
   const evalResult = result?.result
   const doneEvent = result?.done
   const actions = evalResult?.action_sequence || []
   const meanCost = evalResult?.total_reward != null ? -evalResult.total_reward : null
-  const detailCost =
-    evalResult?.detail_episode_reward != null ? -evalResult.detail_episode_reward : null
 
   return (
     <div>
-      {trainingData && trainingData.length > 0 && (
-        <RewardChart
-          data={trainingData}
-          algorithm={trainingMeta?.algorithm}
-          hyperparameters={trainingMeta?.hyperparameters}
+      {solverData && solverData.length > 0 && (
+        <ConvergenceChart
+          data={solverData}
+          method={solverMeta?.method}
+          parameters={solverMeta?.parameters}
           completed={true}
         />
       )}
@@ -33,28 +31,36 @@ function RlTrainResult({ trainingData, trainingMeta, result }) {
               marginBottom: '12px'
             }}
           >
+            {evalResult.num_states != null && (
+              <div className="ia-metric-card">
+                <div className="ia-metric-label">Total States</div>
+                <div className="ia-metric-value">{evalResult.num_states}</div>
+              </div>
+            )}
+            {evalResult.num_iterations != null && (
+              <div className="ia-metric-card">
+                <div className="ia-metric-label">Iterations</div>
+                <div className="ia-metric-value">{evalResult.num_iterations}</div>
+              </div>
+            )}
+            {evalResult.final_bellman_error != null && (
+              <div className="ia-metric-card">
+                <div className="ia-metric-label">Final Bellman Error</div>
+                <div className="ia-metric-value">
+                  {evalResult.final_bellman_error.toExponential(2)}
+                </div>
+              </div>
+            )}
             {meanCost != null && (
               <div className="ia-metric-card">
                 <div className="ia-metric-label">Mean Eval Cost</div>
                 <div className="ia-metric-value">{meanCost.toFixed(2)}</div>
               </div>
             )}
-            {detailCost != null && (
-              <div className="ia-metric-card">
-                <div className="ia-metric-label">Detail Episode Cost</div>
-                <div className="ia-metric-value">{detailCost.toFixed(2)}</div>
-              </div>
-            )}
             {evalResult.num_steps != null && (
               <div className="ia-metric-card">
                 <div className="ia-metric-label">Steps</div>
                 <div className="ia-metric-value">{evalResult.num_steps}</div>
-              </div>
-            )}
-            {evalResult.num_eval_episodes != null && (
-              <div className="ia-metric-card">
-                <div className="ia-metric-label">Eval Episodes</div>
-                <div className="ia-metric-value">{evalResult.num_eval_episodes}</div>
               </div>
             )}
             {doneEvent?.exit_code != null && (
@@ -121,4 +127,4 @@ function RlTrainResult({ trainingData, trainingMeta, result }) {
   )
 }
 
-export default RlTrainResult
+export default DpSolveResult

@@ -108,6 +108,16 @@ class DatabaseFacade:
                     ADD COLUMN IF NOT EXISTS
                         validation_results JSONB
                 """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
+                    ADD COLUMN IF NOT EXISTS
+                        conversation_history JSONB
+                """)
+                cur.execute(
+                    f"UPDATE {DB.AGENT_REPORTS_TABLE} "
+                    f"SET agent_type = 'rl' "
+                    f"WHERE agent_type = 'mdp_planner'"
+                )
             conn.commit()
 
     @staticmethod
@@ -293,6 +303,7 @@ class DatabaseFacade:
     def save_agent_report(
         agent_type: str, username: str, report: Any,
         incident_id: Optional[int] = None,
+        conversation_history: Optional[list[Any]] = None,
     ) -> dict[str, Any]:
         """
         Insert a new agent report and return the created row.
@@ -301,19 +312,25 @@ class DatabaseFacade:
         :param username: the username who created the report
         :param report: the report data (stored as JSONB)
         :param incident_id: optional FK to example_incidents
+        :param conversation_history: optional planning process log
         :return: a dict with id, agent_type, username, report, created_at,
                  incident_id, incident_name
         """
+        ch_json = (
+            json.dumps(conversation_history)
+            if conversation_history is not None else None
+        )
         with psycopg.connect(DatabaseFacade._connection_string()) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"INSERT INTO {DB.AGENT_REPORTS_TABLE} "
-                    f"(agent_type, username, report, incident_id) "
-                    f"VALUES (%s, %s, %s, %s) "
+                    f"(agent_type, username, report, incident_id, "
+                    f"conversation_history) "
+                    f"VALUES (%s, %s, %s, %s, %s) "
                     f"RETURNING id, agent_type, username, "
                     f"report, created_at, incident_id",
                     (agent_type, username, json.dumps(report),
-                     incident_id),
+                     incident_id, ch_json),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -354,7 +371,8 @@ class DatabaseFacade:
                 base = (
                     f"SELECT ar.id, ar.agent_type, ar.username, "
                     f"ar.report, ar.created_at, ar.incident_id, "
-                    f"ei.name "
+                    f"ei.name, "
+                    f"(ar.conversation_history IS NOT NULL) "
                     f"FROM {DB.AGENT_REPORTS_TABLE} ar "
                     f"LEFT JOIN {DB.EXAMPLE_INCIDENTS_TABLE} ei "
                     f"ON ar.incident_id = ei.id"
@@ -382,6 +400,7 @@ class DatabaseFacade:
                         "created_at": str(r[4]),
                         "incident_id": r[5],
                         "incident_name": r[6],
+                        "has_conversation_history": r[7],
                     }
                     for r in rows
                 ]
@@ -401,7 +420,7 @@ class DatabaseFacade:
                 cur.execute(
                     f"SELECT ar.id, ar.agent_type, ar.username, "
                     f"ar.report, ar.created_at, ar.incident_id, "
-                    f"ei.name "
+                    f"ei.name, ar.conversation_history "
                     f"FROM {DB.AGENT_REPORTS_TABLE} ar "
                     f"LEFT JOIN {DB.EXAMPLE_INCIDENTS_TABLE} ei "
                     f"ON ar.incident_id = ei.id "
@@ -419,6 +438,7 @@ class DatabaseFacade:
                     "created_at": str(row[4]),
                     "incident_id": row[5],
                     "incident_name": row[6],
+                    "conversation_history": row[7],
                 }
 
     @staticmethod

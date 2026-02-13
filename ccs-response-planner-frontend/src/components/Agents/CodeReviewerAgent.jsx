@@ -6,12 +6,14 @@ import {
   API_AGENTS_CODE_REVIEW_TOOL_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
   API_LLM_URL,
-  API_AGENTS_REPORTS_URL
+  API_AGENTS_REPORTS_URL,
+  API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import CodeReviewerConfigTab from './CodeReviewerConfigTab.jsx'
 import CodeReviewerReport from './CodeReviewerReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import { cleanConversationHistory } from './shared/conversationUtils.js'
 
 /**
  * CodeReviewerAgent component — drives the code review agent loop with
@@ -117,6 +119,10 @@ function CodeReviewerAgent() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    fetch(API_DT_PYTHON_STOP_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {})
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
@@ -459,7 +465,12 @@ function CodeReviewerAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'code_review', report, incident_id: selectedIncidentId })
+        body: JSON.stringify({
+          agent_type: 'code_review',
+          report,
+          incident_id: selectedIncidentId,
+          conversation_history: cleanConversationHistory(conversationHistory)
+        })
       })
       await fetchHistory()
     } catch {
@@ -605,6 +616,9 @@ function CodeReviewerAgent() {
               toggleEntry={() => {}}
             />
           )}
+          renderFinalReport={renderFinalReport}
+          token={token}
+          logout={logout}
         />
       )}
     </div>

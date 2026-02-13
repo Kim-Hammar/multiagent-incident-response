@@ -6,12 +6,14 @@ import {
   API_AGENTS_VALIDATION_TOOL_URL,
   API_AGENTS_VALIDATION_PROMPT_URL,
   API_LLM_URL,
-  API_AGENTS_REPORTS_URL
+  API_AGENTS_REPORTS_URL,
+  API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import ValidationAgentConfigTab from './ValidationAgentConfigTab.jsx'
 import ValidationAgentReport from './ValidationAgentReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import { cleanConversationHistory } from './shared/conversationUtils.js'
 
 /**
  * ValidationAgent component — drives the validation agent loop with
@@ -118,6 +120,10 @@ function ValidationAgent() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    fetch(API_DT_PYTHON_STOP_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {})
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
@@ -387,9 +393,9 @@ function ValidationAgent() {
         }
       }
 
-      // Fetch latest MDP Planner report for this incident
+      // Fetch latest RL Agent report for this incident
       const plannerRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=mdp_planner&incident_id=${incidentId}`,
+        `${API_AGENTS_REPORTS_URL}?agent_type=rl&incident_id=${incidentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (plannerRes.ok) {
@@ -484,7 +490,12 @@ function ValidationAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'validation', report, incident_id: selectedIncidentId })
+        body: JSON.stringify({
+          agent_type: 'validation',
+          report,
+          incident_id: selectedIncidentId,
+          conversation_history: cleanConversationHistory(conversationHistory)
+        })
       })
       await fetchHistory()
     } catch {
@@ -632,6 +643,9 @@ function ValidationAgent() {
               toggleEntry={() => {}}
             />
           )}
+          renderFinalReport={renderFinalReport}
+          token={token}
+          logout={logout}
         />
       )}
     </div>

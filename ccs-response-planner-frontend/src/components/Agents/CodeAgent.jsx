@@ -6,12 +6,14 @@ import {
   API_AGENTS_CODE_TOOL_URL,
   API_AGENTS_CODE_PROMPT_URL,
   API_LLM_URL,
-  API_AGENTS_REPORTS_URL
+  API_AGENTS_REPORTS_URL,
+  API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import CodeAgentConfigTab from './CodeAgentConfigTab.jsx'
 import CodeAgentReport from './CodeAgentReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import { cleanConversationHistory } from './shared/conversationUtils.js'
 
 /**
  * CodeAgent component — drives the code generation agent loop with
@@ -116,6 +118,10 @@ function CodeAgent() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    fetch(API_DT_PYTHON_STOP_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {})
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
@@ -441,7 +447,12 @@ function CodeAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'code', report, incident_id: selectedIncidentId })
+        body: JSON.stringify({
+          agent_type: 'code',
+          report,
+          incident_id: selectedIncidentId,
+          conversation_history: cleanConversationHistory(conversationHistory)
+        })
       })
       await fetchHistory()
     } catch {
@@ -585,6 +596,9 @@ function CodeAgent() {
               toggleEntry={() => {}}
             />
           )}
+          renderFinalReport={renderFinalReport}
+          token={token}
+          logout={logout}
         />
       )}
     </div>

@@ -233,7 +233,7 @@ TOOL_DECLARATIONS = [
                     "type": "number",
                     "description": (
                         "Expected total cost from the "
-                        "MDP planner report."
+                        "RL agent report."
                     ),
                 },
             },

@@ -1,6 +1,7 @@
 """
-ValidationAgent — uses Gemini with function calling to validate
-a response plan against the deployed digital twin.
+DpAgent — uses Gemini with function calling to solve
+an MDP via dynamic programming (value iteration) and produce an
+incident response plan.
 """
 import base64
 import json
@@ -15,20 +16,22 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
-from ccs_response_planner_backend.agents.validation_agent.prompt import (
+from ccs_response_planner_backend.agents.dp_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
-from ccs_response_planner_backend.agents.validation_agent.tool_declarations import (
-    TOOL_DECLARATIONS,
+from ccs_response_planner_backend.agents.dp_agent.tool_declarations import (
+    ALL_DECLARATIONS,
+    ITERATING_DECLARATIONS,
 )
-from ccs_response_planner_backend.agents.validation_agent.tools import (
+from ccs_response_planner_backend.agents.dp_agent.tools import (
+    STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
 
 MODEL_NAME = "gemini-3-pro-preview"
 CONTEXT_LIMIT = 1_048_576
 
-REPORT_TOOL_NAME = "produce_validation_report"
+REPORT_TOOL_NAME = "produce_planner_report"
 
 
 def _build_initial_message(
@@ -41,10 +44,10 @@ def _build_initial_message(
     :return: a Gemini-compatible content dict
     """
     parts: list[dict[str, Any]] = [{"text": (
-        "Please validate the response plan by "
-        "applying actions sequentially on the "
-        "digital twin and checking recovery and "
-        "service state after each action."
+        "Please analyze the provided Gymnasium MDP "
+        "environment, quantize the state space, solve "
+        "with value iteration, and produce an incident "
+        "response plan based on the optimal policy."
     )}]
     for data_url in (images or []):
         if "," not in data_url:
@@ -63,14 +66,14 @@ def _build_initial_message(
     return {"role": "user", "parts": parts}
 
 
-THINKING_BUDGET = 8192
+THINKING_BUDGET = 16384
 
 
-class ValidationAgent:
+class DpAgent:
     """
-    An agent that uses Gemini function calling to validate
-    a response plan against the digital twin and produce
-    a structured validation report.
+    An agent that uses Gemini function calling to solve
+    an MDP via dynamic programming (value iteration) and
+    produce a structured incident response plan.
     """
 
     def _create_client(self) -> Any:
@@ -84,17 +87,19 @@ class ValidationAgent:
 
     def _make_config(
         self, system_prompt: str,
+        declarations: list[Any],
     ) -> Any:
         """
         Build the GenerateContentConfig with tools and thinking.
 
         :param system_prompt: the rendered system prompt
+        :param declarations: the function declarations to expose
         :return: a GenerateContentConfig instance
         """
         return genai_types.GenerateContentConfig(
             system_instruction=system_prompt,
             tools=[genai_types.Tool(
-                function_declarations=TOOL_DECLARATIONS,
+                function_declarations=declarations,
             )],
             tool_config=genai_types.ToolConfig(
                 function_calling_config=(
@@ -186,135 +191,73 @@ class ValidationAgent:
             )
         return "\n\n".join(sections) if sections else "N/A"
 
-    @staticmethod
-    def _format_planner_report(
-        report: dict[str, Any],
-    ) -> str:
-        """
-        Format an RL agent report into readable text for the
-        system prompt.
-
-        :param report: the planner report dict
-        :return: a formatted string
-        """
-        sections: list[str] = []
-        summary = report.get("executive_summary", "")
-        if summary:
-            sections.append(
-                f"### Executive Summary\n{summary}"
-            )
-        algorithm = report.get("algorithm", "")
-        if algorithm:
-            sections.append(
-                f"### Algorithm\n{algorithm}"
-            )
-        training = report.get("training_summary", "")
-        if training:
-            sections.append(
-                f"### Training Summary\n{training}"
-            )
-        action_seq = report.get("action_sequence", [])
-        if action_seq:
-            lines = ["### Action Sequence"]
-            for i, a in enumerate(action_seq):
-                name = a.get("name", f"Action {i}")
-                desc = a.get("description", "")
-                cmds = a.get("commands", [])
-                lines.append(f"\n**{i}. {name}**")
-                if desc:
-                    lines.append(f"  Description: {desc}")
-                if cmds:
-                    for c in cmds:
-                        ct = c.get("container", "?")
-                        cmd = c.get("command", "?")
-                        lines.append(
-                            f"  Command: {ct}: {cmd}"
-                        )
-            sections.append("\n".join(lines))
-        cost = report.get("expected_total_cost")
-        if cost is not None:
-            sections.append(
-                f"### Expected Total Cost\n{cost}"
-            )
-        contingencies = report.get("contingencies", [])
-        if contingencies:
-            lines = ["### Contingencies"]
-            for c in contingencies:
-                lines.append(f"- {c}")
-            sections.append("\n".join(lines))
-        risks = report.get("risks", [])
-        if risks:
-            lines = ["### Risks"]
-            for r in risks:
-                lines.append(f"- {r}")
-            sections.append("\n".join(lines))
-        return "\n\n".join(sections) if sections else "N/A"
-
     def step_stream(
         self,
         system_description: str,
         incident_report: str,
-        response_plan: str,
         specification: str,
-        planner_report: dict[str, Any],
+        operator_feedback: str,
         code_report: dict[str, Any],
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
+        time_limit_minutes: int = 5,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
 
         Yields NDJSON-compatible dicts:
-        - ``{"type": "thinking", "delta": "..."}`` for thinking
-        - ``{"type": "text", "delta": "..."}`` for incremental text
-        - ``{"type": "tool_proposal", ...}`` for a final tool call
-        - ``{"type": "validation_report", ...}`` for a final report
-        - ``{"type": "error", "message": "..."}`` on failure
+        - ``{"type": "thinking", "delta": "..."}``
+        - ``{"type": "text", "delta": "..."}``
+        - ``{"type": "tool_proposal", ...}``
+        - ``{"type": "planner_report", ...}``
+        - ``{"type": "error", "message": "..."}``
 
         :param system_description: description of the target system
         :param incident_report: the incident report/assessment
-        :param response_plan: the response plan to validate
         :param specification: specification commands as text
-        :param planner_report: RL agent report dict
-        :param code_report: code agent report dict
+        :param operator_feedback: operator feedback or guidance
+        :param code_report: the Code Agent report dict
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
+        :param time_limit_minutes: DP solving time limit
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
+        formatted_report = self._format_code_report(
+            code_report or {},
+        )
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
             incident_report=incident_report or "N/A",
-            response_plan=response_plan or "N/A",
             specification=specification or "N/A",
-            planner_report_formatted=(
-                self._format_planner_report(
-                    planner_report or {},
-                )
-            ),
-            code_report_formatted=(
-                self._format_code_report(
-                    code_report or {},
-                )
-            ),
+            operator_feedback=operator_feedback or "N/A",
+            code_report_formatted=formatted_report,
+            time_limit_minutes=time_limit_minutes,
+        )
+
+        declarations = (
+            ALL_DECLARATIONS
+            if self._has_solved(conversation_history)
+            else ITERATING_DECLARATIONS
         )
 
         if is_anthropic_model(effective_model):
             yield from anthropic_stream_step(
                 system_prompt=system_prompt,
-                tool_declarations=TOOL_DECLARATIONS,
+                tool_declarations=declarations,
                 history=conversation_history,
                 initial_user_parts=[{"type": "text", "text": (
-                    "Please validate the response plan by "
-                    "applying actions sequentially on the "
-                    "digital twin and checking recovery and "
-                    "service state after each action."
+                    "Please analyze the provided Gymnasium "
+                    "MDP environment, quantize the state "
+                    "space, solve with value iteration, "
+                    "and produce an incident response plan "
+                    "based on the optimal policy."
                 )}],
                 final_tool_name=REPORT_TOOL_NAME,
-                final_event_type="validation_report",
+                final_event_type="planner_report",
                 thinking_budget=THINKING_BUDGET,
                 images=images,
                 model_name=effective_model,
@@ -322,7 +265,7 @@ class ValidationAgent:
             return
 
         client = self._create_client()
-        config = self._make_config(system_prompt)
+        config = self._make_config(system_prompt, declarations)
 
         contents = (
             [_build_initial_message(images)]
@@ -389,8 +332,8 @@ class ValidationAgent:
         if function_call:
             if function_call.name == REPORT_TOOL_NAME:
                 event: dict[str, Any] = {
-                    "type": "validation_report",
-                    "validation_report": self._normalize_args(
+                    "type": "planner_report",
+                    "planner_report": self._normalize_args(
                         dict(function_call.args)
                         if function_call.args else {},
                     ),
@@ -414,17 +357,24 @@ class ValidationAgent:
                     event["thinking_trace"] = thinking_trace
                 yield event
         else:
-            yield self._parse_validation_report(full_text)
+            yield self._parse_planner_report(full_text)
 
     @staticmethod
-    def _is_thought(part: Any) -> bool:
+    def _has_solved(
+        history: list[dict[str, Any]],
+    ) -> bool:
         """
-        Check whether a Gemini Part is internal thinking.
+        Check whether the conversation history contains a
+        dp_solve tool_result entry (gates produce_planner_report).
 
-        :param part: a Gemini Part object
-        :return: True if the part is a thought part
+        :param history: the conversation history list
+        :return: True if any dp_solve result exists
         """
-        return bool(getattr(part, "thought", False))
+        for entry in history:
+            if entry.get("type") == "tool_result":
+                if entry.get("tool_name") == "dp_solve":
+                    return True
+        return False
 
     @staticmethod
     def _normalize_args(obj: Any) -> Any:
@@ -439,12 +389,12 @@ class ValidationAgent:
             return obj
         if hasattr(obj, "items"):
             return {
-                str(k): ValidationAgent._normalize_args(v)
+                str(k): DpAgent._normalize_args(v)
                 for k, v in obj.items()
             }
         if hasattr(obj, "__iter__"):
             return [
-                ValidationAgent._normalize_args(v)
+                DpAgent._normalize_args(v)
                 for v in obj
             ]
         return obj
@@ -453,7 +403,7 @@ class ValidationAgent:
         self, tool_name: str, tool_args: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Execute an approved tool call.
+        Execute an approved non-streaming tool call.
 
         :param tool_name: the name of the tool to execute
         :param tool_args: the arguments to pass to the tool
@@ -471,13 +421,36 @@ class ValidationAgent:
         except Exception as e:
             return {"tool_name": tool_name, "error": str(e)}
 
+    def execute_tool_stream(
+        self, tool_name: str, tool_args: dict[str, Any],
+    ) -> Generator[dict[str, Any], None, None]:
+        """
+        Execute a streaming tool call.
+
+        :param tool_name: the name of the streaming tool
+        :param tool_args: the arguments to pass to the tool
+        :return: a generator yielding event dicts
+        """
+        fn = STREAMING_TOOL_DISPATCH.get(tool_name)
+        if fn is None:
+            yield {
+                "type": "error",
+                "message": f"Unknown streaming tool: "
+                f"{tool_name}",
+            }
+            return
+        try:
+            yield from fn(**tool_args)
+        except Exception as e:
+            yield {
+                "type": "error",
+                "message": str(e),
+            }
+
     @staticmethod
     def _serialize_part(part: Any) -> dict[str, Any]:
         """
         Serialize a single Gemini Part to a JSON-safe dict.
-
-        Stores thought_signature (base64-encoded) so that all
-        proto fields are preserved for multi-turn replay.
 
         :param part: a Gemini Part object
         :return: a JSON-serializable dict
@@ -501,29 +474,12 @@ class ValidationAgent:
             ).decode("ascii")
         return d
 
-    def _serialize_parts(
-        self, parts: Any,
-    ) -> list[dict[str, Any]]:
-        """
-        Serialize a list of Gemini Part objects.
-
-        :param parts: iterable of Part objects
-        :return: a list of JSON-serializable dicts
-        """
-        return [
-            d for d in (self._serialize_part(p) for p in parts)
-            if d
-        ]
-
     @staticmethod
     def _decode_raw_parts(
         raw: list[dict[str, Any]],
     ) -> list[Any]:
         """
         Decode serialized parts back to Gemini-compatible dicts.
-
-        Reconstructs Part-like dicts that the Gemini API accepts,
-        preserving thought and thought_signature fields.
 
         :param raw: list of serialized part dicts
         :return: list of dicts for the Gemini API
@@ -545,17 +501,14 @@ class ValidationAgent:
             parts.append(d)
         return parts
 
-    def _parse_validation_report(
+    def _parse_planner_report(
         self, text: str,
     ) -> dict[str, Any]:
         """
-        Parse LLM text output into a structured validation report.
-
-        Strips markdown code fences if present, then attempts
-        JSON parsing. Falls back to a default shape on failure.
+        Parse LLM text output into a structured planner report.
 
         :param text: raw text from the LLM
-        :return: a dict with type validation_report and fields
+        :return: a dict with type planner_report and fields
         """
         cleaned = re.sub(
             r"^```(?:json)?\s*\n?", "", text.strip(),
@@ -564,28 +517,21 @@ class ValidationAgent:
         try:
             parsed = json.loads(cleaned)
             return {
-                "type": "validation_report",
-                "validation_report": parsed,
+                "type": "planner_report",
+                "planner_report": parsed,
             }
         except (json.JSONDecodeError, ValueError):
             return {
-                "type": "validation_report",
-                "validation_report": {
+                "type": "planner_report",
+                "planner_report": {
                     "executive_summary": text,
-                    "action_results": [],
-                    "final_recovery_state": {
-                        "is_attack_contained": False,
-                        "is_attack_assessed": False,
-                        "is_forensic_evidence_preserved": False,
-                        "is_attack_evicted": False,
-                        "is_system_hardened": False,
-                        "are_services_restored": False,
-                    },
-                    "final_service_state": [],
-                    "overall_result": "Plan validation failed",
-                    "recommendations": [],
-                    "actual_total_cost": 0,
-                    "simulated_total_cost": 0,
+                    "method": "",
+                    "parameters": "",
+                    "solving_summary": "",
+                    "action_sequence": [],
+                    "contingencies": [],
+                    "expected_total_cost": 0,
+                    "risks": [],
                 },
             }
 
@@ -664,22 +610,18 @@ class ValidationAgent:
                         },
                         {
                             "text": (
-                                "Tool result received. "
-                                "Analyze this result, then "
-                                "continue applying response "
-                                "actions and checking state."
-                                " Only produce the final "
-                                "validation report when you "
-                                "have applied all actions "
-                                "and checked all states."
+                                "DP solver results received. "
+                                "Analyze the optimal policy, "
+                                "then produce the final "
+                                "incident response plan."
                             ),
                         },
                     ],
                 })
 
-            elif entry_type == "validation_report":
+            elif entry_type == "planner_report":
                 report = entry.get(
-                    "validation_report", {},
+                    "planner_report", {},
                 )
                 content = json.dumps(report, indent=2)
                 contents.append({

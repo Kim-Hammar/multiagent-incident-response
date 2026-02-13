@@ -1,5 +1,5 @@
 """
-System prompt template for the MdpPlannerAgent.
+System prompt template for the RlAgent.
 """
 
 SYSTEM_PROMPT_TEMPLATE = """\
@@ -29,7 +29,12 @@ learned policy.
 
 ## Training Time Limit
 
-You have **{time_limit_minutes} minute(s)** of wall-clock training time.
+You have a **hard limit of {time_limit_minutes} minute(s)** of wall-clock \
+training time. The backend will forcefully kill the training process after \
+{time_limit_minutes} minute(s), which may cause you to lose all results. \
+You MUST ensure your training completes well within this budget by choosing \
+an appropriate `total_timesteps` value. When calling `rl_train`, always pass \
+`time_limit_minutes` as `{time_limit_minutes}` explicitly.
 
 ## Your Task
 
@@ -57,7 +62,6 @@ import numpy as np
 import gymnasium
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.evaluation import evaluate_policy
 
 # 1. Write env code to file
 ENV_CODE = \"\"\"
@@ -95,23 +99,53 @@ class ProgressCallback(BaseCallback):
                     "episode": len(self._ep_rewards),
                     "reward": round(info["episode"]["r"], 2),
                     "mean_reward": round(float(np.mean(window)), 2),
-                    "timesteps": self.num_timesteps
+                    "timesteps": self.num_timesteps,
+                    "total_timesteps": self.locals.get(
+                        "total_timesteps", 0)
                 }}), flush=True)
         return True
 
 # 4. Train
 env = EnvClass()
 model = PPO("MlpPolicy", env, verbose=0, n_steps=2048, batch_size=128,
-            learning_rate=3e-4)
-model.learn(total_timesteps=100000, callback=ProgressCallback())
+            learning_rate=3e-4, policy_kwargs=dict(net_arch=[64, 64]))
+model.learn(total_timesteps=250000, callback=ProgressCallback())
 
-# 5. Evaluate — use SB3's evaluate_policy for accurate reward measurement
-#    (handles env wrapping, observation dtype, etc. identically to training)
+# 5. Evaluate with streaming progress (max 200 steps per episode
+#    to prevent hangs on envs that rarely terminate).
+#    IMPORTANT: use deterministic=False so evaluation matches the
+#    stochastic policy used during training.  deterministic=True picks
+#    argmax of logits and can get stuck in action-repeat loops when the
+#    greedy action is a no-op for the current state.
 NUM_EVAL_EPISODES = 10
+MAX_EVAL_STEPS = 200
 eval_env = EnvClass()
-mean_eval_reward, std_eval_reward = evaluate_policy(
-    model, eval_env, n_eval_episodes=NUM_EVAL_EPISODES, deterministic=True
-)
+eval_rewards = []
+for ep_i in range(NUM_EVAL_EPISODES):
+    obs, _ = eval_env.reset()
+    obs = np.array(obs, dtype=np.float32)
+    ep_reward = 0.0
+    recent_actions = []
+    for _ in range(MAX_EVAL_STEPS):
+        action, _ = model.predict(obs, deterministic=False)
+        obs, reward, terminated, truncated, _ = eval_env.step(int(action))
+        obs = np.array(obs, dtype=np.float32)
+        ep_reward += reward
+        # Loop detection: break if the same action repeats 10+ times
+        recent_actions.append(int(action))
+        if len(recent_actions) > 10 and len(set(recent_actions[-10:])) == 1:
+            break
+        if terminated or truncated:
+            break
+    eval_rewards.append(ep_reward)
+    print(json.dumps({{
+        "type": "eval_progress",
+        "eval_episode": ep_i + 1,
+        "total_eval_episodes": NUM_EVAL_EPISODES + 1,
+        "reward": round(ep_reward, 2),
+        "mean_reward": round(float(np.mean(eval_rewards)), 2)
+    }}), flush=True)
+mean_eval_reward = float(np.mean(eval_rewards))
 
 # 6. Run one detailed episode to capture the action sequence
 detail_env = EnvClass()
@@ -119,12 +153,15 @@ obs, _ = detail_env.reset()
 obs = np.array(obs, dtype=np.float32)
 actions_taken = []
 ep_reward = 0.0
-for _ in range(100):
-    action, _ = model.predict(obs, deterministic=True)
+for _ in range(MAX_EVAL_STEPS):
+    action, _ = model.predict(obs, deterministic=False)
     obs, reward, terminated, truncated, info = detail_env.step(int(action))
     obs = np.array(obs, dtype=np.float32)
     actions_taken.append(int(action))
     ep_reward += reward
+    # Loop detection: break if same action repeats 10+ times
+    if len(actions_taken) > 10 and len(set(actions_taken[-10:])) == 1:
+        break
     if terminated or truncated:
         break
 
@@ -133,6 +170,13 @@ named_actions = [
     action_names[a] if a < len(action_names) else f"action_{{a}}"
     for a in actions_taken
 ]
+print(json.dumps({{
+    "type": "eval_progress",
+    "eval_episode": NUM_EVAL_EPISODES + 1,
+    "total_eval_episodes": NUM_EVAL_EPISODES + 1,
+    "reward": round(ep_reward, 2),
+    "mean_reward": round(float(np.mean(eval_rewards)), 2)
+}}), flush=True)
 print(json.dumps({{
     "type": "result",
     "total_reward": round(float(mean_eval_reward), 2),
@@ -154,8 +198,9 @@ training.
 progress. The code MUST print JSON progress lines to stdout. Use this tool \
 for all RL training runs (NOT python_exec). When calling this tool you MUST \
 also provide the `algorithm` parameter (e.g. "PPO") and `hyperparameters` \
-parameter (e.g. "n_steps=2048, batch_size=128, lr=3e-4, total_timesteps=100000") \
-so the UI can display them alongside the training chart. \
+parameter (e.g. "n_steps=2048, batch_size=128, lr=3e-4, \
+total_timesteps=250000, net_arch=[64, 64]") so the UI can display them \
+alongside the training chart. \
 **Important:** Always include the learning rate (`lr`) in the hyperparameters string.
 - **produce_planner_report**: Call this ONLY after RL training has \
 completed to produce the final structured incident response plan.
@@ -171,13 +216,35 @@ Do NOT estimate or approximate — use the precise number from the evaluation \
 output. This value should closely match the converged mean cost visible in \
 the training chart.
 
-## Training Stability
+## Recommended Defaults
 
-For stable RL training, prefer larger `n_steps` (e.g. 2048) for \
-smoother rollout collection. A moderate `batch_size` (e.g. 128) is \
-usually sufficient — very large batch sizes can hurt learning. \
-Increase `total_timesteps` proportionally (e.g. 100000+) to ensure \
-enough training episodes with larger rollout buffers.
+Use these defaults unless you have a specific reason to change them:
+
+- **Algorithm:** PPO
+- **Learning rate:** 3e-4
+- **n_steps:** 2048 (larger rollout buffers give smoother training)
+- **batch_size:** 128 (moderate — very large batches can hurt learning)
+- **total_timesteps:** 250000 (enough for convergence on typical incident \
+response MDPs)
+- **net_arch:** [64, 64] (two hidden layers of 64 units — sufficient for \
+the typical MDP sizes in incident response; larger networks rarely help \
+and converge slower)
+
+These are already set in the code template above. When calling `rl_train`, \
+pass the matching `algorithm` and `hyperparameters` strings so the UI \
+displays them correctly.
+
+## Evaluation Policy
+
+During evaluation, always use `deterministic=False` in `model.predict()`. \
+PPO trains a stochastic policy (categorical distribution over discrete \
+actions). The training reward curve reflects this stochastic behaviour. \
+Using `deterministic=True` (argmax of logits) during evaluation can cause \
+the agent to get stuck in action-repeat loops — for example, repeatedly \
+picking a no-op action when the greedy choice for a particular state is \
+suboptimal. The stochastic policy naturally breaks out of such cycles \
+through sampling. The template also includes loop detection (breaks if \
+the same action repeats 10+ consecutive times) as a safety net.
 
 ## CRITICAL RULES
 

@@ -2,27 +2,34 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_PENTEST_STEP_URL,
-  API_AGENTS_PENTEST_TOOL_URL,
-  API_AGENTS_PENTEST_PROMPT_URL,
+  API_AGENTS_DP_STEP_URL,
+  API_AGENTS_DP_TOOL_URL,
+  API_AGENTS_DP_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
-import PentestAgentConfigTab from './PentestAgentConfigTab.jsx'
-import PentestAgentReport from './PentestAgentReport.jsx'
+import DpAgentConfigTab from './DpAgentConfigTab.jsx'
+import DpAgentReport from './DpAgentReport.jsx'
+import ConvergenceChart from './ConvergenceChart.jsx'
+import DpSolveResult from './DpSolveResult.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 
 /**
- * PenetrationTestAgent component — drives the pentest agent loop with
- * human-in-the-loop tool approval. Renders 3 inner tabs.
+ * DpAgent component — drives the DP agent loop with
+ * human-in-the-loop tool approval and live convergence visualization.
  */
-function PenetrationTestAgent() {
+function DpAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
+  const [incidentReport, setIncidentReport] = useState('')
+  const [specification, setSpecification] = useState('')
+  const [operatorFeedback, setOperatorFeedback] = useState('')
+  const [codeReport, setCodeReport] = useState('')
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(5)
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
@@ -39,10 +46,15 @@ function PenetrationTestAgent() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
+  const [solverData, setSolverData] = useState([])
+  const [solverMeta, setSolverMeta] = useState({ method: '', parameters: '' })
+  const [solverStartTime, setSolverStartTime] = useState(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
+  const solverRunsRef = useRef({})
+  const runIdCounterRef = useRef(0)
   const abortControllerRef = useRef(null)
 
   const handlePaste = (event) => {
@@ -122,6 +134,7 @@ function PenetrationTestAgent() {
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
+    setSolverStartTime(null)
     setConversationHistory((prev) => [
       ...prev,
       { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
@@ -130,25 +143,34 @@ function PenetrationTestAgent() {
 
   const callStep = async (history) => {
     setRunning(true)
-    const controller = new AbortController()
-    abortControllerRef.current = controller
     const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     try {
-      const res = await fetch(API_AGENTS_PENTEST_STEP_URL, {
+      const res = await fetch(API_AGENTS_DP_STEP_URL, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           system_description: systemDescription,
-          conversation_history: history,
+          incident_report: incidentReport,
+          specification: specification,
+          operator_feedback: operatorFeedback,
+          code_report: codeReport,
+          conversation_history: history.map((e) =>
+            e._runId != null
+              ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== '_runId'))
+              : e
+          ),
           images: systemDescriptionImages,
-          model_name: selectedModel || undefined
-        }),
-        signal: controller.signal
+          model_name: selectedModel || undefined,
+          time_limit_minutes: timeLimitMinutes
+        })
       })
       if (res.status === 401) {
         logout()
@@ -197,11 +219,11 @@ function PenetrationTestAgent() {
               _tool_use_id: event._tool_use_id,
               _vendor: event._vendor
             }
-          } else if (event.type === 'report') {
+          } else if (event.type === 'planner_report') {
             finalEntry = {
               role: 'model',
-              type: 'report',
-              report: event.report,
+              type: 'planner_report',
+              planner_report: event.planner_report,
               thinking_trace: event.thinking_trace || ''
             }
           } else if (event.type === 'context_usage') {
@@ -227,8 +249,8 @@ function PenetrationTestAgent() {
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
-        if (finalEntry.type === 'report') {
-          saveReport(finalEntry.report)
+        if (finalEntry.type === 'planner_report') {
+          saveReport(finalEntry.planner_report)
         }
       } else if (accumulated) {
         let report
@@ -237,13 +259,19 @@ function PenetrationTestAgent() {
         } catch {
           report = {
             executive_summary: accumulated,
-            attack_paths: [],
-            vulnerabilities_found: [],
-            compromised_servers: [],
-            recommendations: []
+            method: '',
+            parameters: '',
+            solving_summary: '',
+            action_sequence: [],
+            contingencies: [],
+            expected_total_cost: 0,
+            risks: []
           }
         }
-        setConversationHistory([...history, { role: 'model', type: 'report', report }])
+        setConversationHistory([
+          ...history,
+          { role: 'model', type: 'planner_report', planner_report: report }
+        ])
         saveReport(report)
       } else {
         setConversationHistory([
@@ -265,6 +293,7 @@ function PenetrationTestAgent() {
     setConversationHistory([])
     setExpandedEntries({})
     setContextUsage(null)
+    setSolverData([])
     setActiveTab('planning')
     callStep([])
   }
@@ -280,50 +309,152 @@ function PenetrationTestAgent() {
     }
     setPendingProposal(null)
     setExecutingTool(proposal.tool_name)
-    try {
+
+    if (proposal.tool_name === 'dp_solve') {
+      setSolverData([])
+      setSolverStartTime(Date.now())
+      setSolverMeta({
+        method: proposal.tool_args.method || '',
+        parameters: proposal.tool_args.parameters || ''
+      })
       const controller = new AbortController()
       abortControllerRef.current = controller
-      const res = await fetch(API_AGENTS_PENTEST_TOOL_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          tool_name: proposal.tool_name,
-          tool_args: proposal.tool_args,
-          incident_id: selectedIncidentId
-        }),
-        signal: controller.signal
-      })
-      if (res.status === 401) {
-        logout()
-        return
-      }
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        setAlert({
-          type: 'danger',
-          message: errData.error || `Tool execution failed (HTTP ${res.status})`
+      try {
+        const res = await fetch(API_AGENTS_DP_TOOL_URL, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            tool_name: proposal.tool_name,
+            tool_args: proposal.tool_args
+          })
         })
+        if (res.status === 401) {
+          logout()
+          return
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          setAlert({
+            type: 'danger',
+            message: errData.error || `Tool execution failed (HTTP ${res.status})`
+          })
+          setExecutingTool(null)
+          return
+        }
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        const progressEvents = []
+        let resultEvent = null
+        let doneEvent = null
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop()
+          for (const line of lines) {
+            if (!line.trim()) continue
+            try {
+              const event = JSON.parse(line)
+              if (event.type === 'progress') {
+                progressEvents.push(event)
+                setSolverData((prev) => [...prev, event])
+              } else if (event.type === 'result') {
+                resultEvent = event
+              } else if (event.type === 'done' || event.type === 'timeout') {
+                doneEvent = event
+              } else if (event.type === 'error') {
+                setAlert({ type: 'danger', message: event.message || 'Solving error' })
+              }
+            } catch {
+              /* skip non-JSON lines */
+            }
+          }
+        }
+
+        setSolverStartTime(null)
+        const runId = ++runIdCounterRef.current
+        solverRunsRef.current[runId] = {
+          data: [...progressEvents],
+          meta: {
+            method: proposal.tool_args.method || '',
+            parameters: proposal.tool_args.parameters || ''
+          }
+        }
+        const toolResult = {
+          progress_iterations: progressEvents.length,
+          result: resultEvent,
+          done: doneEvent
+        }
+        const resultEntry = {
+          role: 'tool',
+          type: 'tool_result',
+          tool_name: proposal.tool_name,
+          result: toolResult,
+          _runId: runId
+        }
+        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        setConversationHistory(updated)
         setExecutingTool(null)
-        return
+        await callStep(updated)
+      } catch (err) {
+        if (err.name === 'AbortError') return
+        setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+        setSolverStartTime(null)
+        setExecutingTool(null)
       }
-      const data = await res.json()
-      const resultEntry = {
-        role: 'tool',
-        type: 'tool_result',
-        tool_name: proposal.tool_name,
-        result: data.error ? { error: data.error } : data.result
+    } else {
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      try {
+        const res = await fetch(API_AGENTS_DP_TOOL_URL, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            tool_name: proposal.tool_name,
+            tool_args: proposal.tool_args
+          })
+        })
+        if (res.status === 401) {
+          logout()
+          return
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          setAlert({
+            type: 'danger',
+            message: errData.error || `Tool execution failed (HTTP ${res.status})`
+          })
+          setExecutingTool(null)
+          return
+        }
+        const data = await res.json()
+        const resultEntry = {
+          role: 'tool',
+          type: 'tool_result',
+          tool_name: proposal.tool_name,
+          result: data.error ? { error: data.error } : data.result
+        }
+        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        setConversationHistory(updated)
+        setExecutingTool(null)
+        await callStep(updated)
+      } catch (err) {
+        if (err.name === 'AbortError') return
+        setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+        setExecutingTool(null)
       }
-      const updated = [...conversationHistory, approvalEntry, resultEntry]
-      setConversationHistory(updated)
-      setExecutingTool(null)
-      await callStep(updated)
-    } catch (err) {
-      if (err.name === 'AbortError') return
-      setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
-      setExecutingTool(null)
     }
   }
 
@@ -344,16 +475,45 @@ function PenetrationTestAgent() {
   const loadExample = async (incidentId) => {
     setSelectedIncidentId(incidentId)
     try {
-      const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
+      const exampleRes = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      if (res.status === 401) {
+      if (exampleRes.status === 401) {
         logout()
         return
       }
-      const data = await res.json()
-      setSystemDescription(data.system_description || '')
-      setSystemDescriptionImages(data.system_description_images || [])
+      const exampleData = await exampleRes.json()
+      setSystemDescription(exampleData.system_description || '')
+      setIncidentReport(exampleData.incident_report || '')
+      setSpecification(exampleData.specification || '')
+      setOperatorFeedback('')
+      setSystemDescriptionImages(exampleData.system_description_images || [])
+
+      const reportsRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=code&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (reportsRes.ok) {
+        const reports = await reportsRes.json()
+        if (reports.length > 0) {
+          const latest = reports[0]
+          const report = latest.report || {}
+          setCodeReport(JSON.stringify(report, null, 2))
+        }
+      }
+
+      const infoRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=information&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (infoRes.ok) {
+        const infoReports = await infoRes.json()
+        if (infoReports.length > 0) {
+          const { attack_path_image, ...reportText } = infoReports[0].report || {}
+          void attack_path_image
+          setIncidentReport(JSON.stringify(reportText, null, 2))
+        }
+      }
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to load example: ${err.message}` })
     }
@@ -361,24 +521,39 @@ function PenetrationTestAgent() {
 
   const handleClear = () => {
     setSystemDescription('')
+    setIncidentReport('')
+    setSpecification('')
+    setOperatorFeedback('')
+    setCodeReport('')
+    setTimeLimitMinutes(5)
     setSystemDescriptionImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
+    setSolverData([])
+    setSolverMeta({ method: '', parameters: '' })
+    setSolverStartTime(null)
+    solverRunsRef.current = {}
+    runIdCounterRef.current = 0
     setSelectedIncidentId(null)
   }
 
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_PENTEST_PROMPT_URL, {
+      const res = await fetch(API_AGENTS_DP_PROMPT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          system_description: systemDescription
+          system_description: systemDescription,
+          incident_report: incidentReport,
+          specification: specification,
+          operator_feedback: operatorFeedback,
+          code_report: codeReport,
+          time_limit_minutes: timeLimitMinutes
         })
       })
       if (res.status === 401) {
@@ -397,7 +572,7 @@ function PenetrationTestAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=pentest`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=dp`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -417,7 +592,7 @@ function PenetrationTestAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'pentest',
+          agent_type: 'dp',
           report,
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(conversationHistory)
@@ -452,7 +627,7 @@ function PenetrationTestAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <PentestAgentReport
+    <DpAgentReport
       key={index}
       entry={entry}
       index={index}
@@ -460,6 +635,35 @@ function PenetrationTestAgent() {
       toggleEntry={toggleEntry}
     />
   )
+
+  const renderToolResult = (entry) => {
+    if (entry.tool_name === 'dp_solve') {
+      const run = entry._runId ? solverRunsRef.current[entry._runId] : null
+      return (
+        <DpSolveResult
+          solverData={run ? run.data : solverData}
+          solverMeta={run ? run.meta : solverMeta}
+          result={entry.result}
+        />
+      )
+    }
+    return null
+  }
+
+  const renderExecutingTool = (toolName) => {
+    if (toolName === 'dp_solve') {
+      return (
+        <ConvergenceChart
+          data={solverData}
+          method={solverMeta.method}
+          parameters={solverMeta.parameters}
+          solvingStartTime={solverStartTime}
+          timeLimitMinutes={timeLimitMinutes}
+        />
+      )
+    }
+    return null
+  }
 
   return (
     <div>
@@ -504,9 +708,19 @@ function PenetrationTestAgent() {
       </ul>
 
       {activeTab === 'config' && (
-        <PentestAgentConfigTab
+        <DpAgentConfigTab
           systemDescription={systemDescription}
           setSystemDescription={setSystemDescription}
+          incidentReport={incidentReport}
+          setIncidentReport={setIncidentReport}
+          specification={specification}
+          setSpecification={setSpecification}
+          operatorFeedback={operatorFeedback}
+          setOperatorFeedback={setOperatorFeedback}
+          codeReport={codeReport}
+          setCodeReport={setCodeReport}
+          timeLimitMinutes={timeLimitMinutes}
+          setTimeLimitMinutes={setTimeLimitMinutes}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
           handlePaste={handlePaste}
@@ -543,6 +757,8 @@ function PenetrationTestAgent() {
           logEndRef={logEndRef}
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
+          renderExecutingTool={renderExecutingTool}
+          renderToolResult={renderToolResult}
           onStop={handleStop}
         />
       )}
@@ -552,8 +768,8 @@ function PenetrationTestAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           renderReport={(report) => (
-            <PentestAgentReport
-              entry={{ type: 'report', report }}
+            <DpAgentReport
+              entry={{ type: 'planner_report', planner_report: report }}
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
@@ -568,4 +784,4 @@ function PenetrationTestAgent() {
   )
 }
 
-export default PenetrationTestAgent
+export default DpAgent

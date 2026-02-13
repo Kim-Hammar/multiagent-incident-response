@@ -2,24 +2,26 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_MDP_PLANNER_STEP_URL,
-  API_AGENTS_MDP_PLANNER_TOOL_URL,
-  API_AGENTS_MDP_PLANNER_PROMPT_URL,
+  API_AGENTS_RL_STEP_URL,
+  API_AGENTS_RL_TOOL_URL,
+  API_AGENTS_RL_PROMPT_URL,
   API_LLM_URL,
-  API_AGENTS_REPORTS_URL
+  API_AGENTS_REPORTS_URL,
+  API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
-import MdpPlannerConfigTab from './MdpPlannerConfigTab.jsx'
-import MdpPlannerReport from './MdpPlannerReport.jsx'
+import RlAgentConfigTab from './RlAgentConfigTab.jsx'
+import RlAgentReport from './RlAgentReport.jsx'
 import RewardChart from './RewardChart.jsx'
 import RlTrainResult from './RlTrainResult.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import { cleanConversationHistory } from './shared/conversationUtils.js'
 
 /**
- * MdpPlannerAgent component — drives the MDP planner agent loop with
+ * RlAgent component — drives the RL agent loop with
  * human-in-the-loop tool approval and live RL training visualization.
  */
-function MdpPlannerAgent() {
+function RlAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
@@ -47,6 +49,7 @@ function MdpPlannerAgent() {
   const [trainingData, setTrainingData] = useState([])
   const [trainingMeta, setTrainingMeta] = useState({ algorithm: '', hyperparameters: '' })
   const [trainingStartTime, setTrainingStartTime] = useState(null)
+  const [evalProgress, setEvalProgress] = useState(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
@@ -125,6 +128,10 @@ function MdpPlannerAgent() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    fetch(API_DT_PYTHON_STOP_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {})
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
@@ -143,7 +150,7 @@ function MdpPlannerAgent() {
     const controller = new AbortController()
     abortControllerRef.current = controller
     try {
-      const res = await fetch(API_AGENTS_MDP_PLANNER_STEP_URL, {
+      const res = await fetch(API_AGENTS_RL_STEP_URL, {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -306,6 +313,7 @@ function MdpPlannerAgent() {
 
     if (proposal.tool_name === 'rl_train') {
       setTrainingData([])
+      setEvalProgress(null)
       setTrainingStartTime(Date.now())
       setTrainingMeta({
         algorithm: proposal.tool_args.algorithm || '',
@@ -314,7 +322,7 @@ function MdpPlannerAgent() {
       const controller = new AbortController()
       abortControllerRef.current = controller
       try {
-        const res = await fetch(API_AGENTS_MDP_PLANNER_TOOL_URL, {
+        const res = await fetch(API_AGENTS_RL_TOOL_URL, {
           method: 'POST',
           signal: controller.signal,
           headers: {
@@ -360,6 +368,8 @@ function MdpPlannerAgent() {
               if (event.type === 'progress') {
                 progressEvents.push(event)
                 setTrainingData((prev) => [...prev, event])
+              } else if (event.type === 'eval_progress') {
+                setEvalProgress(event)
               } else if (event.type === 'result') {
                 resultEvent = event
               } else if (event.type === 'done' || event.type === 'timeout') {
@@ -408,7 +418,7 @@ function MdpPlannerAgent() {
       const controller = new AbortController()
       abortControllerRef.current = controller
       try {
-        const res = await fetch(API_AGENTS_MDP_PLANNER_TOOL_URL, {
+        const res = await fetch(API_AGENTS_RL_TOOL_URL, {
           method: 'POST',
           signal: controller.signal,
           headers: {
@@ -527,6 +537,7 @@ function MdpPlannerAgent() {
     setTrainingData([])
     setTrainingMeta({ algorithm: '', hyperparameters: '' })
     setTrainingStartTime(null)
+    setEvalProgress(null)
     trainingRunsRef.current = {}
     runIdCounterRef.current = 0
     setSelectedIncidentId(null)
@@ -535,7 +546,7 @@ function MdpPlannerAgent() {
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_MDP_PLANNER_PROMPT_URL, {
+      const res = await fetch(API_AGENTS_RL_PROMPT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -566,7 +577,7 @@ function MdpPlannerAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=mdp_planner`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=rl`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -585,7 +596,12 @@ function MdpPlannerAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'mdp_planner', report, incident_id: selectedIncidentId })
+        body: JSON.stringify({
+          agent_type: 'rl',
+          report,
+          incident_id: selectedIncidentId,
+          conversation_history: cleanConversationHistory(conversationHistory)
+        })
       })
       await fetchHistory()
     } catch {
@@ -616,7 +632,7 @@ function MdpPlannerAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <MdpPlannerReport
+    <RlAgentReport
       key={index}
       entry={entry}
       index={index}
@@ -647,6 +663,8 @@ function MdpPlannerAgent() {
           algorithm={trainingMeta.algorithm}
           hyperparameters={trainingMeta.hyperparameters}
           trainingStartTime={trainingStartTime}
+          timeLimitMinutes={timeLimitMinutes}
+          evalProgress={evalProgress}
         />
       )
     }
@@ -696,7 +714,7 @@ function MdpPlannerAgent() {
       </ul>
 
       {activeTab === 'config' && (
-        <MdpPlannerConfigTab
+        <RlAgentConfigTab
           systemDescription={systemDescription}
           setSystemDescription={setSystemDescription}
           incidentReport={incidentReport}
@@ -756,17 +774,20 @@ function MdpPlannerAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           renderReport={(report) => (
-            <MdpPlannerReport
+            <RlAgentReport
               entry={{ type: 'planner_report', planner_report: report }}
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
             />
           )}
+          renderFinalReport={renderFinalReport}
+          token={token}
+          logout={logout}
         />
       )}
     </div>
   )
 }
 
-export default MdpPlannerAgent
+export default RlAgent

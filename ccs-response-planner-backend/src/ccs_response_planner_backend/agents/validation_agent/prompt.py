@@ -22,7 +22,7 @@ after each action.
 ### Specification Commands
 {specification}
 
-### MDP Planner Report
+### RL Agent Report
 {planner_report_formatted}
 
 ### Code Agent Report (MDP Environment)
@@ -59,7 +59,7 @@ commands after applying the action. The per-step cost = 1 + number_of_failed_spe
    e. Record the action name, description, commands executed, outcome, recovery state, \
 service state, and **actual_step_cost** for this action.
 3. After applying ALL actions, compute the **actual_total_cost** by summing all per-step \
-costs. Compare this with the `expected_total_cost` from the MDP planner report. \
+costs. Compare this with the `expected_total_cost` from the RL Agent report. \
 Then call `produce_validation_report` with the complete per-action results.
 
 ## Available Tools

@@ -5,7 +5,15 @@ import { useState, useEffect } from 'react'
  * Two lines: individual episode cost (thin, lighter) + rolling mean (thick, dark).
  * Cost is the negated reward (cost = -reward), so positive values represent penalty.
  */
-function RewardChart({ data, algorithm, hyperparameters, trainingStartTime, completed }) {
+function RewardChart({
+  data,
+  algorithm,
+  hyperparameters,
+  trainingStartTime,
+  completed,
+  timeLimitMinutes,
+  evalProgress
+}) {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
@@ -21,7 +29,9 @@ function RewardChart({ data, algorithm, hyperparameters, trainingStartTime, comp
 
   const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0')
   const seconds = String(elapsed % 60).padStart(2, '0')
-  const elapsedStr = `${minutes}:${seconds}`
+  const limitStr = timeLimitMinutes ? `${String(timeLimitMinutes).padStart(2, '0')}:00` : null
+  const elapsedStr = limitStr ? `${minutes}:${seconds} / ${limitStr}` : `${minutes}:${seconds}`
+  const overLimit = timeLimitMinutes && elapsed > timeLimitMinutes * 60
 
   const parsedLr = (() => {
     if (!hyperparameters) return null
@@ -39,7 +49,13 @@ function RewardChart({ data, algorithm, hyperparameters, trainingStartTime, comp
             <span className="ia-thinking-title">
               Waiting for training data...
               {trainingStartTime && (
-                <span style={{ marginLeft: '12px', color: '#888', fontWeight: 'normal' }}>
+                <span
+                  style={{
+                    marginLeft: '12px',
+                    color: overLimit ? '#dc3545' : '#888',
+                    fontWeight: overLimit ? '600' : 'normal'
+                  }}
+                >
                   {elapsedStr}
                 </span>
               )}
@@ -95,10 +111,25 @@ function RewardChart({ data, algorithm, hyperparameters, trainingStartTime, comp
           )}
           <i className="fa fa-line-chart" aria-hidden="true" />
           <span className="ia-thinking-title">
-            {completed ? 'RL Training Complete' : 'RL Training'} &mdash; {latest.episode} Episodes,
-            Final Mean Cost: {(-latest.mean_reward).toFixed(2)}
+            {completed ? 'RL Training Complete' : 'RL Training'} &mdash; {latest.episode} Episodes
+            {latest.total_timesteps > 0 && (
+              <span>
+                {' '}
+                | {latest.timesteps.toLocaleString()} / {latest.total_timesteps.toLocaleString()}{' '}
+                timesteps (
+                {Math.min(100, Math.round((latest.timesteps / latest.total_timesteps) * 100))}
+                %)
+              </span>
+            )}
+            , Mean Cost: {(-latest.mean_reward).toFixed(2)}
             {!completed && trainingStartTime && (
-              <span style={{ marginLeft: '12px', color: '#888', fontWeight: 'normal' }}>
+              <span
+                style={{
+                  marginLeft: '12px',
+                  color: overLimit ? '#dc3545' : '#888',
+                  fontWeight: overLimit ? '600' : 'normal'
+                }}
+              >
                 {elapsedStr}
               </span>
             )}
@@ -161,6 +192,28 @@ function RewardChart({ data, algorithm, hyperparameters, trainingStartTime, comp
             Cost
           </text>
         </svg>
+        {evalProgress && !completed && (
+          <div
+            style={{
+              marginTop: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '13px',
+              color: '#555'
+            }}
+          >
+            <div className="spinner-border spinner-border-sm" role="status">
+              <span className="sr-only">Evaluating...</span>
+            </div>
+            <span>
+              <strong>Evaluating policy...</strong> Episode {evalProgress.eval_episode} /{' '}
+              {evalProgress.total_eval_episodes} (
+              {Math.round((evalProgress.eval_episode / evalProgress.total_eval_episodes) * 100)}
+              %), Mean Eval Cost: {(-evalProgress.mean_reward).toFixed(2)}
+            </span>
+          </div>
+        )}
         {(algorithm || hyperparameters) && (
           <div
             style={{

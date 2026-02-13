@@ -13,6 +13,7 @@ export const TOOL_LABELS = {
   pentest_exec: { label: 'Attacker Terminal', icon: 'fa-terminal' },
   python_exec: { label: 'Python Sandbox', icon: 'fa-code' },
   rl_train: { label: 'RL Training', icon: 'fa-line-chart' },
+  dp_solve: { label: 'DP Value Iteration', icon: 'fa-line-chart' },
   gym_verify: { label: 'Gymnasium Verify', icon: 'fa-check-circle' }
 }
 
@@ -51,6 +52,11 @@ export function formatToolArgs(toolName, args) {
     case 'python_exec':
       return [['Code', args.code || '']]
     case 'rl_train':
+      return [
+        ['Code', args.code || ''],
+        ['Time limit', `${args.time_limit_minutes || 5} min`]
+      ]
+    case 'dp_solve':
       return [
         ['Code', args.code || ''],
         ['Time limit', `${args.time_limit_minutes || 5} min`]

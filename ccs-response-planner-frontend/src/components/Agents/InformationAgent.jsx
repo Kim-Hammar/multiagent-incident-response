@@ -6,12 +6,14 @@ import {
   API_AGENTS_INFO_TOOL_URL,
   API_AGENTS_INFO_PROMPT_URL,
   API_LLM_URL,
-  API_AGENTS_REPORTS_URL
+  API_AGENTS_REPORTS_URL,
+  API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import InformationAgentConfigTab from './InformationAgentConfigTab.jsx'
 import InformationAgentReport from './InformationAgentReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import { cleanConversationHistory } from './shared/conversationUtils.js'
 
 /**
  * InformationAgent component — drives the agent loop with
@@ -117,6 +119,10 @@ function InformationAgent() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    fetch(API_DT_PYTHON_STOP_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {})
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
@@ -455,7 +461,14 @@ function InformationAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ agent_type: 'information', report, incident_id: selectedIncidentId })
+        body: JSON.stringify({
+          agent_type: 'information',
+          report,
+          incident_id: selectedIncidentId,
+          conversation_history: cleanConversationHistory(
+            stripImagesFromHistory(conversationHistory)
+          )
+        })
       })
       await fetchHistory()
     } catch {
@@ -601,6 +614,9 @@ function InformationAgent() {
               toggleEntry={() => {}}
             />
           )}
+          renderFinalReport={renderFinalReport}
+          token={token}
+          logout={logout}
         />
       )}
     </div>

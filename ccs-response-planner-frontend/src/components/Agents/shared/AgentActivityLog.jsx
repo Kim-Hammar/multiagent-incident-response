@@ -7,7 +7,8 @@ const TERMINAL_TOOLS = new Set([
   'pentest_exec',
   'python_exec',
   'dt_python_exec',
-  'rl_train'
+  'rl_train',
+  'dp_solve'
 ])
 
 function renderTerminalResult(toolName, result) {

@@ -1,12 +1,62 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import AgentActivityLog from './AgentActivityLog.jsx'
+import { API_AGENTS_REPORTS_URL } from '../../Common/constants.js'
 
 /**
  * Shared history tab for all agents.
  * Displays a list of saved reports with expand/collapse and delete.
  * Uses a renderReport render prop to display agent-specific report formatting.
+ * Optionally lazy-loads the full planning process (conversation history).
  */
-function AgentHistoryTab({ reportHistory, deleteReport, renderReport }) {
+function AgentHistoryTab({
+  reportHistory,
+  deleteReport,
+  renderReport,
+  renderFinalReport,
+  token,
+  logout
+}) {
   const [historyExpanded, setHistoryExpanded] = useState({})
+  const [showProcess, setShowProcess] = useState({})
+  const [loadedHistory, setLoadedHistory] = useState({})
+  const [loadingHistory, setLoadingHistory] = useState({})
+  const [processExpanded, setProcessExpanded] = useState({})
+  const logEndRef = useRef(null)
+
+  const fetchConversationHistory = async (reportId) => {
+    if (loadedHistory[reportId]) {
+      setShowProcess((prev) => ({ ...prev, [reportId]: !prev[reportId] }))
+      return
+    }
+    setLoadingHistory((prev) => ({ ...prev, [reportId]: true }))
+    try {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}/${reportId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.status === 401 && logout) {
+        logout()
+        return
+      }
+      if (res.ok) {
+        const data = await res.json()
+        if (data.conversation_history) {
+          setLoadedHistory((prev) => ({ ...prev, [reportId]: data.conversation_history }))
+          setShowProcess((prev) => ({ ...prev, [reportId]: true }))
+        }
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingHistory((prev) => ({ ...prev, [reportId]: false }))
+    }
+  }
+
+  const toggleProcessEntry = (reportId, index) => {
+    setProcessExpanded((prev) => ({
+      ...prev,
+      [`${reportId}-${index}`]: !prev[`${reportId}-${index}`]
+    }))
+  }
 
   if (reportHistory.length === 0) {
     return (
@@ -58,14 +108,70 @@ function AgentHistoryTab({ reportHistory, deleteReport, renderReport }) {
           {historyExpanded[entry.id] && (
             <div style={{ marginTop: '8px' }}>
               {renderReport(entry.report)}
-              <button
-                type="button"
-                className="btn btn-outline-danger btn-sm"
-                style={{ fontSize: '11px', padding: '2px 10px', marginTop: '8px' }}
-                onClick={() => deleteReport(entry.id)}
-              >
-                <i className="fa fa-trash" aria-hidden="true" /> Delete
-              </button>
+              <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {entry.has_conversation_history && (
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${showProcess[entry.id] ? 'btn-outline-secondary' : 'btn-outline-info'}`}
+                    style={{ fontSize: '11px', padding: '2px 10px' }}
+                    onClick={() => fetchConversationHistory(entry.id)}
+                    disabled={loadingHistory[entry.id]}
+                  >
+                    {loadingHistory[entry.id] ? (
+                      <>
+                        <span
+                          className="spinner-border spinner-border-sm"
+                          role="status"
+                          style={{ width: '10px', height: '10px', marginRight: '4px' }}
+                        />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <i
+                          className={`fa fa-${showProcess[entry.id] ? 'eye-slash' : 'eye'}`}
+                          aria-hidden="true"
+                        />{' '}
+                        {showProcess[entry.id] ? 'Hide' : 'Show'} planning process
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm"
+                  style={{ fontSize: '11px', padding: '2px 10px' }}
+                  onClick={() => deleteReport(entry.id)}
+                >
+                  <i className="fa fa-trash" aria-hidden="true" /> Delete
+                </button>
+              </div>
+              {showProcess[entry.id] && loadedHistory[entry.id] && (
+                <div style={{ marginTop: '12px' }}>
+                  <AgentActivityLog
+                    conversationHistory={loadedHistory[entry.id]}
+                    expandedEntries={Object.fromEntries(
+                      loadedHistory[entry.id].map((_, i) => [
+                        i,
+                        processExpanded[`${entry.id}-${i}`] ?? false
+                      ])
+                    )}
+                    toggleEntry={(index) => toggleProcessEntry(entry.id, index)}
+                    pendingProposal={null}
+                    executingTool={null}
+                    handleApprove={() => {}}
+                    handleDeny={() => {}}
+                    contextUsage={null}
+                    hasNewActivity={false}
+                    scrollToBottom={() => {}}
+                    logEndRef={logEndRef}
+                    streamingTraceRef={null}
+                    renderFinalReport={renderFinalReport || null}
+                    renderExecutingTool={null}
+                    renderToolResult={null}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

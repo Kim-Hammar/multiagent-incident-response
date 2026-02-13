@@ -3,9 +3,9 @@ import PromptModal from './shared/PromptModal.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
- * Configuration tab for the MDP Planner Agent.
+ * Configuration tab for the RL Agent.
  */
-function MdpPlannerConfigTab({
+function RlAgentConfigTab({
   systemDescription,
   setSystemDescription,
   incidentReport,
@@ -210,4 +210,4 @@ function MdpPlannerConfigTab({
   )
 }
 
-export default MdpPlannerConfigTab
+export default RlAgentConfigTab
