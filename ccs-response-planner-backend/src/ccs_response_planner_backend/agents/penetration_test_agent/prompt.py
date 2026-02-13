@@ -142,6 +142,13 @@ killed automatically. Keep scans fast and targeted.
 - **NEVER use `-p-` (full 65535-port scan)** — it is far too slow, \
 especially against firewalled hosts where probes time out. Instead, scan \
 specific ports that match the known services (e.g. `-p 21,22,80,443`).
+- **Wrap brute-force and nmap script scans with `timeout 60`** — commands \
+like `hydra`, `nmap --script *-brute`, and similar credential-guessing \
+attacks can run for a very long time. Always prefix them with `timeout 60` \
+(e.g. `timeout 60 hydra -l admin -P list.txt ssh://host`, \
+`timeout 60 nmap --script pgsql-brute -p 5432 host`). This applies to \
+commands run both locally and through SSH pivots \
+(e.g. `sshpass -p 'pass' ssh user@host 'timeout 60 nmap --script ...'`).
 - **Only scan hosts you know are reachable** from the perimeter based on \
 the system description. Do not waste time scanning hosts behind the \
 firewall that you cannot reach directly.

@@ -215,36 +215,22 @@ The six recovery-state dimensions correspond to these phases \
 
 At every time step the reward is:
 
-    recovery_penalty = (
-        6 * (1 - containment_progress)
-      + 5 * (1 - assessment_progress)
-      + 4 * (1 - preservation_progress)
-      + 3 * (1 - eviction_progress)
-      + 2 * (1 - hardening_progress)
-      + 1 * (1 - restoration_progress)
-    )
-    spec_penalty = number_of_failing_specifications
-    reward = -(recovery_penalty + spec_penalty)
+    reward = -(6*(1-containment) + 5*(1-assessment) + 4*(1-preservation)
+              + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
 
-where each `*_progress` value is the current value of the \
-corresponding recovery-state dimension (0.0 = not started, \
-1.0 = fully complete). These are the FIRST 6 dimensions of the \
-observation vector (the recovery state). The specification \
-penalty adds 1 per failing specification (spec value < 1.0).
+where each value is the current recovery-state dimension (0.0–1.0). \
+Do NOT add a separate specification penalty — the impact of failing \
+specifications is already captured by the restoration dimension, which \
+is computed as `mean(spec_dims)`. Adding a separate spec penalty would \
+double-count the negative impact.
 
 This means:
-- The reward is always negative (or zero when fully recovered \
-with all specifications passing).
-- Higher-weight phases (containment = 6) dominate the recovery \
-penalty, so the optimal policy prioritizes them first.
-- The penalty is proportional to `(1 - progress)`, so partial \
-progress is rewarded — an action that moves containment from \
-0.0 to 0.5 immediately halves the containment penalty.
-- Failing specifications add a per-step cost, so the agent is \
-aware of service impact, but the penalty is modest enough that \
-temporary violations during recovery are acceptable.
-- The maximum per-step penalty is -(6+5+4+3+2+1 + N_specs) \
-when no recovery has started and all specifications fail.
+- The reward is always <= 0 (zero when fully recovered).
+- Higher-weight phases (containment = 6) dominate, so the optimal \
+policy prioritizes them first.
+- Partial progress is rewarded — moving containment from 0.0 to 0.5 \
+immediately halves the containment penalty.
+- The maximum per-step penalty is -(6+5+4+3+2+1) = -21.
 
 **Restoration is computed, not set by actions.** After applying the \
 action's effects on recovery dimensions [0:5] and spec dimensions, \
@@ -262,10 +248,8 @@ Implementation of the reward in the `step()` method:
 ```python
 PHASE_WEIGHTS = [6, 5, 4, 3, 2, 1]  # containment..restoration
 recovery = self.state[:6]  # first 6 dims are recovery progress
-specs = self.state[6:]     # remaining dims are specification health
 recovery_penalty = sum(w * (1 - p) for w, p in zip(PHASE_WEIGHTS, recovery))
-spec_penalty = sum(1 - s for s in specs)
-reward = -(recovery_penalty + spec_penalty)
+reward = -recovery_penalty
 ```
 
 ### Required Methods

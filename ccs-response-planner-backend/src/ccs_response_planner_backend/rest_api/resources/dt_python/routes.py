@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 import docker
 from flask import Blueprint, Response, jsonify, request
 
+from ccs_response_planner_backend.agents.shared_tools import (
+    kill_all_active_execs,
+)
 from ccs_response_planner_backend.constants.constants import API, DOCKER
 from ccs_response_planner_backend.rest_api.util.auth import token_required
 
@@ -104,11 +107,15 @@ def dt_python_start() -> tuple[Response, int]:
 @token_required
 def dt_python_stop() -> tuple[Response, int]:
     """
-    Stop and remove the Python sandbox container.
+    Stop all running agent activity.
+
+    Kills every active Docker exec on digital-twin containers,
+    then stops and removes the Python sandbox container.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
     timestamp = datetime.now(timezone.utc).isoformat()
+    execs_killed = kill_all_active_execs()
     try:
         client = docker.from_env()
         container = client.containers.get(
@@ -119,16 +126,19 @@ def dt_python_stop() -> tuple[Response, int]:
         container.remove()
         return jsonify({
             "container_status": "stopped",
+            "execs_killed": execs_killed,
             "timestamp": timestamp,
         }), 200
     except docker.errors.NotFound:
         return jsonify({
             "container_status": "not_found",
+            "execs_killed": execs_killed,
             "timestamp": timestamp,
         }), 200
     except Exception as e:
         return jsonify({
             "error": str(e),
+            "execs_killed": execs_killed,
             "timestamp": timestamp,
         }), 500
 

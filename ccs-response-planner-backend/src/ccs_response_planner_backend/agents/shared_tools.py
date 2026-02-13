@@ -19,6 +19,72 @@ from ccs_response_planner_backend.docker_manager.docker_manager \
 
 logger = logging.getLogger(__name__)
 
+# ── Active exec registry ─────────────────────────────────────────
+# Tracks (container_id, exec_id, client) for every running Docker
+# exec so that ``kill_all_active_execs`` can terminate them when
+# the user clicks Stop.
+_active_execs_lock = threading.Lock()
+_active_execs: dict[str, tuple[str, "docker.DockerClient"]] = {}
+
+
+def _register_exec(
+    exec_id: str, container_id: str,
+    client: "docker.DockerClient",
+) -> None:
+    """
+    Register a running Docker exec for later cancellation.
+
+    :param exec_id: the Docker exec id
+    :param container_id: the container the exec runs in
+    :param client: a Docker client instance
+    """
+    with _active_execs_lock:
+        _active_execs[exec_id] = (container_id, client)
+
+
+def _unregister_exec(exec_id: str) -> None:
+    """
+    Remove a Docker exec from the active registry.
+
+    :param exec_id: the Docker exec id
+    """
+    with _active_execs_lock:
+        _active_execs.pop(exec_id, None)
+
+
+def kill_all_active_execs() -> int:
+    """
+    Kill every exec currently tracked in the active registry.
+
+    :return: the number of execs that were killed
+    """
+    with _active_execs_lock:
+        snapshot = list(_active_execs.items())
+        _active_execs.clear()
+
+    killed = 0
+    for exec_id, (container_id, client) in snapshot:
+        try:
+            info = client.api.exec_inspect(exec_id)
+            if info.get("Running"):
+                pid = info.get("Pid", 0)
+                if pid:
+                    kill_id = client.api.exec_create(
+                        container_id,
+                        ["/bin/sh", "-c",
+                         f"kill -9 {pid}"],
+                        stdout=True, stderr=True,
+                    )["Id"]
+                    client.api.exec_start(kill_id)
+                    killed += 1
+        except Exception:
+            logger.debug(
+                "Failed to kill exec %s", exec_id,
+                exc_info=True,
+            )
+    return killed
+
+
 _VALID_DT_CONTAINERS = [
     "i1_attacker", "i1_gateway", "i1_firewall", "i1_ids",
     "i1_server_1", "i1_server_2", "i1_server_3",
@@ -52,6 +118,7 @@ def _exec_on_container(
         ct.id, ["/bin/sh", "-c", command],
         stdout=True, stderr=True,
     )["Id"]
+    _register_exec(exec_id, ct.id, client)
 
     result: dict[str, Any] = {}
 
@@ -60,46 +127,49 @@ def _exec_on_container(
             exec_id,
         ).decode("utf-8", errors="replace")
 
-    thread = threading.Thread(target=_run)
-    thread.start()
-    thread.join(timeout=_DT_EXEC_TIMEOUT)
+    try:
+        thread = threading.Thread(target=_run)
+        thread.start()
+        thread.join(timeout=_DT_EXEC_TIMEOUT)
 
-    if thread.is_alive():
-        try:
-            info = client.api.exec_inspect(exec_id)
-            pid = info.get("Pid", 0)
-            if pid:
-                kill_id = client.api.exec_create(
-                    ct.id,
-                    ["/bin/sh", "-c",
-                     f"kill -9 {pid}"],
-                    stdout=True, stderr=True,
-                )["Id"]
-                client.api.exec_start(kill_id)
-        except Exception:
-            pass
-        thread.join(timeout=5)
-        output = result.get("output", "")
+        if thread.is_alive():
+            try:
+                info = client.api.exec_inspect(exec_id)
+                pid = info.get("Pid", 0)
+                if pid:
+                    kill_id = client.api.exec_create(
+                        ct.id,
+                        ["/bin/sh", "-c",
+                         f"kill -9 {pid}"],
+                        stdout=True, stderr=True,
+                    )["Id"]
+                    client.api.exec_start(kill_id)
+            except Exception:
+                pass
+            thread.join(timeout=5)
+            output = result.get("output", "")
+            return {
+                "container": container,
+                "command": command,
+                "exit_code": -1,
+                "output": (
+                    f"{output}\n\n[TIMEOUT] Command killed "
+                    f"after {_DT_EXEC_TIMEOUT}s. Use short, "
+                    f"targeted commands."
+                ),
+            }
+
+        exit_code = client.api.exec_inspect(exec_id)[
+            "ExitCode"
+        ]
         return {
             "container": container,
             "command": command,
-            "exit_code": -1,
-            "output": (
-                f"{output}\n\n[TIMEOUT] Command killed "
-                f"after {_DT_EXEC_TIMEOUT}s. Use short, "
-                f"targeted commands."
-            ),
+            "exit_code": exit_code,
+            "output": result.get("output", ""),
         }
-
-    exit_code = client.api.exec_inspect(exec_id)[
-        "ExitCode"
-    ]
-    return {
-        "container": container,
-        "command": command,
-        "exit_code": exit_code,
-        "output": result.get("output", ""),
-    }
+    finally:
+        _unregister_exec(exec_id)
 
 
 def dt_exec(
@@ -173,6 +243,7 @@ def _exec_stream_on_container(
         container_id, ["/bin/sh", "-c", command],
         stdout=True, stderr=True,
     )["Id"]
+    _register_exec(exec_id, container_id, client)
 
     stream = client.api.exec_start(exec_id, stream=True)
 
@@ -229,6 +300,7 @@ def _exec_stream_on_container(
         )
     finally:
         timer.cancel()
+        _unregister_exec(exec_id)
 
     if timed_out.is_set():
         timeout_msg = (

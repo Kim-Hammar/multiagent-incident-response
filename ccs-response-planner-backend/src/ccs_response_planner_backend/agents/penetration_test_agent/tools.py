@@ -13,6 +13,8 @@ import docker
 
 from ccs_response_planner_backend.agents.shared_tools import (
     _exec_stream_on_container,
+    _register_exec,
+    _unregister_exec,
 )
 from ccs_response_planner_backend.constants.constants import DOCKER
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -64,6 +66,7 @@ def _run_pentest_command(
         ct.id, ["/bin/sh", "-c", command],
         stdout=True, stderr=True,
     )["Id"]
+    _register_exec(exec_id, ct.id, client)
 
     result: dict[str, Any] = {}
 
@@ -72,44 +75,47 @@ def _run_pentest_command(
             exec_id,
         ).decode("utf-8", errors="replace")
 
-    thread = threading.Thread(target=_run)
-    thread.start()
-    thread.join(timeout=EXEC_TIMEOUT_SECONDS)
+    try:
+        thread = threading.Thread(target=_run)
+        thread.start()
+        thread.join(timeout=EXEC_TIMEOUT_SECONDS)
 
-    if thread.is_alive():
-        # Kill the running process inside the container
-        try:
-            kill_id = client.api.exec_create(
-                ct.id,
-                ["/bin/sh", "-c",
-                 f"kill -9 $(pgrep -f {command[:20]!r})"
-                 " 2>/dev/null || true"],
-                stdout=True, stderr=True,
-            )["Id"]
-            client.api.exec_start(kill_id)
-        except Exception:
-            pass
-        thread.join(timeout=5)
-        output = result.get("output", "")
+        if thread.is_alive():
+            # Kill the running process inside the container
+            try:
+                kill_id = client.api.exec_create(
+                    ct.id,
+                    ["/bin/sh", "-c",
+                     f"kill -9 $(pgrep -f {command[:20]!r})"
+                     " 2>/dev/null || true"],
+                    stdout=True, stderr=True,
+                )["Id"]
+                client.api.exec_start(kill_id)
+            except Exception:
+                pass
+            thread.join(timeout=5)
+            output = result.get("output", "")
+            return {
+                "command": command,
+                "exit_code": -1,
+                "output": (
+                    f"{output}\n\n[TIMEOUT] Command killed "
+                    f"after {EXEC_TIMEOUT_SECONDS}s. "
+                    f"Use faster, targeted commands "
+                    f"(e.g. scan specific ports, not -p-)."
+                ),
+            }
+
+        exit_code = client.api.exec_inspect(exec_id)[
+            "ExitCode"
+        ]
         return {
             "command": command,
-            "exit_code": -1,
-            "output": (
-                f"{output}\n\n[TIMEOUT] Command killed "
-                f"after {EXEC_TIMEOUT_SECONDS}s. "
-                f"Use faster, targeted commands "
-                f"(e.g. scan specific ports, not -p-)."
-            ),
+            "exit_code": exit_code,
+            "output": result.get("output", ""),
         }
-
-    exit_code = client.api.exec_inspect(exec_id)[
-        "ExitCode"
-    ]
-    return {
-        "command": command,
-        "exit_code": exit_code,
-        "output": result.get("output", ""),
-    }
+    finally:
+        _unregister_exec(exec_id)
 
 
 def pentest_exec(

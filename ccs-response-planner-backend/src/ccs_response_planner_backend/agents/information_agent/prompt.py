@@ -59,8 +59,8 @@ from multiple sources and have a comprehensive understanding of the incident.
 call `generate_attack_image` to create a visual attack path diagram. Provide a \
 detailed prompt describing the believed attack path step-by-step: which hosts \
 were targeted, in what order, what techniques/exploits were used, and how the \
-attacker moved laterally — so the image generator can illustrate it on top of \
-the network topology.
+attacker moved laterally. The image generator should draw the network topology \
+itself and illustrate the attack path on it.
 7. After receiving the generated image, **carefully verify** that it accurately \
 depicts the attack path from your assessment. Check that the correct hosts, \
 attack direction, lateral movement steps, and techniques are shown. If the \

@@ -210,15 +210,15 @@ completed to produce the final structured incident response plan.
 
 ## Cost vs Reward
 
-The MDP uses **phase-weighted negative rewards** plus a specification \
-penalty. Each recovery phase has a weight (containment=6, assessment=5, \
-preservation=4, eviction=3, hardening=2, restoration=1). Per step:
+The MDP uses **phase-weighted negative rewards**. Each recovery phase \
+has a weight (containment=6, assessment=5, preservation=4, eviction=3, \
+hardening=2, restoration=1). Per step:
 
-    recovery_penalty = 6*(1-containment) + 5*(1-assessment)
-                     + 4*(1-preservation) + 3*(1-eviction)
-                     + 2*(1-hardening) + 1*(1-restoration)
-    spec_penalty     = number_of_failing_specifications
-    reward           = -(recovery_penalty + spec_penalty)
+    reward = -(6*(1-containment) + 5*(1-assessment) + 4*(1-preservation)
+              + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
+
+There is no separate specification penalty — failing specs are captured \
+by the restoration dimension (computed as `mean(spec_dims)`).
 
 In the UI we display **cost** = -reward. A lower cost is better. \
 When reporting results in `produce_planner_report`, set \
