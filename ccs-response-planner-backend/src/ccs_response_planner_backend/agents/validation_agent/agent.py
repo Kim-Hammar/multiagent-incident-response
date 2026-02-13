@@ -23,6 +23,7 @@ from ccs_response_planner_backend.agents.validation_agent.tool_declarations impo
     TOOL_DECLARATIONS_WITH_POLICY,
 )
 from ccs_response_planner_backend.agents.validation_agent.tools import (
+    STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
 
@@ -510,6 +511,32 @@ class ValidationAgent:
             return {"tool_name": tool_name, "result": result}
         except Exception as e:
             return {"tool_name": tool_name, "error": str(e)}
+
+    def execute_tool_stream(
+        self, tool_name: str, tool_args: dict[str, Any],
+    ) -> Generator[dict[str, Any], None, None]:
+        """
+        Execute a streaming tool call.
+
+        :param tool_name: the name of the streaming tool
+        :param tool_args: the arguments to pass to the tool
+        :return: a generator yielding event dicts
+        """
+        fn = STREAMING_TOOL_DISPATCH.get(tool_name)
+        if fn is None:
+            yield {
+                "type": "error",
+                "message": f"Unknown streaming tool: "
+                f"{tool_name}",
+            }
+            return
+        try:
+            yield from fn(**tool_args)
+        except Exception as e:
+            yield {
+                "type": "error",
+                "message": str(e),
+            }
 
     @staticmethod
     def _serialize_part(part: Any) -> dict[str, Any]:

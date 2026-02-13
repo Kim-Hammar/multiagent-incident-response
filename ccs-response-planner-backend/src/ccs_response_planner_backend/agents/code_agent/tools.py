@@ -7,12 +7,13 @@ code in the Python sandbox container.
 import base64
 import json
 import textwrap
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 import docker
 
 from ccs_response_planner_backend.agents.shared_tools import (
     dt_exec,
+    dt_exec_stream,
 )
 from ccs_response_planner_backend.constants.constants import DOCKER
 
@@ -264,4 +265,10 @@ TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "python_exec": python_exec,
     "gym_verify": gym_verify,
     "dt_exec": dt_exec,
+}
+
+STREAMING_TOOL_DISPATCH: dict[
+    str, Callable[..., Generator[dict[str, Any], None, None]]
+] = {
+    "dt_exec": dt_exec_stream,
 }

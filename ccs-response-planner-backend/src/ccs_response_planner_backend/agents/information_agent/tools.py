@@ -8,7 +8,7 @@ environment, and returns a plain dict (no Flask dependency).
 import base64
 import os
 import tempfile
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 import docker
 import nvdlib
@@ -23,6 +23,7 @@ from google.genai import types as genai_types  # type: ignore[attr-defined]
 
 from ccs_response_planner_backend.agents.shared_tools import (
     dt_exec,
+    dt_exec_stream,
 )
 from ccs_response_planner_backend.constants.constants import DOCKER, LLM
 from ccs_response_planner_backend.db.database_facade import (
@@ -494,4 +495,10 @@ TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "dt_exec": dt_exec,
     "dt_python_exec": dt_python_exec,
     "generate_attack_image": generate_attack_image,
+}
+
+STREAMING_TOOL_DISPATCH: dict[
+    str, Callable[..., Generator[dict[str, Any], None, None]]
+] = {
+    "dt_exec": dt_exec_stream,
 }

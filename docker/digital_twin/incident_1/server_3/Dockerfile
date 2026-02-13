@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     traceroute \
     python3 \
     python-is-python3 \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Create vulnerable user with weak password and sudo access

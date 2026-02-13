@@ -326,7 +326,10 @@ space, and runs a basic episode.
 this to test whether specific incident response commands work on the \
 target hosts. Valid containers: i1_gateway, i1_firewall, i1_ids, \
 i1_server_1–i1_server_6 (Incident 1) or i2_server_1–i2_server_6 \
-(Incident 2).
+(Incident 2). \
+**Commands are killed after 600 seconds.** Keep commands short and targeted. \
+If a command may take longer, add a shell timeout \
+(e.g. `timeout 10 nmap -sn 10.0.2.0/24`).
 - **produce_code_report**: Call this ONLY after `gym_verify` passes. \
 Provide the final code and metadata.
 
@@ -338,6 +341,12 @@ test code, `gym_verify` to verify it, `dt_exec` to test a command, or \
 - NEVER output plain text without also making a tool call.
 - NEVER describe or announce a tool call in text without actually calling it.
 - All reasoning and planning should be done internally in your thinking.
+- **One tool call per response.** If you call multiple tools in a single \
+response, you will only receive the result of the LAST tool call. To see \
+the result of each call, make exactly one tool call per response. Do NOT \
+re-execute earlier tool calls — they executed successfully, you simply \
+did not receive their output because a later call in the same response \
+overwrote it.
 - Do NOT call `produce_code_report` until `gym_verify` returns valid=true.
 - Think DEEPLY and EXTENSIVELY about transition probabilities and side \
 effects. The quality of the MDP depends on realistic modeling of action \

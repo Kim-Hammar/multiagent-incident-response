@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsutils \
     traceroute \
     procps \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir impacket

@@ -385,12 +385,11 @@ def test_tool_injects_incident_id_for_dt_exec(
     POST /api/agents/information/tool with dt_exec injects incident_id.
     """
     mock_agent = MagicMock()
-    mock_agent.execute_tool.return_value = {
-        "container": "i1_server_1",
-        "command": "whoami",
-        "exit_code": 0,
-        "output": "root",
-    }
+    mock_agent.execute_tool_stream.return_value = iter([
+        {"type": "done", "container": "i1_server_1",
+         "command": "whoami", "exit_code": 0,
+         "output": "root"},
+    ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
         "/api/agents/information/tool",
@@ -406,7 +405,7 @@ def test_tool_injects_incident_id_for_dt_exec(
         headers=auth_headers,
     )
     assert resp.status_code == 200
-    call_args = mock_agent.execute_tool.call_args
+    call_args = mock_agent.execute_tool_stream.call_args
     assert call_args[0][1]["incident_id"] == 7
 
 
@@ -490,11 +489,11 @@ def test_pentest_tool_injects_incident_id(
     POST /api/agents/pentest/tool with pentest_exec injects incident_id.
     """
     mock_agent = MagicMock()
-    mock_agent.execute_tool.return_value = {
-        "command": "nmap -sV 10.0.1.1",
-        "exit_code": 0,
-        "output": "scan results",
-    }
+    mock_agent.execute_tool_stream.return_value = iter([
+        {"type": "done", "container": "attacker",
+         "command": "nmap -sV 10.0.1.1",
+         "exit_code": 0, "output": "scan results"},
+    ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
         "/api/agents/pentest/tool",
@@ -509,5 +508,172 @@ def test_pentest_tool_injects_incident_id(
         headers=auth_headers,
     )
     assert resp.status_code == 200
-    call_args = mock_agent.execute_tool.call_args
+    call_args = mock_agent.execute_tool_stream.call_args
     assert call_args[0][1]["incident_id"] == 3
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.InformationAgent",
+)
+def test_info_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/information/tool with dt_exec streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {"type": "output_chunk", "text": "root\n"},
+        {
+            "type": "done",
+            "container": "i1_server_1",
+            "command": "whoami",
+            "exit_code": 0,
+            "output": "root\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/information/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_server_1",
+                "command": "whoami",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert any(e["type"] == "output_chunk" for e in events)
+    assert events[-1]["type"] == "done"
+    assert events[-1]["exit_code"] == 0
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ValidationAgent",
+)
+def test_validation_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/validation/tool with dt_exec streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_firewall",
+            "command": "iptables -L",
+            "exit_code": 0,
+            "output": "Chain INPUT\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/validation/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_firewall",
+                "command": "iptables -L",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "done"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.CodeAgent",
+)
+def test_code_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/code/tool with dt_exec streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_server_1",
+            "command": "ls",
+            "exit_code": 0,
+            "output": "file.txt\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/code/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_server_1",
+                "command": "ls",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "done"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.CodeReviewerAgent",
+)
+def test_code_review_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/code-review/tool with dt_exec streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_server_2",
+            "command": "cat /etc/passwd",
+            "exit_code": 0,
+            "output": "root:x:0:0\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/code-review/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_server_2",
+                "command": "cat /etc/passwd",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "done"

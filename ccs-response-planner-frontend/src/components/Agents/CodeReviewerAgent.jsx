@@ -14,6 +14,7 @@ import CodeReviewerReport from './CodeReviewerReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
 /**
  * CodeReviewerAgent component — drives the code review agent loop with
@@ -296,9 +297,49 @@ function CodeReviewerAgent() {
     }
     setPendingProposal(null)
     setExecutingTool(proposal.tool_name)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    if (STREAMING_TOOLS.has(proposal.tool_name)) {
+      const streamEntry = { type: 'tool_streaming', tool_name: proposal.tool_name, output: '' }
+      const base = [...conversationHistory, approvalEntry, streamEntry]
+      setConversationHistory(base)
+      try {
+        const { result } = await executeStreamingTool({
+          url: API_AGENTS_CODE_REVIEW_TOOL_URL,
+          toolName: proposal.tool_name,
+          toolArgs: proposal.tool_args,
+          incidentId: selectedIncidentId,
+          token,
+          signal: controller.signal,
+          onChunk: (text) => {
+            streamEntry.output += text
+            setConversationHistory([...base])
+          }
+        })
+        const resultEntry = {
+          role: 'tool',
+          type: 'tool_result',
+          tool_name: proposal.tool_name,
+          result
+        }
+        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        setConversationHistory(updated)
+        setExecutingTool(null)
+        await callStep(updated)
+      } catch (err) {
+        if (err.name === 'AbortError') return
+        if (err.status === 401) {
+          logout()
+          return
+        }
+        setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+        setExecutingTool(null)
+      }
+      return
+    }
+
     try {
-      const controller = new AbortController()
-      abortControllerRef.current = controller
       const res = await fetch(API_AGENTS_CODE_REVIEW_TOOL_URL, {
         method: 'POST',
         headers: {

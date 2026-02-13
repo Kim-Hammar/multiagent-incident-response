@@ -14,6 +14,7 @@ from ccs_response_planner_backend.agents.information_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.agents.information_agent.tools import (
+    STREAMING_TOOL_DISPATCH as INFO_STREAMING_DISPATCH,
     TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.penetration_test_agent.agent import (
@@ -23,6 +24,7 @@ from ccs_response_planner_backend.agents.penetration_test_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE as PENTEST_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.agents.penetration_test_agent.tools import (
+    STREAMING_TOOL_DISPATCH as PENTEST_STREAMING_DISPATCH,
     TOOL_DISPATCH as PENTEST_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.validation_agent.agent import (
@@ -32,6 +34,7 @@ from ccs_response_planner_backend.agents.validation_agent.prompt import (
     build_system_prompt as build_validation_prompt,
 )
 from ccs_response_planner_backend.agents.validation_agent.tools import (
+    STREAMING_TOOL_DISPATCH as VALIDATION_STREAMING_DISPATCH,
     TOOL_DISPATCH as VALIDATION_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.code_agent.agent import (
@@ -41,6 +44,7 @@ from ccs_response_planner_backend.agents.code_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE as CODE_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.agents.code_agent.tools import (
+    STREAMING_TOOL_DISPATCH as CODE_STREAMING_DISPATCH,
     TOOL_DISPATCH as CODE_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.code_reviewer_agent.agent import (
@@ -50,6 +54,7 @@ from ccs_response_planner_backend.agents.code_reviewer_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE as CODE_REVIEW_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.agents.code_reviewer_agent.tools import (
+    STREAMING_TOOL_DISPATCH as CODE_REVIEW_STREAMING_DISPATCH,
     TOOL_DISPATCH as CODE_REVIEW_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.rl_agent.agent import (
@@ -311,11 +316,14 @@ def agents_information_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/information/tool", methods=["POST"])
 @token_required
-def agents_information_tool() -> tuple[Response, int]:
+def agents_information_tool() -> Response | tuple[Response, int]:
     """
     Execute an approved tool call for the InformationAgent.
 
-    :return: a tuple of (JSON response, HTTP status code)
+    For ``dt_exec``, streams NDJSON output events.
+    For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -323,12 +331,35 @@ def agents_information_tool() -> tuple[Response, int]:
     incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in INFO_STREAMING_DISPATCH:
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: a generator of newline-delimited JSON strings
+            """
+            try:
+                agent = InformationAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error", "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(), mimetype="application/x-ndjson",
+        )
+
     if tool_name not in TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
-    if tool_name in _DT_TOOLS and incident_id is not None:
-        tool_args["incident_id"] = incident_id
     try:
         agent = InformationAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -402,11 +433,14 @@ def agents_pentest_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/pentest/tool", methods=["POST"])
 @token_required
-def agents_pentest_tool() -> tuple[Response, int]:
+def agents_pentest_tool() -> Response | tuple[Response, int]:
     """
     Execute an approved tool call for the PenetrationTestAgent.
 
-    :return: a tuple of (JSON response, HTTP status code)
+    For ``pentest_exec``, streams NDJSON output events.
+    For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -414,12 +448,35 @@ def agents_pentest_tool() -> tuple[Response, int]:
     incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in PENTEST_STREAMING_DISPATCH:
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: a generator of newline-delimited JSON strings
+            """
+            try:
+                agent = PenetrationTestAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error", "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(), mimetype="application/x-ndjson",
+        )
+
     if tool_name not in PENTEST_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
-    if tool_name in _DT_TOOLS and incident_id is not None:
-        tool_args["incident_id"] = incident_id
     try:
         agent = PenetrationTestAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -601,11 +658,14 @@ def agents_validation_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/validation/tool", methods=["POST"])
 @token_required
-def agents_validation_tool() -> tuple[Response, int]:
+def agents_validation_tool() -> Response | tuple[Response, int]:
     """
     Execute an approved tool call for the ValidationAgent.
 
-    :return: a tuple of (JSON response, HTTP status code)
+    For ``dt_exec``, streams NDJSON output events.
+    For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -613,12 +673,35 @@ def agents_validation_tool() -> tuple[Response, int]:
     incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in VALIDATION_STREAMING_DISPATCH:
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: a generator of newline-delimited JSON strings
+            """
+            try:
+                agent = ValidationAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error", "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(), mimetype="application/x-ndjson",
+        )
+
     if tool_name not in VALIDATION_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
-    if tool_name in _DT_TOOLS and incident_id is not None:
-        tool_args["incident_id"] = incident_id
     try:
         agent = ValidationAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -723,11 +806,14 @@ def agents_code_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/code/tool", methods=["POST"])
 @token_required
-def agents_code_tool() -> tuple[Response, int]:
+def agents_code_tool() -> Response | tuple[Response, int]:
     """
     Execute an approved tool call for the CodeAgent.
 
-    :return: a tuple of (JSON response, HTTP status code)
+    For ``dt_exec``, streams NDJSON output events.
+    For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -735,12 +821,35 @@ def agents_code_tool() -> tuple[Response, int]:
     incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in CODE_STREAMING_DISPATCH:
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: a generator of newline-delimited JSON strings
+            """
+            try:
+                agent = CodeAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error", "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(), mimetype="application/x-ndjson",
+        )
+
     if tool_name not in CODE_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
-    if tool_name in _DT_TOOLS and incident_id is not None:
-        tool_args["incident_id"] = incident_id
     try:
         agent = CodeAgent()
         result = agent.execute_tool(tool_name, tool_args)
@@ -863,11 +972,14 @@ def agents_code_review_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/code-review/tool", methods=["POST"])
 @token_required
-def agents_code_review_tool() -> tuple[Response, int]:
+def agents_code_review_tool() -> Response | tuple[Response, int]:
     """
     Execute an approved tool call for the CodeReviewerAgent.
 
-    :return: a tuple of (JSON response, HTTP status code)
+    For ``dt_exec``, streams NDJSON output events.
+    For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -875,12 +987,35 @@ def agents_code_review_tool() -> tuple[Response, int]:
     incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in CODE_REVIEW_STREAMING_DISPATCH:
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: a generator of newline-delimited JSON strings
+            """
+            try:
+                agent = CodeReviewerAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error", "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(), mimetype="application/x-ndjson",
+        )
+
     if tool_name not in CODE_REVIEW_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
-    if tool_name in _DT_TOOLS and incident_id is not None:
-        tool_args["incident_id"] = incident_id
     try:
         agent = CodeReviewerAgent()
         result = agent.execute_tool(tool_name, tool_args)

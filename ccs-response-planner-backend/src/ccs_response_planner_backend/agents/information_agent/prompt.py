@@ -43,7 +43,10 @@ your assessment. Available tools:
 `domain`, `hostname`, `url`, `hash`, `cve`. `value` is the indicator.
    - **dt_exec**: `container` is one of `i1_gateway`, `i1_firewall`, `i1_ids`, \
 `i1_server_1`–`i1_server_6` (Incident 1) or `i2_server_1`–`i2_server_6` \
-(Incident 2). `command` is the shell command to run.
+(Incident 2). `command` is the shell command to run. \
+**Commands are killed after 600 seconds.** Keep commands short and targeted. \
+If a command may take longer, add a shell timeout \
+(e.g. `timeout 10 nmap -sn 10.0.2.0/24`).
    - **dt_python_exec**: `code` — Python 3 source code to execute.
 
 3. **Before each tool call**, briefly explain your rationale in text, then \
@@ -152,6 +155,12 @@ the final assessment.
 - NEVER output plain text without also making a tool call.
 - NEVER describe or announce a tool call in text without actually calling it.
 - All reasoning and planning should be done internally in your thinking.
+- **One tool call per response.** If you call multiple tools in a single \
+response, you will only receive the result of the LAST tool call. To see \
+the result of each call, make exactly one tool call per response. Do NOT \
+re-execute earlier tool calls — they executed successfully, you simply \
+did not receive their output because a later call in the same response \
+overwrote it.
 
 ## Assessment Rules
 

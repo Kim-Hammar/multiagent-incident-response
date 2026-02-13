@@ -133,18 +133,18 @@ def test_validation_tool_executes_dt_exec(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/validation/tool executes dt_exec.
+    POST /api/agents/validation/tool streams dt_exec via NDJSON.
     """
     mock_agent = MagicMock()
-    mock_agent.execute_tool.return_value = {
-        "tool_name": "dt_exec",
-        "result": {
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
             "container": "i1_firewall",
             "command": "iptables -L",
             "exit_code": 0,
             "output": "Chain INPUT...",
         },
-    }
+    ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
         "/api/agents/validation/tool",
@@ -159,9 +159,10 @@ def test_validation_tool_executes_dt_exec(
         headers=auth_headers,
     )
     assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["tool_name"] == "dt_exec"
-    assert "result" in data
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "done"
+    assert events[-1]["exit_code"] == 0
 
 
 @patch(

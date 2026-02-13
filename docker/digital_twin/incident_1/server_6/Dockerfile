@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --force-yes --no-install-recommends \
     tcpdump \
     traceroute \
     python3 \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Stretch archive repos so agents can upgrade Samba to a patched version.

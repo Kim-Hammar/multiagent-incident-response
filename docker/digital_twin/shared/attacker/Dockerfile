@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     telnet \
     traceroute \
     procps \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv && \

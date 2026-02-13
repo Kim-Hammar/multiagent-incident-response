@@ -168,7 +168,7 @@ for _ in range(MAX_EVAL_STEPS):
     if terminated or truncated:
         break
 
-action_names = [a.get("name", "?") for a in detail_env.get_actions()]
+action_names = [a.get("name", "?") for a in detail_env.unwrapped.get_actions()]
 named_actions = [
     action_names[a] if a < len(action_names) else f"action_{{a}}"
     for a in actions_taken
@@ -296,6 +296,12 @@ for the final plan.
 - NEVER output plain text without also making a tool call.
 - NEVER describe or announce a tool call in text without actually calling it.
 - All reasoning and planning should be done internally in your thinking.
+- **One tool call per response.** If you call multiple tools in a single \
+response, you will only receive the result of the LAST tool call. To see \
+the result of each call, make exactly one tool call per response. Do NOT \
+re-execute earlier tool calls — they executed successfully, you simply \
+did not receive their output because a later call in the same response \
+overwrote it.
 - You MUST use `rl_train` for RL training, NOT `python_exec`.
 - Do NOT call `produce_planner_report` until you have called `rl_train` \
 at least once.

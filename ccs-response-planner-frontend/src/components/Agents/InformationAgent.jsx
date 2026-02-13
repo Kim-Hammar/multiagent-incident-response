@@ -14,6 +14,7 @@ import InformationAgentReport from './InformationAgentReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
 /**
  * InformationAgent component — drives the agent loop with
@@ -311,6 +312,46 @@ function InformationAgent() {
     setExecutingTool(proposal.tool_name)
     const controller = new AbortController()
     abortControllerRef.current = controller
+
+    if (STREAMING_TOOLS.has(proposal.tool_name)) {
+      const streamEntry = { type: 'tool_streaming', tool_name: proposal.tool_name, output: '' }
+      const base = [...conversationHistory, approvalEntry, streamEntry]
+      setConversationHistory(base)
+      try {
+        const { result } = await executeStreamingTool({
+          url: API_AGENTS_INFO_TOOL_URL,
+          toolName: proposal.tool_name,
+          toolArgs: proposal.tool_args,
+          incidentId: selectedIncidentId,
+          token,
+          signal: controller.signal,
+          onChunk: (text) => {
+            streamEntry.output += text
+            setConversationHistory([...base])
+          }
+        })
+        const resultEntry = {
+          role: 'tool',
+          type: 'tool_result',
+          tool_name: proposal.tool_name,
+          result
+        }
+        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        setConversationHistory(updated)
+        setExecutingTool(null)
+        await callStep(updated)
+      } catch (err) {
+        if (err.name === 'AbortError') return
+        if (err.status === 401) {
+          logout()
+          return
+        }
+        setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+        setExecutingTool(null)
+      }
+      return
+    }
+
     try {
       const res = await fetch(API_AGENTS_INFO_TOOL_URL, {
         method: 'POST',

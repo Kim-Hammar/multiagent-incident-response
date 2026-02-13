@@ -5,12 +5,13 @@ Provides ``python_exec`` and ``dt_exec`` tools that run
 code in the Python sandbox and digital-twin containers.
 """
 import base64
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 import docker
 
 from ccs_response_planner_backend.agents.shared_tools import (
     dt_exec,
+    dt_exec_stream,
 )
 from ccs_response_planner_backend.constants.constants import DOCKER
 
@@ -85,4 +86,10 @@ def python_exec(code: str) -> dict[str, Any]:
 TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "python_exec": python_exec,
     "dt_exec": dt_exec,
+}
+
+STREAMING_TOOL_DISPATCH: dict[
+    str, Callable[..., Generator[dict[str, Any], None, None]]
+] = {
+    "dt_exec": dt_exec_stream,
 }

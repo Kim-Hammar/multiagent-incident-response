@@ -198,6 +198,33 @@ function AgentActivityLog({
             )
           }
 
+          if (entry.type === 'tool_streaming') {
+            return (
+              <div key={index} className="card ia-entry ia-streaming-entry">
+                <div className="card-body">
+                  <div className="ia-thinking-header">
+                    <div className="spinner-border spinner-border-sm" role="status">
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                    <i className={`fa ${toolIcon(entry.tool_name)}`} aria-hidden="true" />
+                    <span className="ia-thinking-title">
+                      Executing {toolLabel(entry.tool_name)}...
+                    </span>
+                    <ElapsedTimer />
+                  </div>
+                  {entry.output && (
+                    <pre
+                      className="ia-terminal-output"
+                      style={{ maxHeight: '400px', overflow: 'auto' }}
+                    >
+                      {entry.output}
+                    </pre>
+                  )}
+                </div>
+              </div>
+            )
+          }
+
           if (entry.type === 'tool_approval') {
             return (
               <div key={index} className="card ia-entry ia-approval-entry">
@@ -274,6 +301,7 @@ function AgentActivityLog({
           return null
         })}
         {executingTool &&
+          !conversationHistory.some((e) => e.type === 'tool_streaming') &&
           (renderExecutingTool && renderExecutingTool(executingTool) ? (
             renderExecutingTool(executingTool)
           ) : (
@@ -285,6 +313,7 @@ function AgentActivityLog({
                   </div>
                   <i className={`fa ${toolIcon(executingTool)}`} aria-hidden="true" />
                   <span className="ia-thinking-title">Executing {toolLabel(executingTool)}...</span>
+                  <ElapsedTimer />
                 </div>
               </div>
             </div>
