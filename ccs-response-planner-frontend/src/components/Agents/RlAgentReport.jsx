@@ -6,7 +6,6 @@ function RlAgentReport({ entry, index, isExpanded, toggleEntry }) {
 
   const r = entry.planner_report || {}
   const actions = r.action_sequence || []
-  const contingencies = r.contingencies || []
   const risks = r.risks || []
 
   return (
@@ -53,14 +52,15 @@ function RlAgentReport({ entry, index, isExpanded, toggleEntry }) {
             {actions.length > 0 && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Recommended Action Sequence</div>
-                <table className="ia-ioc-table">
+                <table className="ia-ioc-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                   <thead>
                     <tr>
-                      <th>Step</th>
-                      <th>Action</th>
-                      <th>Description</th>
-                      <th>Commands</th>
-                      <th>Expected Effect</th>
+                      <th style={{ width: '4%' }}>Step</th>
+                      <th style={{ width: '10%' }}>Phase</th>
+                      <th style={{ width: '12%' }}>Action</th>
+                      <th style={{ width: '30%' }}>Commands</th>
+                      <th style={{ width: '22%' }}>Rationale</th>
+                      <th style={{ width: '22%' }}>Spec Impact</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -68,14 +68,28 @@ function RlAgentReport({ entry, index, isExpanded, toggleEntry }) {
                       <tr key={i}>
                         <td>{a.step}</td>
                         <td>
-                          <strong>{a.action}</strong>
+                          <span className="badge badge-secondary">{a.phase || '-'}</span>
                         </td>
-                        <td>{a.description}</td>
+                        <td>
+                          <strong>{a.action}</strong>
+                          {a.description && (
+                            <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                              {a.description}
+                            </div>
+                          )}
+                        </td>
                         <td>
                           {a.commands && a.commands.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               {a.commands.map((c, j) => (
-                                <code key={j} style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                <code
+                                  key={j}
+                                  style={{
+                                    fontSize: '11px',
+                                    wordBreak: 'break-all',
+                                    whiteSpace: 'pre-wrap'
+                                  }}
+                                >
                                   {c.container}: {c.command}
                                 </code>
                               ))}
@@ -84,31 +98,10 @@ function RlAgentReport({ entry, index, isExpanded, toggleEntry }) {
                             <span style={{ color: '#999' }}>-</span>
                           )}
                         </td>
-                        <td>{a.expected_effect}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {contingencies.length > 0 && (
-              <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Contingencies</div>
-                <table className="ia-ioc-table">
-                  <thead>
-                    <tr>
-                      <th>Condition</th>
-                      <th>Alternative Action</th>
-                      <th>Rationale</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contingencies.map((c, i) => (
-                      <tr key={i}>
-                        <td>{c.condition}</td>
-                        <td>{c.alternative_action}</td>
-                        <td>{c.rationale}</td>
+                        <td style={{ fontSize: '12px' }}>
+                          {a.rationale || a.expected_effect || '-'}
+                        </td>
+                        <td style={{ fontSize: '12px' }}>{a.spec_impact || '-'}</td>
                       </tr>
                     ))}
                   </tbody>

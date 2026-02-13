@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
-def test_create_tables_executes_ten_statements(mock_psycopg: MagicMock) -> None:
+def test_create_tables_executes_eleven_statements(mock_psycopg: MagicMock) -> None:
     """
-    Verify create_tables issues ten SQL statements (five CREATE TABLE,
-    four ALTER TABLE, and one UPDATE for agent_type migration).
+    Verify create_tables issues eleven SQL statements (five CREATE TABLE,
+    five ALTER TABLE, and one UPDATE for agent_type migration).
     """
     mock_conn = MagicMock()
     mock_cur = MagicMock()
@@ -18,7 +18,7 @@ def test_create_tables_executes_ten_statements(mock_psycopg: MagicMock) -> None:
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
 
-    assert mock_cur.execute.call_count == 10
+    assert mock_cur.execute.call_count == 11
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
@@ -186,5 +186,48 @@ def test_get_config_id_by_incident_returns_none(
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     result = DatabaseFacade.get_config_id_by_incident(999)
+
+    assert result is None
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_policy_data_returns_bytes(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_policy_data returns bytes when policy exists.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    mock_cur.fetchone.return_value = (b"\x50\x4b\x03\x04",)
+
+    from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+    result = DatabaseFacade.get_policy_data(1)
+
+    assert result == b"\x50\x4b\x03\x04"
+    mock_cur.execute.assert_called_once()
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_policy_data_returns_none(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_policy_data returns None when no policy exists.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(return_value=False)
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cur)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    mock_cur.fetchone.return_value = (None,)
+
+    from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+    result = DatabaseFacade.get_policy_data(999)
 
     assert result is None

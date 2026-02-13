@@ -117,11 +117,18 @@ rules. All other server-to-server connections are blocked. For example, \
 Server 5 cannot reach Server 1 or Server 3 — only Server 2, Server 4, \
 and Server 6.
 
+### Service management
+
+The containers do NOT run systemd — there is no D-Bus, no `systemctl`, \
+and no `journalctl`. Services are started directly by the container \
+entrypoint. Use `service <name> restart` (SysVinit wrapper) or kill \
+and re-launch the daemon directly if needed.
+
 ### Useful shell commands
 
 - `ps aux` — list running processes
-- `netstat -tlnp` — list listening TCP ports
-- `cat /var/log/syslog` or `journalctl` — system logs
+- `netstat -tlnp` or `ss -tlnp` — list listening TCP ports
+- `cat /var/log/syslog` — system logs (may be empty in minimal containers)
 - `iptables -L -n -v` — firewall rules (on i1_firewall/i1_ids)
 - `cat /var/log/snort/alert.log` — Snort alerts (on i1_gateway)
 - `find / -name "*.log" -mmin -60` — recently modified log files

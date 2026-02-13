@@ -21,7 +21,8 @@ function AgentPlanningTab({
   renderFinalReport,
   renderExecutingTool,
   renderToolResult,
-  onStop
+  onStop,
+  dtStatus
 }) {
   const isAgentBusy = running || !!executingTool
 
@@ -35,6 +36,22 @@ function AgentPlanningTab({
 
   return (
     <>
+      {dtStatus && running && conversationHistory.length === 0 && (
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '10px 14px',
+            background: '#f0f4ff',
+            border: '1px solid #b8d0ff',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#2c5282'
+          }}
+        >
+          <i className="fa fa-refresh fa-spin" style={{ marginRight: '8px' }} />
+          {dtStatus}
+        </div>
+      )}
       {isAgentBusy && onStop && (
         <div style={{ marginTop: '12px', marginBottom: '-16px', textAlign: 'right' }}>
           <button type="button" className="btn btn-outline-danger btn-sm" onClick={onStop}>

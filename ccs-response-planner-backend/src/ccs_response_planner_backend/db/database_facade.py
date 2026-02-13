@@ -113,6 +113,11 @@ class DatabaseFacade:
                     ADD COLUMN IF NOT EXISTS
                         conversation_history JSONB
                 """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
+                    ADD COLUMN IF NOT EXISTS
+                        policy_data BYTEA
+                """)
                 cur.execute(
                     f"UPDATE {DB.AGENT_REPORTS_TABLE} "
                     f"SET agent_type = 'rl' "
@@ -304,6 +309,7 @@ class DatabaseFacade:
         agent_type: str, username: str, report: Any,
         incident_id: Optional[int] = None,
         conversation_history: Optional[list[Any]] = None,
+        policy_data: Optional[bytes] = None,
     ) -> dict[str, Any]:
         """
         Insert a new agent report and return the created row.
@@ -313,6 +319,7 @@ class DatabaseFacade:
         :param report: the report data (stored as JSONB)
         :param incident_id: optional FK to example_incidents
         :param conversation_history: optional planning process log
+        :param policy_data: optional trained RL policy bytes
         :return: a dict with id, agent_type, username, report, created_at,
                  incident_id, incident_name
         """
@@ -325,12 +332,12 @@ class DatabaseFacade:
                 cur.execute(
                     f"INSERT INTO {DB.AGENT_REPORTS_TABLE} "
                     f"(agent_type, username, report, incident_id, "
-                    f"conversation_history) "
-                    f"VALUES (%s, %s, %s, %s, %s) "
+                    f"conversation_history, policy_data) "
+                    f"VALUES (%s, %s, %s, %s, %s, %s) "
                     f"RETURNING id, agent_type, username, "
                     f"report, created_at, incident_id",
                     (agent_type, username, json.dumps(report),
-                     incident_id, ch_json),
+                     incident_id, ch_json, policy_data),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -372,7 +379,8 @@ class DatabaseFacade:
                     f"SELECT ar.id, ar.agent_type, ar.username, "
                     f"ar.report, ar.created_at, ar.incident_id, "
                     f"ei.name, "
-                    f"(ar.conversation_history IS NOT NULL) "
+                    f"(ar.conversation_history IS NOT NULL), "
+                    f"(ar.policy_data IS NOT NULL) "
                     f"FROM {DB.AGENT_REPORTS_TABLE} ar "
                     f"LEFT JOIN {DB.EXAMPLE_INCIDENTS_TABLE} ei "
                     f"ON ar.incident_id = ei.id"
@@ -401,6 +409,7 @@ class DatabaseFacade:
                         "incident_id": r[5],
                         "incident_name": r[6],
                         "has_conversation_history": r[7],
+                        "has_policy": r[8],
                     }
                     for r in rows
                 ]
@@ -459,6 +468,29 @@ class DatabaseFacade:
                 deleted = cur.rowcount > 0
             conn.commit()
             return deleted
+
+    @staticmethod
+    def get_policy_data(report_id: int) -> Optional[bytes]:
+        """
+        Retrieve the trained RL policy bytes for a report.
+
+        :param report_id: the agent report id
+        :return: the policy bytes or None if not found
+        """
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT policy_data FROM "
+                    f"{DB.AGENT_REPORTS_TABLE} "
+                    f"WHERE id = %s",
+                    (report_id,),
+                )
+                row = cur.fetchone()
+                if row is None or row[0] is None:
+                    return None
+                return bytes(row[0])
 
     @staticmethod
     def seed_example_incident(

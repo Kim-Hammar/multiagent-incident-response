@@ -50,9 +50,13 @@ convergence, and evaluate the learned policy.
 
 ## Training Code Template
 
-Use this template as a starting point. You MUST:
-- Write the env code to `/workspace/_env.py`
-- Import it dynamically
+Use this template as a starting point. The env code from the Code \
+Agent report is **already written** to `/workspace/_env.py` in the \
+sandbox — you do NOT need to embed or write it yourself. Just \
+import it directly.
+
+You MUST:
+- Import the env from `/workspace/_env.py`
 - Use a `ProgressCallback` that prints JSON progress lines to stdout
 - After training, evaluate the policy and print the action sequence
 
@@ -60,17 +64,11 @@ Use this template as a starting point. You MUST:
 import json, sys, time, importlib.util
 import numpy as np
 import gymnasium
+from gymnasium.wrappers import TimeLimit
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 
-# 1. Write env code to file
-ENV_CODE = \"\"\"
-<PASTE THE generated_code FROM THE CODE REPORT HERE>
-\"\"\"
-with open("/workspace/_env.py", "w") as f:
-    f.write(ENV_CODE)
-
-# 2. Import env dynamically
+# 1. Import env from pre-written file
 spec = importlib.util.spec_from_file_location("_env", "/workspace/_env.py")
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
@@ -82,7 +80,7 @@ for name in dir(mod):
         EnvClass = obj
         break
 
-# 3. Progress callback
+# 2. Progress callback
 class ProgressCallback(BaseCallback):
     def __init__(self):
         super().__init__()
@@ -105,21 +103,26 @@ class ProgressCallback(BaseCallback):
                 }}), flush=True)
         return True
 
-# 4. Train
-env = EnvClass()
+# 3. Train — wrap with TimeLimit so episodes truncate after 200 steps
+#    (untrained policies rarely satisfy the full termination condition,
+#    so without TimeLimit episodes run forever and no progress is logged)
+MAX_EPISODE_STEPS = 200
+env = TimeLimit(EnvClass(), max_episode_steps=MAX_EPISODE_STEPS)
 model = PPO("MlpPolicy", env, verbose=0, n_steps=2048, batch_size=128,
             learning_rate=3e-4, policy_kwargs=dict(net_arch=[64, 64]))
 model.learn(total_timesteps=250000, callback=ProgressCallback())
 
-# 5. Evaluate with streaming progress (max 200 steps per episode
-#    to prevent hangs on envs that rarely terminate).
+# 3a. Save trained policy for validation
+model.save("/workspace/_policy")
+
+# 4. Evaluate with streaming progress.
 #    IMPORTANT: use deterministic=False so evaluation matches the
 #    stochastic policy used during training.  deterministic=True picks
 #    argmax of logits and can get stuck in action-repeat loops when the
 #    greedy action is a no-op for the current state.
 NUM_EVAL_EPISODES = 10
-MAX_EVAL_STEPS = 200
-eval_env = EnvClass()
+MAX_EVAL_STEPS = MAX_EPISODE_STEPS
+eval_env = TimeLimit(EnvClass(), max_episode_steps=MAX_EVAL_STEPS)
 eval_rewards = []
 for ep_i in range(NUM_EVAL_EPISODES):
     obs, _ = eval_env.reset()
@@ -147,8 +150,8 @@ for ep_i in range(NUM_EVAL_EPISODES):
     }}), flush=True)
 mean_eval_reward = float(np.mean(eval_rewards))
 
-# 6. Run one detailed episode to capture the action sequence
-detail_env = EnvClass()
+# 5. Run one detailed episode to capture the action sequence
+detail_env = TimeLimit(EnvClass(), max_episode_steps=MAX_EVAL_STEPS)
 obs, _ = detail_env.reset()
 obs = np.array(obs, dtype=np.float32)
 actions_taken = []
@@ -207,12 +210,15 @@ completed to produce the final structured incident response plan.
 
 ## Cost vs Reward
 
-The MDP uses **phase-weighted negative rewards**. Each recovery phase has \
-a weight (containment=6, assessment=5, preservation=4, eviction=3, \
-hardening=2, restoration=1). Per step:
+The MDP uses **phase-weighted negative rewards** plus a specification \
+penalty. Each recovery phase has a weight (containment=6, assessment=5, \
+preservation=4, eviction=3, hardening=2, restoration=1). Per step:
 
-    reward = -(6*(1-containment) + 5*(1-assessment) + 4*(1-preservation)
-              + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
+    recovery_penalty = 6*(1-containment) + 5*(1-assessment)
+                     + 4*(1-preservation) + 3*(1-eviction)
+                     + 2*(1-hardening) + 1*(1-restoration)
+    spec_penalty     = number_of_failing_specifications
+    reward           = -(recovery_penalty + spec_penalty)
 
 In the UI we display **cost** = -reward. A lower cost is better. \
 When reporting results in `produce_planner_report`, set \
@@ -239,6 +245,12 @@ These are already set in the code template above. When calling `rl_train`, \
 pass the matching `algorithm` and `hyperparameters` strings so the UI \
 displays them correctly.
 
+## Saving the Trained Policy
+
+After training, the model is automatically saved to `/workspace/_policy.zip` for \
+use by the Validation Agent. You do not need to handle this — it happens automatically \
+in the training template.
+
 ## Evaluation Policy
 
 During evaluation, always use `deterministic=False` in `model.predict()`. \
@@ -251,6 +263,31 @@ suboptimal. The stochastic policy naturally breaks out of such cycles \
 through sampling. The template also includes loop detection (breaks if \
 the same action repeats 10+ consecutive times) as a safety net.
 
+## Specification Violations During Recovery
+
+During incident response it is normal and expected that some \
+specifications (services) are temporarily violated. For example, \
+isolating a compromised host will break connectivity specs, \
+restarting a service causes brief downtime, and rotating credentials \
+may temporarily lock out legitimate users. The reward function \
+includes a mild per-step penalty for failing specs, but the \
+recovery phase weights dominate — so the optimal policy will \
+prioritize recovery even if it means temporary service disruption.
+
+The **restoration** recovery dimension is computed automatically as \
+`mean(spec_dims)` — it equals the fraction of specifications \
+currently passing. So while specs may be violated during \
+containment, assessment, eviction, etc., restoration will \
+automatically recover as specs are restored. The episode cannot \
+terminate until all specs pass (restoration = 1.0). A good policy \
+will undo spec-breaking side-effects from earlier phases.
+
+Your role is to compute an optimal policy based on the MDP model \
+as given. Trust the model — do NOT critique or refuse to report a \
+policy because it temporarily breaks specifications. The Validation \
+Agent will later verify the plan on the real digital twin and \
+assess operational impact.
+
 ## CRITICAL RULES
 
 - You MUST always respond with a tool call. Either call `python_exec` \
@@ -262,11 +299,18 @@ for the final plan.
 - You MUST use `rl_train` for RL training, NOT `python_exec`.
 - Do NOT call `produce_planner_report` until you have called `rl_train` \
 at least once.
-- In `produce_planner_report`, each action in `action_sequence` MUST \
-include a `commands` field — an array of objects with `container` and \
-`command` fields specifying the actual shell commands to execute on each \
-host. Map the MDP action names back to their commands from the code report.
-- Think DEEPLY about the MDP structure and how the learned policy maps \
-to real incident response actions. The value of this plan depends on \
-translating RL results into actionable steps.
+- In `produce_planner_report`, **characterize the policy** — do NOT \
+just list the raw action sequence. Instead, describe the strategy \
+phase by phase:
+  - Group actions by recovery phase (containment, assessment, etc.).
+  - For each action explain WHY the policy chose it at that point \
+(`rationale`), what happens if it fails and what the fallback is.
+  - Explain the impact on specifications (`spec_impact`) — e.g. \
+"temporarily breaks FTP connectivity to server_2 but necessary \
+to isolate the attacker" or "no spec impact".
+  - Each action MUST include `commands` — an array of objects with \
+`container` and `command` fields (from the code report's ACTION_TABLE).
+- The report should read as a coherent narrative: "First we contain \
+the attack by doing X. This may temporarily break Y but is necessary \
+because Z. Once contained, we assess by doing A, then..."
 """

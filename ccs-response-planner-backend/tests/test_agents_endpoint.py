@@ -54,10 +54,16 @@ def test_step_returns_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes.InformationAgent",
 )
 def test_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -96,10 +102,16 @@ def test_step_streams_tool_proposal(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes.InformationAgent",
 )
 def test_step_streams_assessment(
     mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -146,10 +158,16 @@ def test_step_streams_assessment(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes.InformationAgent",
 )
 def test_step_streams_error_on_failure(
     mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:

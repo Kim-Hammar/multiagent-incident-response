@@ -40,6 +40,7 @@ function CodeReviewerAgent() {
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
+  const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
@@ -212,6 +213,8 @@ function CodeReviewerAgent() {
               review_report: event.review_report,
               thinking_trace: event.thinking_trace || ''
             }
+          } else if (event.type === 'dt_progress') {
+            setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'error') {
@@ -223,6 +226,7 @@ function CodeReviewerAgent() {
         }
       }
 
+      setDtStatus(null)
       if (finalEntry) {
         const entries = []
         const reasoningText = finalEntry.thinking_trace || accumulated
@@ -601,6 +605,7 @@ function CodeReviewerAgent() {
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
           onStop={handleStop}
+          dtStatus={dtStatus}
         />
       )}
 

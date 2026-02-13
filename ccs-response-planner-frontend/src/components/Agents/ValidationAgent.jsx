@@ -41,10 +41,12 @@ function ValidationAgent() {
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
+  const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
+  const [plannerReportId, setPlannerReportId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -156,7 +158,8 @@ function ValidationAgent() {
           planner_report: plannerReport,
           conversation_history: history,
           images: systemDescriptionImages,
-          model_name: selectedModel || undefined
+          model_name: selectedModel || undefined,
+          planner_report_id: plannerReportId || undefined
         }),
         signal: controller.signal
       })
@@ -214,6 +217,10 @@ function ValidationAgent() {
               validation_report: event.validation_report,
               thinking_trace: event.thinking_trace || ''
             }
+          } else if (event.type === 'dt_progress') {
+            setDtStatus(event.message)
+          } else if (event.type === 'policy_loaded') {
+            setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'error') {
@@ -224,6 +231,7 @@ function ValidationAgent() {
           }
         }
       }
+      setDtStatus(null)
 
       if (finalEntry) {
         const entries = []
@@ -402,6 +410,11 @@ function ValidationAgent() {
         const plannerReports = await plannerRes.json()
         if (plannerReports.length > 0) {
           setPlannerReport(JSON.stringify(plannerReports[0].report || {}, null, 2))
+          if (plannerReports[0].has_policy) {
+            setPlannerReportId(plannerReports[0].id)
+          } else {
+            setPlannerReportId(null)
+          }
         }
       }
 
@@ -435,6 +448,7 @@ function ValidationAgent() {
     setPendingProposal(null)
     setExpandedEntries({})
     setSelectedIncidentId(null)
+    setPlannerReportId(null)
   }
 
   const fetchPrompt = async () => {
@@ -608,6 +622,7 @@ function ValidationAgent() {
           showPromptModal={showPromptModal}
           promptText={promptText}
           setShowPromptModal={setShowPromptModal}
+          plannerReportId={plannerReportId}
         />
       )}
 
@@ -628,6 +643,7 @@ function ValidationAgent() {
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
           onStop={handleStop}
+          dtStatus={dtStatus}
         />
       )}
 

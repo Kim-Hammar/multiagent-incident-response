@@ -28,8 +28,13 @@ RUN apt-get update && apt-get install -y --force-yes --no-install-recommends \
     tcpdump \
     traceroute \
     python3 \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3 /usr/bin/python
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Stretch archive repos so agents can upgrade Samba to a patched version.
+# Jessie is frozen at Samba 4.2.14 (CVE-2017-7494); Stretch has 4.5.x with the fix.
+# Both repos share default priority 500, so the higher version wins on upgrade.
+RUN echo "deb http://archive.debian.org/debian stretch main" >> /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security stretch/updates main" >> /etc/apt/sources.list
 
 # Configure Samba with world-writable share (vulnerable to CVE-2017-7494)
 COPY smb.conf /etc/samba/smb.conf

@@ -14,7 +14,8 @@ export const TOOL_LABELS = {
   python_exec: { label: 'Python Sandbox', icon: 'fa-code' },
   rl_train: { label: 'RL Training', icon: 'fa-line-chart' },
   dp_solve: { label: 'DP Value Iteration', icon: 'fa-line-chart' },
-  gym_verify: { label: 'Gymnasium Verify', icon: 'fa-check-circle' }
+  gym_verify: { label: 'Gymnasium Verify', icon: 'fa-check-circle' },
+  query_policy: { label: 'Query RL Policy', icon: 'fa-brain' }
 }
 
 export function formatToolArgs(toolName, args) {
@@ -63,6 +64,8 @@ export function formatToolArgs(toolName, args) {
       ]
     case 'gym_verify':
       return [['Code', args.code || '']]
+    case 'query_policy':
+      return [['State vector', JSON.stringify(args.state || [])]]
     default:
       return [['Arguments', JSON.stringify(args)]]
   }

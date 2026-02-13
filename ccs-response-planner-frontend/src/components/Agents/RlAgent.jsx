@@ -47,7 +47,11 @@ function RlAgent() {
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
   const [trainingData, setTrainingData] = useState([])
-  const [trainingMeta, setTrainingMeta] = useState({ algorithm: '', hyperparameters: '' })
+  const [trainingMeta, setTrainingMeta] = useState({
+    algorithm: '',
+    hyperparameters: '',
+    started: false
+  })
   const [trainingStartTime, setTrainingStartTime] = useState(null)
   const [evalProgress, setEvalProgress] = useState(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -317,7 +321,8 @@ function RlAgent() {
       setTrainingStartTime(Date.now())
       setTrainingMeta({
         algorithm: proposal.tool_args.algorithm || '',
-        hyperparameters: proposal.tool_args.hyperparameters || ''
+        hyperparameters: proposal.tool_args.hyperparameters || '',
+        started: false
       })
       const controller = new AbortController()
       abortControllerRef.current = controller
@@ -365,7 +370,9 @@ function RlAgent() {
             if (!line.trim()) continue
             try {
               const event = JSON.parse(line)
-              if (event.type === 'progress') {
+              if (event.type === 'started') {
+                setTrainingMeta((prev) => ({ ...prev, started: true }))
+              } else if (event.type === 'progress') {
                 progressEvents.push(event)
                 setTrainingData((prev) => [...prev, event])
               } else if (event.type === 'eval_progress') {
@@ -535,7 +542,7 @@ function RlAgent() {
     setPendingProposal(null)
     setExpandedEntries({})
     setTrainingData([])
-    setTrainingMeta({ algorithm: '', hyperparameters: '' })
+    setTrainingMeta({ algorithm: '', hyperparameters: '', started: false })
     setTrainingStartTime(null)
     setEvalProgress(null)
     trainingRunsRef.current = {}
@@ -665,6 +672,7 @@ function RlAgent() {
           trainingStartTime={trainingStartTime}
           timeLimitMinutes={timeLimitMinutes}
           evalProgress={evalProgress}
+          trainingStarted={trainingMeta.started}
         />
       )
     }

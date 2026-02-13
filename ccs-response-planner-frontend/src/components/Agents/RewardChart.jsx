@@ -12,7 +12,8 @@ function RewardChart({
   trainingStartTime,
   completed,
   timeLimitMinutes,
-  evalProgress
+  evalProgress,
+  trainingStarted
 }) {
   const [elapsed, setElapsed] = useState(0)
 
@@ -47,7 +48,9 @@ function RewardChart({
               <span className="sr-only">Loading...</span>
             </div>
             <span className="ia-thinking-title">
-              Waiting for training data...
+              {trainingStarted
+                ? 'Training in progress, waiting for first episode...'
+                : 'Waiting for training data...'}
               {trainingStartTime && (
                 <span
                   style={{

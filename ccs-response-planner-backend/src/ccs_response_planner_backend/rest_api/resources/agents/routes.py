@@ -2,6 +2,7 @@
 Routes and sub-resources for the /agents resource.
 """
 import json
+import logging
 from typing import Generator
 
 from flask import Blueprint, Response, g, jsonify, request
@@ -28,7 +29,7 @@ from ccs_response_planner_backend.agents.validation_agent.agent import (
     ValidationAgent,
 )
 from ccs_response_planner_backend.agents.validation_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as VALIDATION_PROMPT_TEMPLATE,
+    build_system_prompt as build_validation_prompt,
 )
 from ccs_response_planner_backend.agents.validation_agent.tools import (
     TOOL_DISPATCH as VALIDATION_TOOL_DISPATCH,
@@ -71,9 +72,16 @@ from ccs_response_planner_backend.agents.dp_agent.tools import (
     STREAMING_TOOL_DISPATCH as DP_STREAMING_DISPATCH,
     TOOL_DISPATCH as DP_TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.constants.constants import API, DIGITAL_TWIN
+from ccs_response_planner_backend.constants.constants import (
+    API, DIGITAL_TWIN, DOCKER,
+)
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+from ccs_response_planner_backend.docker_manager.docker_manager import (
+    DockerManager,
+)
 from ccs_response_planner_backend.rest_api.util.auth import token_required
+
+logger = logging.getLogger(__name__)
 
 _DT_TOOLS = {"dt_exec", "pentest_exec", "generate_attack_image"}
 
@@ -81,6 +89,148 @@ agents_bp = Blueprint(
     API.AGENTS_RESOURCE, __name__,
     url_prefix=f"{API.PREFIX}/{API.AGENTS_RESOURCE}",
 )
+
+
+def _redeploy_dt() -> Generator[dict[str, str], None, None]:
+    """
+    Stop and redeploy the digital twin for a fresh state.
+
+    Yields ``dt_progress`` event dicts that can be streamed to
+    the frontend as NDJSON.
+
+    :return: a generator of progress event dicts
+    """
+    config = DatabaseFacade.get_digital_twin_config()
+    if config is None:
+        config = DIGITAL_TWIN.DEFAULT_CONFIG
+    yield {
+        "type": "dt_progress",
+        "message": "Stopping digital twin...",
+    }
+    for item in DockerManager.stop():
+        msg = item.get("message", "")
+        if item.get("type") == "progress" and msg:
+            logger.info("DT redeploy (stop): %s", msg)
+    yield {
+        "type": "dt_progress",
+        "message": "Deploying fresh digital twin...",
+    }
+    for item in DockerManager.deploy(config):
+        msg = item.get("message", "")
+        if item.get("type") == "progress" and msg:
+            logger.info("DT redeploy (deploy): %s", msg)
+    yield {
+        "type": "dt_progress",
+        "message": "Digital twin ready",
+    }
+
+
+def _read_policy_from_sandbox() -> bytes | None:
+    """
+    Read /workspace/_policy.zip from the Python sandbox.
+
+    :return: the policy bytes or None if the file does not exist
+    """
+    import base64
+    import docker
+    client = docker.from_env()
+    try:
+        ct = client.containers.get(
+            DOCKER.PYTHON_SANDBOX_CONTAINER,
+        )
+    except Exception:
+        return None
+    exec_id = client.api.exec_create(
+        ct.id,
+        ["/bin/sh", "-c",
+         "cat /workspace/_policy.zip | base64"],
+        stdout=True, stderr=True,
+    )["Id"]
+    output = client.api.exec_start(exec_id)
+    exit_code = client.api.exec_inspect(exec_id)[
+        "ExitCode"
+    ]
+    if exit_code != 0:
+        return None
+    return base64.b64decode(output)
+
+
+def _write_env_to_sandbox(env_code: str) -> None:
+    """
+    Write the MDP env code to /workspace/_env.py in the sandbox.
+
+    Uses base64 encoding to avoid any quoting issues.
+
+    :param env_code: the Python source code for the environment
+    """
+    import docker as docker_lib
+    from ccs_response_planner_backend.agents.rl_agent.tools import (
+        _ensure_python_sandbox,
+        _write_code_to_sandbox,
+    )
+    client = docker_lib.from_env()
+    ct = _ensure_python_sandbox(client)
+    _write_code_to_sandbox(client, ct, env_code, "_env.py")
+
+
+def _install_policy_in_sandbox(
+    policy_bytes: bytes,
+    code_report: dict[str, str],
+) -> None:
+    """
+    Write RL policy .zip and env code into the Python sandbox.
+
+    :param policy_bytes: the trained policy zip bytes
+    :param code_report: the code report dict with generated_code
+    """
+    import base64
+    import docker
+    client = docker.from_env()
+
+    try:
+        ct = client.containers.get(
+            DOCKER.PYTHON_SANDBOX_CONTAINER,
+        )
+        if ct.status != "running":
+            ct.start()
+    except docker.errors.NotFound:
+        ct = client.containers.run(
+            DOCKER.PYTHON_SANDBOX_IMAGE,
+            name=DOCKER.PYTHON_SANDBOX_CONTAINER,
+            detach=True,
+        )
+
+    env_code = code_report.get("generated_code", "")
+    if env_code:
+        encoded = base64.b64encode(
+            env_code.encode("utf-8"),
+        ).decode("ascii")
+        write_cmd = (
+            f"python3 -c \"import base64; "
+            f"open('/workspace/_env.py','wb')"
+            f".write(base64.b64decode('{encoded}'))\""
+        )
+        client.api.exec_start(
+            client.api.exec_create(
+                ct.id, ["/bin/sh", "-c", write_cmd],
+                stdout=True, stderr=True,
+            )["Id"],
+        )
+
+    policy_b64 = base64.b64encode(
+        policy_bytes,
+    ).decode("ascii")
+    write_cmd = (
+        f"python3 -c \"import base64; "
+        f"open('/workspace/_policy.zip','wb')"
+        f".write(base64.b64decode('{policy_b64}'))\""
+    )
+    client.api.exec_start(
+        client.api.exec_create(
+            ct.id, ["/bin/sh", "-c", write_cmd],
+            stdout=True, stderr=True,
+        )["Id"],
+    )
 
 
 @agents_bp.route("/information/step", methods=["POST"])
@@ -115,6 +265,9 @@ def agents_information_step() -> Response | tuple[Response, int]:
         :return: a generator of newline-delimited JSON strings
         """
         try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
             agent = InformationAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -211,6 +364,9 @@ def agents_pentest_step() -> Response | tuple[Response, int]:
         :return: a generator of newline-delimited JSON strings
         """
         try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
             agent = PenetrationTestAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -290,6 +446,7 @@ def agents_validation_step() -> Response | tuple[Response, int]:
     model_name = body.get("model_name") or None
     planner_report = body.get("planner_report")
     code_report = body.get("code_report")
+    planner_report_id = body.get("planner_report_id")
     if isinstance(planner_report, str):
         try:
             planner_report = json.loads(planner_report)
@@ -324,6 +481,47 @@ def agents_validation_step() -> Response | tuple[Response, int]:
         :return: a generator of newline-delimited JSON strings
         """
         try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
+
+            has_policy = False
+            if not conversation_history and planner_report_id:
+                try:
+                    policy_bytes = (
+                        DatabaseFacade.get_policy_data(
+                            planner_report_id,
+                        )
+                    )
+                    if policy_bytes:
+                        yield json.dumps({
+                            "type": "dt_progress",
+                            "message": (
+                                "Loading RL policy "
+                                "into sandbox..."
+                            ),
+                        }) + "\n"
+                        _install_policy_in_sandbox(
+                            policy_bytes,
+                            code_report or {},
+                        )
+                        has_policy = True
+                        yield json.dumps({
+                            "type": "policy_loaded",
+                            "message": "Policy loaded",
+                        }) + "\n"
+                except Exception as e:
+                    logger.warning(
+                        "Failed to load policy: %s",
+                        e, exc_info=True,
+                    )
+                    yield json.dumps({
+                        "type": "error",
+                        "message": (
+                            f"Failed to load policy: {e}"
+                        ),
+                    }) + "\n"
+
             agent = ValidationAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -335,6 +533,7 @@ def agents_validation_step() -> Response | tuple[Response, int]:
                 conversation_history=conversation_history,
                 images=images,
                 model_name=model_name,
+                has_policy=has_policy,
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -374,7 +573,8 @@ def agents_validation_prompt() -> tuple[Response, int]:
             code_report = json.loads(code_report)
         except (json.JSONDecodeError, ValueError):
             code_report = {}
-    prompt = VALIDATION_PROMPT_TEMPLATE.format(
+    prompt = build_validation_prompt(
+        has_policy=False,
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
@@ -467,6 +667,9 @@ def agents_code_step() -> Response | tuple[Response, int]:
         :return: a generator of newline-delimited JSON strings
         """
         try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
             agent = CodeAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -591,6 +794,9 @@ def agents_code_review_step() -> Response | tuple[Response, int]:
         :return: a generator of newline-delimited JSON strings
         """
         try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
             agent = CodeReviewerAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -729,6 +935,33 @@ def agents_rl_step() -> Response | tuple[Response, int]:
         :return: a generator of newline-delimited JSON strings
         """
         try:
+            if not conversation_history:
+                env_code = (code_report or {}).get(
+                    "generated_code", "",
+                )
+                if env_code:
+                    try:
+                        _write_env_to_sandbox(env_code)
+                        yield json.dumps({
+                            "type": "dt_progress",
+                            "message": (
+                                "Env code written to "
+                                "sandbox"
+                            ),
+                        }) + "\n"
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to pre-write env: %s",
+                            e, exc_info=True,
+                        )
+                        yield json.dumps({
+                            "type": "error",
+                            "message": (
+                                "Failed to write env code "
+                                f"to sandbox: {e}"
+                            ),
+                        }) + "\n"
+                        return
             agent = RlAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -1028,12 +1261,22 @@ def save_agent_report() -> tuple[Response, int]:
         }), 400
     incident_id = body.get("incident_id")
     conversation_history = body.get("conversation_history")
+    policy_data = None
+    if agent_type == "rl":
+        try:
+            policy_data = _read_policy_from_sandbox()
+        except Exception:
+            logger.warning(
+                "Failed to read policy from sandbox",
+                exc_info=True,
+            )
     saved = DatabaseFacade.save_agent_report(
         agent_type=agent_type,
         username=g.username,
         report=report,
         incident_id=incident_id,
         conversation_history=conversation_history,
+        policy_data=policy_data,
     )
     return jsonify(saved), 201
 

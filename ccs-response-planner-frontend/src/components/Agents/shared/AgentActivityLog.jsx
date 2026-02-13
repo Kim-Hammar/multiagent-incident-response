@@ -26,7 +26,12 @@ function renderTerminalResult(toolName, result) {
           <ul className="ia-gym-checks">
             {result.checks.map((check, i) => (
               <li key={i} className={check.passed ? 'passed' : 'failed'}>
-                {check.passed ? '\u2713' : '\u2717'} {check.name || check.description || check}
+                {check.passed ? '\u2713' : '\u2717'}{' '}
+                {check.name ||
+                  check.description ||
+                  check.check ||
+                  check.detail ||
+                  (typeof check === 'string' ? check : JSON.stringify(check))}
               </li>
             ))}
           </ul>

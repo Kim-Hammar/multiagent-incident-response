@@ -52,10 +52,16 @@ def test_validation_step_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes.ValidationAgent",
 )
 def test_validation_step_streams_events(
     mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -156,6 +162,51 @@ def test_validation_tool_executes_dt_exec(
     data = resp.get_json()
     assert data["tool_name"] == "dt_exec"
     assert "result" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ValidationAgent",
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.DatabaseFacade",
+)
+def test_validation_step_accepts_planner_report_id(
+    mock_db: MagicMock,
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/validation/step with planner_report_id
+    loads the policy and passes has_policy=True to the agent.
+    """
+    mock_db.get_policy_data.return_value = None
+    mock_db.get_digital_twin_config.return_value = None
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {"type": "text", "delta": "checking"},
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/validation/step",
+        data=json.dumps({
+            "system_description": "test system",
+            "incident_report": "test report",
+            "planner_report_id": 42,
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    mock_db.get_policy_data.assert_called_once_with(42)
 
 
 def test_validation_prompt_renders(

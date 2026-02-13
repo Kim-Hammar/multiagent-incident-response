@@ -54,6 +54,8 @@ def _write_code_to_sandbox(
     """
     Write Python code to a file inside the sandbox container.
 
+    Raises ``RuntimeError`` if the write fails.
+
     :param client: a Docker client instance
     :param ct: the sandbox container
     :param code: the Python source code
@@ -67,12 +69,20 @@ def _write_code_to_sandbox(
         f"open('/workspace/{filename}','wb')"
         f".write(base64.b64decode('{encoded}'))\""
     )
-    client.api.exec_start(
-        client.api.exec_create(
-            ct.id, ["/bin/sh", "-c", write_cmd],
-            stdout=True, stderr=True,
-        )["Id"],
-    )
+    exec_id = client.api.exec_create(
+        ct.id, ["/bin/sh", "-c", write_cmd],
+        stdout=True, stderr=True,
+    )["Id"]
+    output = client.api.exec_start(exec_id)
+    exit_code = client.api.exec_inspect(exec_id)[
+        "ExitCode"
+    ]
+    if exit_code != 0:
+        err = output.decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"Failed to write {filename} to sandbox "
+            f"(exit {exit_code}): {err}"
+        )
 
 
 def python_exec(code: str) -> dict[str, Any]:
@@ -127,6 +137,7 @@ def rl_train(
     )["Id"]
 
     stream = client.api.exec_start(exec_id, stream=True)
+    yield {"type": "started", "message": "Training started"}
 
     timed_out = threading.Event()
 
@@ -157,6 +168,7 @@ def rl_train(
 
     line_buffer = ""
     stderr_buffer = ""
+    had_progress = False
     try:
         for chunk in stream:
             text = chunk.decode("utf-8", errors="replace")
@@ -170,6 +182,8 @@ def rl_train(
                     continue
                 try:
                     parsed = json.loads(line)
+                    if parsed.get("type") == "progress":
+                        had_progress = True
                     yield parsed
                 except (json.JSONDecodeError, ValueError):
                     stderr_buffer += line + "\n"
@@ -195,6 +209,18 @@ def rl_train(
         exit_code = info.get("ExitCode", -1)
     except Exception:
         exit_code = -1
+
+    if exit_code != 0 and not had_progress:
+        err_msg = stderr_buffer.strip() or (
+            f"Training failed (exit {exit_code})"
+        )
+        yield {
+            "type": "error",
+            "message": (
+                f"Training script error: "
+                f"{err_msg[:500]}"
+            ),
+        }
 
     done_event: dict[str, Any] = {
         "type": "done",

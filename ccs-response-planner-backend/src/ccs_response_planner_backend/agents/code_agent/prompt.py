@@ -51,8 +51,16 @@ isolated, lateral movement blocked)
 malware, unauthorized access removed)
 - `hardening` — degree to which the system is hardened (vulnerabilities \
 patched, configurations tightened)
-- `restoration` — degree to which services are restored to normal \
-operation
+- `restoration` — **computed automatically** from the specification \
+dimensions. It equals the fraction of specifications currently \
+passing: `restoration = mean(spec_dims)`. Do NOT make restoration \
+depend on explicit "restart" or "restore" actions — it is purely \
+a function of the specification state. If all specifications are \
+satisfied (all spec dims = 1.0), restoration is automatically 1.0, \
+even if no dedicated restoration action was taken. Specifications \
+may be temporarily violated during earlier phases (e.g. isolating \
+a host breaks connectivity), so restoration may dip during recovery \
+and rise again once specs recover.
 
 **Specification dimensions** (one float per specification command, \
 each in [0, 1]):
@@ -73,7 +81,12 @@ specification dimensions at values you determine based on the \
 incident report (most services may still be operational, but some \
 may already be degraded by the attack).
 
-The episode terminates when all 6 recovery dimensions reach 1.0.
+The episode terminates when all 6 recovery dimensions reach 1.0. \
+Since restoration is computed as `mean(spec_dims)`, it reaches 1.0 \
+automatically when all specifications pass. The episode ends when \
+containment, assessment, preservation, eviction, and hardening are \
+all 1.0 AND all specifications are satisfied (which makes \
+restoration = 1.0 too).
 
 ### Transition Dynamics — Stochastic Contingencies
 
@@ -131,18 +144,30 @@ binaries, revoke compromised certificates.
 - **Hardening** — e.g. patch a specific vulnerability, tighten \
 firewall rules, disable unused services, update configurations, \
 enable stricter authentication.
-- **Restoration** — e.g. restart a specific service, restore a \
-configuration from backup, re-enable network routes, verify service \
-health.
+- **Restoration** — actions that fix specification violations caused \
+by earlier recovery phases. E.g. re-enable a network route that was \
+dropped during containment, restore a firewall rule that was \
+tightened during hardening, re-add a DNS entry. Note: restoration \
+progress is **computed automatically** as `mean(spec_dims)` — you \
+do NOT need dedicated "restart service" actions for restoration. \
+Instead, include actions that reverse the side-effects of earlier \
+phases so that specs pass again.
 
 Every action in the MDP must correspond to a **real, executable \
 action** on the target system. The `commands` field must contain \
 actual shell commands, not descriptions. For example:
 - GOOD: `{{"container": "i1_firewall", "command": "iptables -A FORWARD \
 -s 10.0.0.2 -j DROP"}}`
-- GOOD: `{{"container": "i1_server_3", "command": "systemctl restart \
-postgresql"}}`
+- GOOD: `{{"container": "i1_server_6", "command": "service postgresql \
+restart"}}`
 - BAD: `{{"container": "i1_firewall", "command": "block the attacker"}}`
+
+**Service management:** The containers do NOT run systemd — \
+`systemctl` and `journalctl` will NOT work. Use the SysVinit wrapper \
+`service <name> restart|start|stop` (works on all containers) or \
+kill and re-launch the daemon directly (e.g. `pkill smbd && smbd -D`). \
+All commands in ACTION_TABLE must use `service` or direct daemon \
+invocation, never `systemctl`.
 
 The environment class must store an `ACTION_TABLE` — a list of dicts \
 (indexed by action id) where each entry contains:
@@ -190,7 +215,7 @@ The six recovery-state dimensions correspond to these phases \
 
 At every time step the reward is:
 
-    reward = -(
+    recovery_penalty = (
         6 * (1 - containment_progress)
       + 5 * (1 - assessment_progress)
       + 4 * (1 - preservation_progress)
@@ -198,28 +223,49 @@ At every time step the reward is:
       + 2 * (1 - hardening_progress)
       + 1 * (1 - restoration_progress)
     )
+    spec_penalty = number_of_failing_specifications
+    reward = -(recovery_penalty + spec_penalty)
 
 where each `*_progress` value is the current value of the \
 corresponding recovery-state dimension (0.0 = not started, \
 1.0 = fully complete). These are the FIRST 6 dimensions of the \
-observation vector (the recovery state).
+observation vector (the recovery state). The specification \
+penalty adds 1 per failing specification (spec value < 1.0).
 
 This means:
-- The reward is always negative (or zero when fully recovered).
-- Higher-weight phases (containment = 6) dominate the penalty, \
-so the optimal policy prioritizes them first.
+- The reward is always negative (or zero when fully recovered \
+with all specifications passing).
+- Higher-weight phases (containment = 6) dominate the recovery \
+penalty, so the optimal policy prioritizes them first.
 - The penalty is proportional to `(1 - progress)`, so partial \
 progress is rewarded — an action that moves containment from \
 0.0 to 0.5 immediately halves the containment penalty.
-- The maximum per-step penalty is -(6+5+4+3+2+1) = -21 (when \
-no recovery has started).
+- Failing specifications add a per-step cost, so the agent is \
+aware of service impact, but the penalty is modest enough that \
+temporary violations during recovery are acceptable.
+- The maximum per-step penalty is -(6+5+4+3+2+1 + N_specs) \
+when no recovery has started and all specifications fail.
 
-Implementation in the `step()` method:
+**Restoration is computed, not set by actions.** After applying the \
+action's effects on recovery dimensions [0:5] and spec dimensions, \
+always recompute restoration from the spec state:
+
+```python
+self.state[5] = np.mean(self.state[6:])  # restoration = mean(specs)
+```
+
+This must happen at the END of every `step()` call, AFTER all other \
+state updates. Actions should NOT directly modify `self.state[5]`.
+
+Implementation of the reward in the `step()` method:
 
 ```python
 PHASE_WEIGHTS = [6, 5, 4, 3, 2, 1]  # containment..restoration
 recovery = self.state[:6]  # first 6 dims are recovery progress
-reward = -sum(w * (1 - p) for w, p in zip(PHASE_WEIGHTS, recovery))
+specs = self.state[6:]     # remaining dims are specification health
+recovery_penalty = sum(w * (1 - p) for w, p in zip(PHASE_WEIGHTS, recovery))
+spec_penalty = sum(1 - s for s in specs)
+reward = -(recovery_penalty + spec_penalty)
 ```
 
 ### Required Methods
@@ -246,6 +292,11 @@ initial state. Return `(state, info)`.
 `gymnasium.spaces.Discrete` for action_space
 - Implement `np.random.Generator` seeding via the `reset(seed=...)` \
 parameter for reproducibility
+- **String quoting:** Use single-quoted Python strings (`'...'`) for \
+any shell command value that contains double quotes. For example: \
+`'chpasswd <<< "admin:newpass"'` — NOT \
+`"chpasswd <<< \\"admin:newpass\\""`. This prevents quoting conflicts \
+when the RL Agent embeds the code inside a triple-quoted string.
 
 ### Workflow
 

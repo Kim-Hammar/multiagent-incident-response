@@ -83,8 +83,12 @@ Check that:
 eviction=3, hardening=2, restoration=1
 - Each penalty term uses `(1 - progress)` where progress is the recovery \
 dimension value (0.0–1.0), so partial progress is rewarded
-- The reward is always <= 0 (zero only when fully recovered)
+- The reward is always <= 0 (zero only when fully recovered with all \
+specs passing)
 - The episode terminates when all 6 recovery dimensions reach 1.0
+- The **restoration** phase can only reach 1.0 when ALL specification \
+commands pass — specs may be temporarily violated during recovery but \
+must be fully satisfied before the episode ends
 
 ### 7. Code Quality
 Does the code subclass `gymnasium.Env` properly? Does it implement all 4 \
@@ -111,7 +115,10 @@ verify state transitions, and validate the reward function.
 - **dt_exec**: Execute a shell command on a digital-twin container. Use \
 this to verify commands from the ACTION_TABLE on the live digital twin. \
 Valid containers: i1_gateway, i1_firewall, i1_ids, i1_server_1–i1_server_6 \
-(Incident 1) or i2_server_1–i2_server_6 (Incident 2).
+(Incident 1) or i2_server_1–i2_server_6 (Incident 2). \
+**Note:** Containers do NOT run systemd — `systemctl` will fail. \
+Verify that ACTION_TABLE commands use `service <name> restart` or \
+direct daemon invocation instead.
 - **produce_review_report**: Call this ONLY after you have thoroughly \
 reviewed the code. You must have called at least one tool (python_exec \
 or dt_exec) before producing the review report.

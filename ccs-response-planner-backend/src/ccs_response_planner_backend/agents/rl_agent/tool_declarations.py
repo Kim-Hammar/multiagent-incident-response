@@ -115,8 +115,9 @@ PRODUCE_PLANNER_REPORT_DECL = genai_types.FunctionDeclaration(
             "action_sequence": {
                 "type": "array",
                 "description": (
-                    "Ordered incident response plan "
-                    "derived from the learned policy."
+                    "Policy characterization as an "
+                    "ordered response plan, grouped "
+                    "by recovery phase."
                 ),
                 "items": {
                     "type": "object",
@@ -124,8 +125,18 @@ PRODUCE_PLANNER_REPORT_DECL = genai_types.FunctionDeclaration(
                         "step": {
                             "type": "integer",
                             "description": (
-                                "Step number in the "
-                                "sequence."
+                                "Step number."
+                            ),
+                        },
+                        "phase": {
+                            "type": "string",
+                            "description": (
+                                "Recovery phase this "
+                                "step belongs to "
+                                "(containment, assessment"
+                                ", preservation, "
+                                "eviction, hardening, "
+                                "or restoration)."
                             ),
                         },
                         "action": {
@@ -162,58 +173,37 @@ PRODUCE_PLANNER_REPORT_DECL = genai_types.FunctionDeclaration(
                                 ],
                             },
                         },
-                        "expected_effect": {
+                        "rationale": {
                             "type": "string",
                             "description": (
-                                "Expected effect on "
-                                "the system state."
+                                "Why the policy chose "
+                                "this action at this "
+                                "point, including what "
+                                "happens if it fails "
+                                "and what the fallback "
+                                "would be."
+                            ),
+                        },
+                        "spec_impact": {
+                            "type": "string",
+                            "description": (
+                                "Impact on service "
+                                "specifications, e.g. "
+                                "'temporarily breaks "
+                                "FTP connectivity but "
+                                "necessary to contain "
+                                "the attack'."
                             ),
                         },
                     },
                     "required": [
                         "step",
+                        "phase",
                         "action",
                         "description",
                         "commands",
-                        "expected_effect",
-                    ],
-                },
-            },
-            "contingencies": {
-                "type": "array",
-                "description": (
-                    "Fallback actions if primary "
-                    "actions fail."
-                ),
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "condition": {
-                            "type": "string",
-                            "description": (
-                                "When this contingency "
-                                "applies."
-                            ),
-                        },
-                        "alternative_action": {
-                            "type": "string",
-                            "description": (
-                                "The alternative action "
-                                "to take."
-                            ),
-                        },
-                        "rationale": {
-                            "type": "string",
-                            "description": (
-                                "Why this alternative "
-                                "is appropriate."
-                            ),
-                        },
-                    },
-                    "required": [
-                        "condition",
-                        "alternative_action",
                         "rationale",
+                        "spec_impact",
                     ],
                 },
             },
@@ -246,7 +236,6 @@ PRODUCE_PLANNER_REPORT_DECL = genai_types.FunctionDeclaration(
             "hyperparameters",
             "training_summary",
             "action_sequence",
-            "contingencies",
             "expected_total_cost",
             "risks",
         ],

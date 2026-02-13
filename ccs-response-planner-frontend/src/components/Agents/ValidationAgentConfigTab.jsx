@@ -34,7 +34,8 @@ function ValidationAgentConfigTab({
   setAutopilot,
   showPromptModal,
   promptText,
-  setShowPromptModal
+  setShowPromptModal,
+  plannerReportId
 }) {
   return (
     <div style={{ marginTop: '16px' }}>
@@ -144,7 +145,14 @@ function ValidationAgentConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="va-planner-report">RL Agent report</label>
+        <label htmlFor="va-planner-report">
+          RL Agent report
+          {plannerReportId && (
+            <span className="badge badge-success ml-2">
+              <i className="fa fa-check" /> Policy available
+            </span>
+          )}
+        </label>
         <p className="ia-hint">
           JSON report from the RL Agent containing action sequence and expected total cost.
         </p>

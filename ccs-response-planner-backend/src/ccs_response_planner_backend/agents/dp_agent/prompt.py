@@ -301,6 +301,11 @@ from the evaluation result JSON (i.e. `expected_total_cost = -total_reward`). \
 Do NOT estimate or approximate — use the precise number from the evaluation \
 output.
 
+Note: the **restoration** recovery phase is only complete (1.0) when ALL \
+specification commands pass again. Specifications may be temporarily \
+violated during earlier phases, but the episode only terminates when \
+every specification is satisfied.
+
 ## Discretization Guidelines
 
 **Not all state dimensions need discretization.** Before blindly binning \

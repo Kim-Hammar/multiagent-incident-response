@@ -16,10 +16,11 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     stream_step as anthropic_stream_step,
 )
 from ccs_response_planner_backend.agents.validation_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.validation_agent.tool_declarations import (
     TOOL_DECLARATIONS,
+    TOOL_DECLARATIONS_WITH_POLICY,
 )
 from ccs_response_planner_backend.agents.validation_agent.tools import (
     TOOL_DISPATCH,
@@ -33,19 +34,30 @@ REPORT_TOOL_NAME = "produce_validation_report"
 
 def _build_initial_message(
     images: list[str] | None = None,
+    has_policy: bool = False,
 ) -> dict[str, Any]:
     """
     Build the initial user message, optionally including images.
 
     :param images: optional list of base64 data-URL image strings
+    :param has_policy: True when policy-driven mode is active
     :return: a Gemini-compatible content dict
     """
-    parts: list[dict[str, Any]] = [{"text": (
-        "Please validate the response plan by "
-        "applying actions sequentially on the "
-        "digital twin and checking recovery and "
-        "service state after each action."
-    )}]
+    if has_policy:
+        text = (
+            "Please validate the response plan using the "
+            "trained RL policy. Start by assessing the "
+            "initial digital twin state, then query the "
+            "policy for each action."
+        )
+    else:
+        text = (
+            "Please validate the response plan by "
+            "applying actions sequentially on the "
+            "digital twin and checking recovery and "
+            "service state after each action."
+        )
+    parts: list[dict[str, Any]] = [{"text": text}]
     for data_url in (images or []):
         if "," not in data_url:
             continue
@@ -84,17 +96,20 @@ class ValidationAgent:
 
     def _make_config(
         self, system_prompt: str,
+        declarations: list[Any] | None = None,
     ) -> Any:
         """
         Build the GenerateContentConfig with tools and thinking.
 
         :param system_prompt: the rendered system prompt
+        :param declarations: tool declarations to use
         :return: a GenerateContentConfig instance
         """
+        decls = declarations or TOOL_DECLARATIONS
         return genai_types.GenerateContentConfig(
             system_instruction=system_prompt,
             tools=[genai_types.Tool(
-                function_declarations=TOOL_DECLARATIONS,
+                function_declarations=decls,
             )],
             tool_config=genai_types.ToolConfig(
                 function_calling_config=(
@@ -261,6 +276,7 @@ class ValidationAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
+        has_policy: bool = False,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -281,11 +297,13 @@ class ValidationAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
+        :param has_policy: True if RL policy is loaded in sandbox
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        system_prompt = build_system_prompt(
+            has_policy=has_policy,
             system_description=system_description or "N/A",
             incident_report=incident_report or "N/A",
             response_plan=response_plan or "N/A",
@@ -302,17 +320,34 @@ class ValidationAgent:
             ),
         )
 
+        declarations = (
+            TOOL_DECLARATIONS_WITH_POLICY
+            if has_policy else TOOL_DECLARATIONS
+        )
+
         if is_anthropic_model(effective_model):
-            yield from anthropic_stream_step(
-                system_prompt=system_prompt,
-                tool_declarations=TOOL_DECLARATIONS,
-                history=conversation_history,
-                initial_user_parts=[{"type": "text", "text": (
+            if has_policy:
+                initial_text = (
+                    "Please validate the response plan "
+                    "using the trained RL policy. Start by "
+                    "assessing the initial digital twin "
+                    "state, then query the policy for "
+                    "each action."
+                )
+            else:
+                initial_text = (
                     "Please validate the response plan by "
                     "applying actions sequentially on the "
                     "digital twin and checking recovery and "
                     "service state after each action."
-                )}],
+                )
+            yield from anthropic_stream_step(
+                system_prompt=system_prompt,
+                tool_declarations=declarations,
+                history=conversation_history,
+                initial_user_parts=[{
+                    "type": "text", "text": initial_text,
+                }],
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type="validation_report",
                 thinking_budget=THINKING_BUDGET,
@@ -322,11 +357,16 @@ class ValidationAgent:
             return
 
         client = self._create_client()
-        config = self._make_config(system_prompt)
+        config = self._make_config(
+            system_prompt,
+            declarations=declarations,
+        )
 
         contents = (
-            [_build_initial_message(images)]
-            + self._build_contents(conversation_history)
+            [_build_initial_message(images, has_policy)]
+            + self._build_contents(
+                conversation_history, has_policy,
+            )
         )
 
         full_text = ""
@@ -591,13 +631,37 @@ class ValidationAgent:
 
     def _build_contents(
         self, history: list[dict[str, Any]],
+        has_policy: bool = False,
     ) -> list[Any]:
         """
         Convert conversation history to Gemini Content dicts.
 
         :param history: the conversation history list
+        :param has_policy: True if policy-driven mode is active
         :return: a list of Gemini-compatible content dicts
         """
+        if has_policy:
+            nudge = (
+                "Tool result received. "
+                "Analyze this result, then reassess "
+                "the state and query the policy for "
+                "the next action. Only produce the "
+                "final validation report when all "
+                "recovery phases >= 0.9 or 30 actions "
+                "have been applied."
+            )
+        else:
+            nudge = (
+                "Tool result received. "
+                "Analyze this result, then "
+                "continue applying response "
+                "actions and checking state."
+                " Only produce the final "
+                "validation report when you "
+                "have applied all actions "
+                "and checked all states."
+            )
+
         contents: list[Any] = []
         for entry in history:
             entry_type = entry.get("type", "")
@@ -662,18 +726,7 @@ class ValidationAgent:
                                 },
                             },
                         },
-                        {
-                            "text": (
-                                "Tool result received. "
-                                "Analyze this result, then "
-                                "continue applying response "
-                                "actions and checking state."
-                                " Only produce the final "
-                                "validation report when you "
-                                "have applied all actions "
-                                "and checked all states."
-                            ),
-                        },
+                        {"text": nudge},
                     ],
                 })
 
