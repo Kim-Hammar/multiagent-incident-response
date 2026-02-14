@@ -931,3 +931,264 @@ def test_code_manager_prompt_renders_prompt(
     assert "My system" in data["prompt"]
     assert "My incident" in data["prompt"]
     assert "My feedback" in data["prompt"]
+
+
+# ── PlanManagerAgent endpoint tests ──
+
+
+def test_plan_manager_step_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/plan-manager/step without token returns 401.
+    """
+    resp = client.post(
+        "/api/agents/plan-manager/step",
+        data=json.dumps({
+            "system_description": "test",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_plan_manager_step_returns_400_missing_fields(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/plan-manager/step with no fields -> 400.
+    """
+    resp = client.post(
+        "/api/agents/plan-manager/step",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert "error" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.PlanManagerAgent",
+)
+def test_plan_manager_step_streams_tool_proposal(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/plan-manager/step streams tool_proposal.
+    """
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {"type": "text", "delta": "Starting pipeline"},
+        {
+            "type": "tool_proposal",
+            "tool_name": "run_code_manager",
+            "tool_args": {},
+            "rationale": "Starting code manager",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/plan-manager/step",
+        data=json.dumps({
+            "system_description": "test system",
+            "incident_report": "test report",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert len(events) == 2
+    assert events[0]["type"] == "text"
+    assert events[1]["type"] == "tool_proposal"
+    assert events[1]["tool_name"] == "run_code_manager"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.PlanManagerAgent",
+)
+def test_plan_manager_step_streams_report(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/plan-manager/step streams report.
+    """
+    mock_report = {
+        "executive_summary": "Pipeline completed",
+        "iterations": 1,
+        "final_verdict": "pass",
+        "code_manager_summary": "Code OK",
+        "rl_agent_summary": "RL OK",
+        "validation_summary": "Validation OK",
+    }
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {
+            "type": "plan_manager_report",
+            "plan_manager_report": mock_report,
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/plan-manager/step",
+        data=json.dumps({
+            "system_description": "test",
+            "incident_report": "test",
+            "conversation_history": [
+                {"type": "tool_result"},
+            ],
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "plan_manager_report"
+    assert events[-1]["plan_manager_report"][
+        "final_verdict"
+    ] == "pass"
+
+
+def test_plan_manager_tool_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/plan-manager/tool without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/plan-manager/tool",
+        data=json.dumps({
+            "tool_name": "run_code_manager",
+            "tool_args": {},
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_plan_manager_tool_returns_400_missing_tool_name(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/plan-manager/tool with no tool_name -> 400.
+    """
+    resp = client.post(
+        "/api/agents/plan-manager/tool",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert "error" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.PlanManagerAgent",
+)
+def test_plan_manager_tool_streams_run_code_manager(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/plan-manager/tool with run_code_manager
+    streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "output_chunk",
+            "text": "[CodeManager] Step 1...\n",
+        },
+        {
+            "type": "done",
+            "result": {
+                "code_report": {
+                    "executive_summary": "Done",
+                },
+                "orchestrator_report": {
+                    "executive_summary": "Done",
+                },
+            },
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/plan-manager/tool",
+        data=json.dumps({
+            "tool_name": "run_code_manager",
+            "tool_args": {},
+            "system_description": "test",
+            "incident_report": "test",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert any(
+        e["type"] == "output_chunk" for e in events
+    )
+    assert events[-1]["type"] == "done"
+
+
+def test_plan_manager_prompt_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/plan-manager/prompt without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/plan-manager/prompt",
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_plan_manager_prompt_renders_prompt(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/plan-manager/prompt renders the prompt.
+    """
+    resp = client.post(
+        "/api/agents/plan-manager/prompt",
+        data=json.dumps({
+            "system_description": "My system",
+            "incident_report": "My incident",
+            "operator_feedback": "My feedback",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "prompt" in data
+    assert "My system" in data["prompt"]
+    assert "My incident" in data["prompt"]
+    assert "My feedback" in data["prompt"]

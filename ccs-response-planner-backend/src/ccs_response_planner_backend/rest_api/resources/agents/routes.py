@@ -77,6 +77,16 @@ from ccs_response_planner_backend.agents.code_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as CODE_MANAGER_STREAMING_DISPATCH,
     TOOL_DISPATCH as CODE_MANAGER_TOOL_DISPATCH,
 )
+from ccs_response_planner_backend.agents.plan_manager_agent.agent import (
+    PlanManagerAgent,
+)
+from ccs_response_planner_backend.agents.plan_manager_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as PLAN_MANAGER_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
+    STREAMING_TOOL_DISPATCH as PLAN_MANAGER_STREAMING_DISPATCH,
+    TOOL_DISPATCH as PLAN_MANAGER_TOOL_DISPATCH,
+)
 from ccs_response_planner_backend.agents.dp_agent.agent import (
     DpAgent,
 )
@@ -1136,6 +1146,7 @@ def agents_code_manager_prompt() -> tuple[Response, int]:
             "operator_feedback", "",
         ) or "N/A",
         max_iterations=max_iterations,
+        validation_feedback="N/A",
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -1428,6 +1439,260 @@ def agents_rl_tool() -> Response | tuple[Response, int]:
     try:
         agent = RlAgent()
         result = agent.execute_tool(tool_name, tool_args)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/plan-manager/step", methods=["POST"])
+@token_required
+def agents_plan_manager_step() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Advance the PlanManagerAgent loop by one step (NDJSON).
+
+    :return: an NDJSON streaming Response, or (JSON, status)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    incident_report = body.get("incident_report", "")
+    specification = body.get("specification", "")
+    operator_feedback = body.get("operator_feedback", "")
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    max_iterations = body.get("max_iterations", 2)
+    if not isinstance(images, list):
+        images = []
+    if not system_description and not incident_report:
+        return jsonify({
+            "error": (
+                "system_description or incident_report "
+                "is required"
+            ),
+        }), 400
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: generator of newline-delimited JSON strings
+        """
+        try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
+            agent = PlanManagerAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                incident_report=incident_report,
+                specification=specification,
+                operator_feedback=operator_feedback,
+                conversation_history=(
+                    conversation_history
+                ),
+                images=images,
+                model_name=model_name,
+                max_iterations=max_iterations,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error", "message": str(e),
+            }) + "\n"
+
+    return Response(
+        generate(), mimetype="application/x-ndjson",
+    )
+
+
+@agents_bp.route(
+    "/plan-manager/prompt", methods=["POST"],
+)
+@token_required
+def agents_plan_manager_prompt() -> (
+    tuple[Response, int]
+):
+    """
+    Render the PlanManagerAgent system prompt.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    specification = body.get("specification", "")
+    max_iterations = body.get("max_iterations", 2)
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+    prompt = PLAN_MANAGER_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        incident_report=body.get(
+            "incident_report", "",
+        ) or "N/A",
+        specification=specification or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        max_iterations=max_iterations,
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route(
+    "/plan-manager/tool", methods=["POST"],
+)
+@token_required
+def agents_plan_manager_tool() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Execute an approved tool call for PlanManagerAgent.
+
+    Sub-agent tools (run_code_manager, run_rl_agent,
+    run_validation_agent) are streaming. Builds context
+    from the request body and accumulated reports in the
+    conversation history.
+
+    :return: a streaming Response or (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+
+    if tool_name in PLAN_MANAGER_STREAMING_DISPATCH:
+        context: dict[str, Any] = {
+            "system_description": body.get(
+                "system_description", "",
+            ),
+            "incident_report": body.get(
+                "incident_report", "",
+            ),
+            "specification": body.get(
+                "specification", "",
+            ),
+            "operator_feedback": body.get(
+                "operator_feedback", "",
+            ),
+            "images": body.get("images"),
+            "username": g.username,
+            "code_manager_model": body.get(
+                "code_manager_model",
+            ),
+            "code_agent_model": body.get(
+                "code_agent_model",
+            ),
+            "reviewer_agent_model": body.get(
+                "reviewer_agent_model",
+            ),
+            "rl_agent_model": body.get(
+                "rl_agent_model",
+            ),
+            "validation_agent_model": body.get(
+                "validation_agent_model",
+            ),
+        }
+        conv_history = body.get(
+            "conversation_history", [],
+        )
+        for entry in reversed(conv_history):
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_code_manager"
+            ):
+                result = entry.get("result", {})
+                context["code_report"] = result.get(
+                    "code_report", {},
+                )
+                context["orchestrator_report"] = (
+                    result.get(
+                        "orchestrator_report", {},
+                    )
+                )
+                break
+        for entry in reversed(conv_history):
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_rl_agent"
+            ):
+                result = entry.get("result", {})
+                context["planner_report"] = result.get(
+                    "planner_report", {},
+                )
+                context["response_plan"] = result.get(
+                    "response_plan", "",
+                )
+                break
+        for entry in reversed(conv_history):
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_validation_agent"
+            ):
+                result = entry.get("result", {})
+                context["validation_report"] = (
+                    result.get(
+                        "validation_report", {},
+                    )
+                )
+                break
+
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: generator of newline-delimited JSON
+            """
+            try:
+                agent = PlanManagerAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                    context=context,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error",
+                    "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(),
+            mimetype="application/x-ndjson",
+        )
+
+    if tool_name not in PLAN_MANAGER_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = PlanManagerAgent()
+        result = agent.execute_tool(
+            tool_name, tool_args,
+        )
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

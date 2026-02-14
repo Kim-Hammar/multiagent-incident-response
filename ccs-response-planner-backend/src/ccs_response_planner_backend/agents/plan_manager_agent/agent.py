@@ -1,7 +1,7 @@
 """
-CodeManagerAgent — uses Gemini with function calling to
-orchestrate CodeAgent and CodeReviewerAgent in an automated
-generate-review-revise loop.
+PlanManagerAgent — uses Gemini with function calling to
+orchestrate the full incident response pipeline:
+CodeManager -> RlAgent -> ValidationAgent.
 """
 import base64
 import json
@@ -16,14 +16,14 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
-from ccs_response_planner_backend.agents.code_manager_agent.prompt import (
+from ccs_response_planner_backend.agents.plan_manager_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
-from ccs_response_planner_backend.agents.code_manager_agent.tool_declarations import (
+from ccs_response_planner_backend.agents.plan_manager_agent.tool_declarations import (
     ALL_DECLARATIONS,
     ITERATING_DECLARATIONS,
 )
-from ccs_response_planner_backend.agents.code_manager_agent.tools import (
+from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
@@ -31,7 +31,7 @@ from ccs_response_planner_backend.agents.code_manager_agent.tools import (
 MODEL_NAME = "gemini-3-pro-preview"
 CONTEXT_LIMIT = 1_048_576
 
-REPORT_TOOL_NAME = "produce_orchestrator_report"
+REPORT_TOOL_NAME = "produce_plan_manager_report"
 
 THINKING_BUDGET = 16384
 
@@ -46,10 +46,9 @@ def _build_initial_message(
     :return: a Gemini-compatible content dict
     """
     parts: list[dict[str, Any]] = [{"text": (
-        "Please orchestrate the code generation and "
-        "review process for a Gymnasium MDP environment "
-        "for incident response recovery planning. Start "
-        "by running the CodeAgent."
+        "Please orchestrate the full incident response "
+        "pipeline. Start by running the CodeManager to "
+        "generate the MDP environment code."
     )}]
     for data_url in (images or []):
         if "," not in data_url:
@@ -68,11 +67,11 @@ def _build_initial_message(
     return {"role": "user", "parts": parts}
 
 
-class CodeManagerAgent:
+class PlanManagerAgent:
     """
-    An orchestrator agent that uses Gemini function calling
-    to coordinate CodeAgent and CodeReviewerAgent in an
-    automated generate-review-revise loop.
+    A top-level orchestrator agent that uses Gemini function
+    calling to coordinate CodeManagerAgent, RlAgent, and
+    ValidationAgent in an automated pipeline loop.
     """
 
     def _create_client(self) -> Any:
@@ -122,17 +121,16 @@ class CodeManagerAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
-        max_iterations: int = 3,
-        validation_feedback: str = "",
+        max_iterations: int = 2,
     ) -> Generator[dict[str, Any], None, None]:
         """
-        Advance the orchestrator agent loop by one step.
+        Advance the plan manager agent loop by one step.
 
         Yields NDJSON-compatible dicts:
         - ``{"type": "thinking", "delta": "..."}``
         - ``{"type": "text", "delta": "..."}``
         - ``{"type": "tool_proposal", ...}``
-        - ``{"type": "orchestrator_report", ...}``
+        - ``{"type": "plan_manager_report", ...}``
         - ``{"type": "error", "message": "..."}``
 
         :param system_description: description of the target system
@@ -142,24 +140,28 @@ class CodeManagerAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
-        :param max_iterations: maximum generate-review cycles
-        :param validation_feedback: feedback from validation phase
+        :param max_iterations: maximum pipeline iterations
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            system_description=system_description or "N/A",
-            incident_report=incident_report or "N/A",
+            system_description=(
+                system_description or "N/A"
+            ),
+            incident_report=(
+                incident_report or "N/A"
+            ),
             specification=specification or "N/A",
-            operator_feedback=operator_feedback or "N/A",
+            operator_feedback=(
+                operator_feedback or "N/A"
+            ),
             max_iterations=max_iterations,
-            validation_feedback=validation_feedback or "N/A",
         )
 
         declarations = (
             ALL_DECLARATIONS
-            if self._has_reviewed(conversation_history)
+            if self._has_validated(conversation_history)
             else ITERATING_DECLARATIONS
         )
 
@@ -169,15 +171,14 @@ class CodeManagerAgent:
                 tool_declarations=declarations,
                 history=conversation_history,
                 initial_user_parts=[{"type": "text", "text": (
-                    "Please orchestrate the code "
-                    "generation and review process "
-                    "for a Gymnasium MDP environment "
-                    "for incident response recovery "
-                    "planning. Start by running the "
-                    "CodeAgent."
+                    "Please orchestrate the full "
+                    "incident response pipeline. "
+                    "Start by running the CodeManager "
+                    "to generate the MDP environment "
+                    "code."
                 )}],
                 final_tool_name=REPORT_TOOL_NAME,
-                final_event_type="orchestrator_report",
+                final_event_type="plan_manager_report",
                 thinking_budget=THINKING_BUDGET,
                 images=images,
                 model_name=effective_model,
@@ -185,7 +186,9 @@ class CodeManagerAgent:
             return
 
         client = self._create_client()
-        config = self._make_config(system_prompt, declarations)
+        config = self._make_config(
+            system_prompt, declarations,
+        )
 
         contents = (
             [_build_initial_message(images)]
@@ -238,37 +241,43 @@ class CodeManagerAgent:
             yield {
                 "type": "context_usage",
                 "prompt_tokens": (
-                    usage_metadata.prompt_token_count or 0
+                    usage_metadata.prompt_token_count
+                    or 0
                 ),
                 "candidates_tokens": (
                     usage_metadata.candidates_token_count
                     or 0
                 ),
                 "total_tokens": (
-                    usage_metadata.total_token_count or 0
+                    usage_metadata.total_token_count
+                    or 0
                 ),
                 "context_limit": CONTEXT_LIMIT,
             }
 
         raw_parts = [
             d for d in (
-                self._serialize_part(p) for p in all_parts
+                self._serialize_part(p)
+                for p in all_parts
             ) if d
         ]
 
         if function_call:
             if function_call.name == REPORT_TOOL_NAME:
                 event: dict[str, Any] = {
-                    "type": "orchestrator_report",
-                    "orchestrator_report": (
+                    "type": "plan_manager_report",
+                    "plan_manager_report": (
                         self._normalize_args(
                             dict(function_call.args)
-                            if function_call.args else {},
+                            if function_call.args
+                            else {},
                         )
                     ),
                 }
                 if thinking_trace:
-                    event["thinking_trace"] = thinking_trace
+                    event["thinking_trace"] = (
+                        thinking_trace
+                    )
                 yield event
             else:
                 tool_args = (
@@ -283,28 +292,32 @@ class CodeManagerAgent:
                     "_model_parts": raw_parts,
                 }
                 if thinking_trace:
-                    event["thinking_trace"] = thinking_trace
+                    event["thinking_trace"] = (
+                        thinking_trace
+                    )
                 yield event
         else:
-            yield self._parse_orchestrator_report(full_text)
+            yield self._parse_plan_manager_report(
+                full_text,
+            )
 
     @staticmethod
-    def _has_reviewed(
+    def _has_validated(
         history: list[dict[str, Any]],
     ) -> bool:
         """
         Check whether the conversation history contains a
-        run_code_reviewer_agent tool_result (gates the
-        produce_orchestrator_report declaration).
+        run_validation_agent tool_result (gates the
+        produce_plan_manager_report declaration).
 
         :param history: the conversation history list
-        :return: True if a reviewer result exists
+        :return: True if a validation result exists
         """
         for entry in history:
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_code_reviewer_agent"
+                == "run_validation_agent"
             ):
                 return True
         return False
@@ -318,22 +331,27 @@ class CodeManagerAgent:
         :param obj: a proto value (scalar, map, or repeated)
         :return: a native Python value
         """
-        if isinstance(obj, (bool, int, float, str, type(None))):
+        if isinstance(
+            obj, (bool, int, float, str, type(None)),
+        ):
             return obj
         if hasattr(obj, "items"):
             return {
-                str(k): CodeManagerAgent._normalize_args(v)
+                str(k): (
+                    PlanManagerAgent._normalize_args(v)
+                )
                 for k, v in obj.items()
             }
         if hasattr(obj, "__iter__"):
             return [
-                CodeManagerAgent._normalize_args(v)
+                PlanManagerAgent._normalize_args(v)
                 for v in obj
             ]
         return obj
 
     def execute_tool(
-        self, tool_name: str, tool_args: dict[str, Any],
+        self, tool_name: str,
+        tool_args: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Execute an approved (non-streaming) tool call.
@@ -350,12 +368,19 @@ class CodeManagerAgent:
             }
         try:
             result = fn(**tool_args)
-            return {"tool_name": tool_name, "result": result}
+            return {
+                "tool_name": tool_name,
+                "result": result,
+            }
         except Exception as e:
-            return {"tool_name": tool_name, "error": str(e)}
+            return {
+                "tool_name": tool_name,
+                "error": str(e),
+            }
 
     def execute_tool_stream(
-        self, tool_name: str, tool_args: dict[str, Any],
+        self, tool_name: str,
+        tool_args: dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
@@ -371,7 +396,8 @@ class CodeManagerAgent:
             yield {
                 "type": "error",
                 "message": (
-                    f"Unknown streaming tool: {tool_name}"
+                    "Unknown streaming tool: "
+                    f"{tool_name}"
                 ),
             }
             return
@@ -403,16 +429,21 @@ class CodeManagerAgent:
         if fc and fc.name:
             d["function_call"] = {
                 "name": fc.name,
-                "args": dict(fc.args) if fc.args else {},
+                "args": (
+                    dict(fc.args)
+                    if fc.args else {}
+                ),
             }
         if getattr(part, "thought", False):
             d["thought"] = True
         sig = getattr(part, "thought_signature", None)
         if sig:
-            d["thought_signature"] = base64.b64encode(
-                sig if isinstance(sig, bytes)
-                else sig.encode("utf-8"),
-            ).decode("ascii")
+            d["thought_signature"] = (
+                base64.b64encode(
+                    sig if isinstance(sig, bytes)
+                    else sig.encode("utf-8"),
+                ).decode("ascii")
+            )
         return d
 
     @staticmethod
@@ -436,22 +467,22 @@ class CodeManagerAgent:
                 d["thought"] = True
             sig = rp.get("thought_signature")
             if sig:
-                d["thought_signature"] = base64.b64decode(
-                    sig,
+                d["thought_signature"] = (
+                    base64.b64decode(sig)
                 )
             if "function_call" in rp:
                 d["function_call"] = rp["function_call"]
             parts.append(d)
         return parts
 
-    def _parse_orchestrator_report(
+    def _parse_plan_manager_report(
         self, text: str,
     ) -> dict[str, Any]:
         """
-        Parse LLM text into a structured orchestrator report.
+        Parse LLM text into a structured plan manager report.
 
         :param text: raw text from the LLM
-        :return: a dict with type orchestrator_report
+        :return: a dict with type plan_manager_report
         """
         cleaned = re.sub(
             r"^```(?:json)?\s*\n?", "", text.strip(),
@@ -460,18 +491,19 @@ class CodeManagerAgent:
         try:
             parsed = json.loads(cleaned)
             return {
-                "type": "orchestrator_report",
-                "orchestrator_report": parsed,
+                "type": "plan_manager_report",
+                "plan_manager_report": parsed,
             }
         except (json.JSONDecodeError, ValueError):
             return {
-                "type": "orchestrator_report",
-                "orchestrator_report": {
+                "type": "plan_manager_report",
+                "plan_manager_report": {
                     "executive_summary": text,
                     "iterations": 0,
                     "final_verdict": "unknown",
-                    "code_report_summary": "",
-                    "review_report_summary": "",
+                    "code_manager_summary": "",
+                    "rl_agent_summary": "",
+                    "validation_summary": "",
                 },
             }
 
@@ -494,11 +526,19 @@ class CodeManagerAgent:
                     parts = self._decode_raw_parts(raw)
                 else:
                     parts = []
-                    rationale = entry.get("rationale", "")
+                    rationale = entry.get(
+                        "rationale", "",
+                    )
                     if rationale:
-                        parts.append({"text": rationale})
-                    tool_name = entry.get("tool_name", "")
-                    tool_args = entry.get("tool_args", {})
+                        parts.append({
+                            "text": rationale,
+                        })
+                    tool_name = entry.get(
+                        "tool_name", "",
+                    )
+                    tool_args = entry.get(
+                        "tool_args", {},
+                    )
                     parts.append({
                         "function_call": {
                             "name": tool_name,
@@ -511,9 +551,13 @@ class CodeManagerAgent:
                 })
 
             elif entry_type == "tool_approval":
-                approved = entry.get("approved", False)
+                approved = entry.get(
+                    "approved", False,
+                )
                 if not approved:
-                    tool_name = entry.get("tool_name", "")
+                    tool_name = entry.get(
+                        "tool_name", "",
+                    )
                     contents.append({
                         "role": "user",
                         "parts": [{
@@ -530,7 +574,9 @@ class CodeManagerAgent:
                     })
 
             elif entry_type == "tool_result":
-                tool_name = entry.get("tool_name", "")
+                tool_name = entry.get(
+                    "tool_name", "",
+                )
                 result = entry.get("result", {})
                 result_data: Any = result
                 if isinstance(result, dict):
@@ -544,28 +590,33 @@ class CodeManagerAgent:
                             "function_response": {
                                 "name": tool_name,
                                 "response": {
-                                    "result": result_data,
+                                    "result": (
+                                        result_data
+                                    ),
                                 },
                             },
                         },
                         {
                             "text": (
                                 "Tool result received. "
-                                "Analyze this result, then "
-                                "decide the next step: "
-                                "run the reviewer, revise "
-                                "the code, or produce the "
-                                "final report."
+                                "Analyze this result, "
+                                "then decide the next "
+                                "step: run RL agent, "
+                                "run validation, revise "
+                                "the code, or produce "
+                                "the final report."
                             ),
                         },
                     ],
                 })
 
-            elif entry_type == "orchestrator_report":
+            elif entry_type == "plan_manager_report":
                 report = entry.get(
-                    "orchestrator_report", {},
+                    "plan_manager_report", {},
                 )
-                content = json.dumps(report, indent=2)
+                content = json.dumps(
+                    report, indent=2,
+                )
                 contents.append({
                     "role": "model",
                     "parts": [{"text": content}],

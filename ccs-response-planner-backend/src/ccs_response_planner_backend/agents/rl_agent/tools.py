@@ -137,7 +137,10 @@ def _extract_policy_zip(
             fileobj=io.BytesIO(tar_bytes),
         ) as tar:
             member = tar.getmembers()[0]
-            policy_bytes = tar.extractfile(member).read()
+            f = tar.extractfile(member)
+            if f is None:
+                return None
+            policy_bytes = f.read()
     except Exception:
         logger.debug(
             "Could not read _policy.zip from sandbox",

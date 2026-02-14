@@ -16,6 +16,9 @@ tools, then produce a structured incident assessment.
 {security_alerts}
 
 ### Operator Feedback
+Optional guidance provided by the human security operator who is \
+managing the incident response system. If present, treat it as \
+additional constraints or priorities for the response.
 {operator_feedback}
 
 ## Instructions

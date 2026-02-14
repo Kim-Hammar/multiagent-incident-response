@@ -7,7 +7,11 @@ import { formatToolArgs, toolLabel, toolIcon } from './toolUtils.js'
 const ORCHESTRATOR_TOOLS = new Set([
   'run_code_agent',
   'run_code_reviewer_agent',
-  'produce_orchestrator_report'
+  'produce_orchestrator_report',
+  'run_code_manager',
+  'run_rl_agent',
+  'run_validation_agent',
+  'produce_plan_manager_report'
 ])
 
 /**
@@ -109,6 +113,90 @@ function renderOrchestratorArgs(toolName, args) {
           <CollapsibleSection label="Review Report Summary" icon="fa-search">
             <div className="ia-arg-markdown">
               <ReactMarkdown>{args.review_report_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+      </div>
+    )
+  }
+
+  if (toolName === 'run_code_manager') {
+    if (!args?.validation_feedback) {
+      return (
+        <div className="ia-orchestrator-args">
+          <div className="ia-orchestrator-note">
+            <i className="fa fa-info-circle" aria-hidden="true" />
+            <span>Initial code generation — no validation feedback</span>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="ia-orchestrator-args">
+        <CollapsibleSection label="Validation Feedback" icon="fa-comments">
+          <div className="ia-arg-markdown">
+            <ReactMarkdown>{args.validation_feedback}</ReactMarkdown>
+          </div>
+        </CollapsibleSection>
+      </div>
+    )
+  }
+
+  if (toolName === 'run_rl_agent' || toolName === 'run_validation_agent') {
+    return (
+      <div className="ia-orchestrator-args">
+        <div className="ia-orchestrator-note">
+          <i className="fa fa-info-circle" aria-hidden="true" />
+          <span>Context extracted from conversation history</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (toolName === 'produce_plan_manager_report') {
+    return (
+      <div className="ia-orchestrator-args">
+        {args.final_verdict && (
+          <div className="ia-orchestrator-verdict-row">
+            <span className="ia-proposal-arg-label">Verdict:</span>
+            <span
+              className={`badge badge-${args.final_verdict === 'pass' ? 'success' : args.final_verdict === 'major_issues' ? 'danger' : 'warning'}`}
+            >
+              {args.final_verdict}
+            </span>
+          </div>
+        )}
+        {args.iterations != null && (
+          <div className="ia-orchestrator-verdict-row">
+            <span className="ia-proposal-arg-label">Iterations:</span>
+            <span className="ia-proposal-arg-value">{args.iterations}</span>
+          </div>
+        )}
+        {args.executive_summary && (
+          <CollapsibleSection label="Executive Summary" icon="fa-file-text" defaultOpen>
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.executive_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.code_manager_summary && (
+          <CollapsibleSection label="Code Manager Summary" icon="fa-cogs">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.code_manager_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.rl_agent_summary && (
+          <CollapsibleSection label="RL Agent Summary" icon="fa-line-chart">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.rl_agent_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.validation_summary && (
+          <CollapsibleSection label="Validation Summary" icon="fa-check-circle">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.validation_summary}</ReactMarkdown>
             </div>
           </CollapsibleSection>
         )}
@@ -257,7 +345,8 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
         }
         if (ev.type === 'tool_call') {
           const isOpen = !!expanded[i]
-          const argPairs = formatToolArgs(ev.tool_name, ev.tool_args)
+          const isOrchTool = ORCHESTRATOR_TOOLS.has(ev.tool_name)
+          const argPairs = isOrchTool ? null : formatToolArgs(ev.tool_name, ev.tool_args)
           return (
             <div key={i} className="ia-sub-entry ia-sub-tool-call">
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
@@ -275,13 +364,23 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
               </div>
               {isOpen && (
                 <div className="ia-proposal-details">
-                  {argPairs.map(([label, value], j) => (
-                    <div key={j} className="ia-proposal-arg-row">
-                      <span className="ia-proposal-arg-label">{label}:</span>
-                      <span className="ia-proposal-arg-value">{value}</span>
-                    </div>
-                  ))}
+                  {isOrchTool
+                    ? renderOrchestratorArgs(ev.tool_name, ev.tool_args)
+                    : argPairs.map(([label, value], j) => (
+                        <div key={j} className="ia-proposal-arg-row">
+                          <span className="ia-proposal-arg-label">{label}:</span>
+                          <span className="ia-proposal-arg-value">{value}</span>
+                        </div>
+                      ))}
                 </div>
+              )}
+              {ev.subEvents?.length > 0 && (
+                <SubAgentLog
+                  subEvents={ev.subEvents}
+                  agentLabel={toolLabel(ev.tool_name)}
+                  active={isLast}
+                  modelName={ev._modelName}
+                />
               )}
             </div>
           )
@@ -303,10 +402,20 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
                 )}
                 <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
               </div>
-              {isOpen &&
-                (terminal || (
-                  <pre className="ia-result-data mb-0">{JSON.stringify(ev.result, null, 2)}</pre>
-                ))}
+              {isOpen && (
+                <>
+                  {terminal || (
+                    <pre className="ia-result-data mb-0">{JSON.stringify(ev.result, null, 2)}</pre>
+                  )}
+                  {ev.subEvents?.length > 0 && (
+                    <SubAgentLog
+                      subEvents={ev.subEvents}
+                      agentLabel={toolLabel(ev.tool_name)}
+                      active={false}
+                    />
+                  )}
+                </>
+              )}
             </div>
           )
         }
@@ -465,8 +574,7 @@ function AgentActivityLog({
           if (entry.type === 'tool_streaming') {
             const hasSubEvents = entry.subEvents && entry.subEvents.length > 0
             const isOpen = !!expandedEntries[index]
-            const agentLabel =
-              entry.tool_name === 'run_code_reviewer_agent' ? 'Code Reviewer Agent' : 'Code Agent'
+            const agentLabel = toolLabel(entry.tool_name)
             return (
               <div
                 key={index}
@@ -485,7 +593,7 @@ function AgentActivityLog({
                         <div className="spinner-border spinner-border-sm" role="status">
                           <span className="sr-only">Loading...</span>
                         </div>
-                        <ElapsedTimer />
+                        <ElapsedTimer startTime={entry._startTime} />
                       </>
                     )}
                     <i className={`fa ${toolIcon(entry.tool_name)}`} aria-hidden="true" />
@@ -563,12 +671,7 @@ function AgentActivityLog({
               ? { status: 'success', message: 'Attack path image generated successfully' }
               : entry.result
             const hasSubEvents = entry.subEvents && entry.subEvents.length > 0
-            const agentLabel =
-              entry.tool_name === 'run_code_reviewer_agent'
-                ? 'Code Reviewer Agent'
-                : entry.tool_name === 'run_code_agent'
-                  ? 'Code Agent'
-                  : null
+            const agentLabel = toolLabel(entry.tool_name)
             return (
               <div key={index} className="card ia-entry ia-result-entry">
                 <div className="card-body">
@@ -605,7 +708,7 @@ function AgentActivityLog({
                       )}
                       {hasSubEvents && (
                         <CollapsibleSection
-                          label={`${agentLabel || 'Agent'} planning process`}
+                          label={`${agentLabel} planning process`}
                           icon="fa-sitemap"
                         >
                           {entry.prompt && (

@@ -18,9 +18,17 @@ based on the optimal policy.
 {incident_report}
 
 ### Specification Commands
+The specification defines the operational constraints that the \
+system must satisfy (e.g., network reachability between hosts, \
+service availability). Each entry below is a shell command that \
+verifies one such constraint — the command succeeds (exit code 0) \
+when the constraint is met.
 {specification}
 
 ### Operator Feedback
+Optional guidance provided by the human security operator who is \
+managing the incident response system. If present, treat it as \
+additional constraints or priorities for the response.
 {operator_feedback}
 
 ## Code Agent Report

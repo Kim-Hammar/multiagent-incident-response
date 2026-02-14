@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_CODE_MANAGER_STEP_URL,
-  API_AGENTS_CODE_MANAGER_TOOL_URL,
-  API_AGENTS_CODE_MANAGER_PROMPT_URL,
+  API_AGENTS_PLAN_MANAGER_STEP_URL,
+  API_AGENTS_PLAN_MANAGER_TOOL_URL,
+  API_AGENTS_PLAN_MANAGER_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
@@ -17,308 +17,53 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
-const CHECK_LABELS = {
-  find_env_class: 'Env class found',
-  has_get_actions: 'get_actions()',
-  has_step: 'step()',
-  has_reset: 'reset()',
-  has_set_state: 'set_state()',
-  reset_state_shape: 'State shape valid',
-  get_actions_nonempty: 'Actions non-empty',
-  step_returns_tuple5: 'step() returns 5-tuple',
-  set_state_works: 'set_state() works'
-}
-
 const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
-const SEVERITY_STYLES = { critical: 'danger', major: 'warning', minor: 'info', info: 'secondary' }
 
 /**
- * Inline code report body (no card wrapper) for tool_result rendering.
+ * Helper to push a nested_event into the correct level of the subEvents tree.
  */
-function CodeReportBody({ report: r }) {
-  const checks = r.verification_checks || []
-  return (
-    <div style={{ marginTop: '10px' }}>
-      {(checks.length > 0 || r.verification_result) && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Verification</div>
-          {checks.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-              {checks.map((c, i) => (
-                <span
-                  key={i}
-                  className={`badge badge-${c.passed ? 'success' : 'danger'}`}
-                  style={{ fontSize: '12px', padding: '5px 8px' }}
-                  title={c.detail || ''}
-                >
-                  <i
-                    className={`fa fa-${c.passed ? 'check' : 'times'}`}
-                    aria-hidden="true"
-                    style={{ marginRight: '4px' }}
-                  />
-                  {CHECK_LABELS[c.check] || c.check}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span
-              className={`badge badge-${r.verification_result?.toLowerCase().includes('pass') ? 'success' : 'warning'}`}
-              style={{ fontSize: '12px', padding: '5px 8px' }}
-            >
-              {r.verification_result}
-            </span>
-          )}
-        </div>
-      )}
-      {r.executive_summary && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Executive Summary</div>
-          <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
-        </div>
-      )}
-      {r.state_description && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">State Description</div>
-          <p className="ia-assessment-body mb-0">{r.state_description}</p>
-        </div>
-      )}
-      {r.actions && r.actions.length > 0 && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Actions</div>
-          <table className="ia-ioc-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Commands</th>
-                <th>State Effect</th>
-                <th>P(success)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {r.actions.map((a, i) => (
-                <tr key={i}>
-                  <td>
-                    <strong>{a.name}</strong>
-                  </td>
-                  <td>{a.description}</td>
-                  <td>
-                    {a.commands && a.commands.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {a.commands.map((c, j) => (
-                          <code key={j} style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
-                            {c.container}: {c.command}
-                          </code>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ color: '#999' }}>-</span>
-                    )}
-                  </td>
-                  <td>
-                    <code>{a.state_effect}</code>
-                  </td>
-                  <td>{a.success_probability || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {r.generated_code && (
-        <div className="ia-assessment-section">
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}
-          >
-            <div className="ia-assessment-label" style={{ marginBottom: 0 }}>
-              Generated Code
-            </div>
-            <button
-              type="button"
-              className="btn btn-outline-dark btn-sm"
-              style={{ fontSize: '11px', padding: '2px 10px' }}
-              onClick={() => {
-                const blob = new Blob([r.generated_code], { type: 'text/x-python' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'mdp_environment.py'
-                a.click()
-                URL.revokeObjectURL(url)
-              }}
-            >
-              <i className="fa fa-download" aria-hidden="true" /> Download .py
-            </button>
-          </div>
-          <pre
-            style={{
-              background: '#f5f5f5',
-              padding: '12px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              maxHeight: '500px',
-              overflow: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word'
-            }}
-          >
-            {r.generated_code}
-          </pre>
-        </div>
-      )}
-    </div>
-  )
+function handleNestedSubEvent(subEvents, innerEvent) {
+  if (innerEvent.type === 'thinking_delta') {
+    const last = subEvents[subEvents.length - 1]
+    if (last && last.type === 'reasoning') {
+      last.text += innerEvent.text
+    } else {
+      subEvents.push({ type: 'reasoning', text: innerEvent.text })
+    }
+  } else if (innerEvent.type === 'text_delta') {
+    const last = subEvents[subEvents.length - 1]
+    if (last && last.type === 'text') {
+      last.text += innerEvent.text
+    } else {
+      subEvents.push({ type: 'text', text: innerEvent.text })
+    }
+  } else if (innerEvent.type === 'nested_event') {
+    const lastToolCall = [...subEvents]
+      .reverse()
+      .find((e) => e.type === 'tool_call' && !e._completed)
+    if (lastToolCall) {
+      if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+      handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
+    }
+  } else if (innerEvent.type === 'tool_result') {
+    const lastCall = [...subEvents].reverse().find((e) => e.type === 'tool_call')
+    if (lastCall) lastCall._completed = true
+    subEvents.push({
+      type: 'tool_result',
+      tool_name: innerEvent.tool_name,
+      result: innerEvent.result,
+      subEvents: innerEvent.subEvents || []
+    })
+  } else {
+    subEvents.push(innerEvent)
+  }
 }
 
 /**
- * Inline review report body (no card wrapper) for tool_result rendering.
+ * Render a plan manager report entry.
  */
-function ReviewReportBody({ report: r }) {
-  const findings = r.findings || []
-  const missingActions = r.missing_actions || []
-  const commandIssues = r.command_issues || []
-  const strengths = r.strengths || []
-  return (
-    <div style={{ marginTop: '10px' }}>
-      {r.overall_verdict && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Overall Verdict</div>
-          <span
-            className={`badge badge-${VERDICT_STYLES[r.overall_verdict] || 'secondary'}`}
-            style={{ fontSize: '14px', padding: '6px 12px' }}
-          >
-            {r.overall_verdict.replace(/_/g, ' ')}
-          </span>
-        </div>
-      )}
-      {r.executive_summary && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Executive Summary</div>
-          <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
-        </div>
-      )}
-      {findings.length > 0 && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Findings</div>
-          <table className="ia-ioc-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Severity</th>
-                <th>Description</th>
-                <th>Recommendation</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.map((f, i) => (
-                <tr key={i}>
-                  <td>{f.category}</td>
-                  <td>
-                    <span className={`badge badge-${SEVERITY_STYLES[f.severity] || 'secondary'}`}>
-                      {f.severity}
-                    </span>
-                  </td>
-                  <td>{f.description}</td>
-                  <td>{f.recommendation}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {missingActions.length > 0 && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Missing Actions</div>
-          <table className="ia-ioc-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Commands</th>
-                <th>Rationale</th>
-              </tr>
-            </thead>
-            <tbody>
-              {missingActions.map((a, i) => (
-                <tr key={i}>
-                  <td>
-                    <strong>{a.name}</strong>
-                  </td>
-                  <td>{a.description}</td>
-                  <td>
-                    {a.commands && a.commands.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {a.commands.map((c, j) => (
-                          <code key={j} style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
-                            {c.container}: {c.command}
-                          </code>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ color: '#999' }}>-</span>
-                    )}
-                  </td>
-                  <td>{a.rationale}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {commandIssues.length > 0 && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Command Issues</div>
-          <table className="ia-ioc-table">
-            <thead>
-              <tr>
-                <th>Action</th>
-                <th>Container</th>
-                <th>Command</th>
-                <th>Issue</th>
-                <th>Fix</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commandIssues.map((c, i) => (
-                <tr key={i}>
-                  <td>{c.action_name}</td>
-                  <td>{c.container}</td>
-                  <td>
-                    <code style={{ fontSize: '11px' }}>{c.command}</code>
-                  </td>
-                  <td>{c.issue}</td>
-                  <td>
-                    <code style={{ fontSize: '11px' }}>{c.fix}</code>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {strengths.length > 0 && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Strengths</div>
-          <ul style={{ marginBottom: 0 }}>
-            {strengths.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * Render an orchestrator report entry.
- */
-function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
-  const report = entry.orchestrator_report || {}
+function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
+  const report = entry.plan_manager_report || {}
   const verdictClass =
     report.final_verdict === 'pass'
       ? 'badge-success'
@@ -326,15 +71,12 @@ function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
         ? 'badge-warning'
         : 'badge-danger'
 
-  const codeReport = entry.final_code_report || report.final_code_report || null
-  const reviewReport = entry.final_review_report || report.final_review_report || null
-
   return (
     <div className="card ia-entry ia-result-entry">
       <div className="card-body">
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
           <i className="fa fa-flag-checkered" aria-hidden="true" />
-          <span className="ia-result-label">Code Manager Report</span>
+          <span className="ia-result-label">Plan Manager Report</span>
           {report.final_verdict && (
             <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
           )}
@@ -351,28 +93,22 @@ function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
                 <p>{report.executive_summary}</p>
               </div>
             )}
-            {report.code_report_summary && (
+            {report.code_manager_summary && (
               <div className="mb-3">
-                <strong>Code Report Summary:</strong>
-                <p>{report.code_report_summary}</p>
+                <strong>Code Manager Summary:</strong>
+                <p>{report.code_manager_summary}</p>
               </div>
             )}
-            {report.review_report_summary && (
+            {report.rl_agent_summary && (
               <div className="mb-3">
-                <strong>Review Report Summary:</strong>
-                <p>{report.review_report_summary}</p>
+                <strong>RL Agent Summary:</strong>
+                <p>{report.rl_agent_summary}</p>
               </div>
             )}
-            {codeReport && (
-              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-                <strong>Final Code Report</strong>
-                <CodeReportBody report={codeReport} />
-              </div>
-            )}
-            {reviewReport && (
-              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-                <strong>Final Review Report</strong>
-                <ReviewReportBody report={reviewReport} />
+            {report.validation_summary && (
+              <div className="mb-3">
+                <strong>Validation Summary:</strong>
+                <p>{report.validation_summary}</p>
               </div>
             )}
           </div>
@@ -383,10 +119,10 @@ function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
 }
 
 /**
- * CodeManagerAgent component — orchestrates CodeAgent + CodeReviewerAgent
- * in an automated generate-review-revise loop.
+ * PlanManagerAgent component — orchestrates the full incident response pipeline:
+ * CodeManager -> RL Agent -> Validation Agent with iterative revision.
  */
-function CodeManagerAgent() {
+function PlanManagerAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
@@ -408,10 +144,13 @@ function CodeManagerAgent() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(3)
+  const [maxIterations, setMaxIterations] = useState(2)
   const [managerModel, setManagerModel] = useState('')
+  const [codeManagerModel, setCodeManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
+  const [rlAgentModel, setRlAgentModel] = useState('')
+  const [validationAgentModel, setValidationAgentModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -516,22 +255,6 @@ function CodeManagerAgent() {
     })
   }
 
-  const extractFinalReports = (history) => {
-    let codeReport = null
-    let reviewReport = null
-    for (let i = history.length - 1; i >= 0; i--) {
-      const h = history[i]
-      if (!codeReport && h.type === 'tool_result' && h.tool_name === 'run_code_agent') {
-        codeReport = h.result?.code_report || null
-      }
-      if (!reviewReport && h.type === 'tool_result' && h.tool_name === 'run_code_reviewer_agent') {
-        reviewReport = h.result?.review_report || null
-      }
-      if (codeReport && reviewReport) break
-    }
-    return { codeReport, reviewReport }
-  }
-
   const callStep = async (history) => {
     setRunning(true)
     const controller = new AbortController()
@@ -540,7 +263,7 @@ function CodeManagerAgent() {
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
     try {
-      const res = await fetch(API_AGENTS_CODE_MANAGER_STEP_URL, {
+      const res = await fetch(API_AGENTS_PLAN_MANAGER_STEP_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -605,11 +328,11 @@ function CodeManagerAgent() {
               _tool_use_id: event._tool_use_id,
               _vendor: event._vendor
             }
-          } else if (event.type === 'orchestrator_report') {
+          } else if (event.type === 'plan_manager_report') {
             finalEntry = {
               role: 'model',
-              type: 'orchestrator_report',
-              orchestrator_report: event.orchestrator_report,
+              type: 'plan_manager_report',
+              plan_manager_report: event.plan_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
           } else if (event.type === 'dt_progress') {
@@ -638,15 +361,8 @@ function CodeManagerAgent() {
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
-        if (finalEntry.type === 'orchestrator_report') {
-          const { codeReport, reviewReport } = extractFinalReports(history)
-          finalEntry.final_code_report = codeReport
-          finalEntry.final_review_report = reviewReport
-          saveReport({
-            ...finalEntry.orchestrator_report,
-            final_code_report: codeReport,
-            final_review_report: reviewReport
-          })
+        if (finalEntry.type === 'plan_manager_report') {
+          saveReport(finalEntry.plan_manager_report)
         }
       } else if (accumulated) {
         let report
@@ -657,21 +373,17 @@ function CodeManagerAgent() {
             executive_summary: accumulated,
             iterations: 0,
             final_verdict: 'unknown',
-            code_report_summary: '',
-            review_report_summary: ''
+            code_manager_summary: '',
+            rl_agent_summary: '',
+            validation_summary: ''
           }
         }
-        const { codeReport, reviewReport } = extractFinalReports(history)
-        report.final_code_report = codeReport
-        report.final_review_report = reviewReport
         setConversationHistory([
           ...history,
           {
             role: 'model',
-            type: 'orchestrator_report',
-            orchestrator_report: report,
-            final_code_report: codeReport,
-            final_review_report: reviewReport
+            type: 'plan_manager_report',
+            plan_manager_report: report
           }
         ])
         saveReport(report)
@@ -714,14 +426,11 @@ function CodeManagerAgent() {
     abortControllerRef.current = controller
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
-      const subModel =
-        proposal.tool_name === 'run_code_reviewer_agent' ? reviewerAgentModel : codeAgentModel
       const streamEntry = {
         type: 'tool_streaming',
         tool_name: proposal.tool_name,
         output: '',
         subEvents: [],
-        _modelName: subModel || undefined,
         _startTime: Date.now()
       }
       const base = [...conversationHistory, approvalEntry, streamEntry]
@@ -733,12 +442,15 @@ function CodeManagerAgent() {
           specification: specification,
           operator_feedback: operatorFeedback,
           images: systemDescriptionImages,
+          conversation_history: conversationHistory,
+          code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: conversationHistory
+          rl_agent_model: rlAgentModel || undefined,
+          validation_agent_model: validationAgentModel || undefined
         }
         const { result } = await executeStreamingTool({
-          url: API_AGENTS_CODE_MANAGER_TOOL_URL,
+          url: API_AGENTS_PLAN_MANAGER_TOOL_URL,
           toolName: proposal.tool_name,
           toolArgs: proposal.tool_args,
           incidentId: selectedIncidentId,
@@ -768,6 +480,25 @@ function CodeManagerAgent() {
               } else {
                 streamEntry.subEvents.push({ type: 'text', text: event.text })
               }
+            } else if (event.type === 'nested_event') {
+              const lastToolCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call' && !e._completed)
+              if (lastToolCall) {
+                if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                handleNestedSubEvent(lastToolCall.subEvents, event.event)
+              }
+            } else if (event.type === 'tool_result') {
+              const lastCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call')
+              if (lastCall) lastCall._completed = true
+              streamEntry.subEvents.push({
+                type: 'tool_result',
+                tool_name: event.tool_name,
+                result: event.result,
+                subEvents: event.subEvents || []
+              })
             } else {
               streamEntry.subEvents.push(event)
             }
@@ -781,8 +512,7 @@ function CodeManagerAgent() {
           tool_name: proposal.tool_name,
           result,
           subEvents: streamEntry.subEvents,
-          prompt: streamEntry.prompt,
-          _modelName: streamEntry._modelName
+          prompt: streamEntry.prompt
         }
         const updated = [...conversationHistory, approvalEntry, resultEntry]
         setConversationHistory(updated)
@@ -801,7 +531,7 @@ function CodeManagerAgent() {
     }
 
     try {
-      const res = await fetch(API_AGENTS_CODE_MANAGER_TOOL_URL, {
+      const res = await fetch(API_AGENTS_PLAN_MANAGER_TOOL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -906,7 +636,7 @@ function CodeManagerAgent() {
   }
 
   const getPromptText = async () => {
-    const res = await fetch(API_AGENTS_CODE_MANAGER_PROMPT_URL, {
+    const res = await fetch(API_AGENTS_PLAN_MANAGER_PROMPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -945,7 +675,7 @@ function CodeManagerAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code_manager`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=plan_manager`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -965,7 +695,7 @@ function CodeManagerAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'code_manager',
+          agent_type: 'plan_manager',
           report,
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(conversationHistory),
@@ -1001,7 +731,7 @@ function CodeManagerAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <OrchestratorReport
+    <PlanManagerReport
       key={index}
       entry={entry}
       index={index}
@@ -1011,13 +741,85 @@ function CodeManagerAgent() {
   )
 
   const renderToolResult = (entry) => {
-    if (entry.tool_name === 'run_code_agent' && entry.result?.code_report) {
-      const r = entry.result.code_report
-      return <CodeReportBody report={r} />
+    if (entry.tool_name === 'run_code_manager' && entry.result) {
+      const r = entry.result
+      return (
+        <div style={{ marginTop: '10px' }}>
+          {r.orchestrator_report?.executive_summary && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Code Manager Summary</div>
+              <p className="ia-assessment-body mb-0">{r.orchestrator_report.executive_summary}</p>
+            </div>
+          )}
+          {r.orchestrator_report?.final_verdict && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Verdict</div>
+              <span
+                className={`badge badge-${VERDICT_STYLES[r.orchestrator_report.final_verdict] || 'secondary'}`}
+                style={{ fontSize: '12px', padding: '5px 8px' }}
+              >
+                {r.orchestrator_report.final_verdict.replace(/_/g, ' ')}
+              </span>
+            </div>
+          )}
+        </div>
+      )
     }
-    if (entry.tool_name === 'run_code_reviewer_agent' && entry.result?.review_report) {
-      const r = entry.result.review_report
-      return <ReviewReportBody report={r} />
+    if (entry.tool_name === 'run_rl_agent' && entry.result) {
+      const r = entry.result
+      return (
+        <div style={{ marginTop: '10px' }}>
+          {r.planner_report?.executive_summary && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">RL Agent Summary</div>
+              <p className="ia-assessment-body mb-0">{r.planner_report.executive_summary}</p>
+            </div>
+          )}
+          {r.response_plan && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Response Plan</div>
+              <pre
+                style={{
+                  background: '#f5f5f5',
+                  padding: '12px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  maxHeight: '300px',
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}
+              >
+                {r.response_plan}
+              </pre>
+            </div>
+          )}
+        </div>
+      )
+    }
+    if (entry.tool_name === 'run_validation_agent' && entry.result) {
+      const r = entry.result
+      return (
+        <div style={{ marginTop: '10px' }}>
+          {r.validation_report?.executive_summary && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Validation Summary</div>
+              <p className="ia-assessment-body mb-0">{r.validation_report.executive_summary}</p>
+            </div>
+          )}
+          {r.validation_report?.overall_verdict && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Verdict</div>
+              <span
+                className={`badge badge-${VERDICT_STYLES[r.validation_report.overall_verdict] || 'secondary'}`}
+                style={{ fontSize: '12px', padding: '5px 8px' }}
+              >
+                {r.validation_report.overall_verdict.replace(/_/g, ' ')}
+              </span>
+            </div>
+          )}
+        </div>
+      )
     }
     return null
   }
@@ -1050,7 +852,7 @@ function CodeManagerAgent() {
             onClick={() => setActiveTab('planning')}
           >
             <span className={`status-dot ${isAgentBusy ? 'active' : 'inactive'}`} />
-            Planning process
+            Pipeline process
           </button>
         </li>
         <li className="nav-item">
@@ -1068,19 +870,20 @@ function CodeManagerAgent() {
         <div style={{ marginTop: '16px' }}>
           <div className="ia-description">
             <p>
-              This agent coordinates the CodeAgent and CodeReviewerAgent in an automated
-              generate-review-revise loop to produce a Gymnasium MDP environment for computing
-              optimal incident response policies.
+              This agent orchestrates the full incident response pipeline: CodeManager (MDP
+              generation) -&gt; RL Agent (policy training) -&gt; Validation Agent (digital twin
+              testing). It iteratively revises the pipeline until the response plan passes
+              validation or the iteration limit is reached.
             </p>
           </div>
 
           <div className="ia-section">
-            <label htmlFor="cm-system-desc">System description</label>
+            <label htmlFor="pm-system-desc">System description</label>
             <p className="ia-hint">
               Describe the target system, its architecture, hosts, and services.
             </p>
             <textarea
-              id="cm-system-desc"
+              id="pm-system-desc"
               className="form-control ia-textarea"
               rows="6"
               value={systemDescription}
@@ -1096,28 +899,27 @@ function CodeManagerAgent() {
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="cm-incident-report">Incident report</label>
+            <label htmlFor="pm-incident-report">Incident report</label>
             <p className="ia-hint">
               Paste the incident report/assessment produced by the Information Agent.
             </p>
             <textarea
-              id="cm-incident-report"
+              id="pm-incident-report"
               className="form-control ia-textarea"
               rows="6"
               value={incidentReport}
               onChange={(e) => setIncidentReport(e.target.value)}
               disabled={isAgentBusy}
-              placeholder="e.g., An SSH brute-force attack was detected on server 3, followed by SQL injection from server 6..."
+              placeholder="e.g., An SSH brute-force attack was detected on server 3..."
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="cm-specification">Specification commands</label>
+            <label htmlFor="pm-specification">Specification commands</label>
             <p className="ia-hint">
-              JSON array of specification commands that define service-level requirements of the
-              system.
+              JSON array of specification commands that define service-level requirements.
             </p>
             <textarea
-              id="cm-specification"
+              id="pm-specification"
               className="form-control ia-textarea"
               rows="4"
               value={specification}
@@ -1127,18 +929,16 @@ function CodeManagerAgent() {
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="cm-operator-feedback">Operator feedback (optional)</label>
-            <p className="ia-hint">
-              Additional guidance or constraints for the MDP environment design.
-            </p>
+            <label htmlFor="pm-operator-feedback">Operator feedback (optional)</label>
+            <p className="ia-hint">Additional guidance or constraints for the pipeline.</p>
             <textarea
-              id="cm-operator-feedback"
+              id="pm-operator-feedback"
               className="form-control ia-textarea"
               rows="4"
               value={operatorFeedback}
               onChange={(e) => setOperatorFeedback(e.target.value)}
               disabled={isAgentBusy}
-              placeholder="e.g., Focus on containment actions first. The firewall rules should be the first actions."
+              placeholder="e.g., Focus on containment actions first."
             />
           </div>
           <button
@@ -1148,7 +948,7 @@ function CodeManagerAgent() {
             disabled={isAgentBusy || (!systemDescription && !incidentReport)}
           >
             <i className="fa fa-bolt" aria-hidden="true" />
-            {isAgentBusy ? ' Running...' : ' Run agent'}
+            {isAgentBusy ? ' Running...' : ' Run pipeline'}
           </button>
           <ExampleSelector onLoad={loadExample} disabled={isAgentBusy} />
           <button
@@ -1174,19 +974,33 @@ function CodeManagerAgent() {
             className="form-control form-control-sm"
             style={{ width: '70px', display: 'inline-block' }}
             min={1}
-            max={10}
+            max={5}
             value={maxIterations}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 10) setMaxIterations(v)
+              if (v >= 1 && v <= 5) setMaxIterations(v)
             }}
             disabled={isAgentBusy}
           />
-          <span className="ia-model-label">Manager LLM:</span>
+          <span className="ia-model-label">Plan Manager LLM:</span>
           <select
             className="form-control form-control-sm ia-model-select"
             value={managerModel}
             onChange={(e) => setManagerModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Code Manager LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={codeManagerModel}
+            onChange={(e) => setCodeManagerModel(e.target.value)}
             disabled={isAgentBusy}
           >
             <option value="">Default (Gemini 3 Pro)</option>
@@ -1224,15 +1038,43 @@ function CodeManagerAgent() {
               </option>
             ))}
           </select>
+          <span className="ia-model-label">RL Agent LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={rlAgentModel}
+            onChange={(e) => setRlAgentModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Validation Agent LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={validationAgentModel}
+            onChange={(e) => setValidationAgentModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
           <div className="form-check form-check-inline ia-btn">
             <input
               className="form-check-input"
               type="checkbox"
-              id="cm-autopilot"
+              id="pm-autopilot"
               checked={autopilot}
               onChange={(e) => setAutopilot(e.target.checked)}
             />
-            <label className="form-check-label" htmlFor="cm-autopilot">
+            <label className="form-check-label" htmlFor="pm-autopilot">
               Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
             </label>
           </div>
@@ -1274,8 +1116,8 @@ function CodeManagerAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           renderReport={(report) => (
-            <OrchestratorReport
-              entry={{ type: 'orchestrator_report', orchestrator_report: report }}
+            <PlanManagerReport
+              entry={{ type: 'plan_manager_report', plan_manager_report: report }}
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
@@ -1291,4 +1133,4 @@ function CodeManagerAgent() {
   )
 }
 
-export default CodeManagerAgent
+export default PlanManagerAgent

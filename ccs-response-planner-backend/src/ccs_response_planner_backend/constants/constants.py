@@ -88,6 +88,15 @@ class API:
     AGENTS_CODE_MANAGER_PROMPT_ROUTE = (
         "/api/agents/code-manager/prompt"
     )
+    AGENTS_PLAN_MANAGER_STEP_ROUTE = (
+        "/api/agents/plan-manager/step"
+    )
+    AGENTS_PLAN_MANAGER_TOOL_ROUTE = (
+        "/api/agents/plan-manager/tool"
+    )
+    AGENTS_PLAN_MANAGER_PROMPT_ROUTE = (
+        "/api/agents/plan-manager/prompt"
+    )
     AGENTS_DP_STEP_ROUTE = "/api/agents/dp/step"
     AGENTS_DP_TOOL_ROUTE = "/api/agents/dp/tool"
     AGENTS_DP_PROMPT_ROUTE = "/api/agents/dp/prompt"

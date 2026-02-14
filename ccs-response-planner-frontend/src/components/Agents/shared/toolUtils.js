@@ -18,7 +18,11 @@ export const TOOL_LABELS = {
   query_policy: { label: 'Query RL Policy', icon: 'fa-brain' },
   run_code_agent: { label: 'Code Agent', icon: 'fa-cogs' },
   run_code_reviewer_agent: { label: 'Code Reviewer Agent', icon: 'fa-search' },
-  produce_orchestrator_report: { label: 'Code Manager Report', icon: 'fa-file-text' }
+  produce_orchestrator_report: { label: 'Code Manager Report', icon: 'fa-file-text' },
+  run_code_manager: { label: 'Code Manager', icon: 'fa-sitemap' },
+  run_rl_agent: { label: 'RL Agent', icon: 'fa-line-chart' },
+  run_validation_agent: { label: 'Validation Agent', icon: 'fa-check-circle' },
+  produce_plan_manager_report: { label: 'Plan Manager Report', icon: 'fa-flag-checkered' }
 }
 
 export function formatToolArgs(toolName, args) {

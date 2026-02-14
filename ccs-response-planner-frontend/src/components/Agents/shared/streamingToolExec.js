@@ -7,7 +7,10 @@ export const STREAMING_TOOLS = new Set([
   'dt_exec',
   'pentest_exec',
   'run_code_agent',
-  'run_code_reviewer_agent'
+  'run_code_reviewer_agent',
+  'run_code_manager',
+  'run_rl_agent',
+  'run_validation_agent'
 ])
 
 /**

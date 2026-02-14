@@ -85,6 +85,11 @@ after each action.
 {{response_plan}}
 
 ### Specification Commands
+The specification defines the operational constraints that the \
+system must satisfy (e.g., network reachability between hosts, \
+service availability). Each entry below is a shell command that \
+verifies one such constraint — the command succeeds (exit code 0) \
+when the constraint is met.
 {{specification}}
 
 ### RL Agent Report
