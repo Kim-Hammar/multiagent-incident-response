@@ -5,9 +5,12 @@ Provides ``python_exec`` (standard) and ``rl_train`` (streaming)
 tools that run code in the Python sandbox container.
 """
 import base64
+import io
 import json
 import logging
+import tarfile
 import threading
+import zipfile
 from typing import Any, Callable, Generator
 
 import docker
@@ -109,6 +112,71 @@ def python_exec(code: str) -> dict[str, Any]:
         "exit_code": exit_code,
         "output": output,
     }
+
+
+def _extract_policy_zip(
+    ct: "docker.models.containers.Container",
+    algorithm: str,
+) -> str | None:
+    """
+    Extract the trained policy from the sandbox and bundle
+    it with a usage script into a combined zip, returned as
+    a base64-encoded string.
+
+    Returns ``None`` if the policy file does not exist or
+    extraction fails.
+
+    :param ct: the sandbox container
+    :param algorithm: the RL algorithm name (e.g. PPO, DQN)
+    :return: base64-encoded zip data, or None
+    """
+    try:
+        bits, _stat = ct.get_archive("/workspace/_policy.zip")
+        tar_bytes = b"".join(bits)
+        with tarfile.open(
+            fileobj=io.BytesIO(tar_bytes),
+        ) as tar:
+            member = tar.getmembers()[0]
+            policy_bytes = tar.extractfile(member).read()
+    except Exception:
+        logger.debug(
+            "Could not read _policy.zip from sandbox",
+            exc_info=True,
+        )
+        return None
+
+    algo = algorithm.strip() or "PPO"
+    usage_script = (
+        '"""'
+        "\nUsage script for the learned RL policy.\n"
+        "\nLoads the trained Stable-Baselines3 model and "
+        "demonstrates\nhow to query it for the optimal "
+        "action given an observation.\n"
+        '"""\n'
+        f"from stable_baselines3 import {algo}\n\n"
+        "# ── Load the trained model "
+        "─────────────────────────────\n"
+        f'model = {algo}.load("policy")\n\n'
+        "# ── Query the policy "
+        "──────────────────────────────────\n"
+        "# Replace with an actual observation from your "
+        "environment.\n"
+        "# obs = env.reset()\n"
+        "obs = None  # <-- set your observation here\n"
+        "action, _states = model.predict("
+        "obs, deterministic=True)\n"
+        'print(f"Recommended action index: {action}")\n'
+    )
+
+    combined = io.BytesIO()
+    with zipfile.ZipFile(
+        combined, "w", zipfile.ZIP_DEFLATED,
+    ) as zf:
+        zf.writestr("policy.zip", policy_bytes)
+        zf.writestr("use_policy.py", usage_script)
+    return base64.b64encode(
+        combined.getvalue(),
+    ).decode("ascii")
 
 
 def rl_train(
@@ -222,12 +290,16 @@ def rl_train(
             ),
         }
 
+    policy_data = _extract_policy_zip(ct, algorithm)
+
     done_event: dict[str, Any] = {
         "type": "done",
         "exit_code": exit_code,
     }
     if stderr_buffer.strip():
         done_event["stderr"] = stderr_buffer.strip()
+    if policy_data:
+        done_event["policy_data"] = policy_data
     yield done_event
 
 

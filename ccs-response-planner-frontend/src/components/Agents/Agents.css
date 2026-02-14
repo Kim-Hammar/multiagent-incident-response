@@ -907,6 +907,17 @@
   font-size: 12px;
 }
 
+.ia-sub-entry-header .spinner-border-sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  color: #6c757d;
+}
+
+.ia-sub-entry-header .ia-elapsed {
+  margin-left: 0;
+}
+
 .ia-sub-reasoning {
   border-left: 3px solid #ffc107;
 }

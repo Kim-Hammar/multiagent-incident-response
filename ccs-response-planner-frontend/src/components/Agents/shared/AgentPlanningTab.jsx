@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import AgentActivityLog from './AgentActivityLog.jsx'
+import PromptModal from './PromptModal.jsx'
 
 /**
  * Planning process tab — wraps AgentActivityLog.
@@ -22,9 +24,30 @@ function AgentPlanningTab({
   renderExecutingTool,
   renderToolResult,
   onStop,
-  dtStatus
+  onViewPrompt,
+  dtStatus,
+  modelName
 }) {
   const isAgentBusy = running || !!executingTool
+  const [promptText, setPromptText] = useState('')
+  const [showPrompt, setShowPrompt] = useState(false)
+  const [loadingPrompt, setLoadingPrompt] = useState(false)
+
+  const handleViewPrompt = async () => {
+    if (!onViewPrompt) return
+    setLoadingPrompt(true)
+    try {
+      const text = await onViewPrompt()
+      if (text) {
+        setPromptText(text)
+        setShowPrompt(true)
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingPrompt(false)
+    }
+  }
 
   if (conversationHistory.length === 0 && !running) {
     return (
@@ -33,6 +56,8 @@ function AgentPlanningTab({
       </p>
     )
   }
+
+  const showToolbar = isAgentBusy || onViewPrompt || modelName
 
   return (
     <>
@@ -52,11 +77,46 @@ function AgentPlanningTab({
           {dtStatus}
         </div>
       )}
-      {isAgentBusy && onStop && (
-        <div style={{ marginTop: '12px', marginBottom: '-16px', textAlign: 'right' }}>
-          <button type="button" className="btn btn-outline-danger btn-sm" onClick={onStop}>
-            <i className="fa fa-stop-circle" aria-hidden="true" /> Stop
-          </button>
+      {showToolbar && (
+        <div
+          style={{
+            marginTop: '12px',
+            marginBottom: '-16px',
+            textAlign: 'right',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: '8px'
+          }}
+        >
+          {modelName && (
+            <span
+              style={{
+                fontSize: '11px',
+                color: '#6c757d',
+                marginRight: 'auto'
+              }}
+            >
+              <i className="fa fa-microchip" aria-hidden="true" style={{ marginRight: '4px' }} />
+              LLM: {modelName}
+            </span>
+          )}
+          {onViewPrompt && (
+            <button
+              type="button"
+              className="btn btn-outline-dark btn-sm"
+              onClick={handleViewPrompt}
+              disabled={loadingPrompt}
+            >
+              <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
+              {loadingPrompt ? 'Loading...' : 'View prompt'}
+            </button>
+          )}
+          {isAgentBusy && onStop && (
+            <button type="button" className="btn btn-outline-danger btn-sm" onClick={onStop}>
+              <i className="fa fa-stop-circle" aria-hidden="true" /> Stop
+            </button>
+          )}
         </div>
       )}
       <AgentActivityLog
@@ -76,6 +136,7 @@ function AgentPlanningTab({
         renderExecutingTool={renderExecutingTool}
         renderToolResult={renderToolResult}
       />
+      <PromptModal show={showPrompt} promptText={promptText} onClose={() => setShowPrompt(false)} />
     </>
   )
 }

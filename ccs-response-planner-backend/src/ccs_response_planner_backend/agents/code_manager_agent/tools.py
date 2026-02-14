@@ -80,7 +80,15 @@ def run_code_agent_stream(
         ):
             etype = event.get("type")
 
-            if etype == "thinking":
+            if etype == "system_prompt":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "prompt",
+                        "text": event.get("text", ""),
+                    },
+                }
+            elif etype == "thinking":
                 yield {
                     "type": "sub_event",
                     "event": {
@@ -277,7 +285,15 @@ def run_code_reviewer_agent_stream(
         ):
             etype = event.get("type")
 
-            if etype == "thinking":
+            if etype == "system_prompt":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "prompt",
+                        "text": event.get("text", ""),
+                    },
+                }
+            elif etype == "thinking":
                 yield {
                     "type": "sub_event",
                     "event": {

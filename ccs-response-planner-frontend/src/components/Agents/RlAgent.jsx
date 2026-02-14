@@ -54,6 +54,7 @@ function RlAgent() {
   })
   const [trainingStartTime, setTrainingStartTime] = useState(null)
   const [evalProgress, setEvalProgress] = useState(null)
+  const [policyData, setPolicyData] = useState(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
@@ -398,6 +399,7 @@ function RlAgent() {
                 resultEvent = event
               } else if (event.type === 'done' || event.type === 'timeout') {
                 doneEvent = event
+                if (event.policy_data) setPolicyData(event.policy_data)
               } else if (event.type === 'error') {
                 setAlert({ type: 'danger', message: event.message || 'Training error' })
               }
@@ -562,36 +564,44 @@ function RlAgent() {
     setTrainingMeta({ algorithm: '', hyperparameters: '', started: false })
     setTrainingStartTime(null)
     setEvalProgress(null)
+    setPolicyData(null)
     trainingRunsRef.current = {}
     runIdCounterRef.current = 0
     setSelectedIncidentId(null)
   }
 
+  const getPromptText = async () => {
+    const res = await fetch(API_AGENTS_RL_PROMPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        system_description: systemDescription,
+        incident_report: incidentReport,
+        specification: specification,
+        operator_feedback: operatorFeedback,
+        code_report: codeReport,
+        time_limit_minutes: timeLimitMinutes
+      })
+    })
+    if (res.status === 401) {
+      logout()
+      return null
+    }
+    const data = await res.json()
+    return data.prompt || ''
+  }
+
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_RL_PROMPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
-          operator_feedback: operatorFeedback,
-          code_report: codeReport,
-          time_limit_minutes: timeLimitMinutes
-        })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+      const text = await getPromptText()
+      if (text != null) {
+        setPromptText(text)
+        setShowPromptModal(true)
       }
-      const data = await res.json()
-      setPromptText(data.prompt || '')
-      setShowPromptModal(true)
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
     } finally {
@@ -624,7 +634,8 @@ function RlAgent() {
           agent_type: 'rl',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory)
+          conversation_history: cleanConversationHistory(conversationHistory),
+          model_name: selectedModel || undefined
         })
       })
       await fetchHistory()
@@ -662,6 +673,7 @@ function RlAgent() {
       index={index}
       isExpanded={isExpanded}
       toggleEntry={toggleEntry}
+      policyData={policyData}
     />
   )
 
@@ -673,6 +685,7 @@ function RlAgent() {
           trainingData={run ? run.data : trainingData}
           trainingMeta={run ? run.meta : trainingMeta}
           result={entry.result}
+          policyData={policyData}
         />
       )
     }
@@ -791,6 +804,8 @@ function RlAgent() {
           renderExecutingTool={renderExecutingTool}
           renderToolResult={renderToolResult}
           onStop={handleStop}
+          onViewPrompt={getPromptText}
+          modelName={selectedModel}
         />
       )}
 
@@ -804,6 +819,7 @@ function RlAgent() {
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
+              policyData={policyData}
             />
           )}
           renderFinalReport={renderFinalReport}

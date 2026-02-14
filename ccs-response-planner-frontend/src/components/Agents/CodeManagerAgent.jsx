@@ -127,7 +127,33 @@ function CodeReportBody({ report: r }) {
       )}
       {r.generated_code && (
         <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Generated Code</div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}
+          >
+            <div className="ia-assessment-label" style={{ marginBottom: 0 }}>
+              Generated Code
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline-dark btn-sm"
+              style={{ fontSize: '11px', padding: '2px 10px' }}
+              onClick={() => {
+                const blob = new Blob([r.generated_code], { type: 'text/x-python' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'mdp_environment.py'
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+            >
+              <i className="fa fa-download" aria-hidden="true" /> Download .py
+            </button>
+          </div>
           <pre
             style={{
               background: '#f5f5f5',
@@ -304,56 +330,54 @@ function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
   const reviewReport = entry.final_review_report || report.final_review_report || null
 
   return (
-    <div className="ia-entry ia-entry-report">
-      <div
-        className="ia-entry-header"
-        onClick={() => toggleEntry(index)}
-        role="button"
-        tabIndex={0}
-      >
-        <strong>Orchestrator Report</strong>
-        {report.final_verdict && (
-          <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
-        )}
-        {report.iterations != null && (
-          <span className="badge badge-info ml-2">{report.iterations} iteration(s)</span>
-        )}
-        <span className="ia-toggle">{isExpanded ? '\u25BC' : '\u25B6'}</span>
-      </div>
-      {isExpanded && (
-        <div className="ia-entry-body" style={{ whiteSpace: 'pre-wrap' }}>
-          {report.executive_summary && (
-            <div className="mb-3">
-              <strong>Summary:</strong>
-              <p>{report.executive_summary}</p>
-            </div>
+    <div className="card ia-entry ia-result-entry">
+      <div className="card-body">
+        <div className="ia-result-header" onClick={() => toggleEntry(index)}>
+          <i className="fa fa-flag-checkered" aria-hidden="true" />
+          <span className="ia-result-label">Code Manager Report</span>
+          {report.final_verdict && (
+            <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
           )}
-          {report.code_report_summary && (
-            <div className="mb-3">
-              <strong>Code Report Summary:</strong>
-              <p>{report.code_report_summary}</p>
-            </div>
+          {report.iterations != null && (
+            <span className="badge badge-info ml-2">{report.iterations} iteration(s)</span>
           )}
-          {report.review_report_summary && (
-            <div className="mb-3">
-              <strong>Review Report Summary:</strong>
-              <p>{report.review_report_summary}</p>
-            </div>
-          )}
-          {codeReport && (
-            <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-              <strong>Final Code Report</strong>
-              <CodeReportBody report={codeReport} />
-            </div>
-          )}
-          {reviewReport && (
-            <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-              <strong>Final Review Report</strong>
-              <ReviewReportBody report={reviewReport} />
-            </div>
-          )}
+          <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
         </div>
-      )}
+        {isExpanded && (
+          <div style={{ whiteSpace: 'pre-wrap', marginTop: '10px' }}>
+            {report.executive_summary && (
+              <div className="mb-3">
+                <strong>Summary:</strong>
+                <p>{report.executive_summary}</p>
+              </div>
+            )}
+            {report.code_report_summary && (
+              <div className="mb-3">
+                <strong>Code Report Summary:</strong>
+                <p>{report.code_report_summary}</p>
+              </div>
+            )}
+            {report.review_report_summary && (
+              <div className="mb-3">
+                <strong>Review Report Summary:</strong>
+                <p>{report.review_report_summary}</p>
+              </div>
+            )}
+            {codeReport && (
+              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
+                <strong>Final Code Report</strong>
+                <CodeReportBody report={codeReport} />
+              </div>
+            )}
+            {reviewReport && (
+              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
+                <strong>Final Review Report</strong>
+                <ReviewReportBody report={reviewReport} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -488,10 +512,7 @@ function CodeManagerAgent() {
           return entry
         })
         .filter(Boolean)
-      return [
-        ...cleaned,
-        { role: 'system', type: 'error', message: 'Orchestration stopped by user.' }
-      ]
+      return [...cleaned, { role: 'system', type: 'error', message: 'Planning stopped by user.' }]
     })
   }
 
@@ -693,11 +714,14 @@ function CodeManagerAgent() {
     abortControllerRef.current = controller
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
+      const subModel =
+        proposal.tool_name === 'run_code_reviewer_agent' ? reviewerAgentModel : codeAgentModel
       const streamEntry = {
         type: 'tool_streaming',
         tool_name: proposal.tool_name,
         output: '',
-        subEvents: []
+        subEvents: [],
+        _modelName: subModel || undefined
       }
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
@@ -724,6 +748,11 @@ function CodeManagerAgent() {
             setConversationHistory([...base])
           },
           onSubEvent: (event) => {
+            if (event.type === 'prompt') {
+              streamEntry.prompt = event.text
+              setConversationHistory([...base])
+              return
+            }
             if (event.type === 'thinking_delta') {
               const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
               if (last && last.type === 'reasoning') {
@@ -750,7 +779,9 @@ function CodeManagerAgent() {
           type: 'tool_result',
           tool_name: proposal.tool_name,
           result,
-          subEvents: streamEntry.subEvents
+          subEvents: streamEntry.subEvents,
+          prompt: streamEntry.prompt,
+          _modelName: streamEntry._modelName
         }
         const updated = [...conversationHistory, approvalEntry, resultEntry]
         setConversationHistory(updated)
@@ -873,30 +904,37 @@ function CodeManagerAgent() {
     setSelectedIncidentId(null)
   }
 
+  const getPromptText = async () => {
+    const res = await fetch(API_AGENTS_CODE_MANAGER_PROMPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        system_description: systemDescription,
+        incident_report: incidentReport,
+        specification: specification,
+        operator_feedback: operatorFeedback,
+        max_iterations: maxIterations
+      })
+    })
+    if (res.status === 401) {
+      logout()
+      return null
+    }
+    const data = await res.json()
+    return data.prompt || ''
+  }
+
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_CODE_MANAGER_PROMPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
-          operator_feedback: operatorFeedback,
-          max_iterations: maxIterations
-        })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+      const text = await getPromptText()
+      if (text != null) {
+        setPromptText(text)
+        setShowPromptModal(true)
       }
-      const data = await res.json()
-      setPromptText(data.prompt || '')
-      setShowPromptModal(true)
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
     } finally {
@@ -929,7 +967,8 @@ function CodeManagerAgent() {
           agent_type: 'code_manager',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory)
+          conversation_history: cleanConversationHistory(conversationHistory),
+          model_name: managerModel || undefined
         })
       })
       await fetchHistory()
@@ -1010,7 +1049,7 @@ function CodeManagerAgent() {
             onClick={() => setActiveTab('planning')}
           >
             <span className={`status-dot ${isAgentBusy ? 'active' : 'inactive'}`} />
-            Orchestration process
+            Planning process
           </button>
         </li>
         <li className="nav-item">
@@ -1028,7 +1067,7 @@ function CodeManagerAgent() {
         <div style={{ marginTop: '16px' }}>
           <div className="ia-description">
             <p>
-              This agent orchestrates the CodeAgent and CodeReviewerAgent in an automated
+              This agent coordinates the CodeAgent and CodeReviewerAgent in an automated
               generate-review-revise loop to produce a Gymnasium MDP environment for computing
               optimal incident response policies.
             </p>
@@ -1223,7 +1262,9 @@ function CodeManagerAgent() {
           renderFinalReport={renderFinalReport}
           renderToolResult={renderToolResult}
           onStop={handleStop}
+          onViewPrompt={getPromptText}
           dtStatus={dtStatus}
+          modelName={managerModel}
         />
       )}
 
@@ -1240,6 +1281,7 @@ function CodeManagerAgent() {
             />
           )}
           renderFinalReport={renderFinalReport}
+          renderToolResult={renderToolResult}
           token={token}
           logout={logout}
         />

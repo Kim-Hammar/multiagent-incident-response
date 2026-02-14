@@ -509,31 +509,38 @@ function ValidationAgent() {
     setPlannerReportId(null)
   }
 
+  const getPromptText = async () => {
+    const res = await fetch(API_AGENTS_VALIDATION_PROMPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        system_description: systemDescription,
+        incident_report: incidentReport,
+        response_plan: responsePlan,
+        specification: specification,
+        code_report: codeReport,
+        planner_report: plannerReport
+      })
+    })
+    if (res.status === 401) {
+      logout()
+      return null
+    }
+    const data = await res.json()
+    return data.prompt || ''
+  }
+
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_VALIDATION_PROMPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          incident_report: incidentReport,
-          response_plan: responsePlan,
-          specification: specification,
-          code_report: codeReport,
-          planner_report: plannerReport
-        })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+      const text = await getPromptText()
+      if (text != null) {
+        setPromptText(text)
+        setShowPromptModal(true)
       }
-      const data = await res.json()
-      setPromptText(data.prompt || '')
-      setShowPromptModal(true)
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
     } finally {
@@ -566,7 +573,8 @@ function ValidationAgent() {
           agent_type: 'validation',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory)
+          conversation_history: cleanConversationHistory(conversationHistory),
+          model_name: selectedModel || undefined
         })
       })
       await fetchHistory()
@@ -701,7 +709,9 @@ function ValidationAgent() {
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
           onStop={handleStop}
+          onViewPrompt={getPromptText}
           dtStatus={dtStatus}
+          modelName={selectedModel}
         />
       )}
 

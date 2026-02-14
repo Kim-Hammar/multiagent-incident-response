@@ -1,10 +1,21 @@
 import RewardChart from './RewardChart.jsx'
 
+function downloadPolicyZip(policyData) {
+  const bytes = Uint8Array.from(atob(policyData), (c) => c.charCodeAt(0))
+  const blob = new Blob([bytes], { type: 'application/zip' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'rl_policy.zip'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /**
  * Renders an rl_train tool result as a training chart + evaluation summary,
  * replacing the default raw-JSON display.
  */
-function RlTrainResult({ trainingData, trainingMeta, result }) {
+function RlTrainResult({ trainingData, trainingMeta, result, policyData }) {
   const evalResult = result?.result
   const doneEvent = result?.done
   const actions = evalResult?.action_sequence || []
@@ -64,6 +75,17 @@ function RlTrainResult({ trainingData, trainingMeta, result }) {
               </div>
             )}
           </div>
+
+          {policyData && (
+            <div style={{ marginBottom: '12px' }}>
+              <button
+                className="btn btn-sm btn-outline-dark"
+                onClick={() => downloadPolicyZip(policyData)}
+              >
+                <i className="fa fa-download" /> Download policy
+              </button>
+            </div>
+          )}
 
           {actions.length > 0 && (
             <div>

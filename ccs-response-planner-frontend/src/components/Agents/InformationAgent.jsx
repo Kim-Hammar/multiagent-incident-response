@@ -470,28 +470,35 @@ function InformationAgent() {
     attackPathImageRef.current = null
   }
 
+  const getPromptText = async () => {
+    const res = await fetch(API_AGENTS_INFO_PROMPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        system_description: systemDescription,
+        security_alerts: securityAlerts,
+        operator_feedback: operatorFeedback
+      })
+    })
+    if (res.status === 401) {
+      logout()
+      return null
+    }
+    const data = await res.json()
+    return data.prompt || ''
+  }
+
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_INFO_PROMPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          security_alerts: securityAlerts,
-          operator_feedback: operatorFeedback
-        })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+      const text = await getPromptText()
+      if (text != null) {
+        setPromptText(text)
+        setShowPromptModal(true)
       }
-      const data = await res.json()
-      setPromptText(data.prompt || '')
-      setShowPromptModal(true)
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
     } finally {
@@ -529,7 +536,8 @@ function InformationAgent() {
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(
             stripImagesFromHistory(conversationHistory)
-          )
+          ),
+          model_name: selectedModel || undefined
         })
       })
       await fetchHistory()
@@ -661,6 +669,8 @@ function InformationAgent() {
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
           onStop={handleStop}
+          onViewPrompt={getPromptText}
+          modelName={selectedModel}
           dtStatus={dtStatus}
         />
       )}

@@ -18,7 +18,7 @@ export const TOOL_LABELS = {
   query_policy: { label: 'Query RL Policy', icon: 'fa-brain' },
   run_code_agent: { label: 'Code Agent', icon: 'fa-cogs' },
   run_code_reviewer_agent: { label: 'Code Reviewer Agent', icon: 'fa-search' },
-  produce_orchestrator_report: { label: 'Orchestrator Report', icon: 'fa-file-text' }
+  produce_orchestrator_report: { label: 'Code Manager Report', icon: 'fa-file-text' }
 }
 
 export function formatToolArgs(toolName, args) {

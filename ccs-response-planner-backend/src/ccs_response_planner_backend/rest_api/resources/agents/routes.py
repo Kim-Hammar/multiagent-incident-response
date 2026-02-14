@@ -1614,6 +1614,7 @@ def save_agent_report() -> tuple[Response, int]:
         }), 400
     incident_id = body.get("incident_id")
     conversation_history = body.get("conversation_history")
+    model_name = body.get("model_name") or None
     policy_data = None
     if agent_type == "rl":
         try:
@@ -1630,6 +1631,7 @@ def save_agent_report() -> tuple[Response, int]:
         incident_id=incident_id,
         conversation_history=conversation_history,
         policy_data=policy_data,
+        model_name=model_name,
     )
     return jsonify(saved), 201
 

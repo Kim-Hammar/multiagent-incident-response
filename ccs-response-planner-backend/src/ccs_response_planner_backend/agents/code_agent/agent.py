@@ -150,6 +150,10 @@ class CodeAgent:
             specification=specification or "N/A",
             operator_feedback=operator_feedback or "N/A",
         )
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+        }
 
         declarations = (
             ALL_DECLARATIONS

@@ -118,6 +118,11 @@ class DatabaseFacade:
                     ADD COLUMN IF NOT EXISTS
                         policy_data BYTEA
                 """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
+                    ADD COLUMN IF NOT EXISTS
+                        model_name VARCHAR(255)
+                """)
                 cur.execute(
                     f"UPDATE {DB.AGENT_REPORTS_TABLE} "
                     f"SET agent_type = 'rl' "
@@ -310,6 +315,7 @@ class DatabaseFacade:
         incident_id: Optional[int] = None,
         conversation_history: Optional[list[Any]] = None,
         policy_data: Optional[bytes] = None,
+        model_name: Optional[str] = None,
     ) -> dict[str, Any]:
         """
         Insert a new agent report and return the created row.
@@ -320,8 +326,9 @@ class DatabaseFacade:
         :param incident_id: optional FK to example_incidents
         :param conversation_history: optional planning process log
         :param policy_data: optional trained RL policy bytes
+        :param model_name: optional LLM model name used
         :return: a dict with id, agent_type, username, report, created_at,
-                 incident_id, incident_name
+                 incident_id, incident_name, model_name
         """
         ch_json = (
             json.dumps(conversation_history)
@@ -332,12 +339,14 @@ class DatabaseFacade:
                 cur.execute(
                     f"INSERT INTO {DB.AGENT_REPORTS_TABLE} "
                     f"(agent_type, username, report, incident_id, "
-                    f"conversation_history, policy_data) "
-                    f"VALUES (%s, %s, %s, %s, %s, %s) "
+                    f"conversation_history, policy_data, "
+                    f"model_name) "
+                    f"VALUES (%s, %s, %s, %s, %s, %s, %s) "
                     f"RETURNING id, agent_type, username, "
                     f"report, created_at, incident_id",
                     (agent_type, username, json.dumps(report),
-                     incident_id, ch_json, policy_data),
+                     incident_id, ch_json, policy_data,
+                     model_name),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -380,7 +389,8 @@ class DatabaseFacade:
                     f"ar.report, ar.created_at, ar.incident_id, "
                     f"ei.name, "
                     f"(ar.conversation_history IS NOT NULL), "
-                    f"(ar.policy_data IS NOT NULL) "
+                    f"(ar.policy_data IS NOT NULL), "
+                    f"ar.model_name "
                     f"FROM {DB.AGENT_REPORTS_TABLE} ar "
                     f"LEFT JOIN {DB.EXAMPLE_INCIDENTS_TABLE} ei "
                     f"ON ar.incident_id = ei.id"
@@ -410,6 +420,7 @@ class DatabaseFacade:
                         "incident_name": r[6],
                         "has_conversation_history": r[7],
                         "has_policy": r[8],
+                        "model_name": r[9],
                     }
                     for r in rows
                 ]

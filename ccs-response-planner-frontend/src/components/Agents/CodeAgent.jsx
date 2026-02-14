@@ -458,29 +458,36 @@ function CodeAgent() {
     setSelectedIncidentId(null)
   }
 
+  const getPromptText = async () => {
+    const res = await fetch(API_AGENTS_CODE_PROMPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        system_description: systemDescription,
+        incident_report: incidentReport,
+        specification: specification,
+        operator_feedback: operatorFeedback
+      })
+    })
+    if (res.status === 401) {
+      logout()
+      return null
+    }
+    const data = await res.json()
+    return data.prompt || ''
+  }
+
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const res = await fetch(API_AGENTS_CODE_PROMPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
-          operator_feedback: operatorFeedback
-        })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+      const text = await getPromptText()
+      if (text != null) {
+        setPromptText(text)
+        setShowPromptModal(true)
       }
-      const data = await res.json()
-      setPromptText(data.prompt || '')
-      setShowPromptModal(true)
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
     } finally {
@@ -513,7 +520,8 @@ function CodeAgent() {
           agent_type: 'code',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory)
+          conversation_history: cleanConversationHistory(conversationHistory),
+          model_name: selectedModel || undefined
         })
       })
       await fetchHistory()
@@ -643,7 +651,9 @@ function CodeAgent() {
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
           onStop={handleStop}
+          onViewPrompt={getPromptText}
           dtStatus={dtStatus}
+          modelName={selectedModel}
         />
       )}
 

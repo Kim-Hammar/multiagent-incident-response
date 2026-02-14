@@ -1,7 +1,18 @@
+function downloadPolicyZip(policyData) {
+  const bytes = Uint8Array.from(atob(policyData), (c) => c.charCodeAt(0))
+  const blob = new Blob([bytes], { type: 'application/zip' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'rl_policy.zip'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /**
  * Renders the final RL agent report for the RL Agent.
  */
-function RlAgentReport({ entry, index, isExpanded, toggleEntry }) {
+function RlAgentReport({ entry, index, isExpanded, toggleEntry, policyData }) {
   if (entry.type !== 'planner_report') return null
 
   const r = entry.planner_report || {}
@@ -118,6 +129,17 @@ function RlAgentReport({ entry, index, isExpanded, toggleEntry }) {
                 >
                   {r.expected_total_cost}
                 </span>
+              </div>
+            )}
+
+            {policyData && (
+              <div className="ia-assessment-section">
+                <button
+                  className="btn btn-sm btn-outline-dark"
+                  onClick={() => downloadPolicyZip(policyData)}
+                >
+                  <i className="fa fa-download" /> Download policy
+                </button>
               </div>
             )}
 

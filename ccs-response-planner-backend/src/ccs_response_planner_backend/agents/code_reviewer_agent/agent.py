@@ -234,6 +234,10 @@ class CodeReviewerAgent:
             operator_feedback=operator_feedback or "N/A",
             code_report_formatted=formatted_report,
         )
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+        }
 
         declarations = (
             ALL_DECLARATIONS

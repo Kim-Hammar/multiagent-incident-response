@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import ElapsedTimer from './ElapsedTimer.jsx'
+import PromptModal from './PromptModal.jsx'
 import { formatToolArgs, toolLabel, toolIcon } from './toolUtils.js'
 
 const ORCHESTRATOR_TOOLS = new Set([
@@ -183,24 +184,40 @@ function renderTerminalResult(toolName, result) {
 /**
  * Render sub-agent activity events inside a nested container.
  */
-function SubAgentLog({ subEvents, agentLabel }) {
+function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
   const [expanded, setExpanded] = useState({})
   const toggle = (i) => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))
 
   if (!subEvents || subEvents.length === 0) return null
+
+  const lastIndex = subEvents.length - 1
 
   return (
     <div className="ia-sub-agent-log">
       <div className="ia-sub-agent-header">
         <i className="fa fa-sitemap" aria-hidden="true" />
         <span>{agentLabel} activity</span>
+        {modelName && (
+          <span style={{ fontSize: '10px', color: '#888', marginLeft: '8px' }}>
+            <i className="fa fa-microchip" aria-hidden="true" /> {modelName}
+          </span>
+        )}
       </div>
       {subEvents.map((ev, i) => {
+        const isLast = active && i === lastIndex
         if (ev.type === 'reasoning') {
           const isOpen = !!expanded[i]
           return (
             <div key={i} className="ia-sub-entry ia-sub-reasoning">
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
+                {isLast && (
+                  <>
+                    <div className="spinner-border spinner-border-sm" role="status">
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                    <ElapsedTimer />
+                  </>
+                )}
                 <i className="fa fa-lightbulb-o" aria-hidden="true" />
                 <span>Agent reasoning</span>
                 <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
@@ -218,6 +235,14 @@ function SubAgentLog({ subEvents, agentLabel }) {
           return (
             <div key={i} className="ia-sub-entry ia-sub-text">
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
+                {isLast && (
+                  <>
+                    <div className="spinner-border spinner-border-sm" role="status">
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                    <ElapsedTimer />
+                  </>
+                )}
                 <i className="fa fa-comment-o" aria-hidden="true" />
                 <span>Agent output</span>
                 <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
@@ -236,6 +261,14 @@ function SubAgentLog({ subEvents, agentLabel }) {
           return (
             <div key={i} className="ia-sub-entry ia-sub-tool-call">
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
+                {isLast && (
+                  <>
+                    <div className="spinner-border spinner-border-sm" role="status">
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                    <ElapsedTimer />
+                  </>
+                )}
                 <i className={`fa ${toolIcon(ev.tool_name)}`} aria-hidden="true" />
                 <span>Running {toolLabel(ev.tool_name)}</span>
                 <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
@@ -312,6 +345,7 @@ function AgentActivityLog({
   renderExecutingTool,
   renderToolResult
 }) {
+  const [promptModalText, setPromptModalText] = useState(null)
   return (
     <div style={{ marginTop: '28px' }}>
       <div className="ia-log-header">
@@ -460,21 +494,47 @@ function AgentActivityLog({
                         ? toolLabel(entry.tool_name)
                         : `Executing ${toolLabel(entry.tool_name)}...`}
                     </span>
+                    {entry._modelName && (
+                      <span style={{ fontSize: '10px', color: '#888', marginLeft: '6px' }}>
+                        <i className="fa fa-microchip" aria-hidden="true" /> {entry._modelName}
+                      </span>
+                    )}
                     <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
                   </div>
-                  {isOpen &&
-                    (hasSubEvents ? (
-                      <SubAgentLog subEvents={entry.subEvents} agentLabel={agentLabel} />
-                    ) : (
-                      entry.output && (
-                        <pre
-                          className="ia-terminal-output"
-                          style={{ maxHeight: '400px', overflow: 'auto' }}
+                  {isOpen && (
+                    <>
+                      {entry.prompt && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-dark btn-sm"
+                          style={{ fontSize: '11px', padding: '2px 10px', marginTop: '8px' }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPromptModalText(entry.prompt)
+                          }}
                         >
-                          {entry.output}
-                        </pre>
-                      )
-                    ))}
+                          <i className="fa fa-file-text-o" aria-hidden="true" /> View prompt
+                        </button>
+                      )}
+                      {hasSubEvents ? (
+                        <SubAgentLog
+                          subEvents={entry.subEvents}
+                          agentLabel={agentLabel}
+                          active={!entry.stopped}
+                          modelName={entry._modelName}
+                        />
+                      ) : (
+                        entry.output && (
+                          <pre
+                            className="ia-terminal-output"
+                            style={{ maxHeight: '400px', overflow: 'auto' }}
+                          >
+                            {entry.output}
+                          </pre>
+                        )
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )
@@ -515,6 +575,11 @@ function AgentActivityLog({
                   <div className="ia-result-header" onClick={() => toggleEntry(index)}>
                     <i className={`fa ${toolIcon(entry.tool_name)}`} aria-hidden="true" />
                     <span className="ia-result-label">{toolLabel(entry.tool_name)} result</span>
+                    {entry._modelName && (
+                      <span style={{ fontSize: '10px', color: '#888', marginLeft: '6px' }}>
+                        <i className="fa fa-microchip" aria-hidden="true" /> {entry._modelName}
+                      </span>
+                    )}
                     <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
                   </div>
                   {isExpanded && (
@@ -543,7 +608,25 @@ function AgentActivityLog({
                           label={`${agentLabel || 'Agent'} planning process`}
                           icon="fa-sitemap"
                         >
-                          <SubAgentLog subEvents={entry.subEvents} agentLabel={agentLabel} />
+                          {entry.prompt && (
+                            <button
+                              type="button"
+                              className="btn btn-outline-dark btn-sm"
+                              style={{
+                                fontSize: '11px',
+                                padding: '2px 10px',
+                                marginBottom: '8px'
+                              }}
+                              onClick={() => setPromptModalText(entry.prompt)}
+                            >
+                              <i className="fa fa-file-text-o" aria-hidden="true" /> View prompt
+                            </button>
+                          )}
+                          <SubAgentLog
+                            subEvents={entry.subEvents}
+                            agentLabel={agentLabel}
+                            modelName={entry._modelName}
+                          />
                         </CollapsibleSection>
                       )}
                     </>
@@ -598,6 +681,11 @@ function AgentActivityLog({
           </button>
         )}
       </div>
+      <PromptModal
+        show={!!promptModalText}
+        promptText={promptModalText || ''}
+        onClose={() => setPromptModalText(null)}
+      />
     </div>
   )
 }

@@ -13,6 +13,7 @@ function AgentHistoryTab({
   deleteReport,
   renderReport,
   renderFinalReport,
+  renderToolResult,
   token,
   logout
 }) {
@@ -97,6 +98,11 @@ function AgentHistoryTab({
                     <i className="fa fa-tag" aria-hidden="true" /> {entry.incident_name}
                   </span>
                 )}
+                {entry.model_name && (
+                  <span style={{ color: '#6c757d', marginLeft: '8px' }}>
+                    <i className="fa fa-microchip" aria-hidden="true" /> {entry.model_name}
+                  </span>
+                )}
               </span>
               <i
                 className={`fa fa-caret-${historyExpanded[entry.id] ? 'down' : 'right'}`}
@@ -168,7 +174,7 @@ function AgentHistoryTab({
                     streamingTraceRef={null}
                     renderFinalReport={renderFinalReport || null}
                     renderExecutingTool={null}
-                    renderToolResult={null}
+                    renderToolResult={renderToolResult || null}
                   />
                 </div>
               )}
