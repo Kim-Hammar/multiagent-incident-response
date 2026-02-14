@@ -1,8 +1,14 @@
 /**
- * Shared NDJSON streaming helper for dt_exec / pentest_exec tool execution.
+ * Shared NDJSON streaming helper for dt_exec / pentest_exec tool execution
+ * and sub-agent streaming tools (run_code_agent, run_code_reviewer_agent).
  */
 
-export const STREAMING_TOOLS = new Set(['dt_exec', 'pentest_exec'])
+export const STREAMING_TOOLS = new Set([
+  'dt_exec',
+  'pentest_exec',
+  'run_code_agent',
+  'run_code_reviewer_agent'
+])
 
 /**
  * Execute a streaming tool call, reading NDJSON from the response body.
@@ -15,6 +21,8 @@ export const STREAMING_TOOLS = new Set(['dt_exec', 'pentest_exec'])
  * @param {string} opts.token - Auth bearer token
  * @param {AbortSignal} opts.signal - AbortController signal
  * @param {(text: string) => void} opts.onChunk - Callback for each output chunk
+ * @param {(event: Object) => void} [opts.onSubEvent] - Callback for sub-agent events
+ * @param {Object} [opts.extraBody] - Extra fields to include in the request body
  * @returns {Promise<{result: Object}>} The final done event as tool result
  */
 export async function executeStreamingTool({
@@ -24,7 +32,9 @@ export async function executeStreamingTool({
   incidentId,
   token,
   signal,
-  onChunk
+  onChunk,
+  onSubEvent,
+  extraBody
 }) {
   const res = await fetch(url, {
     method: 'POST',
@@ -35,7 +45,8 @@ export async function executeStreamingTool({
     body: JSON.stringify({
       tool_name: toolName,
       tool_args: toolArgs,
-      incident_id: incidentId
+      incident_id: incidentId,
+      ...extraBody
     }),
     signal
   })
@@ -65,6 +76,8 @@ export async function executeStreamingTool({
         const event = JSON.parse(line)
         if (event.type === 'output_chunk') {
           onChunk(event.text)
+        } else if (event.type === 'sub_event' && onSubEvent) {
+          onSubEvent(event.event)
         } else if (event.type === 'done') {
           doneEvent = event
         } else if (event.type === 'error') {
@@ -79,6 +92,10 @@ export async function executeStreamingTool({
 
   if (!doneEvent) {
     throw new Error('Stream ended without a done event')
+  }
+
+  if (doneEvent.result) {
+    return { result: doneEvent.result }
   }
 
   return {

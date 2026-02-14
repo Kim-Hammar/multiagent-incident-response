@@ -79,6 +79,15 @@ class API:
     AGENTS_RL_STEP_ROUTE = "/api/agents/rl/step"
     AGENTS_RL_TOOL_ROUTE = "/api/agents/rl/tool"
     AGENTS_RL_PROMPT_ROUTE = "/api/agents/rl/prompt"
+    AGENTS_CODE_MANAGER_STEP_ROUTE = (
+        "/api/agents/code-manager/step"
+    )
+    AGENTS_CODE_MANAGER_TOOL_ROUTE = (
+        "/api/agents/code-manager/tool"
+    )
+    AGENTS_CODE_MANAGER_PROMPT_ROUTE = (
+        "/api/agents/code-manager/prompt"
+    )
     AGENTS_DP_STEP_ROUTE = "/api/agents/dp/step"
     AGENTS_DP_TOOL_ROUTE = "/api/agents/dp/tool"
     AGENTS_DP_PROMPT_ROUTE = "/api/agents/dp/prompt"

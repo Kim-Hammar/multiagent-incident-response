@@ -3,7 +3,7 @@ Routes and sub-resources for the /agents resource.
 """
 import json
 import logging
-from typing import Generator
+from typing import Any, Generator
 
 from flask import Blueprint, Response, g, jsonify, request
 
@@ -66,6 +66,16 @@ from ccs_response_planner_backend.agents.rl_agent.prompt import (
 from ccs_response_planner_backend.agents.rl_agent.tools import (
     STREAMING_TOOL_DISPATCH as RL_STREAMING_DISPATCH,
     TOOL_DISPATCH as RL_TOOL_DISPATCH,
+)
+from ccs_response_planner_backend.agents.code_manager_agent.agent import (
+    CodeManagerAgent,
+)
+from ccs_response_planner_backend.agents.code_manager_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as CODE_MANAGER_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.code_manager_agent.tools import (
+    STREAMING_TOOL_DISPATCH as CODE_MANAGER_STREAMING_DISPATCH,
+    TOOL_DISPATCH as CODE_MANAGER_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.dp_agent.agent import (
     DpAgent,
@@ -1018,6 +1028,214 @@ def agents_code_review_tool() -> Response | tuple[Response, int]:
         }), 400
     try:
         agent = CodeReviewerAgent()
+        result = agent.execute_tool(tool_name, tool_args)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/code-manager/step", methods=["POST"])
+@token_required
+def agents_code_manager_step() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Advance the CodeManagerAgent loop by one step (NDJSON).
+
+    :return: an NDJSON streaming Response, or (JSON, status)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    incident_report = body.get("incident_report", "")
+    specification = body.get("specification", "")
+    operator_feedback = body.get("operator_feedback", "")
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    max_iterations = body.get("max_iterations", 3)
+    if not isinstance(images, list):
+        images = []
+    if not system_description and not incident_report:
+        return jsonify({
+            "error": (
+                "system_description or incident_report "
+                "is required"
+            ),
+        }), 400
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: generator of newline-delimited JSON strings
+        """
+        try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
+            agent = CodeManagerAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                incident_report=incident_report,
+                specification=specification,
+                operator_feedback=operator_feedback,
+                conversation_history=conversation_history,
+                images=images,
+                model_name=model_name,
+                max_iterations=max_iterations,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error", "message": str(e),
+            }) + "\n"
+
+    return Response(
+        generate(), mimetype="application/x-ndjson",
+    )
+
+
+@agents_bp.route("/code-manager/prompt", methods=["POST"])
+@token_required
+def agents_code_manager_prompt() -> tuple[Response, int]:
+    """
+    Render the CodeManagerAgent system prompt.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    specification = body.get("specification", "")
+    max_iterations = body.get("max_iterations", 3)
+    if not specification:
+        specification = json.dumps(
+            DIGITAL_TWIN.DEFAULT_CONFIG[
+                "specification_commands"
+            ],
+            indent=2,
+        )
+    prompt = CODE_MANAGER_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        incident_report=body.get(
+            "incident_report", "",
+        ) or "N/A",
+        specification=specification or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        max_iterations=max_iterations,
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route("/code-manager/tool", methods=["POST"])
+@token_required
+def agents_code_manager_tool() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Execute an approved tool call for CodeManagerAgent.
+
+    Sub-agent tools (run_code_agent, run_code_reviewer_agent)
+    are streaming and require system context from the request
+    body. For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in CODE_MANAGER_STREAMING_DISPATCH:
+        context = {
+            "system_description": body.get(
+                "system_description", "",
+            ),
+            "incident_report": body.get(
+                "incident_report", "",
+            ),
+            "specification": body.get(
+                "specification", "",
+            ),
+            "operator_feedback": body.get(
+                "operator_feedback", "",
+            ),
+            "images": body.get("images"),
+            "code_agent_model": body.get(
+                "code_agent_model",
+            ),
+            "reviewer_agent_model": body.get(
+                "reviewer_agent_model",
+            ),
+            "username": g.username,
+        }
+        if tool_name == "run_code_reviewer_agent":
+            conv_history = body.get(
+                "conversation_history", [],
+            )
+            last_code_report: dict[str, Any] = {}
+            for entry in reversed(conv_history):
+                if (
+                    entry.get("type") == "tool_result"
+                    and entry.get("tool_name")
+                    == "run_code_agent"
+                ):
+                    result = entry.get("result", {})
+                    last_code_report = result.get(
+                        "code_report", {},
+                    )
+                    break
+            context["last_code_report"] = last_code_report
+
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: generator of newline-delimited JSON
+            """
+            try:
+                agent = CodeManagerAgent()
+                for event in agent.execute_tool_stream(
+                    tool_name, tool_args,
+                    context=context,
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error",
+                    "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(),
+            mimetype="application/x-ndjson",
+        )
+
+    if tool_name not in CODE_MANAGER_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = CodeManagerAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:

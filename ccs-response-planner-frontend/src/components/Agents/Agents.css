@@ -862,3 +862,187 @@
 .ia-gym-checks li.failed {
   color: #dc3545;
 }
+
+/* Sub-agent nested activity log */
+.ia-sub-agent-log {
+  margin-top: 12px;
+  border-left: 3px solid #6c757d;
+  padding-left: 12px;
+}
+
+.ia-sub-agent-header {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #495057;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ia-sub-agent-header .fa {
+  color: #6c757d;
+}
+
+.ia-sub-entry {
+  margin-bottom: 6px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+  font-size: 13px;
+}
+
+.ia-sub-entry-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.ia-sub-entry-header .fa {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.ia-sub-reasoning {
+  border-left: 3px solid #ffc107;
+}
+
+.ia-sub-text {
+  border-left: 3px solid #17a2b8;
+}
+
+.ia-sub-tool-call {
+  border-left: 3px solid #007bff;
+}
+
+.ia-sub-tool-result {
+  border-left: 3px solid #28a745;
+}
+
+.ia-sub-report {
+  border-left: 3px solid #28a745;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #28a745;
+}
+
+.ia-sub-report .fa {
+  color: #28a745;
+}
+
+.ia-sub-entry .ia-thinking-trace {
+  margin-top: 8px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.ia-sub-entry .ia-proposal-details {
+  margin-top: 6px;
+}
+
+.ia-sub-entry .ia-terminal-output {
+  max-height: 300px;
+}
+
+.ia-sub-entry .ia-result-data {
+  max-height: 300px;
+  overflow: auto;
+}
+
+/* Orchestrator tool proposal structured args */
+.ia-orchestrator-args {
+  margin-top: 8px;
+}
+
+.ia-orchestrator-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0f4f8;
+  border-radius: 4px;
+  color: #495057;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.ia-orchestrator-note .fa {
+  color: #6c757d;
+}
+
+.ia-orchestrator-verdict-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+/* Collapsible sections for large args */
+.ia-collapsible-section {
+  margin-top: 8px;
+  border: 1px solid #e0e4e8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ia-collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #495057;
+  user-select: none;
+}
+
+.ia-collapsible-header:hover {
+  background: #e9ecef;
+}
+
+.ia-collapsible-header .fa-chevron-right,
+.ia-collapsible-header .fa-chevron-down {
+  font-size: 10px;
+  color: #6c757d;
+  width: 10px;
+  text-align: center;
+}
+
+.ia-collapsible-content {
+  padding: 10px 12px;
+  border-top: 1px solid #e0e4e8;
+  font-size: 13px;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.ia-arg-code {
+  margin: 0;
+  padding: 10px;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 350px;
+  overflow: auto;
+}
+
+.ia-arg-markdown {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ia-arg-markdown p:last-child {
+  margin-bottom: 0;
+}

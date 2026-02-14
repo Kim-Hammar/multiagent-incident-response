@@ -101,8 +101,12 @@ function RlAgent() {
   }, [autopilot, pendingProposal])
 
   useEffect(() => {
-    if (isNearBottomRef.current) {
+    const nearBottom =
+      document.documentElement.scrollHeight - window.scrollY - window.innerHeight < 120
+    isNearBottomRef.current = nearBottom
+    if (nearBottom) {
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' })
+      setHasNewActivity(false)
     } else {
       setHasNewActivity(true)
     }
@@ -140,10 +144,23 @@ function RlAgent() {
     setExecutingTool(null)
     setPendingProposal(null)
     setTrainingStartTime(null)
-    setConversationHistory((prev) => [
-      ...prev,
-      { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
-    ])
+    setConversationHistory((prev) => {
+      const cleaned = prev
+        .map((entry) => {
+          if (entry.type === 'streaming') {
+            return entry.text ? { ...entry, type: 'reasoning', role: 'model' } : null
+          }
+          if (entry.type === 'tool_streaming') {
+            return { ...entry, stopped: true }
+          }
+          return entry
+        })
+        .filter(Boolean)
+      return [
+        ...cleaned,
+        { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
+      ]
+    })
   }
 
   const callStep = async (history) => {

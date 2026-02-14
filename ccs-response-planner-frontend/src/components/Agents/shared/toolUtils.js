@@ -15,7 +15,10 @@ export const TOOL_LABELS = {
   rl_train: { label: 'RL Training', icon: 'fa-line-chart' },
   dp_solve: { label: 'DP Value Iteration', icon: 'fa-line-chart' },
   gym_verify: { label: 'Gymnasium Verify', icon: 'fa-check-circle' },
-  query_policy: { label: 'Query RL Policy', icon: 'fa-brain' }
+  query_policy: { label: 'Query RL Policy', icon: 'fa-brain' },
+  run_code_agent: { label: 'Code Agent', icon: 'fa-cogs' },
+  run_code_reviewer_agent: { label: 'Code Reviewer Agent', icon: 'fa-search' },
+  produce_orchestrator_report: { label: 'Orchestrator Report', icon: 'fa-file-text' }
 }
 
 export function formatToolArgs(toolName, args) {
