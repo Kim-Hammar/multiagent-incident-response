@@ -26,10 +26,9 @@ function ConvergenceChart({
     return () => clearInterval(id)
   }, [solvingStartTime])
 
-  const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0')
-  const seconds = String(elapsed % 60).padStart(2, '0')
-  const limitStr = timeLimitMinutes ? `${String(timeLimitMinutes).padStart(2, '0')}:00` : null
-  const elapsedStr = limitStr ? `${minutes}:${seconds} / ${limitStr}` : `${minutes}:${seconds}`
+  const fmtTime = (s) => (s >= 60 ? `${Math.floor(s / 60)} min, ${s % 60}s` : `${s}s`)
+  const limitStr = timeLimitMinutes ? fmtTime(timeLimitMinutes * 60) : null
+  const elapsedStr = limitStr ? `${fmtTime(elapsed)} / ${limitStr}` : fmtTime(elapsed)
   const overLimit = timeLimitMinutes && elapsed > timeLimitMinutes * 60
 
   if (!data || data.length === 0) {

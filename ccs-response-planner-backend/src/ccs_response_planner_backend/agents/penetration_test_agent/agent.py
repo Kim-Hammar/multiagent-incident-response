@@ -397,6 +397,7 @@ class PenetrationTestAgent:
 
     def execute_tool_stream(
         self, tool_name: str, tool_args: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Execute a streaming tool call.

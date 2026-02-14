@@ -15,6 +15,11 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
+from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    format_container_list,
+    format_container_table,
+    format_network_connectivity,
+)
 from ccs_response_planner_backend.agents.validation_agent.prompt import (
     build_system_prompt,
 )
@@ -278,6 +283,7 @@ class ValidationAgent:
         images: list[str] | None = None,
         model_name: str | None = None,
         has_policy: bool = False,
+        dt_config: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -299,10 +305,12 @@ class ValidationAgent:
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
         :param has_policy: True if RL policy is loaded in sandbox
+        :param dt_config: digital twin configuration dict
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
+        cfg = dt_config or {}
         system_prompt = build_system_prompt(
             has_policy=has_policy,
             system_description=system_description or "N/A",
@@ -319,7 +327,18 @@ class ValidationAgent:
                     code_report or {},
                 )
             ),
+            dt_container_list=format_container_list(cfg),
+            dt_container_table=(
+                format_container_table(cfg)
+            ),
+            dt_network_connectivity=(
+                format_network_connectivity(cfg)
+            ),
         )
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+        }
 
         declarations = (
             TOOL_DECLARATIONS_WITH_POLICY
@@ -514,6 +533,7 @@ class ValidationAgent:
 
     def execute_tool_stream(
         self, tool_name: str, tool_args: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Execute a streaming tool call.

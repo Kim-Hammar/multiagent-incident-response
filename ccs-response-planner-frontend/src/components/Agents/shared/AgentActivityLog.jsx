@@ -2,7 +2,11 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import ElapsedTimer from './ElapsedTimer.jsx'
 import PromptModal from './PromptModal.jsx'
+import RewardChart from '../RewardChart.jsx'
 import { formatToolArgs, toolLabel, toolIcon } from './toolUtils.js'
+import { CodeReportBody, ReviewReportBody, VERDICT_STYLES } from './ReportBodies.jsx'
+
+const RL_STREAMING_TYPES = new Set(['progress', 'eval_progress', 'started', 'result', 'timeout'])
 
 const ORCHESTRATOR_TOOLS = new Set([
   'run_code_agent',
@@ -270,15 +274,115 @@ function renderTerminalResult(toolName, result) {
 }
 
 /**
+ * Render a structured report from a sub-agent tool result
+ * (code_report, review_report, orchestrator_report, etc.)
+ * instead of falling back to raw JSON.
+ */
+function renderSubAgentReport(toolName, result) {
+  if (!result || typeof result !== 'object') return null
+
+  if (toolName === 'run_code_agent' && result.code_report) {
+    return <CodeReportBody report={result.code_report} />
+  }
+  if (toolName === 'run_code_reviewer_agent' && result.review_report) {
+    return <ReviewReportBody report={result.review_report} />
+  }
+  if (toolName === 'run_code_manager' && result.orchestrator_report) {
+    const r = result.orchestrator_report
+    return (
+      <div style={{ marginTop: '10px' }}>
+        {r.executive_summary && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Code Manager Summary</div>
+            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+          </div>
+        )}
+        {r.final_verdict && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Verdict</div>
+            <span
+              className={`badge badge-${VERDICT_STYLES[r.final_verdict] || 'secondary'}`}
+              style={{ fontSize: '12px', padding: '5px 8px' }}
+            >
+              {r.final_verdict.replace(/_/g, ' ')}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+  if (toolName === 'run_rl_agent' && result.planner_report) {
+    const r = result.planner_report
+    return (
+      <div style={{ marginTop: '10px' }}>
+        {r.executive_summary && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">RL Agent Summary</div>
+            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+          </div>
+        )}
+        {result.response_plan && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Response Plan</div>
+            <pre
+              style={{
+                background: '#f5f5f5',
+                padding: '12px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                maxHeight: '300px',
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
+              {result.response_plan}
+            </pre>
+          </div>
+        )}
+      </div>
+    )
+  }
+  if (toolName === 'run_validation_agent' && result.validation_report) {
+    const r = result.validation_report
+    return (
+      <div style={{ marginTop: '10px' }}>
+        {r.executive_summary && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Validation Summary</div>
+            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+          </div>
+        )}
+        {r.overall_verdict && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Verdict</div>
+            <span
+              className={`badge badge-${VERDICT_STYLES[r.overall_verdict] || 'secondary'}`}
+              style={{ fontSize: '12px', padding: '5px 8px' }}
+            >
+              {r.overall_verdict.replace(/_/g, ' ')}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+  return null
+}
+
+/**
  * Render sub-agent activity events inside a nested container.
  */
-function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
+function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt }) {
   const [expanded, setExpanded] = useState({})
   const toggle = (i) => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))
 
   if (!subEvents || subEvents.length === 0) return null
 
   const lastIndex = subEvents.length - 1
+
+  const progressData = subEvents.filter((e) => e.type === 'progress')
+  const lastEvalProgress = subEvents.filter((e) => e.type === 'eval_progress').pop() || null
 
   return (
     <div className="ia-sub-agent-log">
@@ -291,7 +395,13 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
           </span>
         )}
       </div>
+      {progressData.length > 0 && (
+        <div style={{ padding: '4px 12px' }}>
+          <RewardChart data={progressData} completed={!active} evalProgress={lastEvalProgress} />
+        </div>
+      )}
       {subEvents.map((ev, i) => {
+        if (RL_STREAMING_TYPES.has(ev.type)) return null
         const isLast = active && i === lastIndex
         if (ev.type === 'reasoning') {
           const isOpen = !!expanded[i]
@@ -360,27 +470,43 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
                 )}
                 <i className={`fa ${toolIcon(ev.tool_name)}`} aria-hidden="true" />
                 <span>Running {toolLabel(ev.tool_name)}</span>
+                {ev._prompt && onViewPrompt && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark btn-sm"
+                    style={{ fontSize: '10px', padding: '1px 8px', marginLeft: '8px' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onViewPrompt(ev._prompt)
+                    }}
+                  >
+                    <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
+                  </button>
+                )}
                 <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
               </div>
               {isOpen && (
-                <div className="ia-proposal-details">
-                  {isOrchTool
-                    ? renderOrchestratorArgs(ev.tool_name, ev.tool_args)
-                    : argPairs.map(([label, value], j) => (
-                        <div key={j} className="ia-proposal-arg-row">
-                          <span className="ia-proposal-arg-label">{label}:</span>
-                          <span className="ia-proposal-arg-value">{value}</span>
-                        </div>
-                      ))}
-                </div>
-              )}
-              {ev.subEvents?.length > 0 && (
-                <SubAgentLog
-                  subEvents={ev.subEvents}
-                  agentLabel={toolLabel(ev.tool_name)}
-                  active={isLast}
-                  modelName={ev._modelName}
-                />
+                <>
+                  <div className="ia-proposal-details">
+                    {isOrchTool
+                      ? renderOrchestratorArgs(ev.tool_name, ev.tool_args)
+                      : argPairs.map(([label, value], j) => (
+                          <div key={j} className="ia-proposal-arg-row">
+                            <span className="ia-proposal-arg-label">{label}:</span>
+                            <span className="ia-proposal-arg-value">{value}</span>
+                          </div>
+                        ))}
+                  </div>
+                  {ev.subEvents?.length > 0 && (
+                    <SubAgentLog
+                      subEvents={ev.subEvents}
+                      agentLabel={toolLabel(ev.tool_name)}
+                      active={isLast}
+                      modelName={ev._modelName}
+                      onViewPrompt={onViewPrompt}
+                    />
+                  )}
+                </>
               )}
             </div>
           )
@@ -388,6 +514,7 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
         if (ev.type === 'tool_result') {
           const isOpen = !!expanded[i]
           const terminal = renderTerminalResult(ev.tool_name, ev.result)
+          const report = renderSubAgentReport(ev.tool_name, ev.result)
           return (
             <div key={i} className="ia-sub-entry ia-sub-tool-result">
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
@@ -404,7 +531,7 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
               </div>
               {isOpen && (
                 <>
-                  {terminal || (
+                  {terminal || report || (
                     <pre className="ia-result-data mb-0">{JSON.stringify(ev.result, null, 2)}</pre>
                   )}
                   {ev.subEvents?.length > 0 && (
@@ -412,6 +539,7 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName }) {
                       subEvents={ev.subEvents}
                       agentLabel={toolLabel(ev.tool_name)}
                       active={false}
+                      onViewPrompt={onViewPrompt}
                     />
                   )}
                 </>
@@ -630,6 +758,7 @@ function AgentActivityLog({
                           agentLabel={agentLabel}
                           active={!entry.stopped}
                           modelName={entry._modelName}
+                          onViewPrompt={setPromptModalText}
                         />
                       ) : (
                         entry.output && (
@@ -729,6 +858,7 @@ function AgentActivityLog({
                             subEvents={entry.subEvents}
                             agentLabel={agentLabel}
                             modelName={entry._modelName}
+                            onViewPrompt={setPromptModalText}
                           />
                         </CollapsibleSection>
                       )}

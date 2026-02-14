@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     traceroute \
     python3 \
     python-is-python3 \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY iptables-rules.sh /iptables-rules.sh

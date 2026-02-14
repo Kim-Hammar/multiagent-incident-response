@@ -15,10 +15,11 @@ tools, then produce a structured incident assessment.
 ### Security Alerts
 {security_alerts}
 
-### Operator Feedback
-Optional guidance provided by the human security operator who is \
-managing the incident response system. If present, treat it as \
-additional constraints or priorities for the response.
+### Feedback
+This field may contain guidance from the human security operator \
+managing the incident (e.g., additional constraints or priorities), \
+instructions from an upstream orchestrator agent, or both. \
+Treat all feedback here as actionable context for your task.
 {operator_feedback}
 
 ## Instructions
@@ -44,9 +45,8 @@ your assessment. Available tools:
    - **abuseipdb_check**: `ip` — a single IP address (e.g. `203.0.113.45`).
    - **otx_search**: `indicator_type` must be one of `IPv4`, `IPv6`, \
 `domain`, `hostname`, `url`, `hash`, `cve`. `value` is the indicator.
-   - **dt_exec**: `container` is one of `i1_gateway`, `i1_firewall`, `i1_ids`, \
-`i1_server_1`–`i1_server_6` (Incident 1) or `i2_server_1`–`i2_server_6` \
-(Incident 2). `command` is the shell command to run. \
+   - **dt_exec**: `container` is one of {dt_container_list}. \
+`command` is the shell command to run. \
 **Commands are killed after 600 seconds.** Keep commands short and targeted. \
 If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`).
@@ -76,7 +76,12 @@ assessment. Only proceed to the next step once you are satisfied with the image.
 
 ## Digital Twin Environment
 
-A digital twin of the target system may be deployed as Docker containers. \
+A **digital twin** of the target system may be deployed. A digital twin \
+is a virtual replica of the system affected by the incident, implemented \
+as a set of Docker containers connected by Docker bridge networks. Not \
+every aspect of the production environment is replicated — only the most \
+relevant hosts, services, and network segments needed to investigate and \
+recover from the incident. \
 You can use `dt_exec` to run shell commands on any container and \
 `dt_python_exec` to run Python analysis scripts in a sandbox.
 
@@ -98,30 +103,11 @@ investigating why a standard log file is missing or empty.
 
 ### Available containers
 
-| Container     | Zone       | IP address  | Role                                    |
-|---------------|------------|-------------|-----------------------------------------|
-| i1_gateway    | perimeter  | 10.0.1.254  | Snort IDS v2.9                          |
-| i1_firewall   | perimeter  | 10.0.1.253  | iptables packet filtering               |
-| i1_ids        | all zones  | 10.0.1.252, 10.0.2.252, 10.0.3.252, 10.0.4.252 | rsyslog, tcpdump |
-| i1_server_1   | Zone 1     | 10.0.2.1    | Nginx, PHP-FPM portal, dnsmasq DNS      |
-| i1_server_2   | Zone 1     | 10.0.2.2    | vsftpd FTP, cron backups                |
-| i1_server_3   | Zone 2     | 10.0.3.3    | SSH, cron CI/CD build pipeline          |
-| i1_server_4   | Zone 2     | 10.0.3.4    | Postfix SMTP mail server                |
-| i1_server_5   | Zone 3     | 10.0.4.5    | SSH, Python REST API, Redis cache       |
-| i1_server_6   | Zone 3     | 10.0.4.6    | PostgreSQL database, Samba file shares  |
+{dt_container_table}
 
 ### Network connectivity
 
-Each server resides on exactly one zone and can only reach specific \
-neighboring servers via point-to-point routes through the IDS — **not** \
-the entire zone subnet. The adjacency links are: \
-S1–S2 (Zone 1), S1–S4 (cross-zone), S1–S6 (cross-zone), \
-S2–S3 (cross-zone), S2–S5 (cross-zone), S3–S6 (cross-zone), \
-S4–S5 (cross-zone), S5–S6 (Zone 3). \
-S3 and S4 share Zone 2 but are **isolated** from each other by iptables \
-rules. All other server-to-server connections are blocked. For example, \
-Server 5 cannot reach Server 1 or Server 3 — only Server 2, Server 4, \
-and Server 6.
+{dt_network_connectivity}
 
 ### Service management
 
@@ -135,8 +121,8 @@ and re-launch the daemon directly if needed.
 - `ps aux` — list running processes
 - `netstat -tlnp` or `ss -tlnp` — list listening TCP ports
 - `cat /var/log/syslog` — system logs (may be empty in minimal containers)
-- `iptables -L -n -v` — firewall rules (on i1_firewall/i1_ids)
-- `cat /var/log/snort/alert.log` — Snort alerts (on i1_gateway)
+- `iptables -L -n -v` — firewall rules (on firewall/IDS containers)
+- `cat /var/log/snort/alert.log` — Snort alerts (on gateway container)
 - `find / -name "*.log" -mmin -60` — recently modified log files
 - `cat /var/log/auth.log` — authentication logs
 - `ss -tnp` — active TCP connections with process info

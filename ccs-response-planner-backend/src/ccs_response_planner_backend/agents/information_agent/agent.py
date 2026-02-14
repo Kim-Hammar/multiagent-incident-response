@@ -15,6 +15,11 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
+from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    format_container_list,
+    format_container_table,
+    format_network_connectivity,
+)
 from ccs_response_planner_backend.agents.information_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
@@ -123,6 +128,7 @@ class InformationAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
+        dt_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Advance the agent loop by one step.
@@ -133,15 +139,22 @@ class InformationAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
+        :param dt_config: digital twin configuration dict
         :return: a dict with type tool_proposal or assessment
         """
         client = self._create_client()
         effective_model = model_name or MODEL_NAME
 
+        cfg = dt_config or {}
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
             security_alerts=security_alerts or "N/A",
             operator_feedback=operator_feedback or "N/A",
+            dt_container_list=format_container_list(cfg),
+            dt_container_table=format_container_table(cfg),
+            dt_network_connectivity=(
+                format_network_connectivity(cfg)
+            ),
         )
 
         config = self._make_config(system_prompt)
@@ -212,6 +225,7 @@ class InformationAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
+        dt_config: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -229,14 +243,21 @@ class InformationAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
+        :param dt_config: digital twin configuration dict
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
+        cfg = dt_config or {}
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
             security_alerts=security_alerts or "N/A",
             operator_feedback=operator_feedback or "N/A",
+            dt_container_list=format_container_list(cfg),
+            dt_container_table=format_container_table(cfg),
+            dt_network_connectivity=(
+                format_network_connectivity(cfg)
+            ),
         )
 
         if is_anthropic_model(effective_model):
@@ -410,6 +431,7 @@ class InformationAgent:
 
     def execute_tool_stream(
         self, tool_name: str, tool_args: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Execute a streaming tool call.

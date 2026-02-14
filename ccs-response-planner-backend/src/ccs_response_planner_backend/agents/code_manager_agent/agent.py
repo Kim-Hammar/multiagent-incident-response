@@ -156,6 +156,10 @@ class CodeManagerAgent:
             max_iterations=max_iterations,
             validation_feedback=validation_feedback or "N/A",
         )
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+        }
 
         declarations = (
             ALL_DECLARATIONS

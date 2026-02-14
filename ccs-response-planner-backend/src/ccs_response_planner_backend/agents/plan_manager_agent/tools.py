@@ -247,6 +247,14 @@ def _run_sub_agent_loop(
                                     "message", "error",
                                 ),
                             }
+                        else:
+                            yield {
+                                "type": "sub_event",
+                                "event": {
+                                    "type": "nested_event",
+                                    "event": tool_event,
+                                },
+                            }
                 except Exception as e:
                     tool_result = {"error": str(e)}
                 sub_result = _truncate_result(
@@ -363,6 +371,7 @@ def run_code_manager_stream(
         "reviewer_agent_model": context.get(
             "reviewer_agent_model",
         ),
+        "dt_config": context.get("dt_config"),
     }
 
     code_report: dict[str, Any] = {}
@@ -813,6 +822,7 @@ def run_validation_agent_stream(
         "model_name": context.get(
             "validation_agent_model",
         ),
+        "dt_config": context.get("dt_config"),
     }
 
     for ev in _run_sub_agent_loop(

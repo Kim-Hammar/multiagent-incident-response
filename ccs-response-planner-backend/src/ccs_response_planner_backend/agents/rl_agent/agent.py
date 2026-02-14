@@ -237,6 +237,10 @@ class RlAgent:
             code_report_formatted=formatted_report,
             time_limit_minutes=time_limit_minutes,
         )
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+        }
 
         declarations = (
             ALL_DECLARATIONS
@@ -422,6 +426,7 @@ class RlAgent:
 
     def execute_tool_stream(
         self, tool_name: str, tool_args: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Execute a streaming tool call.

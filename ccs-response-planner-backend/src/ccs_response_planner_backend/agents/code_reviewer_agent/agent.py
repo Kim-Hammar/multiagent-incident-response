@@ -15,6 +15,9 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
+from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    format_container_list,
+)
 from ccs_response_planner_backend.agents.code_reviewer_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
@@ -201,6 +204,7 @@ class CodeReviewerAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
+        dt_config: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -220,10 +224,12 @@ class CodeReviewerAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
+        :param dt_config: digital twin configuration dict
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
+        cfg = dt_config or {}
         formatted_report = self._format_code_report(
             code_report or {},
         )
@@ -233,6 +239,7 @@ class CodeReviewerAgent:
             specification=specification or "N/A",
             operator_feedback=operator_feedback or "N/A",
             code_report_formatted=formatted_report,
+            dt_container_list=format_container_list(cfg),
         )
         yield {
             "type": "system_prompt",
@@ -434,6 +441,7 @@ class CodeReviewerAgent:
 
     def execute_tool_stream(
         self, tool_name: str, tool_args: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Execute a streaming tool call.

@@ -240,6 +240,7 @@ def rl_train(
     line_buffer = ""
     stderr_buffer = ""
     had_progress = False
+    result_data: dict[str, Any] | None = None
     try:
         for chunk in stream:
             text = chunk.decode("utf-8", errors="replace")
@@ -255,6 +256,8 @@ def rl_train(
                     parsed = json.loads(line)
                     if parsed.get("type") == "progress":
                         had_progress = True
+                    if parsed.get("type") == "result":
+                        result_data = parsed
                     yield parsed
                 except (json.JSONDecodeError, ValueError):
                     stderr_buffer += line + "\n"
@@ -299,6 +302,8 @@ def rl_train(
         "type": "done",
         "exit_code": exit_code,
     }
+    if result_data:
+        done_event["result"] = result_data
     if stderr_buffer.strip():
         done_event["stderr"] = stderr_buffer.strip()
     if policy_data:

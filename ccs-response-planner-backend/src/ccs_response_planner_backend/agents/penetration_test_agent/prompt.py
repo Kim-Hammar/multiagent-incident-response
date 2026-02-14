@@ -53,7 +53,11 @@ the `produce_report` tool with the structured report data.
 
 ## Test Environment
 
-The target system is deployed as a **Docker-based digital twin**. Each \
+The target system is deployed as a **Docker-based digital twin** — a \
+virtual replica of the system affected by the incident, implemented as \
+Docker containers connected by Docker bridge networks. Not every aspect \
+of the production environment is replicated — only the most relevant \
+hosts, services, and network segments. Each \
 host listed in the system description runs as an isolated Docker \
 container on segmented bridge networks. The only hosts on the perimeter \
 network (10.0.1.0/24) are: the gateway (10.0.1.254), the firewall \

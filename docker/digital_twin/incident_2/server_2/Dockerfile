@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cron \
     python3 \
     python-is-python3 \
+    postgresql-client \
     iptables \
     iproute2 \
     iputils-ping \

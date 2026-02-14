@@ -23,6 +23,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     traceroute \
     python3 \
     git \
+    postgresql-client \
+    smbclient \
+    redis-tools \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3 /usr/bin/python
 

@@ -17,7 +17,8 @@ function ElapsedTimer({ startTime }) {
     )
     return () => clearInterval(id)
   }, [startTime])
-  return <span className="ia-elapsed">{seconds}s</span>
+  const label = seconds >= 60 ? `${Math.floor(seconds / 60)} min, ${seconds % 60}s` : `${seconds}s`
+  return <span className="ia-elapsed">{label}</span>
 }
 
 export default ElapsedTimer

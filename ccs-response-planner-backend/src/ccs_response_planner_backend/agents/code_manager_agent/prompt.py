@@ -52,9 +52,12 @@ plan on a digital twin of the affected system.
 
 ## Digital Twin and Validation
 
-The target system has a **digital twin** — a set of Docker \
-containers that replicate the production network topology, \
-including gateways, firewalls, IDS, and application servers. \
+The target system has a **digital twin** — a virtual replica of the \
+system affected by the incident, implemented as a set of Docker \
+containers connected by Docker bridge networks. Not every aspect of \
+the production environment is replicated — only the most relevant \
+hosts, services, and network segments (e.g. gateways, firewalls, \
+IDS, and application servers). \
 Both sub-agents have access to this digital twin through the \
 `dt_exec` tool, which lets them execute shell commands on any \
 container to:
@@ -99,10 +102,12 @@ verifies one such constraint — the command succeeds (exit code 0) \
 when the constraint is met.
 {specification}
 
-### Operator Feedback
-Optional guidance provided by the human security operator who is \
-managing the incident response system. If present, treat it as \
-additional constraints or priorities for the response.
+### Feedback
+This field may contain guidance from the human security operator \
+managing the incident (e.g., additional constraints or priorities), \
+revision instructions from an upstream orchestrator agent (e.g., \
+validation findings from a previous pipeline iteration), or both. \
+Treat all feedback here as actionable context for your task.
 {operator_feedback}
 
 ### Validation Feedback (from previous pipeline iteration)

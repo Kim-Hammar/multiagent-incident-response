@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Configure PostgreSQL to listen on all interfaces
 RUN echo "listen_addresses = '*'" >> /etc/postgresql/13/main/postgresql.conf && \
+    echo "local all all trust" >> /etc/postgresql/13/main/pg_hba.conf && \
     echo "host all all 10.0.0.0/8 md5" >> /etc/postgresql/13/main/pg_hba.conf
 
 # Configure SSH

@@ -77,6 +77,7 @@ def run_code_agent_stream(
             conversation_history=conversation_history,
             images=context.get("images"),
             model_name=context.get("code_agent_model"),
+            dt_config=context.get("dt_config"),
         ):
             etype = event.get("type")
 
@@ -282,6 +283,7 @@ def run_code_reviewer_agent_stream(
             conversation_history=conversation_history,
             images=context.get("images"),
             model_name=context.get("reviewer_agent_model"),
+            dt_config=context.get("dt_config"),
         ):
             etype = event.get("type")
 

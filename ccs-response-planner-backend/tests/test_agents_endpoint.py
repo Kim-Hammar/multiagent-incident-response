@@ -5,9 +5,15 @@ from unittest.mock import MagicMock, patch
 
 from flask.testing import FlaskClient
 
+from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    format_container_list,
+    format_container_table,
+    format_network_connectivity,
+)
 from ccs_response_planner_backend.agents.information_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
+from ccs_response_planner_backend.constants.constants import DIGITAL_TWIN
 
 
 def _parse_ndjson(data: bytes) -> list[dict[str, Any]]:
@@ -364,10 +370,16 @@ def test_prompt_uses_na_for_empty_fields(
     )
     assert resp.status_code == 200
     data = resp.get_json()
+    dt_config = DIGITAL_TWIN.DEFAULT_CONFIG
     expected = SYSTEM_PROMPT_TEMPLATE.format(
         system_description="N/A",
         security_alerts="N/A",
         operator_feedback="N/A",
+        dt_container_list=format_container_list(dt_config),
+        dt_container_table=format_container_table(dt_config),
+        dt_network_connectivity=format_network_connectivity(
+            dt_config,
+        ),
     )
     assert data["prompt"] == expected
 

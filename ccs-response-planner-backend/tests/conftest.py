@@ -77,6 +77,7 @@ def mock_db() -> Generator[MagicMock, None, None]:
             "containers": [],
         }
         docker_mgr_mock.validate.return_value = []
+        agents_db_mock.get_digital_twin_config.return_value = None
         agents_db_mock.save_agent_report.return_value = {
             "id": 1,
             "agent_type": "information",

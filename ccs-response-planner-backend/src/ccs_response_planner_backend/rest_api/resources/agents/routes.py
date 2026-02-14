@@ -97,6 +97,11 @@ from ccs_response_planner_backend.agents.dp_agent.tools import (
     STREAMING_TOOL_DISPATCH as DP_STREAMING_DISPATCH,
     TOOL_DISPATCH as DP_TOOL_DISPATCH,
 )
+from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    format_container_list,
+    format_container_table,
+    format_network_connectivity,
+)
 from ccs_response_planner_backend.constants.constants import (
     API, DIGITAL_TWIN, DOCKER,
 )
@@ -293,6 +298,10 @@ def agents_information_step() -> Response | tuple[Response, int]:
             if not conversation_history:
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
             agent = InformationAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -301,6 +310,7 @@ def agents_information_step() -> Response | tuple[Response, int]:
                 conversation_history=conversation_history,
                 images=images,
                 model_name=model_name,
+                dt_config=dt_config,
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -320,6 +330,10 @@ def agents_information_prompt() -> tuple[Response, int]:
     :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         system_description=body.get(
             "system_description", "",
@@ -330,6 +344,15 @@ def agents_information_prompt() -> tuple[Response, int]:
         operator_feedback=body.get(
             "operator_feedback", "",
         ) or "N/A",
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
+        dt_container_table=format_container_table(
+            dt_config,
+        ),
+        dt_network_connectivity=(
+            format_network_connectivity(dt_config)
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -599,6 +622,10 @@ def agents_validation_step() -> Response | tuple[Response, int]:
                         ),
                     }) + "\n"
 
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
             agent = ValidationAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -611,6 +638,7 @@ def agents_validation_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 has_policy=has_policy,
+                dt_config=dt_config,
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -650,6 +678,10 @@ def agents_validation_prompt() -> tuple[Response, int]:
             code_report = json.loads(code_report)
         except (json.JSONDecodeError, ValueError):
             code_report = {}
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
     prompt = build_validation_prompt(
         has_policy=False,
         system_description=body.get(
@@ -671,6 +703,15 @@ def agents_validation_prompt() -> tuple[Response, int]:
             ValidationAgent._format_code_report(
                 code_report or {},
             )
+        ),
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
+        dt_container_table=format_container_table(
+            dt_config,
+        ),
+        dt_network_connectivity=(
+            format_network_connectivity(dt_config)
         ),
     )
     return jsonify({"prompt": prompt}), 200
@@ -773,6 +814,10 @@ def agents_code_step() -> Response | tuple[Response, int]:
             if not conversation_history:
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
             agent = CodeAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -782,6 +827,7 @@ def agents_code_step() -> Response | tuple[Response, int]:
                 conversation_history=conversation_history,
                 images=images,
                 model_name=model_name,
+                dt_config=dt_config,
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -809,6 +855,10 @@ def agents_code_prompt() -> tuple[Response, int]:
             ],
             indent=2,
         )
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
     prompt = CODE_PROMPT_TEMPLATE.format(
         system_description=body.get(
             "system_description", "",
@@ -820,6 +870,9 @@ def agents_code_prompt() -> tuple[Response, int]:
         operator_feedback=body.get(
             "operator_feedback", "",
         ) or "N/A",
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -926,6 +979,10 @@ def agents_code_review_step() -> Response | tuple[Response, int]:
             if not conversation_history:
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
             agent = CodeReviewerAgent()
             for event in agent.step_stream(
                 system_description=system_description,
@@ -936,6 +993,7 @@ def agents_code_review_step() -> Response | tuple[Response, int]:
                 conversation_history=conversation_history,
                 images=images,
                 model_name=model_name,
+                dt_config=dt_config,
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -974,6 +1032,10 @@ def agents_code_review_prompt() -> tuple[Response, int]:
             code_report or {},
         )
     )
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
     prompt = CODE_REVIEW_PROMPT_TEMPLATE.format(
         system_description=body.get(
             "system_description", "",
@@ -986,6 +1048,9 @@ def agents_code_review_prompt() -> tuple[Response, int]:
             "operator_feedback", "",
         ) or "N/A",
         code_report_formatted=formatted_report,
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -1198,6 +1263,10 @@ def agents_code_manager_tool() -> (
                 "reviewer_agent_model",
             ),
             "username": g.username,
+            "dt_config": (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            ),
         }
         if tool_name == "run_code_reviewer_agent":
             conv_history = body.get(
@@ -1611,6 +1680,10 @@ def agents_plan_manager_tool() -> (
             ),
             "validation_agent_model": body.get(
                 "validation_agent_model",
+            ),
+            "dt_config": (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
             ),
         }
         conv_history = body.get(

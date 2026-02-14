@@ -4,6 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
+    postgresql-client \
+    smbclient \
     python3 \
     redis-server \
     curl \

@@ -25,10 +25,11 @@ verifies one such constraint — the command succeeds (exit code 0) \
 when the constraint is met.
 {specification}
 
-### Operator Feedback
-Optional guidance provided by the human security operator who is \
-managing the incident response system. If present, treat it as \
-additional constraints or priorities for the response.
+### Feedback
+This field may contain guidance from the human security operator \
+managing the incident (e.g., additional constraints or priorities), \
+revision instructions from an upstream orchestrator agent, or both. \
+Treat all feedback here as actionable context for your task.
 {operator_feedback}
 
 ## Code Agent Report

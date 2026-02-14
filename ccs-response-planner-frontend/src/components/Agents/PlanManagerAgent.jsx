@@ -42,8 +42,12 @@ function handleNestedSubEvent(subEvents, innerEvent) {
       .reverse()
       .find((e) => e.type === 'tool_call' && !e._completed)
     if (lastToolCall) {
-      if (!lastToolCall.subEvents) lastToolCall.subEvents = []
-      handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
+      if (innerEvent.event.type === 'prompt') {
+        lastToolCall._prompt = innerEvent.event.text
+      } else {
+        if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+        handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
+      }
     }
   } else if (innerEvent.type === 'tool_result') {
     const lastCall = [...subEvents].reverse().find((e) => e.type === 'tool_call')
@@ -485,8 +489,12 @@ function PlanManagerAgent() {
                 .reverse()
                 .find((e) => e.type === 'tool_call' && !e._completed)
               if (lastToolCall) {
-                if (!lastToolCall.subEvents) lastToolCall.subEvents = []
-                handleNestedSubEvent(lastToolCall.subEvents, event.event)
+                if (event.event.type === 'prompt') {
+                  lastToolCall._prompt = event.event.text
+                } else {
+                  if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                  handleNestedSubEvent(lastToolCall.subEvents, event.event)
+                }
               }
             } else if (event.type === 'tool_result') {
               const lastCall = [...streamEntry.subEvents]
@@ -948,7 +956,7 @@ function PlanManagerAgent() {
             disabled={isAgentBusy || (!systemDescription && !incidentReport)}
           >
             <i className="fa fa-bolt" aria-hidden="true" />
-            {isAgentBusy ? ' Running...' : ' Run pipeline'}
+            {isAgentBusy ? ' Running...' : ' Run agent'}
           </button>
           <ExampleSelector onLoad={loadExample} disabled={isAgentBusy} />
           <button

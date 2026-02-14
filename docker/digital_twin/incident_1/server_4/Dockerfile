@@ -4,6 +4,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postfix \
+    postgresql-client \
+    smbclient \
+    redis-tools \
     python3 \
     curl \
     iptables \

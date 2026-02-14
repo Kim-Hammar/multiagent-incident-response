@@ -219,6 +219,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_attacker",
                 "name": "Attacker",
+                "description": "External attacker host",
                 "docker_image": "ccs-dt-attacker:latest",
                 "ip_addresses": {"perimeter": "10.0.1.10"},
                 "routes": [
@@ -235,6 +236,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_gateway",
                 "name": "Gateway",
+                "description": "Snort IDS v2.9",
                 "docker_image": "ccs-dt-i1-gateway:latest",
                 "ip_addresses": {"perimeter": "10.0.1.254"},
                 "routes": [
@@ -251,6 +253,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_firewall",
                 "name": "Firewall",
+                "description": "iptables packet filtering",
                 "docker_image": "ccs-dt-i1-firewall:latest",
                 "ip_addresses": {"perimeter": "10.0.1.253"},
                 "routes": [
@@ -268,6 +271,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_ids",
                 "name": "IDS",
+                "description": "rsyslog, tcpdump",
                 "docker_image": "ccs-dt-i1-ids:latest",
                 "ip_addresses": {
                     "perimeter": "10.0.1.252",
@@ -283,6 +287,9 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_server_1",
                 "name": "Server 1",
+                "description": (
+                    "Nginx, PHP-FPM portal, dnsmasq DNS"
+                ),
                 "docker_image": "ccs-dt-i1-server1:latest",
                 "ip_addresses": {"zone1": "10.0.2.1"},
                 "routes": [
@@ -299,6 +306,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_server_2",
                 "name": "Server 2",
+                "description": "vsftpd FTP, cron backups",
                 "docker_image": "ccs-dt-i1-server2:latest",
                 "ip_addresses": {"zone1": "10.0.2.2"},
                 "routes": [
@@ -315,6 +323,9 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_server_3",
                 "name": "Server 3",
+                "description": (
+                    "SSH, cron CI/CD build pipeline"
+                ),
                 "docker_image": "ccs-dt-i1-server3:latest",
                 "ip_addresses": {"zone2": "10.0.3.3"},
                 "routes": [
@@ -335,6 +346,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_server_4",
                 "name": "Server 4",
+                "description": "Postfix SMTP mail server",
                 "docker_image": "ccs-dt-i1-server4:latest",
                 "ip_addresses": {"zone2": "10.0.3.4"},
                 "routes": [
@@ -355,6 +367,9 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_server_5",
                 "name": "Server 5",
+                "description": (
+                    "SSH, Python REST API, Redis cache"
+                ),
                 "docker_image": "ccs-dt-i1-server5:latest",
                 "ip_addresses": {"zone3": "10.0.4.5"},
                 "routes": [
@@ -371,6 +386,9 @@ class DIGITAL_TWIN:
             {
                 "id": "i1_server_6",
                 "name": "Server 6",
+                "description": (
+                    "PostgreSQL database, Samba file shares"
+                ),
                 "docker_image": "ccs-dt-i1-server6:latest",
                 "ip_addresses": {"zone3": "10.0.4.6"},
                 "routes": [
@@ -667,6 +685,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_attacker",
                 "name": "Attacker",
+                "description": "External attacker host",
                 "docker_image": "ccs-dt-attacker:latest",
                 "ip_addresses": {"internet": "10.1.0.10"},
                 "routes": [
@@ -681,6 +700,9 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_1",
                 "name": "Server 1",
+                "description": (
+                    "Gateway/router, iptables firewall"
+                ),
                 "docker_image": "ccs-dt-i2-server1:latest",
                 "ip_addresses": {
                     "internet": "10.1.0.1",
@@ -695,6 +717,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_2",
                 "name": "Server 2",
+                "description": "Nginx HTTP web server",
                 "docker_image": "ccs-dt-i2-server2:latest",
                 "ip_addresses": {"dmz": "10.1.1.10"},
                 "routes": [
@@ -709,6 +732,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_3",
                 "name": "Server 3",
+                "description": "SSH jump host",
                 "docker_image": "ccs-dt-i2-server3:latest",
                 "ip_addresses": {"dmz": "10.1.1.20"},
                 "routes": [
@@ -723,6 +747,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_4",
                 "name": "Server 4",
+                "description": "PostgreSQL database",
                 "docker_image": "ccs-dt-i2-server4:latest",
                 "ip_addresses": {"lan": "10.1.2.10"},
                 "routes": [
@@ -737,6 +762,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_5",
                 "name": "Server 5",
+                "description": "dnsmasq DNS server",
                 "docker_image": "ccs-dt-i2-server5:latest",
                 "ip_addresses": {"lan": "10.1.2.50"},
                 "routes": [
@@ -749,6 +775,7 @@ class DIGITAL_TWIN:
             {
                 "id": "i2_server_6",
                 "name": "Server 6",
+                "description": "Samba file shares",
                 "docker_image": "ccs-dt-i2-server6:latest",
                 "ip_addresses": {"lan": "10.1.2.60"},
                 "routes": [
