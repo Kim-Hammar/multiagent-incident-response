@@ -78,6 +78,9 @@ def run_code_agent_stream(
             images=context.get("images"),
             model_name=context.get("code_agent_model"),
             dt_config=context.get("dt_config"),
+            is_revision=bool(
+                previous_code and review_feedback
+            ),
         ):
             etype = event.get("type")
 
@@ -121,6 +124,25 @@ def run_code_agent_stream(
                     "text": (
                         "[CodeAgent] Code report produced.\n"
                     ),
+                }
+            elif etype == "context_usage":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "context_usage",
+                        "prompt_tokens": event.get(
+                            "prompt_tokens", 0,
+                        ),
+                        "candidates_tokens": event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        "total_tokens": event.get(
+                            "total_tokens", 0,
+                        ),
+                        "context_limit": event.get(
+                            "context_limit", 0,
+                        ),
+                    },
                 }
             elif etype == "tool_proposal":
                 tool_name = event.get("tool_name", "")
@@ -330,6 +352,25 @@ def run_code_reviewer_agent_stream(
                         "[CodeReviewerAgent] Review "
                         "report produced.\n"
                     ),
+                }
+            elif etype == "context_usage":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "context_usage",
+                        "prompt_tokens": event.get(
+                            "prompt_tokens", 0,
+                        ),
+                        "candidates_tokens": event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        "total_tokens": event.get(
+                            "total_tokens", 0,
+                        ),
+                        "context_limit": event.get(
+                            "context_limit", 0,
+                        ),
+                    },
                 }
             elif etype == "tool_proposal":
                 tool_name = event.get("tool_name", "")

@@ -873,6 +873,7 @@ def agents_code_prompt() -> tuple[Response, int]:
         dt_container_list=format_container_list(
             dt_config,
         ),
+        revision_notice="",
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -1212,6 +1213,7 @@ def agents_code_manager_prompt() -> tuple[Response, int]:
         ) or "N/A",
         max_iterations=max_iterations,
         validation_feedback="N/A",
+        revision_notice="",
     )
     return jsonify({"prompt": prompt}), 200
 

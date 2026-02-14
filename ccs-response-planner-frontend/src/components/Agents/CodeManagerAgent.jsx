@@ -453,6 +453,11 @@ function CodeManagerAgent() {
             setConversationHistory([...base])
           },
           onSubEvent: (event) => {
+            if (event.type === 'context_usage') {
+              streamEntry.contextUsage = event
+              setConversationHistory([...base])
+              return
+            }
             if (event.type === 'prompt') {
               streamEntry.prompt = event.text
               setConversationHistory([...base])
@@ -486,7 +491,8 @@ function CodeManagerAgent() {
           result,
           subEvents: streamEntry.subEvents,
           prompt: streamEntry.prompt,
-          _modelName: streamEntry._modelName
+          _modelName: streamEntry._modelName,
+          contextUsage: streamEntry.contextUsage
         }
         const updated = [...conversationHistory, approvalEntry, resultEntry]
         setConversationHistory(updated)

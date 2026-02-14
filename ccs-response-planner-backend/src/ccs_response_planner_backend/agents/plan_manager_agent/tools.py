@@ -157,6 +157,25 @@ def _run_sub_agent_loop(
                         f"produced.\n"
                     ),
                 }
+            elif etype == "context_usage":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "context_usage",
+                        "prompt_tokens": event.get(
+                            "prompt_tokens", 0,
+                        ),
+                        "candidates_tokens": event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        "total_tokens": event.get(
+                            "total_tokens", 0,
+                        ),
+                        "context_limit": event.get(
+                            "context_limit", 0,
+                        ),
+                    },
+                }
             elif etype == "tool_proposal":
                 pending_tool = event
 
@@ -432,6 +451,25 @@ def run_code_manager_stream(
                         "[CodeManager] Orchestrator "
                         "report produced.\n"
                     ),
+                }
+            elif etype == "context_usage":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "context_usage",
+                        "prompt_tokens": event.get(
+                            "prompt_tokens", 0,
+                        ),
+                        "candidates_tokens": event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        "total_tokens": event.get(
+                            "total_tokens", 0,
+                        ),
+                        "context_limit": event.get(
+                            "context_limit", 0,
+                        ),
+                    },
                 }
             elif etype == "tool_proposal":
                 pending_tool = event

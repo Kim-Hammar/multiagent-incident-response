@@ -373,7 +373,7 @@ function renderSubAgentReport(toolName, result) {
 /**
  * Render sub-agent activity events inside a nested container.
  */
-function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt }) {
+function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, contextUsage }) {
   const [expanded, setExpanded] = useState({})
   const toggle = (i) => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))
 
@@ -392,6 +392,16 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt })
         {modelName && (
           <span style={{ fontSize: '10px', color: '#888', marginLeft: '8px' }}>
             <i className="fa fa-microchip" aria-hidden="true" /> {modelName}
+          </span>
+        )}
+        {contextUsage && contextUsage.context_limit > 0 && (
+          <span
+            className={`ia-context-indicator${contextUsage.total_tokens / contextUsage.context_limit > 0.8 ? ' high-usage' : ''}`}
+            style={{ marginLeft: '8px' }}
+          >
+            {contextUsage.total_tokens.toLocaleString()} /{' '}
+            {contextUsage.context_limit.toLocaleString()} tokens (
+            {Math.round((contextUsage.total_tokens / contextUsage.context_limit) * 100)}%)
           </span>
         )}
       </div>
@@ -504,6 +514,7 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt })
                       active={isLast}
                       modelName={ev._modelName}
                       onViewPrompt={onViewPrompt}
+                      contextUsage={ev._contextUsage}
                     />
                   )}
                 </>
@@ -540,6 +551,7 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt })
                       agentLabel={toolLabel(ev.tool_name)}
                       active={false}
                       onViewPrompt={onViewPrompt}
+                      contextUsage={ev._contextUsage}
                     />
                   )}
                 </>
@@ -759,6 +771,7 @@ function AgentActivityLog({
                           active={!entry.stopped}
                           modelName={entry._modelName}
                           onViewPrompt={setPromptModalText}
+                          contextUsage={entry.contextUsage}
                         />
                       ) : (
                         entry.output && (
@@ -859,6 +872,7 @@ function AgentActivityLog({
                             agentLabel={agentLabel}
                             modelName={entry._modelName}
                             onViewPrompt={setPromptModalText}
+                            contextUsage={entry.contextUsage}
                           />
                         </CollapsibleSection>
                       )}

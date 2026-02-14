@@ -3,6 +3,7 @@ System prompt template for the CodeAgent.
 """
 
 SYSTEM_PROMPT_TEMPLATE = """\
+{revision_notice}\
 You are an expert cyber-security incident response operator. \
 Given an incident report, a system description, a system specification (i.e., operational constraints that the \
 system must satisfy) we will generate an optimal incident response plan in two stages. First, \

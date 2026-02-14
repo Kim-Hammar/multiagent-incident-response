@@ -148,6 +148,27 @@ class CodeManagerAgent:
         """
         effective_model = model_name or MODEL_NAME
 
+        is_revision = bool(
+            validation_feedback and validation_feedback.strip()
+        )
+        if is_revision:
+            revision_notice = (
+                "**IMPORTANT — REVISION ITERATION.** "
+                "This is a revision round of the full "
+                "pipeline. The previous iteration's response "
+                "plan was tested on the digital twin and the "
+                "Validation Agent found issues that need to "
+                "be addressed. Your primary goal is to "
+                "carefully address the validation findings "
+                "— do NOT start from scratch. Focus on "
+                "improving the MDP code model to fix the "
+                "specific issues raised. The detailed "
+                "validation feedback is provided in the "
+                "\"Validation Feedback\" section below.\n\n"
+            )
+        else:
+            revision_notice = ""
+
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
             incident_report=incident_report or "N/A",
@@ -155,6 +176,7 @@ class CodeManagerAgent:
             operator_feedback=operator_feedback or "N/A",
             max_iterations=max_iterations,
             validation_feedback=validation_feedback or "N/A",
+            revision_notice=revision_notice,
         )
         yield {
             "type": "system_prompt",

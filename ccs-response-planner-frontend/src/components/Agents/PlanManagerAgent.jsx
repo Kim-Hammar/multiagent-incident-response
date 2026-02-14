@@ -23,6 +23,13 @@ const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issue
  * Helper to push a nested_event into the correct level of the subEvents tree.
  */
 function handleNestedSubEvent(subEvents, innerEvent) {
+  if (innerEvent.type === 'context_usage') {
+    const lastToolCall = [...subEvents]
+      .reverse()
+      .find((e) => e.type === 'tool_call' && !e._completed)
+    if (lastToolCall) lastToolCall._contextUsage = innerEvent
+    return
+  }
   if (innerEvent.type === 'thinking_delta') {
     const last = subEvents[subEvents.length - 1]
     if (last && last.type === 'reasoning') {
@@ -465,6 +472,11 @@ function PlanManagerAgent() {
             setConversationHistory([...base])
           },
           onSubEvent: (event) => {
+            if (event.type === 'context_usage') {
+              streamEntry.contextUsage = event
+              setConversationHistory([...base])
+              return
+            }
             if (event.type === 'prompt') {
               streamEntry.prompt = event.text
               setConversationHistory([...base])
@@ -520,7 +532,8 @@ function PlanManagerAgent() {
           tool_name: proposal.tool_name,
           result,
           subEvents: streamEntry.subEvents,
-          prompt: streamEntry.prompt
+          prompt: streamEntry.prompt,
+          contextUsage: streamEntry.contextUsage
         }
         const updated = [...conversationHistory, approvalEntry, resultEntry]
         setConversationHistory(updated)

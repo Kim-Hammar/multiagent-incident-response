@@ -3,6 +3,7 @@ System prompt template for the CodeManagerAgent.
 """
 
 SYSTEM_PROMPT_TEMPLATE = """\
+{revision_notice}\
 You are an orchestrator agent that is part of an autonomous \
 cyber-security incident response system. The overall system produces \
 incident response plans — concrete sequences of response actions \

@@ -126,6 +126,7 @@ class CodeAgent:
         images: list[str] | None = None,
         model_name: str | None = None,
         dt_config: dict[str, Any] | None = None,
+        is_revision: bool = False,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -145,9 +146,28 @@ class CodeAgent:
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
         :param dt_config: digital twin configuration dict
+        :param is_revision: whether this is a revision iteration
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
+
+        if is_revision:
+            revision_notice = (
+                "**IMPORTANT — REVISION ITERATION.** "
+                "This is a revision round. You have been "
+                "invoked with the previous iteration's "
+                "generated code and the reviewer's feedback. "
+                "Your primary goal is to carefully address "
+                "the reviewer's findings and improve the "
+                "existing code — do NOT start from scratch. "
+                "Focus on the specific issues raised in the "
+                "feedback while preserving what already works "
+                "well. The detailed revision context (previous "
+                "code and reviewer feedback) is provided in "
+                "the Feedback section below.\n\n"
+            )
+        else:
+            revision_notice = ""
 
         cfg = dt_config or {}
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
@@ -156,6 +176,7 @@ class CodeAgent:
             specification=specification or "N/A",
             operator_feedback=operator_feedback or "N/A",
             dt_container_list=format_container_list(cfg),
+            revision_notice=revision_notice,
         )
         yield {
             "type": "system_prompt",
