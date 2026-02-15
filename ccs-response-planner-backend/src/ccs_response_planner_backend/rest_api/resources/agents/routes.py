@@ -117,6 +117,16 @@ from ccs_response_planner_backend.agents.report_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as REPORT_MANAGER_STREAMING_DISPATCH,
     TOOL_DISPATCH as REPORT_MANAGER_TOOL_DISPATCH,
 )
+from ccs_response_planner_backend.agents.orchestrator_agent.agent import (
+    OrchestratorAgent,
+)
+from ccs_response_planner_backend.agents.orchestrator_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as ORCHESTRATOR_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
+    STREAMING_TOOL_DISPATCH as ORCHESTRATOR_STREAMING_DISPATCH,
+    TOOL_DISPATCH as ORCHESTRATOR_TOOL_DISPATCH,
+)
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
     format_container_table,
@@ -2224,6 +2234,249 @@ def agents_plan_manager_tool() -> (
         }), 400
     try:
         agent = PlanManagerAgent()
+        result = agent.execute_tool(
+            tool_name, tool_args,
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route(
+    "/orchestrator/step", methods=["POST"],
+)
+@token_required
+def agents_orchestrator_step() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Advance the OrchestratorAgent loop by one step (NDJSON).
+
+    :return: an NDJSON streaming Response, or (JSON, status)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    security_alerts = body.get("security_alerts", "")
+    operator_feedback = body.get(
+        "operator_feedback", "",
+    )
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    max_iterations = body.get("max_iterations", 2)
+    if not isinstance(images, list):
+        images = []
+    if not system_description and not security_alerts:
+        return jsonify({
+            "error": (
+                "system_description or "
+                "security_alerts is required"
+            ),
+        }), 400
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: generator of newline-delimited JSON strings
+        """
+        try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
+            agent = OrchestratorAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                security_alerts=security_alerts,
+                operator_feedback=operator_feedback,
+                conversation_history=(
+                    conversation_history
+                ),
+                images=images,
+                model_name=model_name,
+                max_iterations=max_iterations,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error",
+                "message": str(e),
+            }) + "\n"
+
+    return Response(
+        generate(), mimetype="application/x-ndjson",
+    )
+
+
+@agents_bp.route(
+    "/orchestrator/prompt", methods=["POST"],
+)
+@token_required
+def agents_orchestrator_prompt() -> (
+    tuple[Response, int]
+):
+    """
+    Render the OrchestratorAgent system prompt.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    max_iterations = body.get("max_iterations", 2)
+    prompt = ORCHESTRATOR_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        security_alerts=body.get(
+            "security_alerts", "",
+        ) or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        max_iterations=max_iterations,
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route(
+    "/orchestrator/tool", methods=["POST"],
+)
+@token_required
+def agents_orchestrator_tool() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Execute an approved tool call for OrchestratorAgent.
+
+    Sub-agent tools (run_report_manager,
+    run_plan_manager) are streaming and require
+    system context from the request body.
+
+    :return: a streaming Response or (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+
+    if tool_name in ORCHESTRATOR_STREAMING_DISPATCH:
+        context: dict[str, Any] = {
+            "system_description": body.get(
+                "system_description", "",
+            ),
+            "security_alerts": body.get(
+                "security_alerts", "",
+            ),
+            "operator_feedback": body.get(
+                "operator_feedback", "",
+            ),
+            "images": body.get("images"),
+            "username": g.username,
+            "report_manager_model": body.get(
+                "report_manager_model",
+            ),
+            "report_agent_model": body.get(
+                "report_agent_model",
+            ),
+            "reviewer_agent_model": body.get(
+                "reviewer_agent_model",
+            ),
+            "plan_manager_model": body.get(
+                "plan_manager_model",
+            ),
+            "code_manager_model": body.get(
+                "code_manager_model",
+            ),
+            "code_agent_model": body.get(
+                "code_agent_model",
+            ),
+            "code_reviewer_agent_model": body.get(
+                "code_reviewer_agent_model",
+            ),
+            "rl_agent_model": body.get(
+                "rl_agent_model",
+            ),
+            "validation_agent_model": body.get(
+                "validation_agent_model",
+            ),
+            "report_manager_iterations": body.get(
+                "report_manager_iterations", 3,
+            ),
+            "plan_manager_iterations": body.get(
+                "plan_manager_iterations", 2,
+            ),
+            "code_manager_iterations": body.get(
+                "code_manager_iterations", 3,
+            ),
+            "rl_time_limit_minutes": body.get(
+                "rl_time_limit_minutes", 5,
+            ),
+            "dt_config": (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            ),
+        }
+        if tool_name == "run_plan_manager":
+            conv_history = body.get(
+                "conversation_history", [],
+            )
+            assessment: dict[str, Any] = {}
+            for entry in reversed(conv_history):
+                if (
+                    entry.get("type")
+                    == "tool_result"
+                    and entry.get("tool_name")
+                    == "run_report_manager"
+                ):
+                    result = entry.get(
+                        "result", {},
+                    )
+                    assessment = result.get(
+                        "assessment", {},
+                    )
+                    break
+            context["assessment"] = assessment
+
+        def generate() -> (
+            Generator[str, None, None]
+        ):
+            """
+            Yield NDJSON lines from streaming tool.
+
+            :return: generator of newline-delimited JSON
+            """
+            try:
+                agent = OrchestratorAgent()
+                for event in (
+                    agent.execute_tool_stream(
+                        tool_name, tool_args,
+                        context=context,
+                    )
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error",
+                    "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(),
+            mimetype="application/x-ndjson",
+        )
+
+    if tool_name not in ORCHESTRATOR_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = OrchestratorAgent()
         result = agent.execute_tool(
             tool_name, tool_args,
         )

@@ -20,6 +20,7 @@ from ccs_response_planner_backend.agents.schemas import (
     DpPlannerReport,
     ReportReviewReport,
     ReportManagerReport,
+    OrchestratorAgentReport,
 )
 
 # ── Tool declaration imports ───────────────────────────────────
@@ -56,6 +57,9 @@ from ccs_response_planner_backend.agents.penetration_test_agent.tool_declaration
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (  # noqa: E501
     PRODUCE_REPORT_MANAGER_REPORT_DECL,
+)
+from ccs_response_planner_backend.agents.orchestrator_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL,
 )
 
 
@@ -123,6 +127,7 @@ AGENT_DECL_MODEL = [
     ("penetration_test_agent", PENTEST_REPORT_DECL, PentestReport),
     ("report_reviewer_agent", PRODUCE_REPORT_REVIEW_DECL, ReportReviewReport),
     ("report_manager_agent", PRODUCE_REPORT_MANAGER_REPORT_DECL, ReportManagerReport),
+    ("orchestrator_agent", PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL, OrchestratorAgentReport),
 ]
 
 
@@ -225,6 +230,13 @@ FALLBACK_DICTS = {
         "final_verdict": "unknown",
         "report_summary": "",
         "review_summary": "",
+    },
+    "orchestrator_agent": {
+        "executive_summary": "fallback",
+        "iterations": 0,
+        "final_verdict": "unknown",
+        "assessment_summary": "",
+        "response_plan_summary": "",
     },
 }
 
@@ -487,15 +499,16 @@ def test_missing_required_field_raises():
         })
 
 
-def test_registry_contains_all_eleven_agents():
+def test_registry_contains_all_twelve_agents():
     """
-    REPORT_MODELS registry has exactly 11 entries.
+    REPORT_MODELS registry has exactly 12 entries.
     """
-    assert len(REPORT_MODELS) == 11
+    assert len(REPORT_MODELS) == 12
     expected = {
         "code_agent", "code_reviewer_agent", "code_manager_agent",
         "rl_agent", "validation_agent", "report_agent",
         "plan_manager_agent", "penetration_test_agent", "dp_agent",
         "report_reviewer_agent", "report_manager_agent",
+        "orchestrator_agent",
     }
     assert set(REPORT_MODELS.keys()) == expected

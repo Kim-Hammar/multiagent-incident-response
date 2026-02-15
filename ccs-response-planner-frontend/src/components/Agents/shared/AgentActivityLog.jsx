@@ -5,7 +5,13 @@ import PromptModal from './PromptModal.jsx'
 import RewardChart from '../RewardChart.jsx'
 import RlTrainResult from '../RlTrainResult.jsx'
 import { formatToolArgs, toolLabel, toolIcon } from './toolUtils.js'
-import { CodeReportBody, ReviewReportBody, VERDICT_STYLES } from './ReportBodies.jsx'
+import {
+  CodeReportBody,
+  ReviewReportBody,
+  AssessmentBody,
+  IncidentReviewBody,
+  VERDICT_STYLES
+} from './ReportBodies.jsx'
 
 const RL_STREAMING_TYPES = new Set(['progress', 'eval_progress', 'started', 'result', 'timeout'])
 
@@ -19,7 +25,10 @@ const ORCHESTRATOR_TOOLS = new Set([
   'produce_plan_manager_report',
   'run_report_agent',
   'run_report_reviewer_agent',
-  'produce_report_manager_report'
+  'produce_report_manager_report',
+  'run_report_manager',
+  'run_plan_manager',
+  'produce_orchestrator_agent_report'
 ])
 
 /**
@@ -303,6 +312,72 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
+  if (toolName === 'run_report_manager') {
+    return (
+      <div className="ia-orchestrator-args">
+        <div className="ia-orchestrator-note">
+          <i className="fa fa-info-circle" aria-hidden="true" />
+          <span>Assessment generation — no prior feedback</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (toolName === 'run_plan_manager') {
+    return (
+      <div className="ia-orchestrator-args">
+        <div className="ia-orchestrator-note">
+          <i className="fa fa-info-circle" aria-hidden="true" />
+          <span>Response plan generation</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (toolName === 'produce_orchestrator_agent_report') {
+    return (
+      <div className="ia-orchestrator-args">
+        {args.final_verdict && (
+          <div className="ia-orchestrator-verdict-row">
+            <span className="ia-proposal-arg-label">Verdict:</span>
+            <span
+              className={`badge badge-${args.final_verdict === 'pass' ? 'success' : args.final_verdict === 'major_issues' ? 'danger' : 'warning'}`}
+            >
+              {args.final_verdict}
+            </span>
+          </div>
+        )}
+        {args.iterations != null && (
+          <div className="ia-orchestrator-verdict-row">
+            <span className="ia-proposal-arg-label">Iterations:</span>
+            <span className="ia-proposal-arg-value">{args.iterations}</span>
+          </div>
+        )}
+        {args.executive_summary && (
+          <CollapsibleSection label="Executive Summary" icon="fa-file-text" defaultOpen>
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.executive_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.assessment_summary && (
+          <CollapsibleSection label="Assessment Summary" icon="fa-clipboard">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.assessment_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.response_plan_summary && (
+          <CollapsibleSection label="Response Plan Summary" icon="fa-shield">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.response_plan_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+      </div>
+    )
+  }
+
   return null
 }
 
@@ -457,6 +532,85 @@ function renderSubAgentReport(toolName, result) {
             >
               {r.overall_verdict.replace(/_/g, ' ')}
             </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+  if (toolName === 'run_report_agent' && result.assessment) {
+    return <AssessmentBody report={result.assessment} />
+  }
+  if (toolName === 'run_report_reviewer_agent' && result.report_review) {
+    return <IncidentReviewBody report={result.report_review} />
+  }
+  if (toolName === 'run_report_manager' && result.report_manager_report) {
+    const r = result.report_manager_report
+    return (
+      <div style={{ marginTop: '10px' }}>
+        {r.executive_summary && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Report Manager Summary</div>
+            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+          </div>
+        )}
+        {r.final_verdict && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Verdict</div>
+            <span
+              className={`badge badge-${VERDICT_STYLES[r.final_verdict] || 'secondary'}`}
+              style={{ fontSize: '12px', padding: '5px 8px' }}
+            >
+              {r.final_verdict.replace(/_/g, ' ')}
+            </span>
+          </div>
+        )}
+        {result.assessment && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Final Assessment</div>
+            <AssessmentBody report={result.assessment} />
+          </div>
+        )}
+      </div>
+    )
+  }
+  if (toolName === 'run_plan_manager' && result.plan_manager_report) {
+    const r = result.plan_manager_report
+    return (
+      <div style={{ marginTop: '10px' }}>
+        {r.executive_summary && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Plan Manager Summary</div>
+            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+          </div>
+        )}
+        {r.final_verdict && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Verdict</div>
+            <span
+              className={`badge badge-${VERDICT_STYLES[r.final_verdict] || 'secondary'}`}
+              style={{ fontSize: '12px', padding: '5px 8px' }}
+            >
+              {r.final_verdict.replace(/_/g, ' ')}
+            </span>
+          </div>
+        )}
+        {result.response_plan && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Response Plan</div>
+            <pre
+              style={{
+                background: '#f5f5f5',
+                padding: '12px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                maxHeight: '300px',
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
+              {result.response_plan}
+            </pre>
           </div>
         )}
       </div>

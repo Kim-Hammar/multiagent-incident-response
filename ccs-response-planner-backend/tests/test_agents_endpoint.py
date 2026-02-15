@@ -1717,3 +1717,201 @@ def test_report_review_prompt_renders_prompt(
     assert "My system" in data["prompt"]
     assert "My alerts" in data["prompt"]
     assert "My feedback" in data["prompt"]
+
+
+# ═══════════════════════════════════════════════════════════════
+# Orchestrator Agent endpoints
+# ═══════════════════════════════════════════════════════════════
+
+
+def test_orchestrator_step_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/orchestrator/step without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/orchestrator/step",
+        data=json.dumps({
+            "system_description": "test",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_orchestrator_step_returns_400_missing_fields(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/orchestrator/step with no fields -> 400.
+    """
+    resp = client.post(
+        "/api/agents/orchestrator/step",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert "error" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.OrchestratorAgent",
+)
+def test_orchestrator_step_streams_report(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/orchestrator/step streams report.
+    """
+    mock_report = {
+        "executive_summary": "Completed in 1 iteration",
+        "iterations": 1,
+        "final_verdict": "pass",
+        "assessment_summary": "Assessment OK",
+        "response_plan_summary": "Plan OK",
+    }
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {
+            "type": "orchestrator_agent_report",
+            "orchestrator_agent_report": mock_report,
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/orchestrator/step",
+        data=json.dumps({
+            "system_description": "test",
+            "security_alerts": "test",
+            "conversation_history": [
+                {"type": "tool_result"},
+            ],
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "orchestrator_agent_report"
+    assert events[-1]["orchestrator_agent_report"][
+        "final_verdict"
+    ] == "pass"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.OrchestratorAgent",
+)
+def test_orchestrator_tool_streams_run_report_manager(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/orchestrator/tool with run_report_manager
+    streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "output_chunk",
+            "text": "[ReportManager] Step 1...\n",
+        },
+        {
+            "type": "done",
+            "result": {
+                "report_manager_report": {
+                    "executive_summary": "Done",
+                },
+                "assessment": {
+                    "incident_summary": "Test",
+                },
+            },
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/orchestrator/tool",
+        data=json.dumps({
+            "tool_name": "run_report_manager",
+            "tool_args": {},
+            "system_description": "test",
+            "security_alerts": "test",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert any(
+        e["type"] == "output_chunk" for e in events
+    )
+    assert events[-1]["type"] == "done"
+
+
+def test_orchestrator_tool_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/orchestrator/tool without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/orchestrator/tool",
+        data=json.dumps({
+            "tool_name": "run_report_manager",
+            "tool_args": {},
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_orchestrator_prompt_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/orchestrator/prompt without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/orchestrator/prompt",
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_orchestrator_prompt_renders_prompt(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/orchestrator/prompt renders the prompt.
+    """
+    resp = client.post(
+        "/api/agents/orchestrator/prompt",
+        data=json.dumps({
+            "system_description": "My system",
+            "security_alerts": "My alerts",
+            "operator_feedback": "My feedback",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "prompt" in data
+    assert "My system" in data["prompt"]
+    assert "My alerts" in data["prompt"]
+    assert "My feedback" in data["prompt"]

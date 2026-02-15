@@ -323,6 +323,21 @@ class PlanManagerReport(BaseModel):
     validation_summary: str
 
 
+# ── Orchestrator Agent ────────────────────────────────────────
+
+
+class OrchestratorAgentReport(BaseModel):
+    """
+    Report produced by the orchestrator_agent.
+    """
+
+    executive_summary: str
+    iterations: int
+    final_verdict: str
+    assessment_summary: str
+    response_plan_summary: str
+
+
 # ── Penetration Test Agent ─────────────────────────────────────
 
 
@@ -415,4 +430,5 @@ REPORT_MODELS: dict[str, type[BaseModel]] = {
     "dp_agent": DpPlannerReport,
     "report_reviewer_agent": ReportReviewReport,
     "report_manager_agent": ReportManagerReport,
+    "orchestrator_agent": OrchestratorAgentReport,
 }

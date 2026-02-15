@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_REPORT_MANAGER_STEP_URL,
-  API_AGENTS_REPORT_MANAGER_TOOL_URL,
-  API_AGENTS_REPORT_MANAGER_PROMPT_URL,
+  API_AGENTS_ORCHESTRATOR_STEP_URL,
+  API_AGENTS_ORCHESTRATOR_TOOL_URL,
+  API_AGENTS_ORCHESTRATOR_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
@@ -16,12 +16,68 @@ import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
-import { AssessmentBody, IncidentReviewBody as ReviewBody } from './shared/ReportBodies.jsx'
 
-/* ── Final report card ────────────────────────────────────────── */
+const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
 
-function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
-  const report = entry.report_manager_report || {}
+/**
+ * Helper to push a nested_event into the correct level of the subEvents tree.
+ */
+function handleNestedSubEvent(subEvents, innerEvent) {
+  if (innerEvent.type === 'context_usage') {
+    const lastToolCall = [...subEvents]
+      .reverse()
+      .find((e) => e.type === 'tool_call' && !e._completed)
+    if (lastToolCall) lastToolCall._contextUsage = innerEvent
+    return
+  }
+  if (innerEvent.type === 'thinking_delta') {
+    const last = subEvents[subEvents.length - 1]
+    if (last && last.type === 'reasoning') {
+      last.text += innerEvent.text
+    } else {
+      subEvents.push({ type: 'reasoning', text: innerEvent.text })
+    }
+  } else if (innerEvent.type === 'text_delta') {
+    const last = subEvents[subEvents.length - 1]
+    if (last && last.type === 'text') {
+      last.text += innerEvent.text
+    } else {
+      subEvents.push({ type: 'text', text: innerEvent.text })
+    }
+  } else if (innerEvent.type === 'nested_event') {
+    const lastToolCall = [...subEvents]
+      .reverse()
+      .find((e) => e.type === 'tool_call' && !e._completed)
+    if (lastToolCall) {
+      if (innerEvent.event.type === 'prompt') {
+        lastToolCall._prompt = innerEvent.event.text
+      } else if (innerEvent.event.type === 'context_usage') {
+        lastToolCall._contextUsage = innerEvent.event
+      } else {
+        if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+        handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
+      }
+    }
+  } else if (innerEvent.type === 'tool_result') {
+    const lastCall = [...subEvents].reverse().find((e) => e.type === 'tool_call')
+    if (lastCall) lastCall._completed = true
+    const streamSubs = innerEvent.subEvents || []
+    subEvents.push({
+      type: 'tool_result',
+      tool_name: innerEvent.tool_name,
+      result: innerEvent.result,
+      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || []
+    })
+  } else {
+    subEvents.push(innerEvent)
+  }
+}
+
+/**
+ * Render an orchestrator agent report entry.
+ */
+function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) {
+  const report = entry.orchestrator_agent_report || {}
   const verdictClass =
     report.final_verdict === 'pass'
       ? 'badge-success'
@@ -29,15 +85,12 @@ function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
         ? 'badge-warning'
         : 'badge-danger'
 
-  const assessment = entry.final_assessment || report.final_assessment || null
-  const reviewReport = entry.final_review_report || report.final_review_report || null
-
   return (
     <div className="card ia-entry ia-result-entry">
       <div className="card-body">
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
           <i className="fa fa-flag-checkered" aria-hidden="true" />
-          <span className="ia-result-label">Report Manager Report</span>
+          <span className="ia-result-label">Orchestrator Agent Report</span>
           {report.final_verdict && (
             <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
           )}
@@ -54,28 +107,16 @@ function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
                 <p>{report.executive_summary}</p>
               </div>
             )}
-            {report.report_summary && (
+            {report.assessment_summary && (
               <div className="mb-3">
-                <strong>Report Summary:</strong>
-                <p>{report.report_summary}</p>
+                <strong>Assessment Summary:</strong>
+                <p>{report.assessment_summary}</p>
               </div>
             )}
-            {report.review_summary && (
+            {report.response_plan_summary && (
               <div className="mb-3">
-                <strong>Review Summary:</strong>
-                <p>{report.review_summary}</p>
-              </div>
-            )}
-            {assessment && (
-              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-                <strong>Final Assessment</strong>
-                <AssessmentBody report={assessment} />
-              </div>
-            )}
-            {reviewReport && (
-              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-                <strong>Final Review Report</strong>
-                <ReviewBody report={reviewReport} />
+                <strong>Response Plan Summary:</strong>
+                <p>{report.response_plan_summary}</p>
               </div>
             )}
           </div>
@@ -85,14 +126,12 @@ function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
   )
 }
 
-/* ── Main component ───────────────────────────────────────────── */
-
 /**
- * ReportManagerAgent component — orchestrates ReportAgent + ReportReviewerAgent
- * in an automated generate-review-revise loop to produce high-quality
- * incident assessment reports.
+ * OrchestratorAgent component — top-level orchestrator that coordinates the full
+ * end-to-end incident response pipeline: ReportManager (assessment) ->
+ * PlanManager (MDP + RL + validation) -> consolidated report.
  */
-function ReportManagerAgent() {
+function OrchestratorAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
@@ -100,7 +139,6 @@ function ReportManagerAgent() {
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
-  const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
@@ -115,10 +153,21 @@ function ReportManagerAgent() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(3)
-  const [managerModel, setManagerModel] = useState('')
+  const [maxIterations, setMaxIterations] = useState(2)
+  const [orchestratorModel, setOrchestratorModel] = useState('')
+  const [reportManagerModel, setReportManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
-  const [reviewerAgentModel, setReviewerAgentModel] = useState('')
+  const [reportReviewerModel, setReportReviewerModel] = useState('')
+  const [planManagerModel, setPlanManagerModel] = useState('')
+  const [codeManagerModel, setCodeManagerModel] = useState('')
+  const [codeAgentModel, setCodeAgentModel] = useState('')
+  const [codeReviewerModel, setCodeReviewerModel] = useState('')
+  const [rlAgentModel, setRlAgentModel] = useState('')
+  const [validationAgentModel, setValidationAgentModel] = useState('')
+  const [reportManagerIterations, setReportManagerIterations] = useState(3)
+  const [planManagerIterations, setPlanManagerIterations] = useState(2)
+  const [codeManagerIterations, setCodeManagerIterations] = useState(3)
+  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(5)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -222,26 +271,6 @@ function ReportManagerAgent() {
     })
   }
 
-  const extractFinalReports = (history) => {
-    let assessment = null
-    let reviewReport = null
-    for (let i = history.length - 1; i >= 0; i--) {
-      const h = history[i]
-      if (!assessment && h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
-        assessment = h.result?.assessment || null
-      }
-      if (
-        !reviewReport &&
-        h.type === 'tool_result' &&
-        h.tool_name === 'run_report_reviewer_agent'
-      ) {
-        reviewReport = h.result?.report_review || null
-      }
-      if (assessment && reviewReport) break
-    }
-    return { assessment, reviewReport }
-  }
-
   const stripImagesFromHistory = (history) =>
     history.map((entry) => {
       if (entry.type === 'tool_result' && entry.result?.image) {
@@ -261,7 +290,7 @@ function ReportManagerAgent() {
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
     try {
-      const res = await fetch(API_AGENTS_REPORT_MANAGER_STEP_URL, {
+      const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -273,8 +302,8 @@ function ReportManagerAgent() {
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
           conversation_history: stripImagesFromHistory(history),
-          images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
-          model_name: managerModel || undefined,
+          images: [...systemDescriptionImages, ...securityAlertsImages],
+          model_name: orchestratorModel || undefined,
           max_iterations: maxIterations
         })
       })
@@ -325,11 +354,11 @@ function ReportManagerAgent() {
               _tool_use_id: event._tool_use_id,
               _vendor: event._vendor
             }
-          } else if (event.type === 'report_manager_report') {
+          } else if (event.type === 'orchestrator_agent_report') {
             finalEntry = {
               role: 'model',
-              type: 'report_manager_report',
-              report_manager_report: event.report_manager_report,
+              type: 'orchestrator_agent_report',
+              orchestrator_agent_report: event.orchestrator_agent_report,
               thinking_trace: event.thinking_trace || ''
             }
           } else if (event.type === 'dt_progress') {
@@ -358,15 +387,8 @@ function ReportManagerAgent() {
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
-        if (finalEntry.type === 'report_manager_report') {
-          const { assessment, reviewReport } = extractFinalReports(history)
-          finalEntry.final_assessment = assessment
-          finalEntry.final_review_report = reviewReport
-          saveReport({
-            ...finalEntry.report_manager_report,
-            final_assessment: assessment,
-            final_review_report: reviewReport
-          })
+        if (finalEntry.type === 'orchestrator_agent_report') {
+          saveReport(finalEntry.orchestrator_agent_report)
         }
       } else if (accumulated) {
         let report
@@ -377,21 +399,16 @@ function ReportManagerAgent() {
             executive_summary: accumulated,
             iterations: 0,
             final_verdict: 'unknown',
-            report_summary: '',
-            review_summary: ''
+            assessment_summary: '',
+            response_plan_summary: ''
           }
         }
-        const { assessment, reviewReport } = extractFinalReports(history)
-        report.final_assessment = assessment
-        report.final_review_report = reviewReport
         setConversationHistory([
           ...history,
           {
             role: 'model',
-            type: 'report_manager_report',
-            report_manager_report: report,
-            final_assessment: assessment,
-            final_review_report: reviewReport
+            type: 'orchestrator_agent_report',
+            orchestrator_agent_report: report
           }
         ])
         saveReport(report)
@@ -434,14 +451,11 @@ function ReportManagerAgent() {
     abortControllerRef.current = controller
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
-      const subModel =
-        proposal.tool_name === 'run_report_reviewer_agent' ? reviewerAgentModel : reportAgentModel
       const streamEntry = {
         type: 'tool_streaming',
         tool_name: proposal.tool_name,
         output: '',
         subEvents: [],
-        _modelName: subModel || undefined,
         _startTime: Date.now()
       }
       const base = [...conversationHistory, approvalEntry, streamEntry]
@@ -451,13 +465,24 @@ function ReportManagerAgent() {
           system_description: systemDescription,
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
-          images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
+          images: [...systemDescriptionImages, ...securityAlertsImages],
+          conversation_history: conversationHistory,
+          report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
-          reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: conversationHistory
+          report_reviewer_model: reportReviewerModel || undefined,
+          plan_manager_model: planManagerModel || undefined,
+          code_manager_model: codeManagerModel || undefined,
+          code_agent_model: codeAgentModel || undefined,
+          code_reviewer_model: codeReviewerModel || undefined,
+          rl_agent_model: rlAgentModel || undefined,
+          validation_agent_model: validationAgentModel || undefined,
+          report_manager_iterations: reportManagerIterations,
+          plan_manager_iterations: planManagerIterations,
+          code_manager_iterations: codeManagerIterations,
+          rl_time_limit_minutes: rlTimeLimitMinutes
         }
         const { result } = await executeStreamingTool({
-          url: API_AGENTS_REPORT_MANAGER_TOOL_URL,
+          url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
           toolName: proposal.tool_name,
           toolArgs: proposal.tool_args,
           incidentId: selectedIncidentId,
@@ -492,6 +517,31 @@ function ReportManagerAgent() {
               } else {
                 streamEntry.subEvents.push({ type: 'text', text: event.text })
               }
+            } else if (event.type === 'nested_event') {
+              const lastToolCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call' && !e._completed)
+              if (lastToolCall) {
+                if (event.event.type === 'prompt') {
+                  lastToolCall._prompt = event.event.text
+                } else if (event.event.type === 'context_usage') {
+                  lastToolCall._contextUsage = event.event
+                } else {
+                  if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                  handleNestedSubEvent(lastToolCall.subEvents, event.event)
+                }
+              }
+            } else if (event.type === 'tool_result') {
+              const lastCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call')
+              if (lastCall) lastCall._completed = true
+              streamEntry.subEvents.push({
+                type: 'tool_result',
+                tool_name: event.tool_name,
+                result: event.result,
+                subEvents: event.subEvents || []
+              })
             } else {
               streamEntry.subEvents.push(event)
             }
@@ -506,17 +556,7 @@ function ReportManagerAgent() {
           result,
           subEvents: streamEntry.subEvents,
           prompt: streamEntry.prompt,
-          _modelName: streamEntry._modelName,
           contextUsage: streamEntry.contextUsage
-        }
-        if (proposal.tool_name === 'run_report_reviewer_agent') {
-          for (let i = conversationHistory.length - 1; i >= 0; i--) {
-            const h = conversationHistory[i]
-            if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
-              resultEntry._attackPathImage = h.result?.assessment?.attack_path_image
-              break
-            }
-          }
         }
         const updated = [...conversationHistory, approvalEntry, resultEntry]
         setConversationHistory(updated)
@@ -535,7 +575,7 @@ function ReportManagerAgent() {
     }
 
     try {
-      const res = await fetch(API_AGENTS_REPORT_MANAGER_TOOL_URL, {
+      const res = await fetch(API_AGENTS_ORCHESTRATOR_TOOL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -609,7 +649,6 @@ function ReportManagerAgent() {
       setOperatorFeedback(data.operator_feedback || '')
       setSystemDescriptionImages(data.system_description_images || [])
       setSecurityAlertsImages([])
-      setOperatorFeedbackImages([])
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to load example: ${err.message}` })
     }
@@ -621,7 +660,6 @@ function ReportManagerAgent() {
     setOperatorFeedback('')
     setSystemDescriptionImages([])
     setSecurityAlertsImages([])
-    setOperatorFeedbackImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -629,7 +667,7 @@ function ReportManagerAgent() {
   }
 
   const getPromptText = async () => {
-    const res = await fetch(API_AGENTS_REPORT_MANAGER_PROMPT_URL, {
+    const res = await fetch(API_AGENTS_ORCHESTRATOR_PROMPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -667,7 +705,7 @@ function ReportManagerAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=report_manager`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=orchestrator`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -687,13 +725,13 @@ function ReportManagerAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'report_manager',
+          agent_type: 'orchestrator',
           report,
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(
             stripImagesFromHistory(conversationHistory)
           ),
-          model_name: managerModel || undefined
+          model_name: orchestratorModel || undefined
         })
       })
       await fetchHistory()
@@ -725,7 +763,7 @@ function ReportManagerAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <ReportManagerReportView
+    <OrchestratorAgentReportView
       key={index}
       entry={entry}
       index={index}
@@ -735,28 +773,71 @@ function ReportManagerAgent() {
   )
 
   const renderToolResult = (entry) => {
-    if (entry.tool_name === 'run_report_agent' && entry.result?.assessment) {
-      return <AssessmentBody report={entry.result.assessment} />
-    }
-    if (entry.tool_name === 'run_report_reviewer_agent' && entry.result?.report_review) {
+    if (entry.tool_name === 'run_report_manager' && entry.result) {
+      const r = entry.result
       return (
-        <>
-          {entry._attackPathImage && (
-            <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
-              <div className="ia-assessment-label">Attack Path Image (attached to reviewer)</div>
-              <img
-                src={entry._attackPathImage}
-                alt="Attack path attached to reviewer"
-                style={{
-                  maxWidth: '100%',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '4px'
-                }}
-              />
+        <div style={{ marginTop: '10px' }}>
+          {r.report_manager_report?.executive_summary && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Report Manager Summary</div>
+              <p className="ia-assessment-body mb-0">{r.report_manager_report.executive_summary}</p>
             </div>
           )}
-          <ReviewBody report={entry.result.report_review} />
-        </>
+          {r.report_manager_report?.final_verdict && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Verdict</div>
+              <span
+                className={`badge badge-${VERDICT_STYLES[r.report_manager_report.final_verdict] || 'secondary'}`}
+                style={{ fontSize: '12px', padding: '5px 8px' }}
+              >
+                {r.report_manager_report.final_verdict.replace(/_/g, ' ')}
+              </span>
+            </div>
+          )}
+        </div>
+      )
+    }
+    if (entry.tool_name === 'run_plan_manager' && entry.result) {
+      const r = entry.result
+      return (
+        <div style={{ marginTop: '10px' }}>
+          {r.plan_manager_report?.executive_summary && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Plan Manager Summary</div>
+              <p className="ia-assessment-body mb-0">{r.plan_manager_report.executive_summary}</p>
+            </div>
+          )}
+          {r.plan_manager_report?.final_verdict && (
+            <div className="ia-assessment-section">
+              <div className="ia-assessment-label">Verdict</div>
+              <span
+                className={`badge badge-${VERDICT_STYLES[r.plan_manager_report.final_verdict] || 'secondary'}`}
+                style={{ fontSize: '12px', padding: '5px 8px' }}
+              >
+                {r.plan_manager_report.final_verdict.replace(/_/g, ' ')}
+              </span>
+            </div>
+          )}
+          {r.response_plan && (
+            <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
+              <div className="ia-assessment-label">Response Plan</div>
+              <pre
+                style={{
+                  background: '#f5f5f5',
+                  padding: '12px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  maxHeight: '300px',
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}
+              >
+                {r.response_plan}
+              </pre>
+            </div>
+          )}
+        </div>
       )
     }
     return null
@@ -790,7 +871,7 @@ function ReportManagerAgent() {
             onClick={() => setActiveTab('planning')}
           >
             <span className={`status-dot ${isAgentBusy ? 'active' : 'inactive'}`} />
-            Report generation process
+            Orchestration process
           </button>
         </li>
         <li className="nav-item">
@@ -808,18 +889,21 @@ function ReportManagerAgent() {
         <div style={{ marginTop: '16px' }}>
           <div className="ia-description">
             <p>
-              This agent coordinates the ReportAgent and ReportReviewerAgent in an automated
-              generate-review-revise loop to produce high-quality incident assessment reports.
+              This is the top-level orchestrator agent that coordinates the full end-to-end incident
+              response pipeline. It first runs the ReportManager to generate and review an incident
+              assessment, then feeds that assessment to the PlanManager to generate MDP code, train
+              an RL policy, and validate it on the digital twin. Finally, it produces a consolidated
+              incident response report.
             </p>
           </div>
 
           <div className="ia-section">
-            <label htmlFor="rm-system-desc">System description</label>
+            <label htmlFor="oa-system-desc">System description</label>
             <p className="ia-hint">
               Describe the target system, its architecture, hosts, and services.
             </p>
             <textarea
-              id="rm-system-desc"
+              id="oa-system-desc"
               className="form-control ia-textarea"
               rows="6"
               value={systemDescription}
@@ -835,12 +919,12 @@ function ReportManagerAgent() {
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="rm-security-alerts">Security alerts</label>
+            <label htmlFor="oa-security-alerts">Security alerts</label>
             <p className="ia-hint">
               Paste the security alerts/logs that triggered incident response.
             </p>
             <textarea
-              id="rm-security-alerts"
+              id="oa-security-alerts"
               className="form-control ia-textarea"
               rows="6"
               value={securityAlerts}
@@ -856,24 +940,16 @@ function ReportManagerAgent() {
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="rm-operator-feedback">Operator feedback (optional)</label>
-            <p className="ia-hint">
-              Additional guidance or constraints for the incident assessment.
-            </p>
+            <label htmlFor="oa-operator-feedback">Operator feedback (optional)</label>
+            <p className="ia-hint">Additional guidance or constraints for the pipeline.</p>
             <textarea
-              id="rm-operator-feedback"
+              id="oa-operator-feedback"
               className="form-control ia-textarea"
               rows="4"
               value={operatorFeedback}
               onChange={(e) => setOperatorFeedback(e.target.value)}
-              onPaste={handlePaste(setOperatorFeedbackImages)}
               disabled={isAgentBusy}
-              placeholder="e.g., Focus on lateral movement indicators. The web server is the most critical asset."
-            />
-            <ImageThumbnails
-              images={operatorFeedbackImages}
-              setImages={setOperatorFeedbackImages}
-              disabled={isAgentBusy}
+              placeholder="e.g., Focus on containment actions first."
             />
           </div>
           <button
@@ -909,19 +985,89 @@ function ReportManagerAgent() {
             className="form-control form-control-sm"
             style={{ width: '70px', display: 'inline-block' }}
             min={1}
-            max={10}
+            max={5}
             value={maxIterations}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 10) setMaxIterations(v)
+              if (v >= 1 && v <= 5) setMaxIterations(v)
             }}
             disabled={isAgentBusy}
           />
-          <span className="ia-model-label">Manager LLM:</span>
+          <span className="ia-model-label">Report Manager Iterations:</span>
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            style={{ width: '70px', display: 'inline-block' }}
+            min={1}
+            max={10}
+            value={reportManagerIterations}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              if (v >= 1 && v <= 10) setReportManagerIterations(v)
+            }}
+            disabled={isAgentBusy}
+          />
+          <span className="ia-model-label">Plan Manager Iterations:</span>
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            style={{ width: '70px', display: 'inline-block' }}
+            min={1}
+            max={5}
+            value={planManagerIterations}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              if (v >= 1 && v <= 5) setPlanManagerIterations(v)
+            }}
+            disabled={isAgentBusy}
+          />
+          <span className="ia-model-label">Code Manager Iterations:</span>
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            style={{ width: '70px', display: 'inline-block' }}
+            min={1}
+            max={10}
+            value={codeManagerIterations}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              if (v >= 1 && v <= 10) setCodeManagerIterations(v)
+            }}
+            disabled={isAgentBusy}
+          />
+          <span className="ia-model-label">RL Training Time Limit (min):</span>
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            style={{ width: '70px', display: 'inline-block' }}
+            min={1}
+            max={60}
+            value={rlTimeLimitMinutes}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              if (v >= 1 && v <= 60) setRlTimeLimitMinutes(v)
+            }}
+            disabled={isAgentBusy}
+          />
+          <span className="ia-model-label">Orchestrator LLM:</span>
           <select
             className="form-control form-control-sm ia-model-select"
-            value={managerModel}
-            onChange={(e) => setManagerModel(e.target.value)}
+            value={orchestratorModel}
+            onChange={(e) => setOrchestratorModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Report Manager LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={reportManagerModel}
+            onChange={(e) => setReportManagerModel(e.target.value)}
             disabled={isAgentBusy}
           >
             <option value="">Default (Gemini 3 Pro)</option>
@@ -945,11 +1091,95 @@ function ReportManagerAgent() {
               </option>
             ))}
           </select>
-          <span className="ia-model-label">Reviewer Agent LLM:</span>
+          <span className="ia-model-label">Report Reviewer LLM:</span>
           <select
             className="form-control form-control-sm ia-model-select"
-            value={reviewerAgentModel}
-            onChange={(e) => setReviewerAgentModel(e.target.value)}
+            value={reportReviewerModel}
+            onChange={(e) => setReportReviewerModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Plan Manager LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={planManagerModel}
+            onChange={(e) => setPlanManagerModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Code Manager LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={codeManagerModel}
+            onChange={(e) => setCodeManagerModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Code Agent LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={codeAgentModel}
+            onChange={(e) => setCodeAgentModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Code Reviewer LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={codeReviewerModel}
+            onChange={(e) => setCodeReviewerModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">RL Agent LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={rlAgentModel}
+            onChange={(e) => setRlAgentModel(e.target.value)}
+            disabled={isAgentBusy}
+          >
+            <option value="">Default (Gemini 3 Pro)</option>
+            {models.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.display_name}
+              </option>
+            ))}
+          </select>
+          <span className="ia-model-label">Validation Agent LLM:</span>
+          <select
+            className="form-control form-control-sm ia-model-select"
+            value={validationAgentModel}
+            onChange={(e) => setValidationAgentModel(e.target.value)}
             disabled={isAgentBusy}
           >
             <option value="">Default (Gemini 3 Pro)</option>
@@ -963,11 +1193,11 @@ function ReportManagerAgent() {
             <input
               className="form-check-input"
               type="checkbox"
-              id="rm-autopilot"
+              id="oa-autopilot"
               checked={autopilot}
               onChange={(e) => setAutopilot(e.target.checked)}
             />
-            <label className="form-check-label" htmlFor="rm-autopilot">
+            <label className="form-check-label" htmlFor="oa-autopilot">
               Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
             </label>
           </div>
@@ -1000,7 +1230,7 @@ function ReportManagerAgent() {
           onStop={handleStop}
           onViewPrompt={getPromptText}
           dtStatus={dtStatus}
-          modelName={managerModel}
+          modelName={orchestratorModel}
         />
       )}
 
@@ -1009,8 +1239,8 @@ function ReportManagerAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           renderReport={(report) => (
-            <ReportManagerReportView
-              entry={{ type: 'report_manager_report', report_manager_report: report }}
+            <OrchestratorAgentReportView
+              entry={{ type: 'orchestrator_agent_report', orchestrator_agent_report: report }}
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
@@ -1026,4 +1256,4 @@ function ReportManagerAgent() {
   )
 }
 
-export default ReportManagerAgent
+export default OrchestratorAgent

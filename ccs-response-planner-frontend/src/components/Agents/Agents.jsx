@@ -10,6 +10,7 @@ import RlAgent from './RlAgent.jsx'
 import ReportReviewerAgent from './ReportReviewerAgent.jsx'
 import ReportManagerAgent from './ReportManagerAgent.jsx'
 import DpAgent from './DpAgent.jsx'
+import OrchestratorAgent from './OrchestratorAgent.jsx'
 import './Agents.css'
 
 /**
@@ -32,6 +33,7 @@ function Agents() {
           value={selectedAgent}
           onChange={(e) => setSelectedAgent(e.target.value)}
         >
+          <option value="orchestrator">Orchestrator Agent</option>
           <option value="report">Report Agent</option>
           <option value="report-review">Report Reviewer Agent</option>
           <option value="report-manager">Report Manager Agent</option>
@@ -46,6 +48,7 @@ function Agents() {
         </select>
       </div>
 
+      {selectedAgent === 'orchestrator' && <OrchestratorAgent />}
       {selectedAgent === 'report' && <ReportAgent />}
       {selectedAgent === 'report-review' && <ReportReviewerAgent />}
       {selectedAgent === 'report-manager' && <ReportManagerAgent />}

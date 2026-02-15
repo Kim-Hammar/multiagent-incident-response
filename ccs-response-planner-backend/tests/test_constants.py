@@ -461,6 +461,33 @@ def test_agents_report_review_prompt_route() -> None:
     )
 
 
+def test_agents_orchestrator_step_route() -> None:
+    assert API.AGENTS_ORCHESTRATOR_STEP_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_ORCHESTRATOR_STEP_ROUTE == (
+        "/api/agents/orchestrator/step"
+    )
+
+
+def test_agents_orchestrator_tool_route() -> None:
+    assert API.AGENTS_ORCHESTRATOR_TOOL_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_ORCHESTRATOR_TOOL_ROUTE == (
+        "/api/agents/orchestrator/tool"
+    )
+
+
+def test_agents_orchestrator_prompt_route() -> None:
+    assert API.AGENTS_ORCHESTRATOR_PROMPT_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_ORCHESTRATOR_PROMPT_ROUTE == (
+        "/api/agents/orchestrator/prompt"
+    )
+
+
 def test_incident_2_subnets_do_not_overlap_incident_1() -> None:
     """
     Incident 2 subnets must not overlap with incident 1 subnets

@@ -115,6 +115,15 @@ class API:
     AGENTS_REPORT_MANAGER_PROMPT_ROUTE = (
         "/api/agents/report-manager/prompt"
     )
+    AGENTS_ORCHESTRATOR_STEP_ROUTE = (
+        "/api/agents/orchestrator/step"
+    )
+    AGENTS_ORCHESTRATOR_TOOL_ROUTE = (
+        "/api/agents/orchestrator/tool"
+    )
+    AGENTS_ORCHESTRATOR_PROMPT_ROUTE = (
+        "/api/agents/orchestrator/prompt"
+    )
     AGENTS_DP_STEP_ROUTE = "/api/agents/dp/step"
     AGENTS_DP_TOOL_ROUTE = "/api/agents/dp/tool"
     AGENTS_DP_PROMPT_ROUTE = "/api/agents/dp/prompt"

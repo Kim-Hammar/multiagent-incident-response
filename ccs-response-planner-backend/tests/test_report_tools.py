@@ -124,7 +124,7 @@ def test_generate_attack_image_with_incident_id(
     contents = call_args.kwargs["contents"]
     assert len(contents) == 2
     assert "path desc" in contents[1]
-    assert "Attack Path Diagram" in contents[1]
+    assert "attack path" in contents[1].lower()
 
 
 @patch(

@@ -445,19 +445,16 @@ def generate_attack_image(
             pass
 
     image_prompt = (
-        "Generate a professional network security diagram that "
-        "visualizes the following cyber-attack path. Draw each "
-        "host as a labeled box or node showing its IP address "
-        "and role (e.g. 'Server 3 — SSH', 'Server 6 — Samba'). "
-        "Connect the hosts with bold red directional arrows "
-        "showing the order of compromise. Label each arrow with "
-        "the technique or exploit used at that step (e.g. "
-        "'SSH Brute Force', 'CVE-2017-7494 SambaCry', "
-        "'SQL Injection'). Use a clean, dark-on-light color "
-        "scheme suitable for an incident report. Group hosts by "
-        "network zone if applicable. Include a title at the top: "
-        "'Attack Path Diagram'.\n\n"
-        f"Attack path to illustrate:\n{prompt}"
+        "Below is an incident report description. Generate an "
+        "image that illustrates the attack path. The image "
+        "should have one box/component representing the "
+        "attacker's starting point, with arrows going to boxes "
+        "representing servers in the system. Each arrow should "
+        "be labeled with the attack method used at that step. "
+        "Each box/component should include information about "
+        "the server, e.g. IP address, name, network zone, and "
+        "services running on it.\n\n"
+        f"Incident report:\n{prompt}"
     )
     contents.append(image_prompt)
 
