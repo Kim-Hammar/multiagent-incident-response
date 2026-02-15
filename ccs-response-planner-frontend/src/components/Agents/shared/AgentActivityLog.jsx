@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import ElapsedTimer from './ElapsedTimer.jsx'
 import PromptModal from './PromptModal.jsx'
 import RewardChart from '../RewardChart.jsx'
+import RlTrainResult from '../RlTrainResult.jsx'
 import { formatToolArgs, toolLabel, toolIcon } from './toolUtils.js'
 import { CodeReportBody, ReviewReportBody, VERDICT_STYLES } from './ReportBodies.jsx'
 
@@ -500,10 +501,14 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
                   <div className="ia-proposal-details">
                     {isOrchTool
                       ? renderOrchestratorArgs(ev.tool_name, ev.tool_args)
-                      : argPairs.map(([label, value], j) => (
+                      : argPairs.map(([label, value, isCode], j) => (
                           <div key={j} className="ia-proposal-arg-row">
                             <span className="ia-proposal-arg-label">{label}:</span>
-                            <span className="ia-proposal-arg-value">{value}</span>
+                            {isCode ? (
+                              <pre className="ia-arg-code">{value}</pre>
+                            ) : (
+                              <span className="ia-proposal-arg-value">{value}</span>
+                            )}
                           </div>
                         ))}
                   </div>
@@ -524,6 +529,22 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
         }
         if (ev.type === 'tool_result') {
           const isOpen = !!expanded[i]
+          const isRlTrain = ev.tool_name === 'rl_train'
+          const rlProgressData = isRlTrain
+            ? (ev.subEvents || []).filter((e) => e.type === 'progress')
+            : []
+          const rlMeta = isRlTrain
+            ? (() => {
+                const call = [...subEvents.slice(0, i)]
+                  .reverse()
+                  .find((e) => e.type === 'tool_call' && e.tool_name === 'rl_train')
+                return {
+                  algorithm: call?.tool_args?.algorithm || '',
+                  hyperparameters: call?.tool_args?.hyperparameters || '',
+                  started: true
+                }
+              })()
+            : {}
           const terminal = renderTerminalResult(ev.tool_name, ev.result)
           const report = renderSubAgentReport(ev.tool_name, ev.result)
           return (
@@ -538,21 +559,46 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
                     exit {ev.result.exit_code}
                   </span>
                 )}
+                {ev.result?.error && !('exit_code' in (ev.result || {})) && (
+                  <span className="badge badge-danger ml-2">error</span>
+                )}
                 <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
               </div>
               {isOpen && (
                 <>
-                  {terminal || report || (
-                    <pre className="ia-result-data mb-0">{JSON.stringify(ev.result, null, 2)}</pre>
-                  )}
-                  {ev.subEvents?.length > 0 && (
-                    <SubAgentLog
-                      subEvents={ev.subEvents}
-                      agentLabel={toolLabel(ev.tool_name)}
-                      active={false}
-                      onViewPrompt={onViewPrompt}
-                      contextUsage={ev._contextUsage}
+                  {isRlTrain && rlProgressData.length > 0 ? (
+                    <RlTrainResult
+                      trainingData={rlProgressData}
+                      trainingMeta={rlMeta}
+                      result={{ result: ev.result }}
+                      policyData={ev.result?.policy_data}
                     />
+                  ) : isRlTrain && ev.result?.error ? (
+                    <div className="ia-terminal-result">
+                      <div className="ia-terminal-meta">
+                        <span className="badge badge-danger">Training Error</span>
+                      </div>
+                      <pre className="ia-terminal-output error">
+                        {ev.result.stderr || ev.result.error}
+                      </pre>
+                    </div>
+                  ) : (
+                    <>
+                      {terminal || report || (
+                        <pre className="ia-result-data mb-0">
+                          {JSON.stringify(ev.result, null, 2)}
+                        </pre>
+                      )}
+                      {ev.subEvents?.length > 0 && (
+                        <SubAgentLog
+                          subEvents={ev.subEvents}
+                          agentLabel={toolLabel(ev.tool_name)}
+                          active={false}
+                          onViewPrompt={onViewPrompt}
+                          contextUsage={ev._contextUsage}
+                        />
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -678,10 +724,14 @@ function AgentActivityLog({
                       <div className="ia-proposal-tool">Tool: {toolLabel(entry.tool_name)}</div>
                       {isOrchTool
                         ? renderOrchestratorArgs(entry.tool_name, entry.tool_args)
-                        : argPairs.map(([label, value], i) => (
+                        : argPairs.map(([label, value, isCode], i) => (
                             <div key={i} className="ia-proposal-arg-row">
                               <span className="ia-proposal-arg-label">{label}:</span>
-                              <span className="ia-proposal-arg-value">{value}</span>
+                              {isCode ? (
+                                <pre className="ia-arg-code">{value}</pre>
+                              ) : (
+                                <span className="ia-proposal-arg-value">{value}</span>
+                              )}
                             </div>
                           ))}
                       {isCurrentPending && (
@@ -761,7 +811,7 @@ function AgentActivityLog({
                             setPromptModalText(entry.prompt)
                           }}
                         >
-                          <i className="fa fa-file-text-o" aria-hidden="true" /> View prompt
+                          <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
                         </button>
                       )}
                       {hasSubEvents ? (
@@ -864,7 +914,7 @@ function AgentActivityLog({
                               }}
                               onClick={() => setPromptModalText(entry.prompt)}
                             >
-                              <i className="fa fa-file-text-o" aria-hidden="true" /> View prompt
+                              <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
                             </button>
                           )}
                           <SubAgentLog

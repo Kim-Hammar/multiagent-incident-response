@@ -239,7 +239,6 @@ def rl_train(
 
     line_buffer = ""
     stderr_buffer = ""
-    had_progress = False
     result_data: dict[str, Any] | None = None
     try:
         for chunk in stream:
@@ -254,8 +253,6 @@ def rl_train(
                     continue
                 try:
                     parsed = json.loads(line)
-                    if parsed.get("type") == "progress":
-                        had_progress = True
                     if parsed.get("type") == "result":
                         result_data = parsed
                     yield parsed
@@ -284,15 +281,16 @@ def rl_train(
     except Exception:
         exit_code = -1
 
-    if exit_code != 0 and not had_progress:
+    if exit_code != 0:
         err_msg = stderr_buffer.strip() or (
             f"Training failed (exit {exit_code})"
         )
         yield {
             "type": "error",
             "message": (
-                f"Training script error: "
-                f"{err_msg[:500]}"
+                f"Training script error "
+                f"(exit {exit_code}): "
+                f"{err_msg[:2000]}"
             ),
         }
 
@@ -305,7 +303,14 @@ def rl_train(
     if result_data:
         done_event["result"] = result_data
     if stderr_buffer.strip():
-        done_event["stderr"] = stderr_buffer.strip()
+        done_event["stderr"] = stderr_buffer.strip()[
+            :2000
+        ]
+    if exit_code != 0:
+        done_event["error"] = (
+            stderr_buffer.strip()[:2000]
+            or f"Training failed (exit {exit_code})"
+        )
     if policy_data:
         done_event["policy_data"] = policy_data
     yield done_event

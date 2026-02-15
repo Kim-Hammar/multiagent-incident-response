@@ -43,11 +43,27 @@ RUN_CODE_REVIEWER_AGENT_DECL = genai_types.FunctionDeclaration(
         "most recently generated MDP environment "
         "code. The code report is automatically "
         "extracted from the previous run_code_agent "
-        "result."
+        "result. On re-review iterations, provide "
+        "previous_review_summary so the reviewer "
+        "knows what was already checked and can "
+        "focus on verifying fixes and new issues."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
-        "properties": {},
+        "properties": {
+            "previous_review_summary": {
+                "type": "string",
+                "description": (
+                    "A concise summary of the "
+                    "previous review's findings "
+                    "and what was already "
+                    "validated. Include: which "
+                    "checks passed, which issues "
+                    "were found, and the verdict. "
+                    "Omit on the first review."
+                ),
+            },
+        },
         "required": [],
     },
 )

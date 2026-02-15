@@ -109,7 +109,7 @@ function AgentPlanningTab({
               disabled={loadingPrompt}
             >
               <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
-              {loadingPrompt ? 'Loading...' : 'View prompt'}
+              {loadingPrompt ? 'Loading...' : 'Prompt'}
             </button>
           )}
           {isAgentBusy && onStop && (

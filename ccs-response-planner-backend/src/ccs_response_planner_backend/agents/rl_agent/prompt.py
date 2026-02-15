@@ -3,7 +3,7 @@ System prompt template for the RlAgent.
 """
 
 SYSTEM_PROMPT_TEMPLATE = """\
-You are an expert cyber-security incident response operator. You are part of a larger autonomous incident response
+You are an expert cyber-security incident response operator. You are part of a larger autonomous incident response \
 system which generates optimal incident response plans (policies) in two stages: \
 (1) it generates a code model of the process of recovering from the incident; and \
 (2) it uses the generated code model to learn an optimal policy through reinforcement learning.
@@ -43,6 +43,7 @@ Treat all feedback here as actionable context for your task.
 
 {code_report_formatted}
 
+{revision_context}\
 ## Training Time Limit
 
 You have a **hard limit of {time_limit_minutes} minute(s)** of wall-clock \
@@ -84,6 +85,17 @@ from gymnasium.wrappers import TimeLimit
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 
+# 0. JSON encoder that handles numpy types (float32, int64, ndarray, etc.)
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
 # 1. Import env from pre-written file
 spec = importlib.util.spec_from_file_location("_env", "/workspace/_env.py")
 mod = importlib.util.module_from_spec(spec)
@@ -116,7 +128,7 @@ class ProgressCallback(BaseCallback):
                     "timesteps": self.num_timesteps,
                     "total_timesteps": self.locals.get(
                         "total_timesteps", 0)
-                }}), flush=True)
+                }}, cls=NumpyEncoder), flush=True)
         return True
 
 # 3. Train — wrap with TimeLimit so episodes truncate after 200 steps
@@ -163,7 +175,7 @@ for ep_i in range(NUM_EVAL_EPISODES):
         "total_eval_episodes": NUM_EVAL_EPISODES + 1,
         "reward": round(ep_reward, 2),
         "mean_reward": round(float(np.mean(eval_rewards)), 2)
-    }}), flush=True)
+    }}, cls=NumpyEncoder), flush=True)
 mean_eval_reward = float(np.mean(eval_rewards))
 
 # 5. Run one detailed episode to capture the action sequence
@@ -195,7 +207,7 @@ print(json.dumps({{
     "total_eval_episodes": NUM_EVAL_EPISODES + 1,
     "reward": round(ep_reward, 2),
     "mean_reward": round(float(np.mean(eval_rewards)), 2)
-}}), flush=True)
+}}, cls=NumpyEncoder), flush=True)
 print(json.dumps({{
     "type": "result",
     "total_reward": round(float(mean_eval_reward), 2),
@@ -205,7 +217,7 @@ print(json.dumps({{
     "num_steps": len(actions_taken),
     "num_eval_episodes": NUM_EVAL_EPISODES,
     "final_state": [round(float(x), 3) for x in obs]
-}}), flush=True)
+}}, cls=NumpyEncoder), flush=True)
 ```
 
 ## Available Tools
@@ -320,6 +332,9 @@ re-execute earlier tool calls — they executed successfully, you simply \
 did not receive their output because a later call in the same response \
 overwrote it.
 - You MUST use `rl_train` for RL training, NOT `python_exec`.
+- **Always use `cls=NumpyEncoder`** in every `json.dumps()` call in training \
+code. NumPy float32/int64 values are NOT JSON-serializable by default and \
+will crash the script. The `NumpyEncoder` class from the template handles this.
 - Do NOT call `produce_planner_report` until you have called `rl_train` \
 at least once.
 - In `produce_planner_report`, **characterize the policy** — do NOT \

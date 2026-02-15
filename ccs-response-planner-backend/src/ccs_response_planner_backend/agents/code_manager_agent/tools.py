@@ -263,6 +263,7 @@ def run_code_agent_stream(
 
 def run_code_reviewer_agent_stream(
     context: dict[str, Any],
+    previous_review_summary: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """
     Run the CodeReviewerAgent sub-agent to completion.
@@ -274,10 +275,32 @@ def run_code_reviewer_agent_stream(
     :param context: dict with system_description, incident_report,
         specification, operator_feedback, images,
         reviewer_agent_model, username, and last_code_report
+    :param previous_review_summary: concise summary of prior
+        review findings for re-review iterations
     :return: generator yielding event dicts
     """
     agent = CodeReviewerAgent()
     code_report = context.get("last_code_report", {})
+    operator_feedback = context.get("operator_feedback", "")
+    if previous_review_summary:
+        operator_feedback += (
+            "\n\n--- PREVIOUS REVIEW CONTEXT ---\n"
+            "This is a RE-REVIEW iteration. The code "
+            "was revised based on a previous review's "
+            "findings. Below is a summary of what was "
+            "already checked and found. Focus your "
+            "review on:\n"
+            "1. Verifying that the previously identified "
+            "issues have been fixed.\n"
+            "2. Checking for any NEW issues introduced "
+            "by the revision.\n"
+            "3. You may skip re-validating checks that "
+            "passed in the previous review unless the "
+            "revision could have affected them.\n\n"
+            "## Previous Review Summary\n"
+            f"{previous_review_summary}\n"
+            "--- END PREVIOUS REVIEW CONTEXT ---"
+        )
     conversation_history: list[dict[str, Any]] = []
     review_report = None
 
@@ -298,14 +321,15 @@ def run_code_reviewer_agent_stream(
                 "incident_report", "",
             ),
             specification=context.get("specification", ""),
-            operator_feedback=context.get(
-                "operator_feedback", "",
-            ),
+            operator_feedback=operator_feedback,
             code_report=code_report,
             conversation_history=conversation_history,
             images=context.get("images"),
             model_name=context.get("reviewer_agent_model"),
             dt_config=context.get("dt_config"),
+            review_iteration=context.get(
+                "review_count", 1,
+            ),
         ):
             etype = event.get("type")
 

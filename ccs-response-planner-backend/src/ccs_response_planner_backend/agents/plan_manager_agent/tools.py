@@ -146,6 +146,11 @@ def _run_sub_agent_loop(
                 final_report = event.get(
                     report_key, {},
                 )
+                conversation_history.append({
+                    "role": "model",
+                    "type": report_event_type,
+                    report_key: final_report,
+                })
                 yield {
                     "type": "sub_event",
                     "event": {"type": "report"},
@@ -255,17 +260,28 @@ def _run_sub_agent_loop(
                         elif te_type == "output_chunk":
                             yield tool_event
                         elif te_type == "done":
-                            tool_result = (
+                            done_result = (
                                 tool_event.get(
                                     "result", {},
                                 )
                             )
+                            if done_result:
+                                tool_result = done_result
+                            if tool_event.get("error"):
+                                tool_result["error"] = (
+                                    tool_event["error"]
+                                )
+                            if tool_event.get("stderr"):
+                                tool_result["stderr"] = (
+                                    tool_event["stderr"]
+                                )
                         elif te_type == "error":
-                            tool_result = {
-                                "error": tool_event.get(
+                            tool_result["error"] = (
+                                tool_event.get(
                                     "message", "error",
-                                ),
-                            }
+                                )
+                            )
+                            collected.append(tool_event)
                         else:
                             yield {
                                 "type": "sub_event",
@@ -380,10 +396,14 @@ def run_code_manager_stream(
         "model_name": context.get(
             "code_manager_model",
         ),
+        "max_iterations": context.get(
+            "code_manager_iterations", 3,
+        ),
     }
     cm_context = {
         **context,
         "last_code_report": {},
+        "review_count": 0,
         "code_agent_model": context.get(
             "code_agent_model",
         ),
@@ -529,6 +549,10 @@ def run_code_manager_stream(
                 collected: list[dict[str, Any]] = []
                 tool_result: dict[str, Any] = {}
                 if tool_name == "run_code_reviewer_agent":
+                    cm_context["review_count"] = (
+                        cm_context.get("review_count", 0)
+                        + 1
+                    )
                     cm_context["last_code_report"] = (
                         code_report
                     )
@@ -555,20 +579,33 @@ def run_code_manager_stream(
                         elif te_type == "output_chunk":
                             yield tool_event
                         elif te_type == "done":
-                            tool_result = (
+                            done_result = (
                                 tool_event.get(
                                     "result", {},
                                 )
                             )
+                            if done_result:
+                                tool_result = (
+                                    done_result
+                                )
+                            if tool_event.get("error"):
+                                tool_result["error"] = (
+                                    tool_event["error"]
+                                )
+                            if tool_event.get("stderr"):
+                                tool_result["stderr"] = (
+                                    tool_event["stderr"]
+                                )
                         elif te_type == "error":
-                            tool_result = {
-                                "error": (
-                                    tool_event.get(
-                                        "message",
-                                        "error",
-                                    )
-                                ),
-                            }
+                            tool_result["error"] = (
+                                tool_event.get(
+                                    "message",
+                                    "error",
+                                )
+                            )
+                            collected.append(
+                                tool_event,
+                            )
                 except Exception as e:
                     tool_result = {"error": str(e)}
 
@@ -720,6 +757,15 @@ def run_rl_agent_stream(
         "model_name": context.get(
             "rl_agent_model",
         ),
+        "time_limit_minutes": context.get(
+            "rl_time_limit_minutes", 5,
+        ),
+        "prev_planner_report": context.get(
+            "planner_report",
+        ),
+        "prev_validation_report": context.get(
+            "validation_report",
+        ),
     }
 
     planner_report: dict[str, Any] | None = None
@@ -861,6 +907,9 @@ def run_validation_agent_stream(
             "validation_agent_model",
         ),
         "dt_config": context.get("dt_config"),
+        "validation_feedback": context.get(
+            "validation_report",
+        ),
     }
 
     for ev in _run_sub_agent_loop(

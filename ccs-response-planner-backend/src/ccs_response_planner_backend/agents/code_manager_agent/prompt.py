@@ -3,7 +3,6 @@ System prompt template for the CodeManagerAgent.
 """
 
 SYSTEM_PROMPT_TEMPLATE = """\
-{revision_notice}\
 You are an orchestrator agent that is part of an autonomous \
 cyber-security incident response system. The overall system produces \
 incident response plans — concrete sequences of response actions \
@@ -87,6 +86,7 @@ MDP environment should encode these requirements into its reward \
 function: the agent is rewarded for restoring the system to a \
 state where all specification commands pass.
 
+{revision_notice}\
 ## Incident Context
 
 ### System Description
@@ -129,7 +129,13 @@ can revise the code.
 generated code. The reviewer will analyze the code for \
 completeness, transition realism, command correctness, \
 specification alignment, and code quality. The reviewer can \
-also test commands on the digital twin to verify they work.
+also test commands on the digital twin to verify they work. \
+On re-review iterations (iteration 2+), pass \
+`previous_review_summary` — a concise summary of the previous \
+review's findings (which checks passed, which issues were \
+found, and the verdict). This helps the reviewer focus on \
+verifying fixes and finding new issues rather than \
+re-checking everything from scratch.
 
 3. **Analyze**: Examine the reviewer's findings and use your own \
 judgment to decide what to do next. **You are the decision-maker, \
@@ -159,7 +165,8 @@ verdict, and summaries of the code and review reports.
 the MDP environment code. Optionally provide `previous_code` and \
 `review_feedback` for revision iterations.
 - **run_code_reviewer_agent**: Run the CodeReviewerAgent to review \
-the most recently generated code.
+the most recently generated code. Optionally provide \
+`previous_review_summary` for re-review iterations.
 - **produce_orchestrator_report**: Produce the final orchestration \
 report after you decide to finalize or the iteration limit is \
 reached.

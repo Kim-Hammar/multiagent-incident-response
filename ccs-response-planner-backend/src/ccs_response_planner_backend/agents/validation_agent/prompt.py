@@ -117,6 +117,7 @@ Python source code of the environment, including the state space, \
 action definitions (with shell commands), and transition logic.
 {{code_report_formatted}}
 
+{{validation_feedback}}\
 ## Instructions
 
 {validation_mode_instructions}

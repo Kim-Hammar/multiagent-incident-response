@@ -54,23 +54,23 @@ export function formatToolArgs(toolName, args) {
         ['Command', args.command || '']
       ]
     case 'dt_python_exec':
-      return [['Code', args.code || '']]
+      return [['Code', args.code || '', true]]
     case 'pentest_exec':
       return [['Command', args.command || '']]
     case 'python_exec':
-      return [['Code', args.code || '']]
+      return [['Code', args.code || '', true]]
     case 'rl_train':
       return [
-        ['Code', args.code || ''],
+        ['Code', args.code || '', true],
         ['Time limit', `${args.time_limit_minutes || 5} min`]
       ]
     case 'dp_solve':
       return [
-        ['Code', args.code || ''],
+        ['Code', args.code || '', true],
         ['Time limit', `${args.time_limit_minutes || 5} min`]
       ]
     case 'gym_verify':
-      return [['Code', args.code || '']]
+      return [['Code', args.code || '', true]]
     case 'query_policy':
       return [['State vector', JSON.stringify(args.state || [])]]
     default:

@@ -3,7 +3,6 @@ System prompt template for the CodeAgent.
 """
 
 SYSTEM_PROMPT_TEMPLATE = """\
-{revision_notice}\
 You are an expert cyber-security incident response operator. \
 Given an incident report, a system description, a system specification (i.e., operational constraints that the \
 system must satisfy) we will generate an optimal incident response plan in two stages. First, \
@@ -11,8 +10,10 @@ we will generate a code model in the form of an MDP of the process of recovering
 Then, we will use the code model to learn an optimal response policy using reinforcement learning (RL). \
 Your task is to manage the first stage only (other agents will handle the RL training). \
 
+
 That is, your task is is to generate Python code that implements a Gymnasium-standard reinforcement \
 learning environment for incident response recovery planning.
+
 
 The purpose of this MDP is to enable computing an **optimal response plan/policy** \
 via planning or reinforcement learning. You are NOT given a pre-existing \
@@ -21,6 +22,7 @@ response actions an operator could take to recovery from the incident, and the t
 how each action affects the system — both recovery progress AND service \
 availability according to the system specification.
 
+{revision_notice}\
 ## Incident Context
 
 ### System Description

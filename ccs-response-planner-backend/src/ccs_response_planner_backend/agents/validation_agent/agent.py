@@ -271,6 +271,67 @@ class ValidationAgent:
             sections.append("\n".join(lines))
         return "\n\n".join(sections) if sections else "N/A"
 
+    @staticmethod
+    def _format_validation_feedback(
+        report: dict[str, Any],
+    ) -> str:
+        """
+        Format a previous validation report into a concise
+        feedback section for the system prompt.
+
+        :param report: the previous validation_report dict
+        :return: a formatted string, or empty string if empty
+        """
+        if not report:
+            return ""
+        sections: list[str] = [
+            "## Previous Validation Feedback\n",
+            "A previous validation run was already performed "
+            "on an earlier iteration of this response plan. "
+            "Use this feedback to focus your validation — "
+            "do NOT repeat checks that already passed. "
+            "Concentrate on areas that failed or had issues.\n",
+        ]
+        verdict = report.get(
+            "overall_verdict",
+            report.get("overall_result", ""),
+        )
+        if verdict:
+            sections.append(
+                f"**Previous verdict:** {verdict}\n"
+            )
+        summary = report.get("executive_summary", "")
+        if summary:
+            sections.append(
+                f"**Summary:** {summary}\n"
+            )
+        actions = report.get("action_results", [])
+        if actions:
+            failed = [
+                a for a in actions
+                if not a.get("success", True)
+                or a.get("actual_step_cost", 0) > 10
+            ]
+            if failed:
+                lines = ["**Actions that had issues:**"]
+                for a in failed[:10]:
+                    name = a.get(
+                        "action_name",
+                        a.get("name", "?"),
+                    )
+                    outcome = a.get("outcome", "")
+                    lines.append(
+                        f"- {name}: {outcome}"
+                    )
+                sections.append("\n".join(lines) + "\n")
+        recs = report.get("recommendations", [])
+        if recs:
+            lines = ["**Recommendations from previous run:**"]
+            for r in recs[:5]:
+                lines.append(f"- {r}")
+            sections.append("\n".join(lines) + "\n")
+        return "\n".join(sections) + "\n"
+
     def step_stream(
         self,
         system_description: str,
@@ -284,6 +345,7 @@ class ValidationAgent:
         model_name: str | None = None,
         has_policy: bool = False,
         dt_config: dict[str, Any] | None = None,
+        validation_feedback: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -306,6 +368,7 @@ class ValidationAgent:
         :param model_name: optional LLM model name override
         :param has_policy: True if RL policy is loaded in sandbox
         :param dt_config: digital twin configuration dict
+        :param validation_feedback: previous validation report dict
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -325,6 +388,11 @@ class ValidationAgent:
             code_report_formatted=(
                 self._format_code_report(
                     code_report or {},
+                )
+            ),
+            validation_feedback=(
+                self._format_validation_feedback(
+                    validation_feedback or {},
                 )
             ),
             dt_container_list=format_container_list(cfg),

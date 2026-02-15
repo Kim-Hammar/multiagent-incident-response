@@ -194,6 +194,35 @@ class CodeReviewerAgent:
             )
         return "\n\n".join(sections) if sections else "N/A"
 
+    @staticmethod
+    def _format_iteration_note(
+        review_iteration: int,
+    ) -> str:
+        """
+        Format a note indicating which review iteration this is.
+
+        Returns an empty string for the first iteration.
+
+        :param review_iteration: 1-based review iteration number
+        :return: formatted iteration note or empty string
+        """
+        if review_iteration <= 1:
+            return ""
+        ordinal = {
+            2: "2nd", 3: "3rd",
+        }.get(review_iteration, f"{review_iteration}th")
+        return (
+            f" This is the **{ordinal} review iteration** "
+            f"— the code has been revised based on previous "
+            f"review findings. Focus your review on "
+            f"validating the changes and verifying that "
+            f"previously identified issues have been fixed. "
+            f"Do not repeat validations that already passed "
+            f"unless the revision could have affected them. "
+            f"See the revision context in the Feedback "
+            f"section below for details."
+        )
+
     def step_stream(
         self,
         system_description: str,
@@ -205,6 +234,7 @@ class CodeReviewerAgent:
         images: list[str] | None = None,
         model_name: str | None = None,
         dt_config: dict[str, Any] | None = None,
+        review_iteration: int = 1,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -225,6 +255,7 @@ class CodeReviewerAgent:
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
         :param dt_config: digital twin configuration dict
+        :param review_iteration: 1-based review iteration number
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -240,6 +271,11 @@ class CodeReviewerAgent:
             operator_feedback=operator_feedback or "N/A",
             code_report_formatted=formatted_report,
             dt_container_list=format_container_list(cfg),
+            review_iteration_note=(
+                self._format_iteration_note(
+                    review_iteration,
+                )
+            ),
         )
         yield {
             "type": "system_prompt",

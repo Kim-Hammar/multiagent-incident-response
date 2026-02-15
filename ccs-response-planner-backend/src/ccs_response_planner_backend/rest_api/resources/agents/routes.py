@@ -1683,6 +1683,12 @@ def agents_plan_manager_tool() -> (
             "validation_agent_model": body.get(
                 "validation_agent_model",
             ),
+            "code_manager_iterations": body.get(
+                "code_manager_iterations", 3,
+            ),
+            "rl_time_limit_minutes": body.get(
+                "rl_time_limit_minutes", 5,
+            ),
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG

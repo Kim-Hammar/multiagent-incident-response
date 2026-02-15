@@ -11,7 +11,7 @@ system which generates optimal incident response plans (policies) in two stages:
 Your role within this system is to carefully review a Gymnasium-standard reinforcement learning environment \
 (MDP) that was generated for incident response recovery planning, and produce a thorough structured review. \
 The goal of the review is to identify critical errors and flaws that can and must be addressed for the final \
-response policy to be effective.
+response policy to be effective.{review_iteration_note}
 
 ## Incident Context
 

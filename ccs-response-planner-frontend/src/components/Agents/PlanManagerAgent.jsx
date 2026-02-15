@@ -51,6 +51,8 @@ function handleNestedSubEvent(subEvents, innerEvent) {
     if (lastToolCall) {
       if (innerEvent.event.type === 'prompt') {
         lastToolCall._prompt = innerEvent.event.text
+      } else if (innerEvent.event.type === 'context_usage') {
+        lastToolCall._contextUsage = innerEvent.event
       } else {
         if (!lastToolCall.subEvents) lastToolCall.subEvents = []
         handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
@@ -162,6 +164,8 @@ function PlanManagerAgent() {
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
   const [rlAgentModel, setRlAgentModel] = useState('')
   const [validationAgentModel, setValidationAgentModel] = useState('')
+  const [codeManagerIterations, setCodeManagerIterations] = useState(3)
+  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(5)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -458,7 +462,9 @@ function PlanManagerAgent() {
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
           rl_agent_model: rlAgentModel || undefined,
-          validation_agent_model: validationAgentModel || undefined
+          validation_agent_model: validationAgentModel || undefined,
+          code_manager_iterations: codeManagerIterations,
+          rl_time_limit_minutes: rlTimeLimitMinutes
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_PLAN_MANAGER_TOOL_URL,
@@ -503,6 +509,8 @@ function PlanManagerAgent() {
               if (lastToolCall) {
                 if (event.event.type === 'prompt') {
                   lastToolCall._prompt = event.event.text
+                } else if (event.event.type === 'context_usage') {
+                  lastToolCall._contextUsage = event.event
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                   handleNestedSubEvent(lastToolCall.subEvents, event.event)
@@ -1000,6 +1008,34 @@ function PlanManagerAgent() {
             onChange={(e) => {
               const v = parseInt(e.target.value, 10)
               if (v >= 1 && v <= 5) setMaxIterations(v)
+            }}
+            disabled={isAgentBusy}
+          />
+          <span className="ia-model-label">Code Manager Iterations:</span>
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            style={{ width: '70px', display: 'inline-block' }}
+            min={1}
+            max={10}
+            value={codeManagerIterations}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              if (v >= 1 && v <= 10) setCodeManagerIterations(v)
+            }}
+            disabled={isAgentBusy}
+          />
+          <span className="ia-model-label">RL Training Time Limit (min):</span>
+          <input
+            type="number"
+            className="form-control form-control-sm"
+            style={{ width: '70px', display: 'inline-block' }}
+            min={1}
+            max={60}
+            value={rlTimeLimitMinutes}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              if (v >= 1 && v <= 60) setRlTimeLimitMinutes(v)
             }}
             disabled={isAgentBusy}
           />

@@ -191,6 +191,86 @@ class RlAgent:
             )
         return "\n\n".join(sections) if sections else "N/A"
 
+    @staticmethod
+    def _format_revision_context(
+        prev_planner_report: dict[str, Any] | None,
+        prev_validation_report: dict[str, Any] | None,
+    ) -> str:
+        """
+        Format a brief revision context from previous pipeline
+        iteration results.
+
+        Returns an empty string on the first run (no previous
+        reports), so the prompt section is omitted entirely.
+
+        :param prev_planner_report: previous RL planner report
+        :param prev_validation_report: previous validation report
+        :return: formatted revision context or empty string
+        """
+        if not prev_planner_report and not prev_validation_report:
+            return ""
+        sections: list[str] = [
+            "## Revision Context\n",
+            "This is a **revision run**. A previous iteration of "
+            "the full pipeline (Code → RL → Validation) was "
+            "already completed, but the plan did not pass "
+            "validation. The MDP code has been revised by the "
+            "Code Agent. Below is a brief summary of the "
+            "previous results to help you adjust your training "
+            "strategy.\n",
+        ]
+        if prev_planner_report:
+            summary = prev_planner_report.get(
+                "executive_summary", "",
+            )
+            cost = prev_planner_report.get(
+                "expected_total_cost",
+            )
+            algo = prev_planner_report.get("algorithm", "")
+            if summary:
+                sections.append(
+                    f"**Previous RL summary:** {summary}\n"
+                )
+            if algo:
+                sections.append(
+                    f"**Previous algorithm:** {algo}\n"
+                )
+            if cost is not None:
+                sections.append(
+                    f"**Previous expected cost:** {cost}\n"
+                )
+        if prev_validation_report:
+            verdict = prev_validation_report.get(
+                "overall_verdict",
+                prev_validation_report.get(
+                    "overall_result", "",
+                ),
+            )
+            val_summary = prev_validation_report.get(
+                "executive_summary", "",
+            )
+            if verdict:
+                sections.append(
+                    f"**Previous validation verdict:** "
+                    f"{verdict}\n"
+                )
+            if val_summary:
+                sections.append(
+                    f"**Validation feedback:** "
+                    f"{val_summary}\n"
+                )
+            recs = prev_validation_report.get(
+                "recommendations", [],
+            )
+            if recs:
+                lines = [
+                    "**Validation recommendations:**",
+                ]
+                for r in recs[:5]:
+                    lines.append(f"- {r}")
+                sections.append("\n".join(lines) + "\n")
+        return "\n".join(sections) + "\n"
+
     def step_stream(
         self,
         system_description: str,
@@ -202,6 +282,10 @@ class RlAgent:
         images: list[str] | None = None,
         model_name: str | None = None,
         time_limit_minutes: int = 5,
+        prev_planner_report: dict[str, Any] | None = None,
+        prev_validation_report: (
+            dict[str, Any] | None
+        ) = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -222,6 +306,8 @@ class RlAgent:
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
         :param time_limit_minutes: RL training time limit
+        :param prev_planner_report: previous RL report for revision
+        :param prev_validation_report: previous validation report
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -236,6 +322,10 @@ class RlAgent:
             operator_feedback=operator_feedback or "N/A",
             code_report_formatted=formatted_report,
             time_limit_minutes=time_limit_minutes,
+            revision_context=self._format_revision_context(
+                prev_planner_report,
+                prev_validation_report,
+            ),
         )
         yield {
             "type": "system_prompt",
