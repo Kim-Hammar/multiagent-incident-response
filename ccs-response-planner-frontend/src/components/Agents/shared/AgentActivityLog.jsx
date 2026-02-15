@@ -16,7 +16,10 @@ const ORCHESTRATOR_TOOLS = new Set([
   'run_code_manager',
   'run_rl_agent',
   'run_validation_agent',
-  'produce_plan_manager_report'
+  'produce_plan_manager_report',
+  'run_report_agent',
+  'run_report_reviewer_agent',
+  'produce_report_manager_report'
 ])
 
 /**
@@ -202,6 +205,97 @@ function renderOrchestratorArgs(toolName, args) {
           <CollapsibleSection label="Validation Summary" icon="fa-check-circle">
             <div className="ia-arg-markdown">
               <ReactMarkdown>{args.validation_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+      </div>
+    )
+  }
+
+  if (toolName === 'run_report_agent') {
+    if (!args?.previous_assessment && !args?.review_feedback) {
+      return (
+        <div className="ia-orchestrator-args">
+          <div className="ia-orchestrator-note">
+            <i className="fa fa-info-circle" aria-hidden="true" />
+            <span>Initial report generation — no prior assessment or review feedback</span>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="ia-orchestrator-args">
+        {args.review_feedback && (
+          <CollapsibleSection label="Review Feedback" icon="fa-comments">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.review_feedback}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.previous_assessment && (
+          <CollapsibleSection label="Previous Assessment" icon="fa-file-text">
+            <pre className="ia-arg-code">{args.previous_assessment}</pre>
+          </CollapsibleSection>
+        )}
+      </div>
+    )
+  }
+
+  if (toolName === 'run_report_reviewer_agent') {
+    return (
+      <div className="ia-orchestrator-args">
+        <div className="ia-orchestrator-note">
+          <i className="fa fa-info-circle" aria-hidden="true" />
+          <span>Incident report and images extracted from conversation history</span>
+        </div>
+        {args.previous_review_summary && (
+          <CollapsibleSection label="Previous Review Summary" icon="fa-search">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.previous_review_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+      </div>
+    )
+  }
+
+  if (toolName === 'produce_report_manager_report') {
+    return (
+      <div className="ia-orchestrator-args">
+        {args.final_verdict && (
+          <div className="ia-orchestrator-verdict-row">
+            <span className="ia-proposal-arg-label">Verdict:</span>
+            <span
+              className={`badge badge-${args.final_verdict === 'pass' ? 'success' : args.final_verdict === 'major_issues' ? 'danger' : 'warning'}`}
+            >
+              {args.final_verdict}
+            </span>
+          </div>
+        )}
+        {args.iterations != null && (
+          <div className="ia-orchestrator-verdict-row">
+            <span className="ia-proposal-arg-label">Iterations:</span>
+            <span className="ia-proposal-arg-value">{args.iterations}</span>
+          </div>
+        )}
+        {args.executive_summary && (
+          <CollapsibleSection label="Executive Summary" icon="fa-file-text" defaultOpen>
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.executive_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.report_summary && (
+          <CollapsibleSection label="Report Summary" icon="fa-file-text-o">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.report_summary}</ReactMarkdown>
+            </div>
+          </CollapsibleSection>
+        )}
+        {args.review_summary && (
+          <CollapsibleSection label="Review Summary" icon="fa-search">
+            <div className="ia-arg-markdown">
+              <ReactMarkdown>{args.review_summary}</ReactMarkdown>
             </div>
           </CollapsibleSection>
         )}
@@ -586,10 +680,24 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
                     </div>
                   ) : (
                     <>
-                      {terminal || report || (
-                        <pre className="ia-result-data mb-0">
-                          {JSON.stringify(ev.result, null, 2)}
-                        </pre>
+                      {ev.result?.image ? (
+                        <img
+                          src={ev.result.image}
+                          alt="Generated attack path"
+                          style={{
+                            maxWidth: '100%',
+                            border: '1px solid #dee2e6',
+                            borderRadius: '4px',
+                            marginTop: '8px'
+                          }}
+                        />
+                      ) : (
+                        terminal ||
+                        report || (
+                          <pre className="ia-result-data mb-0">
+                            {JSON.stringify(ev.result, null, 2)}
+                          </pre>
+                        )
                       )}
                       {ev.subEvents?.length > 0 && (
                         <SubAgentLog

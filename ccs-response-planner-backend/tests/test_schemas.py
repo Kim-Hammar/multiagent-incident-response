@@ -2,7 +2,7 @@
 Integration tests for Pydantic report schemas.
 
 Validates that Pydantic models, tool declarations, and fallback
-dicts stay consistent across all 9 agents.
+dicts stay consistent across all 10 agents.
 """
 import pytest
 from pydantic import ValidationError
@@ -18,6 +18,8 @@ from ccs_response_planner_backend.agents.schemas import (
     PlanManagerReport,
     PentestReport,
     DpPlannerReport,
+    ReportReviewReport,
+    ReportManagerReport,
 )
 
 # ── Tool declaration imports ───────────────────────────────────
@@ -43,11 +45,17 @@ from ccs_response_planner_backend.agents.validation_agent.tool_declarations impo
 from ccs_response_planner_backend.agents.plan_manager_agent.tool_declarations import (  # noqa: E501
     PRODUCE_PLAN_MANAGER_REPORT_DECL,
 )
-from ccs_response_planner_backend.agents.information_agent.tool_declarations import (  # noqa: E501
+from ccs_response_planner_backend.agents.report_agent.tool_declarations import (  # noqa: E501
     TOOL_DECLARATIONS as INFO_DECLARATIONS,
+)
+from ccs_response_planner_backend.agents.report_reviewer_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_REPORT_REVIEW_DECL,
 )
 from ccs_response_planner_backend.agents.penetration_test_agent.tool_declarations import (  # noqa: E501
     TOOL_DECLARATIONS as PENTEST_DECLARATIONS,
+)
+from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_REPORT_MANAGER_REPORT_DECL,
 )
 
 
@@ -110,9 +118,11 @@ AGENT_DECL_MODEL = [
     ("rl_agent", RL_REPORT_DECL, PlannerReport),
     ("dp_agent", DP_REPORT_DECL, DpPlannerReport),
     ("validation_agent", VALIDATION_REPORT_DECL, ValidationReport),
-    ("information_agent", INFO_REPORT_DECL, InformationReport),
+    ("report_agent", INFO_REPORT_DECL, InformationReport),
     ("plan_manager_agent", PRODUCE_PLAN_MANAGER_REPORT_DECL, PlanManagerReport),
     ("penetration_test_agent", PENTEST_REPORT_DECL, PentestReport),
+    ("report_reviewer_agent", PRODUCE_REPORT_REVIEW_DECL, ReportReviewReport),
+    ("report_manager_agent", PRODUCE_REPORT_MANAGER_REPORT_DECL, ReportManagerReport),
 ]
 
 
@@ -178,7 +188,7 @@ FALLBACK_DICTS = {
         "actual_total_cost": 0,
         "simulated_total_cost": 0,
     },
-    "information_agent": {
+    "report_agent": {
         "incident_summary": "fallback",
         "attack_vector_analysis": "",
         "indicators_of_compromise": [],
@@ -200,6 +210,21 @@ FALLBACK_DICTS = {
         "vulnerabilities_found": [],
         "compromised_servers": [],
         "recommendations": [],
+    },
+    "report_reviewer_agent": {
+        "executive_summary": "fallback",
+        "findings": [],
+        "missing_elements": [],
+        "evidence_gaps": [],
+        "strengths": [],
+        "overall_verdict": "",
+    },
+    "report_manager_agent": {
+        "executive_summary": "fallback",
+        "iterations": 0,
+        "final_verdict": "unknown",
+        "report_summary": "",
+        "review_summary": "",
     },
 }
 
@@ -462,14 +487,15 @@ def test_missing_required_field_raises():
         })
 
 
-def test_registry_contains_all_nine_agents():
+def test_registry_contains_all_eleven_agents():
     """
-    REPORT_MODELS registry has exactly 9 entries.
+    REPORT_MODELS registry has exactly 11 entries.
     """
-    assert len(REPORT_MODELS) == 9
+    assert len(REPORT_MODELS) == 11
     expected = {
         "code_agent", "code_reviewer_agent", "code_manager_agent",
-        "rl_agent", "validation_agent", "information_agent",
+        "rl_agent", "validation_agent", "report_agent",
         "plan_manager_agent", "penetration_test_agent", "dp_agent",
+        "report_reviewer_agent", "report_manager_agent",
     }
     assert set(REPORT_MODELS.keys()) == expected

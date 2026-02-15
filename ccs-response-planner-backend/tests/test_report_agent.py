@@ -1,11 +1,11 @@
-"""Tests for the InformationAgent and its standalone tool functions."""
+"""Tests for the ReportAgent and its standalone tool functions."""
 import base64
 import json
 from unittest.mock import MagicMock, patch
 
 import docker as docker_module
 
-from ccs_response_planner_backend.agents.information_agent.tools import (
+from ccs_response_planner_backend.agents.report_agent.tools import (
     TOOL_DISPATCH,
     abuseipdb_check,
     dt_exec,
@@ -38,7 +38,7 @@ def test_tool_dispatch_has_all_tools() -> None:
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.TavilyClient",
 )
 def test_tavily_search_returns_results(
@@ -68,7 +68,7 @@ def test_tavily_search_returns_results(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.nvdlib",
 )
 def test_nvd_search_by_cve_id(mock_nvdlib: MagicMock) -> None:
@@ -88,7 +88,7 @@ def test_nvd_search_by_cve_id(mock_nvdlib: MagicMock) -> None:
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools._get_attack_data",
 )
 def test_mitre_search_by_keyword(
@@ -111,7 +111,7 @@ def test_mitre_search_by_keyword(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.vt",
 )
 def test_virustotal_scan(mock_vt: MagicMock) -> None:
@@ -136,7 +136,7 @@ def test_virustotal_scan(mock_vt: MagicMock) -> None:
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.http_requests",
 )
 def test_abuseipdb_check(
@@ -168,7 +168,7 @@ def test_abuseipdb_check(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.OTXv2",
 )
 def test_otx_search(mock_otx_cls: MagicMock) -> None:
@@ -258,7 +258,7 @@ def test_dt_exec_container_not_found(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.docker",
 )
 def test_dt_python_exec_returns_output(
@@ -285,7 +285,7 @@ def test_dt_python_exec_returns_output(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.docker",
 )
 def test_dt_python_exec_starts_sandbox(
@@ -400,18 +400,18 @@ def _mock_client_stream(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".agent.genai",
 )
 def test_agent_step_returns_tool_proposal(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step should return a tool_proposal when the
+    ReportAgent.step should return a tool_proposal when the
     model responds with a function call.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     text_part = _make_part(text="I will search for test")
@@ -421,7 +421,7 @@ def test_agent_step_returns_tool_proposal(
 
     _mock_client_generate(mock_genai, [text_part, fc_part])
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     result = agent.step(
         system_description="test system",
         security_alerts="test alerts",
@@ -436,18 +436,18 @@ def test_agent_step_returns_tool_proposal(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".agent.genai",
 )
 def test_agent_step_returns_assessment(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step should return a structured assessment
+    ReportAgent.step should return a structured assessment
     when the model calls the produce_assessment tool.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     assessment_args = {
@@ -469,7 +469,7 @@ def test_agent_step_returns_assessment(
 
     _mock_client_generate(mock_genai, [fc_part])
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     result = agent.step(
         system_description="test system",
         security_alerts="test alerts",
@@ -487,17 +487,17 @@ def test_agent_step_returns_assessment(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.TavilyClient",
 )
 def test_agent_execute_tool(
     mock_client_cls: MagicMock,
 ) -> None:
     """
-    InformationAgent.execute_tool should call the tool and return results.
+    ReportAgent.execute_tool should call the tool and return results.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     mock_client = MagicMock()
@@ -506,7 +506,7 @@ def test_agent_execute_tool(
         "response_time": 0.1,
     }
     mock_client_cls.return_value = mock_client
-    agent = InformationAgent()
+    agent = ReportAgent()
     result = agent.execute_tool(
         "tavily_search", {"query": "test"},
     )
@@ -515,18 +515,18 @@ def test_agent_execute_tool(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".agent.genai",
 )
 def test_agent_step_stream_yields_text_then_tool_proposal(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step_stream should yield text deltas and then
+    ReportAgent.step_stream should yield text deltas and then
     a tool_proposal event when the model responds with a function call.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     text_part = _make_part(text="I will search")
@@ -538,38 +538,39 @@ def test_agent_step_stream_yields_text_then_tool_proposal(
         mock_genai, [[text_part], [fc_part]],
     )
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     events = list(agent.step_stream(
         system_description="test system",
         security_alerts="test alerts",
         operator_feedback="",
         conversation_history=[],
     ))
-    assert len(events) == 2
-    assert events[0] == {
+    assert len(events) == 3
+    assert events[0]["type"] == "system_prompt"
+    assert events[1] == {
         "type": "text", "delta": "I will search",
     }
-    assert events[1]["type"] == "tool_proposal"
-    assert events[1]["tool_name"] == "tavily_search"
-    assert events[1]["tool_args"] == {"query": "test"}
-    assert events[1]["rationale"] == "I will search"
-    assert "_model_parts" in events[1]
+    assert events[2]["type"] == "tool_proposal"
+    assert events[2]["tool_name"] == "tavily_search"
+    assert events[2]["tool_args"] == {"query": "test"}
+    assert events[2]["rationale"] == "I will search"
+    assert "_model_parts" in events[2]
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".agent.genai",
 )
 def test_agent_step_stream_yields_text_then_assessment(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step_stream should yield text deltas and then
+    ReportAgent.step_stream should yield text deltas and then
     a structured assessment event when the model calls
     produce_assessment.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     assessment_args = {
@@ -590,37 +591,38 @@ def test_agent_step_stream_yields_text_then_assessment(
         mock_genai, [[text_part], [fc_part]],
     )
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     events = list(agent.step_stream(
         system_description="test system",
         security_alerts="test alerts",
         operator_feedback="",
         conversation_history=[],
     ))
-    assert len(events) == 2
-    assert events[0]["type"] == "text"
-    assert events[0]["delta"] == "Here is the assessment"
-    assert events[1]["type"] == "assessment"
-    assert events[1]["assessment"]["severity"] == "Medium"
-    assert events[1]["assessment"]["incident_summary"] == (
+    assert len(events) == 3
+    assert events[0]["type"] == "system_prompt"
+    assert events[1]["type"] == "text"
+    assert events[1]["delta"] == "Here is the assessment"
+    assert events[2]["type"] == "assessment"
+    assert events[2]["assessment"]["severity"] == "Medium"
+    assert events[2]["assessment"]["incident_summary"] == (
         "Stream test"
     )
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".agent.genai",
 )
 def test_agent_step_stream_prepends_initial_message(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step_stream should always prepend the initial
+    ReportAgent.step_stream should always prepend the initial
     user message so Gemini contents start with a user turn.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
+    from ccs_response_planner_backend.agents.report_agent.agent import (
         INITIAL_USER_MESSAGE,
-        InformationAgent,
+        ReportAgent,
     )
 
     text_part = _make_part(text="Assessment")
@@ -629,7 +631,7 @@ def test_agent_step_stream_prepends_initial_message(
         mock_genai, [[text_part]],
     )
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     history = [
         {
             "type": "tool_proposal",
@@ -671,13 +673,13 @@ def test_agent_step_stream_prepends_initial_message(
 
 def test_agent_execute_tool_unknown() -> None:
     """
-    InformationAgent.execute_tool should return error for unknown tools.
+    ReportAgent.execute_tool should return error for unknown tools.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     result = agent.execute_tool("unknown_tool", {})
     assert result["tool_name"] == "unknown_tool"
     assert "error" in result
@@ -688,11 +690,11 @@ def test_agent_parse_assessment_fallback() -> None:
     _parse_assessment should fall back gracefully when the
     model output is not valid JSON.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     raw = "This is not valid JSON at all."
     result = agent._parse_assessment(raw)
     assert result["type"] == "assessment"
@@ -709,8 +711,8 @@ def test_agent_parse_assessment_strips_code_fences() -> None:
     _parse_assessment should strip markdown code fences and
     parse the inner JSON correctly.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     inner = {
@@ -722,7 +724,7 @@ def test_agent_parse_assessment_strips_code_fences() -> None:
         "affected_assets": [],
     }
     fenced = "```json\n" + json.dumps(inner) + "\n```"
-    agent = InformationAgent()
+    agent = ReportAgent()
     result = agent._parse_assessment(fenced)
     assert result["type"] == "assessment"
     assert result["assessment"]["severity"] == "Low"
@@ -730,18 +732,18 @@ def test_agent_parse_assessment_strips_code_fences() -> None:
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".agent.genai",
 )
 def test_agent_step_stream_yields_thinking_events(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step_stream should yield thinking events
+    ReportAgent.step_stream should yield thinking events
     for thought parts, separate from regular text events.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     thought_part = _make_part(
@@ -757,24 +759,25 @@ def test_agent_step_stream_yields_thinking_events(
         [[thought_part], [text_part], [fc_part]],
     )
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     events = list(agent.step_stream(
         system_description="test",
         security_alerts="alerts",
         operator_feedback="",
         conversation_history=[],
     ))
-    assert len(events) == 3
-    assert events[0] == {
+    assert len(events) == 4
+    assert events[0]["type"] == "system_prompt"
+    assert events[1] == {
         "type": "thinking",
         "delta": "Let me analyze the alerts",
     }
-    assert events[1] == {
+    assert events[2] == {
         "type": "text", "delta": "I will search",
     }
-    assert events[2]["type"] == "tool_proposal"
-    assert events[2]["rationale"] == "I will search"
-    assert events[2]["thinking_trace"] == (
+    assert events[3]["type"] == "tool_proposal"
+    assert events[3]["rationale"] == "I will search"
+    assert events[3]["thinking_trace"] == (
         "Let me analyze the alerts"
     )
 
@@ -784,8 +787,8 @@ def test_serialize_part_with_thought_signature() -> None:
     _serialize_part should store thought_signature as base64
     when present on the part.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     sig_bytes = b"\x01\x02\x03\x04"
@@ -794,7 +797,7 @@ def test_serialize_part_with_thought_signature() -> None:
         thought_signature=sig_bytes,
     )
 
-    serialized = InformationAgent._serialize_part(part)
+    serialized = ReportAgent._serialize_part(part)
     assert serialized["text"] == "thinking"
     assert serialized["thought"] is True
     assert serialized["thought_signature"] == base64.b64encode(
@@ -807,13 +810,13 @@ def test_serialize_part_without_thought_signature() -> None:
     _serialize_part should handle parts with thought=True
     but no thought_signature.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     part = _make_part(text="hello", thought=True)
 
-    serialized = InformationAgent._serialize_part(part)
+    serialized = ReportAgent._serialize_part(part)
     assert serialized["text"] == "hello"
     assert serialized["thought"] is True
     assert "thought_signature" not in serialized
@@ -824,8 +827,8 @@ def test_decode_raw_parts_with_thought_signature() -> None:
     _decode_raw_parts should decode base64 thought_signature back
     to bytes and preserve thought flag.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     sig_bytes = b"\x01\x02\x03\x04"
@@ -839,7 +842,7 @@ def test_decode_raw_parts_with_thought_signature() -> None:
         },
         {"function_call": {"name": "test", "args": {}}},
     ]
-    decoded = InformationAgent._decode_raw_parts(raw)
+    decoded = ReportAgent._decode_raw_parts(raw)
     assert decoded[0]["text"] == "hello"
     assert decoded[0]["thought"] is True
     assert decoded[0]["thought_signature"] == sig_bytes
@@ -849,18 +852,18 @@ def test_decode_raw_parts_with_thought_signature() -> None:
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".agent.genai",
 )
 def test_agent_step_includes_thinking_trace(
     mock_genai: MagicMock,
 ) -> None:
     """
-    InformationAgent.step should include thinking_trace in the
+    ReportAgent.step should include thinking_trace in the
     returned event when thought parts are present.
     """
-    from ccs_response_planner_backend.agents.information_agent.agent import (
-        InformationAgent,
+    from ccs_response_planner_backend.agents.report_agent.agent import (
+        ReportAgent,
     )
 
     thought_part = _make_part(
@@ -874,7 +877,7 @@ def test_agent_step_includes_thinking_trace(
         mock_genai, [thought_part, fc_part],
     )
 
-    agent = InformationAgent()
+    agent = ReportAgent()
     result = agent.step(
         system_description="test",
         security_alerts="alerts",

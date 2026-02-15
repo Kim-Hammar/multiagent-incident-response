@@ -2,15 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_PLAN_MANAGER_STEP_URL,
-  API_AGENTS_PLAN_MANAGER_TOOL_URL,
-  API_AGENTS_PLAN_MANAGER_PROMPT_URL,
+  API_AGENTS_REPORT_MANAGER_STEP_URL,
+  API_AGENTS_REPORT_MANAGER_TOOL_URL,
+  API_AGENTS_REPORT_MANAGER_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
-import RlAgentReport from './RlAgentReport.jsx'
-import ValidationAgentReport from './ValidationAgentReport.jsx'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import PromptModal from './shared/PromptModal.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
@@ -19,67 +17,224 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
-const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
+/* ── Inline sub-report body renderers ─────────────────────────── */
 
-/**
- * Helper to push a nested_event into the correct level of the subEvents tree.
- */
-function handleNestedSubEvent(subEvents, innerEvent) {
-  if (innerEvent.type === 'context_usage') {
-    const lastToolCall = [...subEvents]
-      .reverse()
-      .find((e) => e.type === 'tool_call' && !e._completed)
-    if (lastToolCall) lastToolCall._contextUsage = innerEvent
-    return
-  }
-  if (innerEvent.type === 'thinking_delta') {
-    const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'reasoning') {
-      last.text += innerEvent.text
-    } else {
-      subEvents.push({ type: 'reasoning', text: innerEvent.text })
-    }
-  } else if (innerEvent.type === 'text_delta') {
-    const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'text') {
-      last.text += innerEvent.text
-    } else {
-      subEvents.push({ type: 'text', text: innerEvent.text })
-    }
-  } else if (innerEvent.type === 'nested_event') {
-    const lastToolCall = [...subEvents]
-      .reverse()
-      .find((e) => e.type === 'tool_call' && !e._completed)
-    if (lastToolCall) {
-      if (innerEvent.event.type === 'prompt') {
-        lastToolCall._prompt = innerEvent.event.text
-      } else if (innerEvent.event.type === 'context_usage') {
-        lastToolCall._contextUsage = innerEvent.event
-      } else {
-        if (!lastToolCall.subEvents) lastToolCall.subEvents = []
-        handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
-      }
-    }
-  } else if (innerEvent.type === 'tool_result') {
-    const lastCall = [...subEvents].reverse().find((e) => e.type === 'tool_call')
-    if (lastCall) lastCall._completed = true
-    const streamSubs = innerEvent.subEvents || []
-    subEvents.push({
-      type: 'tool_result',
-      tool_name: innerEvent.tool_name,
-      result: innerEvent.result,
-      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || []
-    })
-  } else {
-    subEvents.push(innerEvent)
-  }
+const SEVERITY_MAP = { Critical: 'danger', High: 'warning', Medium: 'info', Low: 'success' }
+
+function AssessmentBody({ report: a }) {
+  return (
+    <div style={{ marginTop: '10px' }}>
+      {a.incident_summary && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Incident Summary</div>
+          <p className="ia-assessment-body mb-0">{a.incident_summary}</p>
+        </div>
+      )}
+      {a.attack_vector_analysis && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Attack Vector Analysis</div>
+          <p className="ia-assessment-body mb-0">{a.attack_vector_analysis}</p>
+        </div>
+      )}
+      {a.severity && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Severity</div>
+          <span className={`badge badge-${SEVERITY_MAP[a.severity] || 'secondary'}`}>
+            {a.severity}
+          </span>
+          {a.severity_justification && (
+            <p className="ia-assessment-body mb-0 mt-1">{a.severity_justification}</p>
+          )}
+        </div>
+      )}
+      {a.indicators_of_compromise && a.indicators_of_compromise.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Indicators of Compromise</div>
+          <table className="ia-ioc-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Context</th>
+              </tr>
+            </thead>
+            <tbody>
+              {a.indicators_of_compromise.map((ioc, i) => (
+                <tr key={i}>
+                  <td>{ioc.type}</td>
+                  <td>{ioc.value}</td>
+                  <td>{ioc.context}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {a.affected_assets && a.affected_assets.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Affected Assets</div>
+          <table className="ia-asset-table">
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              {a.affected_assets.map((asset, i) => (
+                <tr key={i}>
+                  <td>{asset.asset}</td>
+                  <td>{asset.impact}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {a.attack_path_image && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Attack Path Diagram</div>
+          <img
+            src={a.attack_path_image}
+            alt="Attack path diagram"
+            style={{
+              maxWidth: '100%',
+              border: '1px solid #dee2e6',
+              borderRadius: '4px'
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
 }
 
-/**
- * Render a plan manager report entry.
- */
-function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
-  const report = entry.plan_manager_report || {}
+const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
+const REVIEW_SEVERITY = { critical: 'danger', major: 'warning', minor: 'info', info: 'secondary' }
+
+function ReviewBody({ report: r }) {
+  const findings = r.findings || []
+  const missingElements = r.missing_elements || []
+  const evidenceGaps = r.evidence_gaps || []
+  const strengths = r.strengths || []
+  return (
+    <div style={{ marginTop: '10px' }}>
+      {r.overall_verdict && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Overall Verdict</div>
+          <span
+            className={`badge badge-${VERDICT_STYLES[r.overall_verdict] || 'secondary'}`}
+            style={{ fontSize: '14px', padding: '6px 12px' }}
+          >
+            {r.overall_verdict.replace(/_/g, ' ')}
+          </span>
+        </div>
+      )}
+      {r.executive_summary && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Executive Summary</div>
+          <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+        </div>
+      )}
+      {findings.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Findings</div>
+          <table className="ia-ioc-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Severity</th>
+                <th>Description</th>
+                <th>Recommendation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {findings.map((f, i) => (
+                <tr key={i}>
+                  <td>{f.category}</td>
+                  <td>
+                    <span className={`badge badge-${REVIEW_SEVERITY[f.severity] || 'secondary'}`}>
+                      {f.severity}
+                    </span>
+                  </td>
+                  <td>{f.description}</td>
+                  <td>{f.recommendation}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {missingElements.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Missing Elements</div>
+          <table className="ia-ioc-table">
+            <thead>
+              <tr>
+                <th>Element</th>
+                <th>Description</th>
+                <th>Importance</th>
+                <th>Recommendation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {missingElements.map((m, i) => (
+                <tr key={i}>
+                  <td>
+                    <strong>{m.element}</strong>
+                  </td>
+                  <td>{m.description}</td>
+                  <td>{m.importance}</td>
+                  <td>{m.recommendation}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {evidenceGaps.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Evidence Gaps</div>
+          <table className="ia-ioc-table">
+            <thead>
+              <tr>
+                <th>Claim</th>
+                <th>Section</th>
+                <th>Issue</th>
+                <th>Suggestion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {evidenceGaps.map((g, i) => (
+                <tr key={i}>
+                  <td>{g.claim}</td>
+                  <td>{g.section}</td>
+                  <td>{g.issue}</td>
+                  <td>{g.suggestion}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {strengths.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Strengths</div>
+          <ul style={{ marginBottom: 0 }}>
+            {strengths.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Final report card ────────────────────────────────────────── */
+
+function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
+  const report = entry.report_manager_report || {}
   const verdictClass =
     report.final_verdict === 'pass'
       ? 'badge-success'
@@ -87,12 +242,15 @@ function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
         ? 'badge-warning'
         : 'badge-danger'
 
+  const assessment = entry.final_assessment || report.final_assessment || null
+  const reviewReport = entry.final_review_report || report.final_review_report || null
+
   return (
     <div className="card ia-entry ia-result-entry">
       <div className="card-body">
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
           <i className="fa fa-flag-checkered" aria-hidden="true" />
-          <span className="ia-result-label">Plan Manager Report</span>
+          <span className="ia-result-label">Report Manager Report</span>
           {report.final_verdict && (
             <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
           )}
@@ -109,22 +267,28 @@ function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
                 <p>{report.executive_summary}</p>
               </div>
             )}
-            {report.code_manager_summary && (
+            {report.report_summary && (
               <div className="mb-3">
-                <strong>Code Manager Summary:</strong>
-                <p>{report.code_manager_summary}</p>
+                <strong>Report Summary:</strong>
+                <p>{report.report_summary}</p>
               </div>
             )}
-            {report.rl_agent_summary && (
+            {report.review_summary && (
               <div className="mb-3">
-                <strong>RL Agent Summary:</strong>
-                <p>{report.rl_agent_summary}</p>
+                <strong>Review Summary:</strong>
+                <p>{report.review_summary}</p>
               </div>
             )}
-            {report.validation_summary && (
-              <div className="mb-3">
-                <strong>Validation Summary:</strong>
-                <p>{report.validation_summary}</p>
+            {assessment && (
+              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
+                <strong>Final Assessment</strong>
+                <AssessmentBody report={assessment} />
+              </div>
+            )}
+            {reviewReport && (
+              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
+                <strong>Final Review Report</strong>
+                <ReviewBody report={reviewReport} />
               </div>
             )}
           </div>
@@ -134,19 +298,22 @@ function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
   )
 }
 
+/* ── Main component ───────────────────────────────────────────── */
+
 /**
- * PlanManagerAgent component — orchestrates the full incident response pipeline:
- * CodeManager -> RL Agent -> Validation Agent with iterative revision.
+ * ReportManagerAgent component — orchestrates ReportAgent + ReportReviewerAgent
+ * in an automated generate-review-revise loop to produce high-quality
+ * incident assessment reports.
  */
-function PlanManagerAgent() {
+function ReportManagerAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
-  const [incidentReport, setIncidentReport] = useState('')
-  const [specification, setSpecification] = useState('')
+  const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
-  const [incidentReportImages, setIncidentReportImages] = useState([])
+  const [securityAlertsImages, setSecurityAlertsImages] = useState([])
+  const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
@@ -161,15 +328,10 @@ function PlanManagerAgent() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(2)
+  const [maxIterations, setMaxIterations] = useState(3)
   const [managerModel, setManagerModel] = useState('')
-  const [codeManagerModel, setCodeManagerModel] = useState('')
-  const [codeAgentModel, setCodeAgentModel] = useState('')
+  const [reportAgentModel, setReportAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
-  const [rlAgentModel, setRlAgentModel] = useState('')
-  const [validationAgentModel, setValidationAgentModel] = useState('')
-  const [codeManagerIterations, setCodeManagerIterations] = useState(3)
-  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(5)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -177,19 +339,18 @@ function PlanManagerAgent() {
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
 
-  const handlePaste = (event) => {
+  const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
     if (!items) return
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         event.preventDefault()
-        const blob = item.getAsFile()
+        const file = item.getAsFile()
         const reader = new FileReader()
-        reader.onload = () => {
-          setSystemDescriptionImages((prev) => [...prev, reader.result])
+        reader.onload = (e) => {
+          setImages((prev) => [...prev, e.target.result])
         }
-        reader.readAsDataURL(blob)
-        return
+        reader.readAsDataURL(file)
       }
     }
   }
@@ -274,6 +435,37 @@ function PlanManagerAgent() {
     })
   }
 
+  const extractFinalReports = (history) => {
+    let assessment = null
+    let reviewReport = null
+    for (let i = history.length - 1; i >= 0; i--) {
+      const h = history[i]
+      if (!assessment && h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
+        assessment = h.result?.assessment || null
+      }
+      if (
+        !reviewReport &&
+        h.type === 'tool_result' &&
+        h.tool_name === 'run_report_reviewer_agent'
+      ) {
+        reviewReport = h.result?.report_review || null
+      }
+      if (assessment && reviewReport) break
+    }
+    return { assessment, reviewReport }
+  }
+
+  const stripImagesFromHistory = (history) =>
+    history.map((entry) => {
+      if (entry.type === 'tool_result' && entry.result?.image) {
+        return {
+          ...entry,
+          result: { status: 'success', message: 'Image generated successfully' }
+        }
+      }
+      return entry
+    })
+
   const callStep = async (history) => {
     setRunning(true)
     const controller = new AbortController()
@@ -282,7 +474,7 @@ function PlanManagerAgent() {
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
     try {
-      const res = await fetch(API_AGENTS_PLAN_MANAGER_STEP_URL, {
+      const res = await fetch(API_AGENTS_REPORT_MANAGER_STEP_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -291,11 +483,10 @@ function PlanManagerAgent() {
         signal: controller.signal,
         body: JSON.stringify({
           system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
+          security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
-          conversation_history: history,
-          images: [...systemDescriptionImages, ...incidentReportImages],
+          conversation_history: stripImagesFromHistory(history),
+          images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           model_name: managerModel || undefined,
           max_iterations: maxIterations
         })
@@ -347,11 +538,11 @@ function PlanManagerAgent() {
               _tool_use_id: event._tool_use_id,
               _vendor: event._vendor
             }
-          } else if (event.type === 'plan_manager_report') {
+          } else if (event.type === 'report_manager_report') {
             finalEntry = {
               role: 'model',
-              type: 'plan_manager_report',
-              plan_manager_report: event.plan_manager_report,
+              type: 'report_manager_report',
+              report_manager_report: event.report_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
           } else if (event.type === 'dt_progress') {
@@ -380,8 +571,15 @@ function PlanManagerAgent() {
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
-        if (finalEntry.type === 'plan_manager_report') {
-          saveReport(finalEntry.plan_manager_report)
+        if (finalEntry.type === 'report_manager_report') {
+          const { assessment, reviewReport } = extractFinalReports(history)
+          finalEntry.final_assessment = assessment
+          finalEntry.final_review_report = reviewReport
+          saveReport({
+            ...finalEntry.report_manager_report,
+            final_assessment: assessment,
+            final_review_report: reviewReport
+          })
         }
       } else if (accumulated) {
         let report
@@ -392,17 +590,21 @@ function PlanManagerAgent() {
             executive_summary: accumulated,
             iterations: 0,
             final_verdict: 'unknown',
-            code_manager_summary: '',
-            rl_agent_summary: '',
-            validation_summary: ''
+            report_summary: '',
+            review_summary: ''
           }
         }
+        const { assessment, reviewReport } = extractFinalReports(history)
+        report.final_assessment = assessment
+        report.final_review_report = reviewReport
         setConversationHistory([
           ...history,
           {
             role: 'model',
-            type: 'plan_manager_report',
-            plan_manager_report: report
+            type: 'report_manager_report',
+            report_manager_report: report,
+            final_assessment: assessment,
+            final_review_report: reviewReport
           }
         ])
         saveReport(report)
@@ -445,11 +647,14 @@ function PlanManagerAgent() {
     abortControllerRef.current = controller
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
+      const subModel =
+        proposal.tool_name === 'run_report_reviewer_agent' ? reviewerAgentModel : reportAgentModel
       const streamEntry = {
         type: 'tool_streaming',
         tool_name: proposal.tool_name,
         output: '',
         subEvents: [],
+        _modelName: subModel || undefined,
         _startTime: Date.now()
       }
       const base = [...conversationHistory, approvalEntry, streamEntry]
@@ -457,21 +662,15 @@ function PlanManagerAgent() {
       try {
         const extraBody = {
           system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
+          security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
-          images: [...systemDescriptionImages, ...incidentReportImages],
-          conversation_history: conversationHistory,
-          code_manager_model: codeManagerModel || undefined,
-          code_agent_model: codeAgentModel || undefined,
+          images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
+          report_agent_model: reportAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          rl_agent_model: rlAgentModel || undefined,
-          validation_agent_model: validationAgentModel || undefined,
-          code_manager_iterations: codeManagerIterations,
-          rl_time_limit_minutes: rlTimeLimitMinutes
+          conversation_history: conversationHistory
         }
         const { result } = await executeStreamingTool({
-          url: API_AGENTS_PLAN_MANAGER_TOOL_URL,
+          url: API_AGENTS_REPORT_MANAGER_TOOL_URL,
           toolName: proposal.tool_name,
           toolArgs: proposal.tool_args,
           incidentId: selectedIncidentId,
@@ -506,31 +705,6 @@ function PlanManagerAgent() {
               } else {
                 streamEntry.subEvents.push({ type: 'text', text: event.text })
               }
-            } else if (event.type === 'nested_event') {
-              const lastToolCall = [...streamEntry.subEvents]
-                .reverse()
-                .find((e) => e.type === 'tool_call' && !e._completed)
-              if (lastToolCall) {
-                if (event.event.type === 'prompt') {
-                  lastToolCall._prompt = event.event.text
-                } else if (event.event.type === 'context_usage') {
-                  lastToolCall._contextUsage = event.event
-                } else {
-                  if (!lastToolCall.subEvents) lastToolCall.subEvents = []
-                  handleNestedSubEvent(lastToolCall.subEvents, event.event)
-                }
-              }
-            } else if (event.type === 'tool_result') {
-              const lastCall = [...streamEntry.subEvents]
-                .reverse()
-                .find((e) => e.type === 'tool_call')
-              if (lastCall) lastCall._completed = true
-              streamEntry.subEvents.push({
-                type: 'tool_result',
-                tool_name: event.tool_name,
-                result: event.result,
-                subEvents: event.subEvents || []
-              })
             } else {
               streamEntry.subEvents.push(event)
             }
@@ -545,7 +719,17 @@ function PlanManagerAgent() {
           result,
           subEvents: streamEntry.subEvents,
           prompt: streamEntry.prompt,
+          _modelName: streamEntry._modelName,
           contextUsage: streamEntry.contextUsage
+        }
+        if (proposal.tool_name === 'run_report_reviewer_agent') {
+          for (let i = conversationHistory.length - 1; i >= 0; i--) {
+            const h = conversationHistory[i]
+            if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
+              resultEntry._attackPathImage = h.result?.assessment?.attack_path_image
+              break
+            }
+          }
         }
         const updated = [...conversationHistory, approvalEntry, resultEntry]
         setConversationHistory(updated)
@@ -564,7 +748,7 @@ function PlanManagerAgent() {
     }
 
     try {
-      const res = await fetch(API_AGENTS_PLAN_MANAGER_TOOL_URL, {
+      const res = await fetch(API_AGENTS_REPORT_MANAGER_TOOL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -634,23 +818,11 @@ function PlanManagerAgent() {
       }
       const data = await res.json()
       setSystemDescription(data.system_description || '')
-      setIncidentReport(data.incident_report || '')
-      setSpecification(data.specification || '')
-      setOperatorFeedback('')
+      setSecurityAlerts(data.security_alerts || '')
+      setOperatorFeedback(data.operator_feedback || '')
       setSystemDescriptionImages(data.system_description_images || [])
-
-      const infoRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      if (infoRes.ok) {
-        const infoReports = await infoRes.json()
-        if (infoReports.length > 0) {
-          const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
-          setIncidentReport(JSON.stringify(reportText, null, 2))
-        }
-      }
+      setSecurityAlertsImages([])
+      setOperatorFeedbackImages([])
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to load example: ${err.message}` })
     }
@@ -658,11 +830,11 @@ function PlanManagerAgent() {
 
   const handleClear = () => {
     setSystemDescription('')
-    setIncidentReport('')
-    setSpecification('')
+    setSecurityAlerts('')
     setOperatorFeedback('')
     setSystemDescriptionImages([])
-    setIncidentReportImages([])
+    setSecurityAlertsImages([])
+    setOperatorFeedbackImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -670,7 +842,7 @@ function PlanManagerAgent() {
   }
 
   const getPromptText = async () => {
-    const res = await fetch(API_AGENTS_PLAN_MANAGER_PROMPT_URL, {
+    const res = await fetch(API_AGENTS_REPORT_MANAGER_PROMPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -678,8 +850,7 @@ function PlanManagerAgent() {
       },
       body: JSON.stringify({
         system_description: systemDescription,
-        incident_report: incidentReport,
-        specification: specification,
+        security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
         max_iterations: maxIterations
       })
@@ -709,7 +880,7 @@ function PlanManagerAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=plan_manager`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=report_manager`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -729,10 +900,12 @@ function PlanManagerAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'plan_manager',
+          agent_type: 'report_manager',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory),
+          conversation_history: cleanConversationHistory(
+            stripImagesFromHistory(conversationHistory)
+          ),
           model_name: managerModel || undefined
         })
       })
@@ -765,7 +938,7 @@ function PlanManagerAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <PlanManagerReport
+    <ReportManagerReportView
       key={index}
       entry={entry}
       index={index}
@@ -775,77 +948,28 @@ function PlanManagerAgent() {
   )
 
   const renderToolResult = (entry) => {
-    if (entry.tool_name === 'run_code_manager' && entry.result) {
-      const r = entry.result
-      return (
-        <div style={{ marginTop: '10px' }}>
-          {r.orchestrator_report?.executive_summary && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Code Manager Summary</div>
-              <p className="ia-assessment-body mb-0">{r.orchestrator_report.executive_summary}</p>
-            </div>
-          )}
-          {r.orchestrator_report?.final_verdict && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Verdict</div>
-              <span
-                className={`badge badge-${VERDICT_STYLES[r.orchestrator_report.final_verdict] || 'secondary'}`}
-                style={{ fontSize: '12px', padding: '5px 8px' }}
-              >
-                {r.orchestrator_report.final_verdict.replace(/_/g, ' ')}
-              </span>
-            </div>
-          )}
-        </div>
-      )
+    if (entry.tool_name === 'run_report_agent' && entry.result?.assessment) {
+      return <AssessmentBody report={entry.result.assessment} />
     }
-    if (entry.tool_name === 'run_rl_agent' && entry.result) {
-      const r = entry.result
+    if (entry.tool_name === 'run_report_reviewer_agent' && entry.result?.report_review) {
       return (
-        <div style={{ marginTop: '10px' }}>
-          {r.planner_report && (
-            <RlAgentReport
-              entry={{ type: 'planner_report', planner_report: r.planner_report }}
-              index="pm-rl"
-              isExpanded={true}
-              toggleEntry={() => {}}
-            />
-          )}
-          {r.response_plan && (
+        <>
+          {entry._attackPathImage && (
             <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
-              <div className="ia-assessment-label">Response Plan</div>
-              <pre
+              <div className="ia-assessment-label">Attack Path Image (attached to reviewer)</div>
+              <img
+                src={entry._attackPathImage}
+                alt="Attack path attached to reviewer"
                 style={{
-                  background: '#f5f5f5',
-                  padding: '12px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
+                  maxWidth: '100%',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '4px'
                 }}
-              >
-                {r.response_plan}
-              </pre>
+              />
             </div>
           )}
-        </div>
-      )
-    }
-    if (entry.tool_name === 'run_validation_agent' && entry.result) {
-      const r = entry.result
-      return (
-        <div style={{ marginTop: '10px' }}>
-          {r.validation_report && (
-            <ValidationAgentReport
-              entry={{ type: 'validation_report', validation_report: r.validation_report }}
-              index="pm-val"
-              isExpanded={true}
-              toggleEntry={() => {}}
-            />
-          )}
-        </div>
+          <ReviewBody report={entry.result.report_review} />
+        </>
       )
     }
     return null
@@ -879,7 +1003,7 @@ function PlanManagerAgent() {
             onClick={() => setActiveTab('planning')}
           >
             <span className={`status-dot ${isAgentBusy ? 'active' : 'inactive'}`} />
-            Pipeline process
+            Report generation process
           </button>
         </li>
         <li className="nav-item">
@@ -897,25 +1021,23 @@ function PlanManagerAgent() {
         <div style={{ marginTop: '16px' }}>
           <div className="ia-description">
             <p>
-              This agent orchestrates the full incident response pipeline: CodeManager (MDP
-              generation) -&gt; RL Agent (policy training) -&gt; Validation Agent (digital twin
-              testing). It iteratively revises the pipeline until the response plan passes
-              validation or the iteration limit is reached.
+              This agent coordinates the ReportAgent and ReportReviewerAgent in an automated
+              generate-review-revise loop to produce high-quality incident assessment reports.
             </p>
           </div>
 
           <div className="ia-section">
-            <label htmlFor="pm-system-desc">System description</label>
+            <label htmlFor="rm-system-desc">System description</label>
             <p className="ia-hint">
               Describe the target system, its architecture, hosts, and services.
             </p>
             <textarea
-              id="pm-system-desc"
+              id="rm-system-desc"
               className="form-control ia-textarea"
               rows="6"
               value={systemDescription}
               onChange={(e) => setSystemDescription(e.target.value)}
-              onPaste={handlePaste}
+              onPaste={handlePaste(setSystemDescriptionImages)}
               disabled={isAgentBusy}
               placeholder="e.g., The system consists of a web server, database server, and firewall..."
             />
@@ -926,58 +1048,52 @@ function PlanManagerAgent() {
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="pm-incident-report">Incident report</label>
+            <label htmlFor="rm-security-alerts">Security alerts</label>
             <p className="ia-hint">
-              Paste the incident report/assessment produced by the Report Agent.
+              Paste the security alerts/logs that triggered incident response.
             </p>
             <textarea
-              id="pm-incident-report"
+              id="rm-security-alerts"
               className="form-control ia-textarea"
               rows="6"
-              value={incidentReport}
-              onChange={(e) => setIncidentReport(e.target.value)}
+              value={securityAlerts}
+              onChange={(e) => setSecurityAlerts(e.target.value)}
+              onPaste={handlePaste(setSecurityAlertsImages)}
               disabled={isAgentBusy}
-              placeholder="e.g., An SSH brute-force attack was detected on server 3..."
+              placeholder="e.g., IDS alert: SSH brute-force detected from 10.0.0.2 targeting server 3..."
             />
             <ImageThumbnails
-              images={incidentReportImages}
-              setImages={setIncidentReportImages}
+              images={securityAlertsImages}
+              setImages={setSecurityAlertsImages}
               disabled={isAgentBusy}
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="pm-specification">Specification commands</label>
+            <label htmlFor="rm-operator-feedback">Operator feedback (optional)</label>
             <p className="ia-hint">
-              JSON array of specification commands that define service-level requirements.
+              Additional guidance or constraints for the incident assessment.
             </p>
             <textarea
-              id="pm-specification"
-              className="form-control ia-textarea"
-              rows="4"
-              value={specification}
-              onChange={(e) => setSpecification(e.target.value)}
-              disabled={isAgentBusy}
-              placeholder="Leave empty to use default specification commands from the digital twin config."
-            />
-          </div>
-          <div className="ia-section">
-            <label htmlFor="pm-operator-feedback">Operator feedback (optional)</label>
-            <p className="ia-hint">Additional guidance or constraints for the pipeline.</p>
-            <textarea
-              id="pm-operator-feedback"
+              id="rm-operator-feedback"
               className="form-control ia-textarea"
               rows="4"
               value={operatorFeedback}
               onChange={(e) => setOperatorFeedback(e.target.value)}
+              onPaste={handlePaste(setOperatorFeedbackImages)}
               disabled={isAgentBusy}
-              placeholder="e.g., Focus on containment actions first."
+              placeholder="e.g., Focus on lateral movement indicators. The web server is the most critical asset."
+            />
+            <ImageThumbnails
+              images={operatorFeedbackImages}
+              setImages={setOperatorFeedbackImages}
+              disabled={isAgentBusy}
             />
           </div>
           <button
             type="button"
             className="btn btn-dark btn-sm ia-btn"
             onClick={handleRun}
-            disabled={isAgentBusy || (!systemDescription && !incidentReport)}
+            disabled={isAgentBusy || (!systemDescription && !securityAlerts)}
           >
             <i className="fa fa-bolt" aria-hidden="true" />
             {isAgentBusy ? ' Running...' : ' Run agent'}
@@ -1006,43 +1122,15 @@ function PlanManagerAgent() {
             className="form-control form-control-sm"
             style={{ width: '70px', display: 'inline-block' }}
             min={1}
-            max={5}
+            max={10}
             value={maxIterations}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 5) setMaxIterations(v)
+              if (v >= 1 && v <= 10) setMaxIterations(v)
             }}
             disabled={isAgentBusy}
           />
-          <span className="ia-model-label">Code Manager Iterations:</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={10}
-            value={codeManagerIterations}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 10) setCodeManagerIterations(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">RL Training Time Limit (min):</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={60}
-            value={rlTimeLimitMinutes}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 60) setRlTimeLimitMinutes(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">Plan Manager LLM:</span>
+          <span className="ia-model-label">Manager LLM:</span>
           <select
             className="form-control form-control-sm ia-model-select"
             value={managerModel}
@@ -1056,25 +1144,11 @@ function PlanManagerAgent() {
               </option>
             ))}
           </select>
-          <span className="ia-model-label">Code Manager LLM:</span>
+          <span className="ia-model-label">Report Agent LLM:</span>
           <select
             className="form-control form-control-sm ia-model-select"
-            value={codeManagerModel}
-            onChange={(e) => setCodeManagerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Code Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={codeAgentModel}
-            onChange={(e) => setCodeAgentModel(e.target.value)}
+            value={reportAgentModel}
+            onChange={(e) => setReportAgentModel(e.target.value)}
             disabled={isAgentBusy}
           >
             <option value="">Default (Gemini 3 Pro)</option>
@@ -1098,43 +1172,15 @@ function PlanManagerAgent() {
               </option>
             ))}
           </select>
-          <span className="ia-model-label">RL Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={rlAgentModel}
-            onChange={(e) => setRlAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Validation Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={validationAgentModel}
-            onChange={(e) => setValidationAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
           <div className="form-check form-check-inline ia-btn">
             <input
               className="form-check-input"
               type="checkbox"
-              id="pm-autopilot"
+              id="rm-autopilot"
               checked={autopilot}
               onChange={(e) => setAutopilot(e.target.checked)}
             />
-            <label className="form-check-label" htmlFor="pm-autopilot">
+            <label className="form-check-label" htmlFor="rm-autopilot">
               Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
             </label>
           </div>
@@ -1176,8 +1222,8 @@ function PlanManagerAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           renderReport={(report) => (
-            <PlanManagerReport
-              entry={{ type: 'plan_manager_report', plan_manager_report: report }}
+            <ReportManagerReportView
+              entry={{ type: 'report_manager_report', report_manager_report: report }}
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
@@ -1193,4 +1239,4 @@ function PlanManagerAgent() {
   )
 }
 
-export default PlanManagerAgent
+export default ReportManagerAgent

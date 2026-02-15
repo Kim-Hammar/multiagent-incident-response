@@ -1,5 +1,5 @@
 """
-Gemini function-calling declarations for the InformationAgent tools.
+Gemini function-calling declarations for the ReportAgent tools.
 """
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 

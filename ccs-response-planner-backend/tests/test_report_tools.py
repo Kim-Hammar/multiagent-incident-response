@@ -1,8 +1,8 @@
-"""Unit tests for InformationAgent tool functions."""
+"""Unit tests for ReportAgent tool functions."""
 import base64
 from unittest.mock import MagicMock, patch
 
-from ccs_response_planner_backend.agents.information_agent.tools import (
+from ccs_response_planner_backend.agents.report_agent.tools import (
     generate_attack_image,
 )
 
@@ -37,7 +37,7 @@ def _make_text_part(text: str = "done") -> MagicMock:
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.genai",
 )
 def test_generate_attack_image_returns_image(
@@ -77,11 +77,11 @@ def test_generate_attack_image_returns_image(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.DatabaseFacade",
 )
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.genai",
 )
 def test_generate_attack_image_with_incident_id(
@@ -128,7 +128,7 @@ def test_generate_attack_image_with_incident_id(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.genai",
 )
 def test_generate_attack_image_no_image_output(
@@ -156,7 +156,7 @@ def test_generate_attack_image_no_image_output(
 
 
 @patch(
-    "ccs_response_planner_backend.agents.information_agent"
+    "ccs_response_planner_backend.agents.report_agent"
     ".tools.genai",
 )
 def test_generate_attack_image_api_error(

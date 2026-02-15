@@ -208,7 +208,7 @@ class ValidationReport(BaseModel):
     simulated_total_cost: float
 
 
-# ── Information Agent ──────────────────────────────────────────
+# ── Report Agent ──────────────────────────────────────────────
 
 
 class IOCEntry(BaseModel):
@@ -232,7 +232,7 @@ class AffectedAsset(BaseModel):
 
 class InformationReport(BaseModel):
     """
-    Report produced by the information_agent.
+    Report produced by the report_agent.
     """
 
     incident_summary: str
@@ -241,6 +241,70 @@ class InformationReport(BaseModel):
     severity: str
     severity_justification: str
     affected_assets: list[AffectedAsset]
+
+
+# ── Report Reviewer Agent ─────────────────────────────────────
+
+
+class ReportReviewFinding(BaseModel):
+    """
+    A specific issue found during report review.
+    """
+
+    category: str
+    severity: str
+    description: str
+    recommendation: str
+
+
+class MissingElement(BaseModel):
+    """
+    An element missing from the incident report.
+    """
+
+    element: str
+    description: str
+    importance: str
+    recommendation: str
+
+
+class EvidenceGap(BaseModel):
+    """
+    A claim in the report that lacks sufficient evidence.
+    """
+
+    claim: str
+    section: str
+    issue: str
+    suggestion: str
+
+
+class ReportReviewReport(BaseModel):
+    """
+    Report produced by the report_reviewer_agent.
+    """
+
+    executive_summary: str
+    findings: list[ReportReviewFinding]
+    missing_elements: list[MissingElement]
+    evidence_gaps: list[EvidenceGap]
+    strengths: list[str]
+    overall_verdict: str
+
+
+# ── Report Manager Agent ──────────────────────────────────────
+
+
+class ReportManagerReport(BaseModel):
+    """
+    Report produced by the report_manager_agent.
+    """
+
+    executive_summary: str
+    iterations: int
+    final_verdict: str
+    report_summary: str
+    review_summary: str
 
 
 # ── Plan Manager Agent ─────────────────────────────────────────
@@ -345,8 +409,10 @@ REPORT_MODELS: dict[str, type[BaseModel]] = {
     "code_manager_agent": OrchestratorReport,
     "rl_agent": PlannerReport,
     "validation_agent": ValidationReport,
-    "information_agent": InformationReport,
+    "report_agent": InformationReport,
     "plan_manager_agent": PlanManagerReport,
     "penetration_test_agent": PentestReport,
     "dp_agent": DpPlannerReport,
+    "report_reviewer_agent": ReportReviewReport,
+    "report_manager_agent": ReportManagerReport,
 }

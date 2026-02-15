@@ -1,7 +1,7 @@
 /**
- * Renders the final assessment report for the Information Agent.
+ * Renders the final assessment report for the Report Agent.
  */
-function InformationAgentReport({ entry, index, isExpanded, toggleEntry }) {
+function ReportAgentReport({ entry, index, isExpanded, toggleEntry }) {
   if (entry.type !== 'assessment') return null
 
   const a = entry.assessment || {}
@@ -119,4 +119,4 @@ function InformationAgentReport({ entry, index, isExpanded, toggleEntry }) {
   )
 }
 
-export default InformationAgentReport
+export default ReportAgentReport

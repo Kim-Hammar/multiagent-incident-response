@@ -31,6 +31,7 @@ function DpAgent() {
   const [codeReport, setCodeReport] = useState('')
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(5)
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
+  const [incidentReportImages, setIncidentReportImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
@@ -184,7 +185,7 @@ function DpAgent() {
               ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== '_runId'))
               : e
           ),
-          images: systemDescriptionImages,
+          images: [...systemDescriptionImages, ...incidentReportImages],
           model_name: selectedModel || undefined,
           time_limit_minutes: timeLimitMinutes
         })
@@ -520,14 +521,14 @@ function DpAgent() {
       }
 
       const infoRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=information&incident_id=${incidentId}`,
+        `${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
           const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          void attack_path_image
+          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
@@ -544,6 +545,7 @@ function DpAgent() {
     setCodeReport('')
     setTimeLimitMinutes(5)
     setSystemDescriptionImages([])
+    setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -748,6 +750,8 @@ function DpAgent() {
           setTimeLimitMinutes={setTimeLimitMinutes}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
+          incidentReportImages={incidentReportImages}
+          setIncidentReportImages={setIncidentReportImages}
           handlePaste={handlePaste}
           isAgentBusy={isAgentBusy}
           handleRun={handleRun}

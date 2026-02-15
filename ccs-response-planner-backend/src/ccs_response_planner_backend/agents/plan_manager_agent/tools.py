@@ -50,7 +50,9 @@ def _truncate_result(
     """
     out: dict[str, Any] = {}
     for key, val in result.items():
-        if isinstance(val, str) and len(val) > _OUTPUT_LIMIT:
+        if key == "image":
+            out[key] = val
+        elif isinstance(val, str) and len(val) > _OUTPUT_LIMIT:
             out[key] = (
                 val[:_OUTPUT_LIMIT] + "... (truncated)"
             )

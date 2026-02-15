@@ -2,35 +2,34 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_RL_STEP_URL,
-  API_AGENTS_RL_TOOL_URL,
-  API_AGENTS_RL_PROMPT_URL,
+  API_AGENTS_REPORT_REVIEW_STEP_URL,
+  API_AGENTS_REPORT_REVIEW_TOOL_URL,
+  API_AGENTS_REPORT_REVIEW_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
-import RlAgentConfigTab from './RlAgentConfigTab.jsx'
-import RlAgentReport from './RlAgentReport.jsx'
-import RewardChart from './RewardChart.jsx'
-import RlTrainResult from './RlTrainResult.jsx'
+import ReportReviewerConfigTab from './ReportReviewerConfigTab.jsx'
+import ReportReviewerReport from './ReportReviewerReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
 /**
- * RlAgent component — drives the RL agent loop with
- * human-in-the-loop tool approval and live RL training visualization.
+ * ReportReviewerAgent component — drives the report review agent loop with
+ * human-in-the-loop tool approval. Renders 3 inner tabs.
  */
-function RlAgent() {
+function ReportReviewerAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
-  const [incidentReport, setIncidentReport] = useState('')
-  const [specification, setSpecification] = useState('')
+  const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
-  const [codeReport, setCodeReport] = useState('')
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState(5)
+  const [incidentReport, setIncidentReport] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
+  const [securityAlertsImages, setSecurityAlertsImages] = useState([])
+  const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
   const [incidentReportImages, setIncidentReportImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
@@ -44,39 +43,28 @@ function RlAgent() {
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
+  const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [reportHistory, setReportHistory] = useState([])
-  const [trainingData, setTrainingData] = useState([])
-  const [trainingMeta, setTrainingMeta] = useState({
-    algorithm: '',
-    hyperparameters: '',
-    started: false
-  })
-  const [trainingStartTime, setTrainingStartTime] = useState(null)
-  const [evalProgress, setEvalProgress] = useState(null)
-  const [policyData, setPolicyData] = useState(null)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
-  const trainingRunsRef = useRef({})
-  const runIdCounterRef = useRef(0)
   const abortControllerRef = useRef(null)
 
-  const handlePaste = (event) => {
+  const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
     if (!items) return
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         event.preventDefault()
-        const blob = item.getAsFile()
+        const file = item.getAsFile()
         const reader = new FileReader()
-        reader.onload = () => {
-          setSystemDescriptionImages((prev) => [...prev, reader.result])
+        reader.onload = (e) => {
+          setImages((prev) => [...prev, e.target.result])
         }
-        reader.readAsDataURL(blob)
-        return
+        reader.readAsDataURL(file)
       }
     }
   }
@@ -145,7 +133,6 @@ function RlAgent() {
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
-    setTrainingStartTime(null)
     setConversationHistory((prev) => {
       const cleaned = prev
         .map((entry) => {
@@ -160,41 +147,48 @@ function RlAgent() {
         .filter(Boolean)
       return [
         ...cleaned,
-        { role: 'system', type: 'error', message: 'Planning process stopped by user.' }
+        { role: 'system', type: 'error', message: 'Review process stopped by user.' }
       ]
     })
   }
 
   const callStep = async (history) => {
     setRunning(true)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
-    const controller = new AbortController()
-    abortControllerRef.current = controller
     try {
-      const res = await fetch(API_AGENTS_RL_STEP_URL, {
+      let parsedReport = incidentReport
+      if (typeof parsedReport === 'string') {
+        try {
+          parsedReport = JSON.parse(parsedReport)
+        } catch {
+          /* send as-is, server will validate */
+        }
+      }
+      const res = await fetch(API_AGENTS_REPORT_REVIEW_STEP_URL, {
         method: 'POST',
-        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
+          security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
-          code_report: codeReport,
-          conversation_history: history.map((e) =>
-            e._runId != null
-              ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== '_runId'))
-              : e
-          ),
-          images: [...systemDescriptionImages, ...incidentReportImages],
-          model_name: selectedModel || undefined,
-          time_limit_minutes: timeLimitMinutes
-        })
+          incident_report: parsedReport,
+          conversation_history: history,
+          images: [
+            ...systemDescriptionImages,
+            ...securityAlertsImages,
+            ...operatorFeedbackImages,
+            ...incidentReportImages
+          ],
+          model_name: selectedModel || undefined
+        }),
+        signal: controller.signal
       })
       if (res.status === 401) {
         logout()
@@ -243,13 +237,15 @@ function RlAgent() {
               _tool_use_id: event._tool_use_id,
               _vendor: event._vendor
             }
-          } else if (event.type === 'planner_report') {
+          } else if (event.type === 'report_review') {
             finalEntry = {
               role: 'model',
-              type: 'planner_report',
-              planner_report: event.planner_report,
+              type: 'report_review',
+              report_review: event.report_review,
               thinking_trace: event.thinking_trace || ''
             }
+          } else if (event.type === 'dt_progress') {
+            setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'error') {
@@ -261,6 +257,7 @@ function RlAgent() {
         }
       }
 
+      setDtStatus(null)
       if (finalEntry) {
         const entries = []
         const reasoningText = finalEntry.thinking_trace || accumulated
@@ -273,30 +270,28 @@ function RlAgent() {
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
-        if (finalEntry.type === 'planner_report') {
-          saveReport(finalEntry.planner_report)
+        if (finalEntry.type === 'report_review') {
+          saveReport(finalEntry.report_review)
         }
       } else if (accumulated) {
-        let report
+        let review
         try {
-          report = JSON.parse(accumulated)
+          review = JSON.parse(accumulated)
         } catch {
-          report = {
+          review = {
             executive_summary: accumulated,
-            algorithm: '',
-            hyperparameters: '',
-            training_summary: '',
-            action_sequence: [],
-            contingencies: [],
-            expected_total_cost: 0,
-            risks: []
+            findings: [],
+            missing_elements: [],
+            evidence_gaps: [],
+            strengths: [],
+            overall_verdict: ''
           }
         }
         setConversationHistory([
           ...history,
-          { role: 'model', type: 'planner_report', planner_report: report }
+          { role: 'model', type: 'report_review', report_review: review }
         ])
-        saveReport(report)
+        saveReport(review)
       } else {
         setConversationHistory([
           ...history,
@@ -317,7 +312,6 @@ function RlAgent() {
     setConversationHistory([])
     setExpandedEntries({})
     setContextUsage(null)
-    setTrainingData([])
     setActiveTab('planning')
     callStep([])
   }
@@ -333,159 +327,90 @@ function RlAgent() {
     }
     setPendingProposal(null)
     setExecutingTool(proposal.tool_name)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
-    if (proposal.tool_name === 'rl_train') {
-      setTrainingData([])
-      setEvalProgress(null)
-      setTrainingStartTime(Date.now())
-      setTrainingMeta({
-        algorithm: proposal.tool_args.algorithm || '',
-        hyperparameters: proposal.tool_args.hyperparameters || '',
-        started: false
+    if (STREAMING_TOOLS.has(proposal.tool_name)) {
+      const streamEntry = { type: 'tool_streaming', tool_name: proposal.tool_name, output: '' }
+      const base = [...conversationHistory, approvalEntry, streamEntry]
+      setConversationHistory(base)
+      try {
+        const { result } = await executeStreamingTool({
+          url: API_AGENTS_REPORT_REVIEW_TOOL_URL,
+          toolName: proposal.tool_name,
+          toolArgs: proposal.tool_args,
+          incidentId: selectedIncidentId,
+          token,
+          signal: controller.signal,
+          onChunk: (text) => {
+            streamEntry.output += text
+            setConversationHistory([...base])
+          }
+        })
+        const resultEntry = {
+          role: 'tool',
+          type: 'tool_result',
+          tool_name: proposal.tool_name,
+          result
+        }
+        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        setConversationHistory(updated)
+        setExecutingTool(null)
+        await callStep(updated)
+      } catch (err) {
+        if (err.name === 'AbortError') return
+        if (err.status === 401) {
+          logout()
+          return
+        }
+        setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+        setExecutingTool(null)
+      }
+      return
+    }
+
+    try {
+      const res = await fetch(API_AGENTS_REPORT_REVIEW_TOOL_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          tool_name: proposal.tool_name,
+          tool_args: proposal.tool_args,
+          incident_id: selectedIncidentId
+        }),
+        signal: controller.signal
       })
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-      try {
-        const res = await fetch(API_AGENTS_RL_TOOL_URL, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            tool_name: proposal.tool_name,
-            tool_args: proposal.tool_args
-          })
-        })
-        if (res.status === 401) {
-          logout()
-          return
-        }
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}))
-          setAlert({
-            type: 'danger',
-            message: errData.error || `Tool execution failed (HTTP ${res.status})`
-          })
-          setExecutingTool(null)
-          return
-        }
-
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        const progressEvents = []
-        let resultEvent = null
-        let doneEvent = null
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop()
-          for (const line of lines) {
-            if (!line.trim()) continue
-            try {
-              const event = JSON.parse(line)
-              if (event.type === 'started') {
-                setTrainingMeta((prev) => ({ ...prev, started: true }))
-              } else if (event.type === 'progress') {
-                progressEvents.push(event)
-                setTrainingData((prev) => [...prev, event])
-              } else if (event.type === 'eval_progress') {
-                setEvalProgress(event)
-              } else if (event.type === 'result') {
-                resultEvent = event
-              } else if (event.type === 'done' || event.type === 'timeout') {
-                doneEvent = event
-                if (event.policy_data) setPolicyData(event.policy_data)
-              } else if (event.type === 'error') {
-                setAlert({ type: 'danger', message: event.message || 'Training error' })
-              }
-            } catch {
-              /* skip non-JSON lines */
-            }
-          }
-        }
-
-        setTrainingStartTime(null)
-        const runId = ++runIdCounterRef.current
-        trainingRunsRef.current[runId] = {
-          data: [...progressEvents],
-          meta: {
-            algorithm: proposal.tool_args.algorithm || '',
-            hyperparameters: proposal.tool_args.hyperparameters || ''
-          }
-        }
-        const toolResult = {
-          progress_episodes: progressEvents.length,
-          result: resultEvent,
-          done: doneEvent
-        }
-        const resultEntry = {
-          role: 'tool',
-          type: 'tool_result',
-          tool_name: proposal.tool_name,
-          result: toolResult,
-          _runId: runId
-        }
-        const updated = [...conversationHistory, approvalEntry, resultEntry]
-        setConversationHistory(updated)
-        setExecutingTool(null)
-        await callStep(updated)
-      } catch (err) {
-        if (err.name === 'AbortError') return
-        setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
-        setTrainingStartTime(null)
-        setExecutingTool(null)
+      if (res.status === 401) {
+        logout()
+        return
       }
-    } else {
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-      try {
-        const res = await fetch(API_AGENTS_RL_TOOL_URL, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            tool_name: proposal.tool_name,
-            tool_args: proposal.tool_args
-          })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        setAlert({
+          type: 'danger',
+          message: errData.error || `Tool execution failed (HTTP ${res.status})`
         })
-        if (res.status === 401) {
-          logout()
-          return
-        }
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}))
-          setAlert({
-            type: 'danger',
-            message: errData.error || `Tool execution failed (HTTP ${res.status})`
-          })
-          setExecutingTool(null)
-          return
-        }
-        const data = await res.json()
-        const resultEntry = {
-          role: 'tool',
-          type: 'tool_result',
-          tool_name: proposal.tool_name,
-          result: data.error ? { error: data.error } : data.result
-        }
-        const updated = [...conversationHistory, approvalEntry, resultEntry]
-        setConversationHistory(updated)
         setExecutingTool(null)
-        await callStep(updated)
-      } catch (err) {
-        if (err.name === 'AbortError') return
-        setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
-        setExecutingTool(null)
+        return
       }
+      const data = await res.json()
+      const resultEntry = {
+        role: 'tool',
+        type: 'tool_result',
+        tool_name: proposal.tool_name,
+        result: data.error ? { error: data.error } : data.result
+      }
+      const updated = [...conversationHistory, approvalEntry, resultEntry]
+      setConversationHistory(updated)
+      setExecutingTool(null)
+      await callStep(updated)
+    } catch (err) {
+      if (err.name === 'AbortError') return
+      setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+      setExecutingTool(null)
     }
   }
 
@@ -515,34 +440,24 @@ function RlAgent() {
       }
       const exampleData = await exampleRes.json()
       setSystemDescription(exampleData.system_description || '')
-      setIncidentReport(exampleData.incident_report || '')
-      setSpecification(exampleData.specification || '')
+      setSecurityAlerts(exampleData.security_alerts || '')
       setOperatorFeedback('')
       setSystemDescriptionImages(exampleData.system_description_images || [])
+      setSecurityAlertsImages([])
+      setOperatorFeedbackImages([])
 
       const reportsRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=code&incident_id=${incidentId}`,
+        `${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (reportsRes.ok) {
         const reports = await reportsRes.json()
         if (reports.length > 0) {
-          const latest = reports[0]
-          const report = latest.report || {}
-          setCodeReport(JSON.stringify(report, null, 2))
-        }
-      }
-
-      const infoRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      if (infoRes.ok) {
-        const infoReports = await infoRes.json()
-        if (infoReports.length > 0) {
-          const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
+          const { attack_path_image, ...reportText } = reports[0].report || {}
           setIncidentReport(JSON.stringify(reportText, null, 2))
+          if (attack_path_image) {
+            setIncidentReportImages([attack_path_image])
+          }
         }
       }
     } catch (err) {
@@ -552,28 +467,29 @@ function RlAgent() {
 
   const handleClear = () => {
     setSystemDescription('')
-    setIncidentReport('')
-    setSpecification('')
+    setSecurityAlerts('')
     setOperatorFeedback('')
-    setCodeReport('')
-    setTimeLimitMinutes(5)
+    setIncidentReport('')
     setSystemDescriptionImages([])
+    setSecurityAlertsImages([])
+    setOperatorFeedbackImages([])
     setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
-    setTrainingData([])
-    setTrainingMeta({ algorithm: '', hyperparameters: '', started: false })
-    setTrainingStartTime(null)
-    setEvalProgress(null)
-    setPolicyData(null)
-    trainingRunsRef.current = {}
-    runIdCounterRef.current = 0
     setSelectedIncidentId(null)
   }
 
   const getPromptText = async () => {
-    const res = await fetch(API_AGENTS_RL_PROMPT_URL, {
+    let parsedReport = incidentReport
+    if (typeof parsedReport === 'string') {
+      try {
+        parsedReport = JSON.parse(parsedReport)
+      } catch {
+        /* send as-is */
+      }
+    }
+    const res = await fetch(API_AGENTS_REPORT_REVIEW_PROMPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -581,11 +497,9 @@ function RlAgent() {
       },
       body: JSON.stringify({
         system_description: systemDescription,
-        incident_report: incidentReport,
-        specification: specification,
+        security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
-        code_report: codeReport,
-        time_limit_minutes: timeLimitMinutes
+        incident_report: parsedReport
       })
     })
     if (res.status === 401) {
@@ -613,7 +527,7 @@ function RlAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=rl`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=report_reviewer`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -633,7 +547,7 @@ function RlAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'rl',
+          agent_type: 'report_reviewer',
           report,
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(conversationHistory),
@@ -669,47 +583,14 @@ function RlAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <RlAgentReport
+    <ReportReviewerReport
       key={index}
       entry={entry}
       index={index}
       isExpanded={isExpanded}
       toggleEntry={toggleEntry}
-      policyData={policyData}
     />
   )
-
-  const renderToolResult = (entry) => {
-    if (entry.tool_name === 'rl_train') {
-      const run = entry._runId ? trainingRunsRef.current[entry._runId] : null
-      return (
-        <RlTrainResult
-          trainingData={run ? run.data : trainingData}
-          trainingMeta={run ? run.meta : trainingMeta}
-          result={entry.result}
-          policyData={policyData}
-        />
-      )
-    }
-    return null
-  }
-
-  const renderExecutingTool = (toolName) => {
-    if (toolName === 'rl_train') {
-      return (
-        <RewardChart
-          data={trainingData}
-          algorithm={trainingMeta.algorithm}
-          hyperparameters={trainingMeta.hyperparameters}
-          trainingStartTime={trainingStartTime}
-          timeLimitMinutes={timeLimitMinutes}
-          evalProgress={evalProgress}
-          trainingStarted={trainingMeta.started}
-        />
-      )
-    }
-    return null
-  }
 
   return (
     <div>
@@ -739,7 +620,7 @@ function RlAgent() {
             onClick={() => setActiveTab('planning')}
           >
             <span className={`status-dot ${isAgentBusy ? 'active' : 'inactive'}`} />
-            Planning process
+            Review process
           </button>
         </li>
         <li className="nav-item">
@@ -754,21 +635,21 @@ function RlAgent() {
       </ul>
 
       {activeTab === 'config' && (
-        <RlAgentConfigTab
+        <ReportReviewerConfigTab
           systemDescription={systemDescription}
           setSystemDescription={setSystemDescription}
-          incidentReport={incidentReport}
-          setIncidentReport={setIncidentReport}
-          specification={specification}
-          setSpecification={setSpecification}
+          securityAlerts={securityAlerts}
+          setSecurityAlerts={setSecurityAlerts}
           operatorFeedback={operatorFeedback}
           setOperatorFeedback={setOperatorFeedback}
-          codeReport={codeReport}
-          setCodeReport={setCodeReport}
-          timeLimitMinutes={timeLimitMinutes}
-          setTimeLimitMinutes={setTimeLimitMinutes}
+          incidentReport={incidentReport}
+          setIncidentReport={setIncidentReport}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
+          securityAlertsImages={securityAlertsImages}
+          setSecurityAlertsImages={setSecurityAlertsImages}
+          operatorFeedbackImages={operatorFeedbackImages}
+          setOperatorFeedbackImages={setOperatorFeedbackImages}
           incidentReportImages={incidentReportImages}
           setIncidentReportImages={setIncidentReportImages}
           handlePaste={handlePaste}
@@ -805,10 +686,9 @@ function RlAgent() {
           logEndRef={logEndRef}
           streamingTraceRef={streamingTraceRef}
           renderFinalReport={renderFinalReport}
-          renderExecutingTool={renderExecutingTool}
-          renderToolResult={renderToolResult}
           onStop={handleStop}
           onViewPrompt={getPromptText}
+          dtStatus={dtStatus}
           modelName={selectedModel}
         />
       )}
@@ -818,12 +698,11 @@ function RlAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           renderReport={(report) => (
-            <RlAgentReport
-              entry={{ type: 'planner_report', planner_report: report }}
+            <ReportReviewerReport
+              entry={{ type: 'report_review', report_review: report }}
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
-              policyData={policyData}
             />
           )}
           renderFinalReport={renderFinalReport}
@@ -835,4 +714,4 @@ function RlAgent() {
   )
 }
 
-export default RlAgent
+export default ReportReviewerAgent

@@ -98,6 +98,7 @@ function CodeManagerAgent() {
   const [specification, setSpecification] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
+  const [incidentReportImages, setIncidentReportImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
@@ -257,7 +258,7 @@ function CodeManagerAgent() {
           specification: specification,
           operator_feedback: operatorFeedback,
           conversation_history: history,
-          images: systemDescriptionImages,
+          images: [...systemDescriptionImages, ...incidentReportImages],
           model_name: managerModel || undefined,
           max_iterations: maxIterations
         })
@@ -436,7 +437,7 @@ function CodeManagerAgent() {
           incident_report: incidentReport,
           specification: specification,
           operator_feedback: operatorFeedback,
-          images: systemDescriptionImages,
+          images: [...systemDescriptionImages, ...incidentReportImages],
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
           conversation_history: conversationHistory
@@ -587,14 +588,14 @@ function CodeManagerAgent() {
       setSystemDescriptionImages(data.system_description_images || [])
 
       const infoRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=information&incident_id=${incidentId}`,
+        `${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
           const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          void attack_path_image
+          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
@@ -609,6 +610,7 @@ function CodeManagerAgent() {
     setSpecification('')
     setOperatorFeedback('')
     setSystemDescriptionImages([])
+    setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -808,7 +810,7 @@ function CodeManagerAgent() {
           <div className="ia-section">
             <label htmlFor="cm-incident-report">Incident report</label>
             <p className="ia-hint">
-              Paste the incident report/assessment produced by the Information Agent.
+              Paste the incident report/assessment produced by the Report Agent.
             </p>
             <textarea
               id="cm-incident-report"
@@ -818,6 +820,11 @@ function CodeManagerAgent() {
               onChange={(e) => setIncidentReport(e.target.value)}
               disabled={isAgentBusy}
               placeholder="e.g., An SSH brute-force attack was detected on server 3, followed by SQL injection from server 6..."
+            />
+            <ImageThumbnails
+              images={incidentReportImages}
+              setImages={setIncidentReportImages}
+              disabled={isAgentBusy}
             />
           </div>
           <div className="ia-section">

@@ -3,21 +3,21 @@ import PromptModal from './shared/PromptModal.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
- * Configuration tab for the Code Agent.
+ * Configuration tab for the Report Agent.
  */
-function CodeAgentConfigTab({
+function ReportAgentConfigTab({
   systemDescription,
   setSystemDescription,
-  incidentReport,
-  setIncidentReport,
-  specification,
-  setSpecification,
+  securityAlerts,
+  setSecurityAlerts,
   operatorFeedback,
   setOperatorFeedback,
   systemDescriptionImages,
   setSystemDescriptionImages,
-  incidentReportImages,
-  setIncidentReportImages,
+  securityAlertsImages,
+  setSecurityAlertsImages,
+  operatorFeedbackImages,
+  setOperatorFeedbackImages,
   handlePaste,
   isAgentBusy,
   handleRun,
@@ -38,36 +38,37 @@ function CodeAgentConfigTab({
     <div style={{ marginTop: '16px' }}>
       <div className="ia-description">
         <p>
-          This agent generates a Gymnasium-standard RL environment (MDP) for computing optimal
-          incident response plans. Its tasks are threefold:
+          The tasks of this agent are threefold:
           <ol>
             <li>
-              Analyze the system description, incident report, and specification to design actions
-              with realistic stochastic transitions and contingencies.
+              Analyze the available information about the incident and determine whether we have
+              sufficient information to proceed with incident response planning.
             </li>
             <li>
-              Generate and iteratively test Python code implementing the Gymnasium environment in a
-              sandbox.
+              If we do not have sufficient information, select tools to call in order to collect the
+              necessary information.{' '}
             </li>
-            <li>Verify the environment passes all Gymnasium checks and produce a code report.</li>
+            <li>
+              Once sufficient information has been collected, produce an incident report/assessment.
+            </li>
           </ol>
         </p>
       </div>
 
       <div className="ia-section">
-        <label htmlFor="ca-system-desc">System description</label>
+        <label htmlFor="ia-system-desc">System description</label>
         <p className="ia-hint">
           Describe the target system, its architecture, hosts, and services.
         </p>
         <textarea
-          id="ca-system-desc"
+          id="ia-system-desc"
           className="form-control ia-textarea"
-          rows="6"
+          rows="8"
           value={systemDescription}
           onChange={(e) => setSystemDescription(e.target.value)}
-          onPaste={handlePaste}
+          onPaste={handlePaste(setSystemDescriptionImages)}
           disabled={isAgentBusy}
-          placeholder="e.g., The system consists of a web server, database server, and firewall..."
+          placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
         />
         <ImageThumbnails
           images={systemDescriptionImages}
@@ -76,60 +77,52 @@ function CodeAgentConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="ca-incident-report">Incident report</label>
+        <label htmlFor="ia-alerts">Security alerts and logs</label>
         <p className="ia-hint">
-          Paste the incident report/assessment produced by the Information Agent.
+          Paste relevant security alerts, IDS logs, or other indicators of compromise.
         </p>
         <textarea
-          id="ca-incident-report"
+          id="ia-alerts"
           className="form-control ia-textarea"
-          rows="6"
-          value={incidentReport}
-          onChange={(e) => setIncidentReport(e.target.value)}
+          rows="8"
+          value={securityAlerts}
+          onChange={(e) => setSecurityAlerts(e.target.value)}
+          onPaste={handlePaste(setSecurityAlertsImages)}
           disabled={isAgentBusy}
-          placeholder="e.g., An SSH brute-force attack was detected on server 3, followed by SQL injection from server 6..."
+          placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
         />
         <ImageThumbnails
-          images={incidentReportImages}
-          setImages={setIncidentReportImages}
+          images={securityAlertsImages}
+          setImages={setSecurityAlertsImages}
           disabled={isAgentBusy}
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="ca-specification">Specification commands</label>
+        <label htmlFor="ia-feedback">Operator input</label>
         <p className="ia-hint">
-          JSON array of specification commands that define service-level requirements of the system.
+          Optionally provide additional context or instructions for the agent.
         </p>
         <textarea
-          id="ca-specification"
+          id="ia-feedback"
           className="form-control ia-textarea"
-          rows="4"
-          value={specification}
-          onChange={(e) => setSpecification(e.target.value)}
-          disabled={isAgentBusy}
-          placeholder="Leave empty to use default specification commands from the digital twin config."
-        />
-      </div>
-      <div className="ia-section">
-        <label htmlFor="ca-operator-feedback">Operator feedback (optional)</label>
-        <p className="ia-hint">
-          Additional guidance or constraints for the MDP environment design.
-        </p>
-        <textarea
-          id="ca-operator-feedback"
-          className="form-control ia-textarea"
-          rows="4"
+          rows="6"
           value={operatorFeedback}
           onChange={(e) => setOperatorFeedback(e.target.value)}
+          onPaste={handlePaste(setOperatorFeedbackImages)}
           disabled={isAgentBusy}
-          placeholder="e.g., Focus on containment actions first. The firewall rules should be the first actions."
+          placeholder="e.g., The SSH brute force alert on server 3 likely led to a compromise, since the SQL injection originates from that host..."
+        />
+        <ImageThumbnails
+          images={operatorFeedbackImages}
+          setImages={setOperatorFeedbackImages}
+          disabled={isAgentBusy}
         />
       </div>
       <button
         type="button"
         className="btn btn-dark btn-sm ia-btn"
         onClick={handleRun}
-        disabled={isAgentBusy || (!systemDescription && !incidentReport)}
+        disabled={isAgentBusy || (!systemDescription && !securityAlerts)}
       >
         <i className="fa fa-bolt" aria-hidden="true" />
         {isAgentBusy ? ' Running...' : ' Run agent'}
@@ -170,11 +163,11 @@ function CodeAgentConfigTab({
         <input
           className="form-check-input"
           type="checkbox"
-          id="ca-autopilot"
+          id="ia-autopilot"
           checked={autopilot}
           onChange={(e) => setAutopilot(e.target.checked)}
         />
-        <label className="form-check-label" htmlFor="ca-autopilot">
+        <label className="form-check-label" htmlFor="ia-autopilot">
           Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
         </label>
       </div>
@@ -188,4 +181,4 @@ function CodeAgentConfigTab({
   )
 }
 
-export default CodeAgentConfigTab
+export default ReportAgentConfigTab

@@ -10,7 +10,9 @@ export const STREAMING_TOOLS = new Set([
   'run_code_reviewer_agent',
   'run_code_manager',
   'run_rl_agent',
-  'run_validation_agent'
+  'run_validation_agent',
+  'run_report_agent',
+  'run_report_reviewer_agent'
 ])
 
 /**

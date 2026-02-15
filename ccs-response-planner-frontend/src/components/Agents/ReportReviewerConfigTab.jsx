@@ -3,21 +3,25 @@ import PromptModal from './shared/PromptModal.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
- * Configuration tab for the Information Agent.
+ * Configuration tab for the Report Reviewer Agent.
  */
-function InformationAgentConfigTab({
+function ReportReviewerConfigTab({
   systemDescription,
   setSystemDescription,
   securityAlerts,
   setSecurityAlerts,
   operatorFeedback,
   setOperatorFeedback,
+  incidentReport,
+  setIncidentReport,
   systemDescriptionImages,
   setSystemDescriptionImages,
   securityAlertsImages,
   setSecurityAlertsImages,
   operatorFeedbackImages,
   setOperatorFeedbackImages,
+  incidentReportImages,
+  setIncidentReportImages,
   handlePaste,
   isAgentBusy,
   handleRun,
@@ -38,37 +42,31 @@ function InformationAgentConfigTab({
     <div style={{ marginTop: '16px' }}>
       <div className="ia-description">
         <p>
-          The tasks of this agent are threefold:
+          This agent reviews an incident report produced by the Report Agent. It verifies claims
+          using threat intelligence APIs and digital twin inspection, then produces a structured
+          review identifying gaps, unsubstantiated claims, and missing elements.
           <ol>
-            <li>
-              Analyze the available information about the incident and determine whether we have
-              sufficient information to proceed with incident response planning.
-            </li>
-            <li>
-              If we do not have sufficient information, select tools to call in order to collect the
-              necessary information.{' '}
-            </li>
-            <li>
-              Once sufficient information has been collected, produce an incident report/assessment.
-            </li>
+            <li>Analyze the incident report for completeness, evidence quality, and accuracy.</li>
+            <li>Verify claims using threat intel lookups and digital twin inspection.</li>
+            <li>Produce a structured review with findings and recommendations.</li>
           </ol>
         </p>
       </div>
 
       <div className="ia-section">
-        <label htmlFor="ia-system-desc">System description</label>
+        <label htmlFor="rr-system-desc">System description</label>
         <p className="ia-hint">
           Describe the target system, its architecture, hosts, and services.
         </p>
         <textarea
-          id="ia-system-desc"
+          id="rr-system-desc"
           className="form-control ia-textarea"
-          rows="8"
+          rows="6"
           value={systemDescription}
           onChange={(e) => setSystemDescription(e.target.value)}
           onPaste={handlePaste(setSystemDescriptionImages)}
           disabled={isAgentBusy}
-          placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
+          placeholder="e.g., The system consists of a web server, database server, and firewall..."
         />
         <ImageThumbnails
           images={systemDescriptionImages}
@@ -77,19 +75,19 @@ function InformationAgentConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="ia-alerts">Security alerts and logs</label>
+        <label htmlFor="rr-alerts">Security alerts and logs</label>
         <p className="ia-hint">
           Paste relevant security alerts, IDS logs, or other indicators of compromise.
         </p>
         <textarea
-          id="ia-alerts"
+          id="rr-alerts"
           className="form-control ia-textarea"
-          rows="8"
+          rows="6"
           value={securityAlerts}
           onChange={(e) => setSecurityAlerts(e.target.value)}
           onPaste={handlePaste(setSecurityAlertsImages)}
           disabled={isAgentBusy}
-          placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
+          placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1..."
         />
         <ImageThumbnails
           images={securityAlertsImages}
@@ -98,19 +96,17 @@ function InformationAgentConfigTab({
         />
       </div>
       <div className="ia-section">
-        <label htmlFor="ia-feedback">Operator input</label>
-        <p className="ia-hint">
-          Optionally provide additional context or instructions for the agent.
-        </p>
+        <label htmlFor="rr-feedback">Operator feedback (optional)</label>
+        <p className="ia-hint">Additional guidance or constraints for the review.</p>
         <textarea
-          id="ia-feedback"
+          id="rr-feedback"
           className="form-control ia-textarea"
-          rows="6"
+          rows="4"
           value={operatorFeedback}
           onChange={(e) => setOperatorFeedback(e.target.value)}
           onPaste={handlePaste(setOperatorFeedbackImages)}
           disabled={isAgentBusy}
-          placeholder="e.g., The SSH brute force alert on server 3 likely led to a compromise, since the SQL injection originates from that host..."
+          placeholder="e.g., Pay special attention to the severity rating and IOC evidence."
         />
         <ImageThumbnails
           images={operatorFeedbackImages}
@@ -118,11 +114,30 @@ function InformationAgentConfigTab({
           disabled={isAgentBusy}
         />
       </div>
+      <div className="ia-section">
+        <label htmlFor="rr-incident-report">Incident report (from Report Agent)</label>
+        <p className="ia-hint">Paste the JSON assessment produced by the Report Agent.</p>
+        <textarea
+          id="rr-incident-report"
+          className="form-control ia-textarea"
+          rows="12"
+          value={incidentReport}
+          onChange={(e) => setIncidentReport(e.target.value)}
+          disabled={isAgentBusy}
+          placeholder='{"incident_summary": "...", "attack_vector_analysis": "...", ...}'
+          style={{ fontFamily: 'monospace', fontSize: '12px' }}
+        />
+        <ImageThumbnails
+          images={incidentReportImages}
+          setImages={setIncidentReportImages}
+          disabled={isAgentBusy}
+        />
+      </div>
       <button
         type="button"
         className="btn btn-dark btn-sm ia-btn"
         onClick={handleRun}
-        disabled={isAgentBusy || (!systemDescription && !securityAlerts)}
+        disabled={isAgentBusy || !incidentReport}
       >
         <i className="fa fa-bolt" aria-hidden="true" />
         {isAgentBusy ? ' Running...' : ' Run agent'}
@@ -163,11 +178,11 @@ function InformationAgentConfigTab({
         <input
           className="form-check-input"
           type="checkbox"
-          id="ia-autopilot"
+          id="rr-autopilot"
           checked={autopilot}
           onChange={(e) => setAutopilot(e.target.checked)}
         />
-        <label className="form-check-label" htmlFor="ia-autopilot">
+        <label className="form-check-label" htmlFor="rr-autopilot">
           Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
         </label>
       </div>
@@ -181,4 +196,4 @@ function InformationAgentConfigTab({
   )
 }
 
-export default InformationAgentConfigTab
+export default ReportReviewerConfigTab

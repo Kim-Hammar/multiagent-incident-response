@@ -10,7 +10,7 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_table,
     format_network_connectivity,
 )
-from ccs_response_planner_backend.agents.information_agent.prompt import (
+from ccs_response_planner_backend.agents.report_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.constants.constants import DIGITAL_TWIN
@@ -31,10 +31,10 @@ def test_step_returns_401_without_token(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/information/step without a token returns 401.
+    POST /api/agents/report/step without a token returns 401.
     """
     resp = client.post(
-        "/api/agents/information/step",
+        "/api/agents/report/step",
         data=json.dumps({"system_description": "test"}),
         content_type="application/json",
     )
@@ -45,10 +45,10 @@ def test_step_returns_400_missing_fields(
     client: FlaskClient, auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/step with no fields returns 400.
+    POST /api/agents/report/step with no fields returns 400.
     """
     resp = client.post(
-        "/api/agents/information/step",
+        "/api/agents/report/step",
         data=json.dumps({}),
         content_type="application/json",
         headers=auth_headers,
@@ -65,7 +65,7 @@ def test_step_returns_400_missing_fields(
 )
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
@@ -74,7 +74,7 @@ def test_step_streams_tool_proposal(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/step streams text then tool_proposal.
+    POST /api/agents/report/step streams text then tool_proposal.
     """
     mock_agent = MagicMock()
     mock_agent.step_stream.return_value = iter([
@@ -88,7 +88,7 @@ def test_step_streams_tool_proposal(
     ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/step",
+        "/api/agents/report/step",
         data=json.dumps({
             "system_description": "test system",
             "security_alerts": "test alerts",
@@ -113,7 +113,7 @@ def test_step_streams_tool_proposal(
 )
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_step_streams_assessment(
     mock_agent_cls: MagicMock,
@@ -122,7 +122,7 @@ def test_step_streams_assessment(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/step streams text then assessment.
+    POST /api/agents/report/step streams text then assessment.
     """
     mock_assessment = {
         "incident_summary": "Based on analysis",
@@ -142,7 +142,7 @@ def test_step_streams_assessment(
     ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/step",
+        "/api/agents/report/step",
         data=json.dumps({
             "system_description": "test system",
             "security_alerts": "test alerts",
@@ -169,7 +169,7 @@ def test_step_streams_assessment(
 )
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_step_streams_error_on_failure(
     mock_agent_cls: MagicMock,
@@ -178,7 +178,7 @@ def test_step_streams_error_on_failure(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/step streams an error event on failure.
+    POST /api/agents/report/step streams an error event on failure.
     """
     mock_agent = MagicMock()
     mock_agent.step_stream.side_effect = RuntimeError(
@@ -186,7 +186,7 @@ def test_step_streams_error_on_failure(
     )
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/step",
+        "/api/agents/report/step",
         data=json.dumps({
             "system_description": "test",
             "security_alerts": "alerts",
@@ -206,10 +206,10 @@ def test_tool_returns_401_without_token(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/information/tool without a token returns 401.
+    POST /api/agents/report/tool without a token returns 401.
     """
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "tavily_search",
             "tool_args": {},
@@ -223,10 +223,10 @@ def test_tool_returns_400_missing_fields(
     client: FlaskClient, auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool with no tool_name returns 400.
+    POST /api/agents/report/tool with no tool_name returns 400.
     """
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({}),
         content_type="application/json",
         headers=auth_headers,
@@ -240,10 +240,10 @@ def test_tool_returns_400_unknown_tool(
     client: FlaskClient, auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool with unknown tool returns 400.
+    POST /api/agents/report/tool with unknown tool returns 400.
     """
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "nonexistent_tool",
             "tool_args": {},
@@ -258,7 +258,7 @@ def test_tool_returns_400_unknown_tool(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_tool_executes_and_returns_result(
     mock_agent_cls: MagicMock,
@@ -266,7 +266,7 @@ def test_tool_executes_and_returns_result(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool executes and returns result.
+    POST /api/agents/report/tool executes and returns result.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool.return_value = {
@@ -275,7 +275,7 @@ def test_tool_executes_and_returns_result(
     }
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "tavily_search",
             "tool_args": {"query": "test"},
@@ -291,7 +291,7 @@ def test_tool_executes_and_returns_result(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_tool_returns_500_on_error(
     mock_agent_cls: MagicMock,
@@ -299,13 +299,13 @@ def test_tool_returns_500_on_error(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool returns 500 on tool error.
+    POST /api/agents/report/tool returns 500 on tool error.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool.side_effect = RuntimeError("boom")
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "tavily_search",
             "tool_args": {"query": "test"},
@@ -322,10 +322,10 @@ def test_prompt_returns_401_without_token(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/information/prompt without a token returns 401.
+    POST /api/agents/report/prompt without a token returns 401.
     """
     resp = client.post(
-        "/api/agents/information/prompt",
+        "/api/agents/report/prompt",
         data=json.dumps({}),
         content_type="application/json",
     )
@@ -336,10 +336,10 @@ def test_prompt_returns_rendered_prompt(
     client: FlaskClient, auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/prompt renders the system prompt.
+    POST /api/agents/report/prompt renders the system prompt.
     """
     resp = client.post(
-        "/api/agents/information/prompt",
+        "/api/agents/report/prompt",
         data=json.dumps({
             "system_description": "My system",
             "security_alerts": "My alerts",
@@ -360,10 +360,10 @@ def test_prompt_uses_na_for_empty_fields(
     client: FlaskClient, auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/prompt uses N/A for empty fields.
+    POST /api/agents/report/prompt uses N/A for empty fields.
     """
     resp = client.post(
-        "/api/agents/information/prompt",
+        "/api/agents/report/prompt",
         data=json.dumps({}),
         content_type="application/json",
         headers=auth_headers,
@@ -380,13 +380,14 @@ def test_prompt_uses_na_for_empty_fields(
         dt_network_connectivity=format_network_connectivity(
             dt_config,
         ),
+        revision_notice="",
     )
     assert data["prompt"] == expected
 
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_tool_injects_incident_id_for_dt_exec(
     mock_agent_cls: MagicMock,
@@ -394,7 +395,7 @@ def test_tool_injects_incident_id_for_dt_exec(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool with dt_exec injects incident_id.
+    POST /api/agents/report/tool with dt_exec injects incident_id.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool_stream.return_value = iter([
@@ -404,7 +405,7 @@ def test_tool_injects_incident_id_for_dt_exec(
     ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
@@ -423,7 +424,7 @@ def test_tool_injects_incident_id_for_dt_exec(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_tool_no_incident_id_for_non_dt_tool(
     mock_agent_cls: MagicMock,
@@ -431,7 +432,7 @@ def test_tool_no_incident_id_for_non_dt_tool(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool with non-DT tool omits incident_id.
+    POST /api/agents/report/tool with non-DT tool omits incident_id.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool.return_value = {
@@ -440,7 +441,7 @@ def test_tool_no_incident_id_for_non_dt_tool(
     }
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "tavily_search",
             "tool_args": {"query": "test"},
@@ -456,7 +457,7 @@ def test_tool_no_incident_id_for_non_dt_tool(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_tool_injects_incident_id_for_generate_attack_image(
     mock_agent_cls: MagicMock,
@@ -464,7 +465,7 @@ def test_tool_injects_incident_id_for_generate_attack_image(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool with generate_attack_image
+    POST /api/agents/report/tool with generate_attack_image
     injects incident_id into tool_args.
     """
     mock_agent = MagicMock()
@@ -474,7 +475,7 @@ def test_tool_injects_incident_id_for_generate_attack_image(
     }
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "generate_attack_image",
             "tool_args": {"prompt": "test attack path"},
@@ -526,7 +527,7 @@ def test_pentest_tool_injects_incident_id(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.InformationAgent",
+    ".routes.ReportAgent",
 )
 def test_info_tool_dt_exec_streams_ndjson(
     mock_agent_cls: MagicMock,
@@ -534,7 +535,7 @@ def test_info_tool_dt_exec_streams_ndjson(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/information/tool with dt_exec streams NDJSON.
+    POST /api/agents/report/tool with dt_exec streams NDJSON.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool_stream.return_value = iter([
@@ -549,7 +550,7 @@ def test_info_tool_dt_exec_streams_ndjson(
     ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/information/tool",
+        "/api/agents/report/tool",
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
@@ -1203,4 +1204,516 @@ def test_plan_manager_prompt_renders_prompt(
     assert "prompt" in data
     assert "My system" in data["prompt"]
     assert "My incident" in data["prompt"]
+    assert "My feedback" in data["prompt"]
+
+
+# ── ReportManagerAgent endpoint tests ──
+
+
+def test_report_manager_step_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/report-manager/step without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/report-manager/step",
+        data=json.dumps({
+            "system_description": "test",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_report_manager_step_returns_400_missing_fields(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-manager/step with no fields -> 400.
+    """
+    resp = client.post(
+        "/api/agents/report-manager/step",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert "error" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportManagerAgent",
+)
+def test_report_manager_step_streams_tool_proposal(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-manager/step streams tool_proposal.
+    """
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {"type": "text", "delta": "Starting orchestration"},
+        {
+            "type": "tool_proposal",
+            "tool_name": "run_report_agent",
+            "tool_args": {},
+            "rationale": "Starting orchestration",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report-manager/step",
+        data=json.dumps({
+            "system_description": "test system",
+            "security_alerts": "test alerts",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert len(events) == 2
+    assert events[0]["type"] == "text"
+    assert events[1]["type"] == "tool_proposal"
+    assert events[1]["tool_name"] == "run_report_agent"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportManagerAgent",
+)
+def test_report_manager_step_streams_report(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-manager/step streams report.
+    """
+    mock_report = {
+        "executive_summary": "Completed in 1 iteration",
+        "iterations": 1,
+        "final_verdict": "pass",
+        "report_summary": "Assessment OK",
+        "review_summary": "All checks passed",
+    }
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {
+            "type": "report_manager_report",
+            "report_manager_report": mock_report,
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report-manager/step",
+        data=json.dumps({
+            "system_description": "test",
+            "security_alerts": "test",
+            "conversation_history": [
+                {"type": "tool_result"},
+            ],
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "report_manager_report"
+    assert events[-1]["report_manager_report"][
+        "final_verdict"
+    ] == "pass"
+
+
+def test_report_manager_tool_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/report-manager/tool without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/report-manager/tool",
+        data=json.dumps({
+            "tool_name": "run_report_agent",
+            "tool_args": {},
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_report_manager_tool_returns_400_missing_tool_name(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-manager/tool no tool_name -> 400.
+    """
+    resp = client.post(
+        "/api/agents/report-manager/tool",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert "error" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportManagerAgent",
+)
+def test_report_manager_tool_streams_run_report_agent(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-manager/tool with run_report_agent
+    streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "output_chunk",
+            "text": "[ReportAgent] Step 1...\n",
+        },
+        {
+            "type": "done",
+            "result": {
+                "assessment": {
+                    "incident_summary": "Done",
+                },
+            },
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report-manager/tool",
+        data=json.dumps({
+            "tool_name": "run_report_agent",
+            "tool_args": {},
+            "system_description": "test",
+            "security_alerts": "test",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert any(
+        e["type"] == "output_chunk" for e in events
+    )
+    assert events[-1]["type"] == "done"
+
+
+def test_report_manager_prompt_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/report-manager/prompt without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/report-manager/prompt",
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_report_manager_prompt_renders_prompt(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-manager/prompt renders the prompt.
+    """
+    resp = client.post(
+        "/api/agents/report-manager/prompt",
+        data=json.dumps({
+            "system_description": "My system",
+            "security_alerts": "My alerts",
+            "operator_feedback": "My feedback",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "prompt" in data
+    assert "My system" in data["prompt"]
+    assert "My alerts" in data["prompt"]
+    assert "My feedback" in data["prompt"]
+
+
+# ── ReportReviewerAgent endpoint tests ──
+
+
+def test_report_review_step_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/report-review/step without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/report-review/step",
+        data=json.dumps({
+            "incident_report": {"incident_summary": "test"},
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_report_review_step_returns_400_missing_report(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-review/step without
+    incident_report returns 400.
+    """
+    resp = client.post(
+        "/api/agents/report-review/step",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert "error" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportReviewerAgent",
+)
+def test_report_review_step_streams_tool_proposal(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-review/step streams text then
+    tool_proposal.
+    """
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {"type": "text", "delta": "I will verify"},
+        {
+            "type": "tool_proposal",
+            "tool_name": "tavily_search",
+            "tool_args": {"query": "test"},
+            "rationale": "I will verify",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report-review/step",
+        data=json.dumps({
+            "incident_report": {
+                "incident_summary": "test",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert len(events) == 2
+    assert events[0]["type"] == "text"
+    assert events[1]["type"] == "tool_proposal"
+    assert events[1]["tool_name"] == "tavily_search"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportReviewerAgent",
+)
+def test_report_review_step_streams_report_review(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-review/step streams report_review.
+    """
+    mock_review = {
+        "executive_summary": "Report needs revision",
+        "findings": [],
+        "missing_elements": [],
+        "evidence_gaps": [],
+        "strengths": ["Good severity analysis"],
+        "overall_verdict": "needs_revision",
+    }
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {
+            "type": "report_review",
+            "report_review": mock_review,
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report-review/step",
+        data=json.dumps({
+            "incident_report": {
+                "incident_summary": "test",
+            },
+            "conversation_history": [
+                {"type": "tool_result"},
+            ],
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "report_review"
+    assert events[-1]["report_review"][
+        "overall_verdict"
+    ] == "needs_revision"
+
+
+def test_report_review_tool_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/report-review/tool without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/report-review/tool",
+        data=json.dumps({
+            "tool_name": "tavily_search",
+            "tool_args": {},
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_report_review_tool_returns_400_missing_tool_name(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-review/tool with no tool_name -> 400.
+    """
+    resp = client.post(
+        "/api/agents/report-review/tool",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert "error" in data
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportReviewerAgent",
+)
+def test_report_review_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-review/tool with dt_exec streams
+    NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_server_1",
+            "command": "whoami",
+            "exit_code": 0,
+            "output": "root\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report-review/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_server_1",
+                "command": "whoami",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.content_type == "application/x-ndjson"
+    events = _parse_ndjson(resp.data)
+    assert events[-1]["type"] == "done"
+
+
+def test_report_review_prompt_returns_401_without_token(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/report-review/prompt without token -> 401.
+    """
+    resp = client.post(
+        "/api/agents/report-review/prompt",
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_report_review_prompt_renders_prompt(
+    client: FlaskClient, auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report-review/prompt renders the prompt.
+    """
+    resp = client.post(
+        "/api/agents/report-review/prompt",
+        data=json.dumps({
+            "system_description": "My system",
+            "security_alerts": "My alerts",
+            "operator_feedback": "My feedback",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "prompt" in data
+    assert "My system" in data["prompt"]
+    assert "My alerts" in data["prompt"]
     assert "My feedback" in data["prompt"]

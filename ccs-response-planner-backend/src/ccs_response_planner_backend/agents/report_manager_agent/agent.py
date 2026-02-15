@@ -1,6 +1,7 @@
 """
-InformationAgent — uses Gemini with function calling to gather
-incident information and produce a structured assessment.
+ReportManagerAgent — uses Gemini with function calling to
+orchestrate ReportAgent and ReportReviewerAgent in an automated
+generate-review-revise loop.
 """
 import base64
 import json
@@ -15,18 +16,14 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
-from ccs_response_planner_backend.agents.dt_prompt_utils import (
-    format_container_list,
-    format_container_table,
-    format_network_connectivity,
-)
-from ccs_response_planner_backend.agents.information_agent.prompt import (
+from ccs_response_planner_backend.agents.report_manager_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
-from ccs_response_planner_backend.agents.information_agent.tool_declarations import (
-    TOOL_DECLARATIONS,
+from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (
+    ALL_DECLARATIONS,
+    ITERATING_DECLARATIONS,
 )
-from ccs_response_planner_backend.agents.information_agent.tools import (
+from ccs_response_planner_backend.agents.report_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
@@ -34,19 +31,9 @@ from ccs_response_planner_backend.agents.information_agent.tools import (
 MODEL_NAME = "gemini-3-pro-preview"
 CONTEXT_LIMIT = 1_048_576
 
-INITIAL_USER_MESSAGE: dict[str, Any] = {
-    "role": "user",
-    "parts": [{"text": (
-        "Please analyze this incident. "
-        "Use multiple tools to gather "
-        "comprehensive information before "
-        "producing your final assessment."
-    )}],
-}
+REPORT_TOOL_NAME = "produce_report_manager_report"
 
-ASSESSMENT_TOOL_NAME = "produce_assessment"
-
-THINKING_BUDGET = 8192
+THINKING_BUDGET = 16384
 
 
 def _build_initial_message(
@@ -59,16 +46,18 @@ def _build_initial_message(
     :return: a Gemini-compatible content dict
     """
     parts: list[dict[str, Any]] = [{"text": (
-        "Please analyze this incident. "
-        "Use multiple tools to gather "
-        "comprehensive information before "
-        "producing your final assessment."
+        "Please orchestrate the incident report "
+        "generation and review process. Start by "
+        "running the ReportAgent."
     )}]
     for data_url in (images or []):
         if "," not in data_url:
             continue
         header, b64_data = data_url.split(",", 1)
-        mime = header.split(":")[1].split(";")[0] if ":" in header else "image/png"
+        mime = (
+            header.split(":")[1].split(";")[0]
+            if ":" in header else "image/png"
+        )
         parts.append({
             "inline_data": {
                 "mime_type": mime,
@@ -78,10 +67,11 @@ def _build_initial_message(
     return {"role": "user", "parts": parts}
 
 
-class InformationAgent:
+class ReportManagerAgent:
     """
-    An agent that uses Gemini function calling to invoke
-    security information tools and produce an incident assessment.
+    An orchestrator agent that uses Gemini function calling
+    to coordinate ReportAgent and ReportReviewerAgent in an
+    automated generate-review-revise loop.
     """
 
     def _create_client(self) -> Any:
@@ -95,17 +85,19 @@ class InformationAgent:
 
     def _make_config(
         self, system_prompt: str,
+        declarations: list[Any],
     ) -> Any:
         """
         Build the GenerateContentConfig with tools and thinking.
 
         :param system_prompt: the rendered system prompt
+        :param declarations: the function declarations to expose
         :return: a GenerateContentConfig instance
         """
         return genai_types.GenerateContentConfig(
             system_instruction=system_prompt,
             tools=[genai_types.Tool(
-                function_declarations=TOOL_DECLARATIONS,
+                function_declarations=declarations,
             )],
             tool_config=genai_types.ToolConfig(
                 function_calling_config=(
@@ -120,103 +112,6 @@ class InformationAgent:
             ),
         )
 
-    def step(
-        self,
-        system_description: str,
-        security_alerts: str,
-        operator_feedback: str,
-        conversation_history: list[dict[str, Any]],
-        images: list[str] | None = None,
-        model_name: str | None = None,
-        dt_config: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Advance the agent loop by one step.
-
-        :param system_description: description of the target system
-        :param security_alerts: security alert data
-        :param operator_feedback: operator notes/feedback
-        :param conversation_history: the full conversation so far
-        :param images: optional list of base64 data-URL images
-        :param model_name: optional LLM model name override
-        :param dt_config: digital twin configuration dict
-        :return: a dict with type tool_proposal or assessment
-        """
-        client = self._create_client()
-        effective_model = model_name or MODEL_NAME
-
-        cfg = dt_config or {}
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            system_description=system_description or "N/A",
-            security_alerts=security_alerts or "N/A",
-            operator_feedback=operator_feedback or "N/A",
-            dt_container_list=format_container_list(cfg),
-            dt_container_table=format_container_table(cfg),
-            dt_network_connectivity=(
-                format_network_connectivity(cfg)
-            ),
-        )
-
-        config = self._make_config(system_prompt)
-
-        contents = (
-            [_build_initial_message(images)]
-            + self._build_contents(conversation_history)
-        )
-
-        response = client.models.generate_content(
-            model=effective_model,
-            contents=contents,
-            config=config,
-        )
-
-        candidate = response.candidates[0]
-        parts = candidate.content.parts
-
-        thinking_trace = ""
-        for part in parts:
-            if self._is_thought(part) and part.text:
-                thinking_trace += part.text
-
-        for part in parts:
-            fc = part.function_call
-            if fc and fc.name:
-                if fc.name == ASSESSMENT_TOOL_NAME:
-                    event: dict[str, Any] = {
-                        "type": "assessment",
-                        "assessment": self._normalize_args(
-                            dict(fc.args) if fc.args
-                            else {},
-                        ),
-                    }
-                    if thinking_trace:
-                        event["thinking_trace"] = thinking_trace
-                    return event
-                tool_args = dict(fc.args) if fc.args else {}
-                rationale = ""
-                for p in parts:
-                    if p.text and not self._is_thought(p):
-                        rationale = p.text
-                        break
-                event = {
-                    "type": "tool_proposal",
-                    "tool_name": fc.name,
-                    "tool_args": tool_args,
-                    "rationale": rationale,
-                    "_model_parts": self._serialize_parts(
-                        parts,
-                    ),
-                }
-                if thinking_trace:
-                    event["thinking_trace"] = thinking_trace
-                return event
-
-        text_parts = [
-            p.text for p in parts
-            if p.text and not self._is_thought(p)
-        ]
-        return self._parse_assessment("\n".join(text_parts))
-
     def step_stream(
         self,
         system_description: str,
@@ -225,54 +120,102 @@ class InformationAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
-        dt_config: dict[str, Any] | None = None,
+        max_iterations: int = 3,
+        validation_feedback: str = "",
     ) -> Generator[dict[str, Any], None, None]:
         """
-        Advance the agent loop by one step, streaming the response.
+        Advance the orchestrator agent loop by one step.
 
         Yields NDJSON-compatible dicts:
-        - ``{"type": "thinking", "delta": "..."}`` for thinking
-        - ``{"type": "text", "delta": "..."}`` for incremental text
-        - ``{"type": "tool_proposal", ...}`` for a final tool call
-        - ``{"type": "assessment", ...}`` for a final assessment
-        - ``{"type": "error", "message": "..."}`` on failure
+        - ``{"type": "thinking", "delta": "..."}``
+        - ``{"type": "text", "delta": "..."}``
+        - ``{"type": "tool_proposal", ...}``
+        - ``{"type": "report_manager_report", ...}``
+        - ``{"type": "error", "message": "..."}``
 
         :param system_description: description of the target system
         :param security_alerts: security alert data
-        :param operator_feedback: operator notes/feedback
+        :param operator_feedback: operator feedback or guidance
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM model name override
-        :param dt_config: digital twin configuration dict
+        :param max_iterations: maximum generate-review cycles
+        :param validation_feedback: feedback from validation phase
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        cfg = dt_config or {}
+        is_revision = bool(
+            validation_feedback
+            and validation_feedback.strip()
+        )
+        if is_revision:
+            revision_notice = (
+                "**IMPORTANT — REVISION ITERATION.** "
+                "This is a revision round of the full "
+                "pipeline. The previous iteration's "
+                "incident assessment was used downstream "
+                "and issues were found that need to be "
+                "addressed. Your primary goal is to "
+                "carefully address the validation findings "
+                "— do NOT start from scratch. Focus on "
+                "improving the assessment to fix the "
+                "specific issues raised. When you call "
+                "`run_report_agent`, include the validation "
+                "findings in the `review_feedback` argument "
+                "so the ReportAgent knows exactly what to "
+                "fix. The detailed validation feedback is "
+                "provided in the \"Validation Feedback\" "
+                "section below."
+                "\n\n"
+            )
+        else:
+            revision_notice = ""
+
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            system_description=system_description or "N/A",
-            security_alerts=security_alerts or "N/A",
-            operator_feedback=operator_feedback or "N/A",
-            dt_container_list=format_container_list(cfg),
-            dt_container_table=format_container_table(cfg),
-            dt_network_connectivity=(
-                format_network_connectivity(cfg)
+            system_description=(
+                system_description or "N/A"
             ),
+            security_alerts=(
+                security_alerts or "N/A"
+            ),
+            operator_feedback=(
+                operator_feedback or "N/A"
+            ),
+            max_iterations=max_iterations,
+            validation_feedback=(
+                validation_feedback or "N/A"
+            ),
+            revision_notice=revision_notice,
+        )
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+        }
+
+        declarations = (
+            ALL_DECLARATIONS
+            if self._has_reviewed(conversation_history)
+            else ITERATING_DECLARATIONS
         )
 
         if is_anthropic_model(effective_model):
             yield from anthropic_stream_step(
                 system_prompt=system_prompt,
-                tool_declarations=TOOL_DECLARATIONS,
+                tool_declarations=declarations,
                 history=conversation_history,
-                initial_user_parts=[{"type": "text", "text": (
-                    "Please analyze this incident. "
-                    "Use multiple tools to gather "
-                    "comprehensive information before "
-                    "producing your final assessment."
-                )}],
-                final_tool_name=ASSESSMENT_TOOL_NAME,
-                final_event_type="assessment",
+                initial_user_parts=[{
+                    "type": "text", "text": (
+                        "Please orchestrate the incident "
+                        "report generation and review "
+                        "process. Start by running the "
+                        "ReportAgent."
+                    ),
+                }],
+                final_tool_name=REPORT_TOOL_NAME,
+                final_event_type=(
+                    "report_manager_report"
+                ),
                 thinking_budget=THINKING_BUDGET,
                 images=images,
                 model_name=effective_model,
@@ -280,11 +223,15 @@ class InformationAgent:
             return
 
         client = self._create_client()
-        config = self._make_config(system_prompt)
+        config = self._make_config(
+            system_prompt, declarations,
+        )
 
         contents = (
             [_build_initial_message(images)]
-            + self._build_contents(conversation_history)
+            + self._build_contents(
+                conversation_history,
+            )
         )
 
         full_text = ""
@@ -303,7 +250,10 @@ class InformationAgent:
             if not chunk.candidates:
                 continue
             candidate = chunk.candidates[0]
-            if not candidate.content or not candidate.content.parts:
+            if (
+                not candidate.content
+                or not candidate.content.parts
+            ):
                 continue
             for part in candidate.content.parts:
                 all_parts.append(part)
@@ -320,41 +270,57 @@ class InformationAgent:
                             "type": "text",
                             "delta": part.text,
                         }
-                if part.function_call and part.function_call.name:
+                if (
+                    part.function_call
+                    and part.function_call.name
+                ):
                     function_call = part.function_call
 
         if usage_metadata:
             yield {
                 "type": "context_usage",
                 "prompt_tokens": (
-                    usage_metadata.prompt_token_count or 0
+                    usage_metadata.prompt_token_count
+                    or 0
                 ),
                 "candidates_tokens": (
-                    usage_metadata.candidates_token_count or 0
+                    usage_metadata.candidates_token_count
+                    or 0
                 ),
                 "total_tokens": (
-                    usage_metadata.total_token_count or 0
+                    usage_metadata.total_token_count
+                    or 0
                 ),
                 "context_limit": CONTEXT_LIMIT,
             }
 
         raw_parts = [
             d for d in (
-                self._serialize_part(p) for p in all_parts
+                self._serialize_part(p)
+                for p in all_parts
             ) if d
         ]
 
         if function_call:
-            if function_call.name == ASSESSMENT_TOOL_NAME:
+            if function_call.name == REPORT_TOOL_NAME:
+                report = self._normalize_args(
+                    dict(function_call.args)
+                    if function_call.args
+                    else {},
+                )
+                img = self._extract_attack_path_image(
+                    conversation_history,
+                )
+                if img:
+                    report["attack_path_image"] = img
                 event: dict[str, Any] = {
-                    "type": "assessment",
-                    "assessment": self._normalize_args(
-                        dict(function_call.args)
-                        if function_call.args else {},
-                    ),
+                    "type": "report_manager_report",
+                    "report_manager_report": report,
                 }
                 if thinking_trace:
-                    event["thinking_trace"] = thinking_trace
+                    event["thinking_trace"] = (
+                        thinking_trace
+                    )
                 yield event
             else:
                 tool_args = (
@@ -369,20 +335,72 @@ class InformationAgent:
                     "_model_parts": raw_parts,
                 }
                 if thinking_trace:
-                    event["thinking_trace"] = thinking_trace
+                    event["thinking_trace"] = (
+                        thinking_trace
+                    )
                 yield event
         else:
-            yield self._parse_assessment(full_text)
+            fallback = self._parse_report_manager_report(
+                full_text,
+            )
+            img = self._extract_attack_path_image(
+                conversation_history,
+            )
+            if img:
+                fallback["report_manager_report"][
+                    "attack_path_image"
+                ] = img
+            yield fallback
 
     @staticmethod
-    def _is_thought(part: Any) -> bool:
+    def _extract_attack_path_image(
+        history: list[dict[str, Any]],
+    ) -> str:
         """
-        Check whether a Gemini Part is internal thinking.
+        Extract the attack_path_image from the most recent
+        run_report_agent tool result in the conversation
+        history.
 
-        :param part: a Gemini Part object
-        :return: True if the part is a thought part
+        :param history: the conversation history list
+        :return: the image data URL, or empty string
         """
-        return bool(getattr(part, "thought", False))
+        for entry in reversed(history):
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_report_agent"
+            ):
+                result = entry.get("result", {})
+                assessment = result.get(
+                    "assessment", {},
+                )
+                img = assessment.get(
+                    "attack_path_image", "",
+                )
+                if img:
+                    return img
+        return ""
+
+    @staticmethod
+    def _has_reviewed(
+        history: list[dict[str, Any]],
+    ) -> bool:
+        """
+        Check whether the conversation history contains a
+        run_report_reviewer_agent tool_result (gates the
+        produce_report_manager_report declaration).
+
+        :param history: the conversation history list
+        :return: True if a reviewer result exists
+        """
+        for entry in history:
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_report_reviewer_agent"
+            ):
+                return True
+        return False
 
     @staticmethod
     def _normalize_args(obj: Any) -> Any:
@@ -393,25 +411,30 @@ class InformationAgent:
         :param obj: a proto value (scalar, map, or repeated)
         :return: a native Python value
         """
-        if isinstance(obj, (bool, int, float, str, type(None))):
+        if isinstance(
+            obj, (bool, int, float, str, type(None)),
+        ):
             return obj
         if hasattr(obj, "items"):
             return {
-                str(k): InformationAgent._normalize_args(v)
+                str(k): (
+                    ReportManagerAgent._normalize_args(v)
+                )
                 for k, v in obj.items()
             }
         if hasattr(obj, "__iter__"):
             return [
-                InformationAgent._normalize_args(v)
+                ReportManagerAgent._normalize_args(v)
                 for v in obj
             ]
         return obj
 
     def execute_tool(
-        self, tool_name: str, tool_args: dict[str, Any],
+        self, tool_name: str,
+        tool_args: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Execute an approved tool call.
+        Execute an approved (non-streaming) tool call.
 
         :param tool_name: the name of the tool to execute
         :param tool_args: the arguments to pass to the tool
@@ -425,12 +448,19 @@ class InformationAgent:
             }
         try:
             result = fn(**tool_args)
-            return {"tool_name": tool_name, "result": result}
+            return {
+                "tool_name": tool_name,
+                "result": result,
+            }
         except Exception as e:
-            return {"tool_name": tool_name, "error": str(e)}
+            return {
+                "tool_name": tool_name,
+                "error": str(e),
+            }
 
     def execute_tool_stream(
-        self, tool_name: str, tool_args: dict[str, Any],
+        self, tool_name: str,
+        tool_args: dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """
@@ -438,18 +468,26 @@ class InformationAgent:
 
         :param tool_name: the name of the streaming tool
         :param tool_args: the arguments to pass to the tool
+        :param context: extra context for sub-agent tools
         :return: a generator yielding event dicts
         """
         fn = STREAMING_TOOL_DISPATCH.get(tool_name)
         if fn is None:
             yield {
                 "type": "error",
-                "message": f"Unknown streaming tool: "
-                f"{tool_name}",
+                "message": (
+                    f"Unknown streaming tool: "
+                    f"{tool_name}"
+                ),
             }
             return
         try:
-            yield from fn(**tool_args)
+            if context is not None:
+                yield from fn(
+                    context=context, **tool_args,
+                )
+            else:
+                yield from fn(**tool_args)
         except Exception as e:
             yield {
                 "type": "error",
@@ -457,12 +495,11 @@ class InformationAgent:
             }
 
     @staticmethod
-    def _serialize_part(part: Any) -> dict[str, Any]:
+    def _serialize_part(
+        part: Any,
+    ) -> dict[str, Any]:
         """
         Serialize a single Gemini Part to a JSON-safe dict.
-
-        Stores thought_signature (base64-encoded) so that all
-        proto fields are preserved for multi-turn replay.
 
         :param part: a Gemini Part object
         :return: a JSON-serializable dict
@@ -474,31 +511,23 @@ class InformationAgent:
         if fc and fc.name:
             d["function_call"] = {
                 "name": fc.name,
-                "args": dict(fc.args) if fc.args else {},
+                "args": (
+                    dict(fc.args) if fc.args else {}
+                ),
             }
         if getattr(part, "thought", False):
             d["thought"] = True
-        sig = getattr(part, "thought_signature", None)
+        sig = getattr(
+            part, "thought_signature", None,
+        )
         if sig:
-            d["thought_signature"] = base64.b64encode(
-                sig if isinstance(sig, bytes)
-                else sig.encode("utf-8"),
-            ).decode("ascii")
+            d["thought_signature"] = (
+                base64.b64encode(
+                    sig if isinstance(sig, bytes)
+                    else sig.encode("utf-8"),
+                ).decode("ascii")
+            )
         return d
-
-    def _serialize_parts(
-        self, parts: Any,
-    ) -> list[dict[str, Any]]:
-        """
-        Serialize a list of Gemini Part objects.
-
-        :param parts: iterable of Part objects
-        :return: a list of JSON-serializable dicts
-        """
-        return [
-            d for d in (self._serialize_part(p) for p in parts)
-            if d
-        ]
 
     @staticmethod
     def _decode_raw_parts(
@@ -506,9 +535,6 @@ class InformationAgent:
     ) -> list[Any]:
         """
         Decode serialized parts back to Gemini-compatible dicts.
-
-        Reconstructs Part-like dicts that the Gemini API accepts,
-        preserving thought and thought_signature fields.
 
         :param raw: list of serialized part dicts
         :return: list of dicts for the Gemini API
@@ -524,41 +550,47 @@ class InformationAgent:
                 d["thought"] = True
             sig = rp.get("thought_signature")
             if sig:
-                d["thought_signature"] = base64.b64decode(sig)
+                d["thought_signature"] = (
+                    base64.b64decode(sig)
+                )
             if "function_call" in rp:
-                d["function_call"] = rp["function_call"]
+                d["function_call"] = (
+                    rp["function_call"]
+                )
             parts.append(d)
         return parts
 
-    def _parse_assessment(
+    def _parse_report_manager_report(
         self, text: str,
     ) -> dict[str, Any]:
         """
-        Parse LLM text output into a structured assessment event.
-
-        Strips markdown code fences if present, then attempts
-        JSON parsing. Falls back to a default shape on failure.
+        Parse LLM text into a structured report manager report.
 
         :param text: raw text from the LLM
-        :return: a dict with type assessment and structured fields
+        :return: a dict with type report_manager_report
         """
         cleaned = re.sub(
-            r"^```(?:json)?\s*\n?", "", text.strip(),
+            r"^```(?:json)?\s*\n?", "",
+            text.strip(),
         )
-        cleaned = re.sub(r"\n?```\s*$", "", cleaned)
+        cleaned = re.sub(
+            r"\n?```\s*$", "", cleaned,
+        )
         try:
             parsed = json.loads(cleaned)
-            return {"type": "assessment", "assessment": parsed}
+            return {
+                "type": "report_manager_report",
+                "report_manager_report": parsed,
+            }
         except (json.JSONDecodeError, ValueError):
             return {
-                "type": "assessment",
-                "assessment": {
-                    "incident_summary": text,
-                    "attack_vector_analysis": "",
-                    "indicators_of_compromise": [],
-                    "severity": "Unknown",
-                    "severity_justification": "",
-                    "affected_assets": [],
+                "type": "report_manager_report",
+                "report_manager_report": {
+                    "executive_summary": text,
+                    "iterations": 0,
+                    "final_verdict": "unknown",
+                    "report_summary": "",
+                    "review_summary": "",
                 },
             }
 
@@ -578,14 +610,24 @@ class InformationAgent:
             if entry_type == "tool_proposal":
                 raw = entry.get("_model_parts")
                 if raw:
-                    parts = self._decode_raw_parts(raw)
+                    parts = self._decode_raw_parts(
+                        raw,
+                    )
                 else:
                     parts = []
-                    rationale = entry.get("rationale", "")
+                    rationale = entry.get(
+                        "rationale", "",
+                    )
                     if rationale:
-                        parts.append({"text": rationale})
-                    tool_name = entry.get("tool_name", "")
-                    tool_args = entry.get("tool_args", {})
+                        parts.append(
+                            {"text": rationale}
+                        )
+                    tool_name = entry.get(
+                        "tool_name", "",
+                    )
+                    tool_args = entry.get(
+                        "tool_args", {},
+                    )
                     parts.append({
                         "function_call": {
                             "name": tool_name,
@@ -598,9 +640,13 @@ class InformationAgent:
                 })
 
             elif entry_type == "tool_approval":
-                approved = entry.get("approved", False)
+                approved = entry.get(
+                    "approved", False,
+                )
                 if not approved:
-                    tool_name = entry.get("tool_name", "")
+                    tool_name = entry.get(
+                        "tool_name", "",
+                    )
                     contents.append({
                         "role": "user",
                         "parts": [{
@@ -608,8 +654,8 @@ class InformationAgent:
                                 "name": tool_name,
                                 "response": {
                                     "error": (
-                                        "Tool call denied "
-                                        "by operator."
+                                        "Tool call denied"
+                                        " by operator."
                                     ),
                                 },
                             },
@@ -617,7 +663,9 @@ class InformationAgent:
                     })
 
             elif entry_type == "tool_result":
-                tool_name = entry.get("tool_name", "")
+                tool_name = entry.get(
+                    "tool_name", "",
+                )
                 result = entry.get("result", {})
                 result_data: Any = result
                 if isinstance(result, dict):
@@ -631,29 +679,35 @@ class InformationAgent:
                             "function_response": {
                                 "name": tool_name,
                                 "response": {
-                                    "result": result_data,
+                                    "result": (
+                                        result_data
+                                    ),
                                 },
                             },
                         },
                         {
                             "text": (
-                                "Tool result received. "
-                                "Analyze this result, then "
-                                "continue your investigation "
-                                "by calling additional tools "
-                                "if you need more information."
-                                " Only produce the final JSON "
-                                "assessment when you have "
-                                "gathered enough evidence from "
-                                "multiple sources."
+                                "Tool result received."
+                                " Analyze this result,"
+                                " then decide the next"
+                                " step: run the "
+                                "reviewer, revise the"
+                                " report, or produce"
+                                " the final report."
                             ),
                         },
                     ],
                 })
 
-            elif entry_type == "assessment":
-                assessment = entry.get("assessment", {})
-                content = json.dumps(assessment, indent=2)
+            elif entry_type == (
+                "report_manager_report"
+            ):
+                report = entry.get(
+                    "report_manager_report", {},
+                )
+                content = json.dumps(
+                    report, indent=2,
+                )
                 contents.append({
                     "role": "model",
                     "parts": [{"text": content}],

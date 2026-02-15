@@ -1,18 +1,22 @@
 """
-Tool dispatch for the CodeManagerAgent.
+Tool dispatch for the ReportManagerAgent.
 
 Provides streaming generator functions that run sub-agents
-(CodeAgent and CodeReviewerAgent) internally, auto-approving
+(ReportAgent and ReportReviewerAgent) internally, auto-approving
 tool calls and yielding progress events.
 """
 import logging
 from typing import Any, Callable, Generator
 
-from ccs_response_planner_backend.agents.code_agent.agent import CodeAgent
-from ccs_response_planner_backend.agents.code_reviewer_agent.agent import (
-    CodeReviewerAgent,
+from ccs_response_planner_backend.agents.report_agent.agent import (
+    ReportAgent,
 )
-from ccs_response_planner_backend.db.database_facade import DatabaseFacade
+from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
+    ReportReviewerAgent,
+)
+from ccs_response_planner_backend.db.database_facade import (
+    DatabaseFacade,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,65 +25,67 @@ MAX_INNER_STEPS = 50
 _OUTPUT_LIMIT = 2000
 
 
-def run_code_agent_stream(
+def run_report_agent_stream(
     context: dict[str, Any],
-    previous_code: str = "",
+    previous_assessment: str = "",
     review_feedback: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the CodeAgent sub-agent to completion, streaming progress.
+    Run the ReportAgent sub-agent to completion, streaming progress.
 
     Auto-approves all sub-agent tool calls. Yields output_chunk
     events for progress, sub_event events for rich UI rendering,
-    and a done event with the code_report.
+    and a done event with the assessment.
 
-    :param context: dict with system_description, incident_report,
-        specification, operator_feedback, images,
-        code_agent_model, username
-    :param previous_code: generated code from a prior iteration
+    :param context: dict with system_description, security_alerts,
+        operator_feedback, images, report_agent_model, username,
+        dt_config
+    :param previous_assessment: assessment from a prior iteration
     :param review_feedback: reviewer findings for revision
     :return: generator yielding event dicts
     """
-    agent = CodeAgent()
+    agent = ReportAgent()
     operator_feedback = context.get("operator_feedback", "")
-    if previous_code and review_feedback:
+    if previous_assessment and review_feedback:
         operator_feedback += (
             "\n\n--- REVISION CONTEXT ---\n"
-            "The previous iteration of the generated code is "
-            "shown below, along with the reviewer's feedback. "
-            "Please revise the code to address ALL of the "
-            "reviewer's findings.\n\n"
-            "## Previous Generated Code\n"
-            f"```python\n{previous_code}\n```\n\n"
+            "The previous assessment produced by you is "
+            "shown below, along with the reviewer's "
+            "feedback. Focus on fixing the specific issues "
+            "identified. Do NOT start from scratch.\n\n"
+            "## Previous Assessment\n"
+            f"{previous_assessment}\n\n"
             "## Reviewer Feedback\n"
             f"{review_feedback}\n"
             "--- END REVISION CONTEXT ---"
         )
 
     conversation_history: list[dict[str, Any]] = []
-    code_report = None
+    assessment = None
+    attack_path_image = None
 
     for step_num in range(MAX_INNER_STEPS):
         yield {
             "type": "output_chunk",
-            "text": f"[CodeAgent] Step {step_num + 1}...\n",
+            "text": (
+                f"[ReportAgent] Step {step_num + 1}...\n"
+            ),
         }
 
         for event in agent.step_stream(
             system_description=context.get(
                 "system_description", "",
             ),
-            incident_report=context.get(
-                "incident_report", "",
+            security_alerts=context.get(
+                "security_alerts", "",
             ),
-            specification=context.get("specification", ""),
             operator_feedback=operator_feedback,
             conversation_history=conversation_history,
             images=context.get("images"),
-            model_name=context.get("code_agent_model"),
+            model_name=context.get("report_agent_model"),
             dt_config=context.get("dt_config"),
             is_revision=bool(
-                previous_code and review_feedback
+                previous_assessment and review_feedback
             ),
         ):
             etype = event.get("type")
@@ -108,12 +114,14 @@ def run_code_agent_stream(
                         "text": event.get("delta", ""),
                     },
                 }
-            elif etype == "code_report":
-                code_report = event.get("code_report", {})
+            elif etype == "assessment":
+                assessment = event.get(
+                    "assessment", {},
+                )
                 conversation_history.append({
                     "role": "model",
-                    "type": "code_report",
-                    "code_report": code_report,
+                    "type": "assessment",
+                    "assessment": assessment,
                 })
                 yield {
                     "type": "sub_event",
@@ -122,7 +130,8 @@ def run_code_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        "[CodeAgent] Code report produced.\n"
+                        "[ReportAgent] Assessment "
+                        "produced.\n"
                     ),
                 }
             elif etype == "context_usage":
@@ -158,7 +167,7 @@ def run_code_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[CodeAgent] Running tool: "
+                        f"[ReportAgent] Running tool: "
                         f"{tool_name}...\n"
                     ),
                 }
@@ -191,7 +200,9 @@ def run_code_agent_stream(
                     result = agent.execute_tool(
                         tool_name, tool_args,
                     )
-                    tool_result = result.get("result", {})
+                    tool_result = result.get(
+                        "result", {},
+                    )
                     if result.get("error"):
                         tool_result = {
                             "error": result["error"],
@@ -204,6 +215,14 @@ def run_code_agent_stream(
                     "tool_name": tool_name,
                     "result": tool_result,
                 })
+                if (
+                    tool_name == "generate_attack_image"
+                    and isinstance(tool_result, dict)
+                    and tool_result.get("image")
+                ):
+                    attack_path_image = (
+                        tool_result["image"]
+                    )
                 output = ""
                 if isinstance(tool_result, dict):
                     output = tool_result.get(
@@ -224,91 +243,95 @@ def run_code_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[CodeAgent] {tool_name} "
+                        f"[ReportAgent] {tool_name} "
                         f"result: "
                         f"{str(output)[:500]}\n"
                     ),
                 }
 
-        if code_report is not None:
+        if assessment is not None:
             break
 
-    if code_report is None:
-        code_report = {
-            "executive_summary": (
-                "CodeAgent did not produce a report "
-                "within the step limit."
+    if assessment is None:
+        assessment = {
+            "incident_summary": (
+                "ReportAgent did not produce an "
+                "assessment within the step limit."
             ),
-            "generated_code": "",
-            "actions": [],
-            "state_description": "",
-            "verification_result": "",
-            "verification_checks": [],
+            "attack_vector_analysis": "",
+            "indicators_of_compromise": [],
+            "severity": "Unknown",
+            "severity_justification": "",
+            "affected_assets": [],
         }
+
+    if attack_path_image and assessment is not None:
+        assessment["attack_path_image"] = (
+            attack_path_image
+        )
 
     try:
         DatabaseFacade.save_agent_report(
-            agent_type="code",
-            report=code_report,
+            agent_type="report",
+            report=assessment,
             username=context.get("username", "system"),
         )
     except Exception as e:
-        logger.warning("Failed to save code report: %s", e)
+        logger.warning(
+            "Failed to save report: %s", e,
+        )
 
     yield {
         "type": "done",
-        "result": {"code_report": code_report},
+        "result": {"assessment": assessment},
     }
 
 
-def run_code_reviewer_agent_stream(
+def run_report_reviewer_agent_stream(
     context: dict[str, Any],
     previous_review_summary: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the CodeReviewerAgent sub-agent to completion.
+    Run the ReportReviewerAgent sub-agent to completion.
 
     Auto-approves all sub-agent tool calls. Yields output_chunk
     events for progress, sub_event events for rich UI rendering,
-    and a done event with the review_report.
+    and a done event with the report_review.
 
-    :param context: dict with system_description, incident_report,
-        specification, operator_feedback, images,
-        reviewer_agent_model, username, and last_code_report
+    :param context: dict with system_description, security_alerts,
+        operator_feedback, images, reviewer_agent_model, username,
+        last_assessment, dt_config
     :param previous_review_summary: concise summary of prior
         review findings for re-review iterations
     :return: generator yielding event dicts
     """
-    agent = CodeReviewerAgent()
-    code_report = context.get("last_code_report", {})
+    agent = ReportReviewerAgent()
+    last_assessment = context.get("last_assessment", {})
     operator_feedback = context.get("operator_feedback", "")
     if previous_review_summary:
         operator_feedback += (
             "\n\n--- PREVIOUS REVIEW CONTEXT ---\n"
-            "This is a RE-REVIEW iteration. The code "
-            "was revised based on a previous review's "
-            "findings. Below is a summary of what was "
-            "already checked and found. Focus your "
-            "review on:\n"
-            "1. Verifying that the previously identified "
-            "issues have been fixed.\n"
-            "2. Checking for any NEW issues introduced "
-            "by the revision.\n"
-            "3. You may skip re-validating checks that "
-            "passed in the previous review unless the "
-            "revision could have affected them.\n\n"
+            "This is a RE-REVIEW iteration. The report "
+            "was revised based on your previous findings. "
+            "Focus on:\n"
+            "1. Verify previously identified issues are "
+            "fixed\n"
+            "2. Check for NEW issues introduced by "
+            "revision\n"
+            "3. Skip re-validating passed checks unless "
+            "revision affects them\n\n"
             "## Previous Review Summary\n"
             f"{previous_review_summary}\n"
             "--- END PREVIOUS REVIEW CONTEXT ---"
         )
     conversation_history: list[dict[str, Any]] = []
-    review_report = None
+    report_review = None
 
     for step_num in range(MAX_INNER_STEPS):
         yield {
             "type": "output_chunk",
             "text": (
-                f"[CodeReviewerAgent] Step "
+                f"[ReportReviewerAgent] Step "
                 f"{step_num + 1}...\n"
             ),
         }
@@ -317,15 +340,16 @@ def run_code_reviewer_agent_stream(
             system_description=context.get(
                 "system_description", "",
             ),
-            incident_report=context.get(
-                "incident_report", "",
+            security_alerts=context.get(
+                "security_alerts", "",
             ),
-            specification=context.get("specification", ""),
             operator_feedback=operator_feedback,
-            code_report=code_report,
+            incident_report=last_assessment,
             conversation_history=conversation_history,
             images=context.get("images"),
-            model_name=context.get("reviewer_agent_model"),
+            model_name=context.get(
+                "reviewer_agent_model",
+            ),
             dt_config=context.get("dt_config"),
             review_iteration=context.get(
                 "review_count", 1,
@@ -357,14 +381,14 @@ def run_code_reviewer_agent_stream(
                         "text": event.get("delta", ""),
                     },
                 }
-            elif etype == "review_report":
-                review_report = event.get(
-                    "review_report", {},
+            elif etype == "report_review":
+                report_review = event.get(
+                    "report_review", {},
                 )
                 conversation_history.append({
                     "role": "model",
-                    "type": "review_report",
-                    "review_report": review_report,
+                    "type": "report_review",
+                    "report_review": report_review,
                 })
                 yield {
                     "type": "sub_event",
@@ -373,7 +397,7 @@ def run_code_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        "[CodeReviewerAgent] Review "
+                        "[ReportReviewerAgent] Review "
                         "report produced.\n"
                     ),
                 }
@@ -410,7 +434,7 @@ def run_code_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[CodeReviewerAgent] Running "
+                        f"[ReportReviewerAgent] Running "
                         f"tool: {tool_name}...\n"
                     ),
                 }
@@ -443,7 +467,9 @@ def run_code_reviewer_agent_stream(
                     result = agent.execute_tool(
                         tool_name, tool_args,
                     )
-                    tool_result = result.get("result", {})
+                    tool_result = result.get(
+                        "result", {},
+                    )
                     if result.get("error"):
                         tool_result = {
                             "error": result["error"],
@@ -476,32 +502,32 @@ def run_code_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[CodeReviewerAgent] "
+                        f"[ReportReviewerAgent] "
                         f"{tool_name} result: "
                         f"{str(output)[:500]}\n"
                     ),
                 }
 
-        if review_report is not None:
+        if report_review is not None:
             break
 
-    if review_report is None:
-        review_report = {
+    if report_review is None:
+        report_review = {
             "executive_summary": (
-                "CodeReviewerAgent did not produce a "
+                "ReportReviewerAgent did not produce a "
                 "report within the step limit."
             ),
             "findings": [],
-            "missing_actions": [],
-            "command_issues": [],
+            "missing_elements": [],
+            "evidence_gaps": [],
             "strengths": [],
             "overall_verdict": "major_issues",
         }
 
     try:
         DatabaseFacade.save_agent_report(
-            agent_type="code_review",
-            report=review_report,
+            agent_type="report_reviewer",
+            report=report_review,
             username=context.get("username", "system"),
         )
     except Exception as e:
@@ -511,7 +537,7 @@ def run_code_reviewer_agent_stream(
 
     yield {
         "type": "done",
-        "result": {"review_report": review_report},
+        "result": {"report_review": report_review},
     }
 
 
@@ -530,17 +556,26 @@ def _truncate_result(
         if key == "image":
             out[key] = val
         elif isinstance(val, str) and len(val) > _OUTPUT_LIMIT:
-            out[key] = val[:_OUTPUT_LIMIT] + "... (truncated)"
+            out[key] = (
+                val[:_OUTPUT_LIMIT] + "... (truncated)"
+            )
         else:
             out[key] = val
     return out
 
 
-TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {}
+TOOL_DISPATCH: dict[
+    str, Callable[..., dict[str, Any]]
+] = {}
 
 STREAMING_TOOL_DISPATCH: dict[
-    str, Callable[..., Generator[dict[str, Any], None, None]]
+    str,
+    Callable[
+        ..., Generator[dict[str, Any], None, None]
+    ],
 ] = {
-    "run_code_agent": run_code_agent_stream,
-    "run_code_reviewer_agent": run_code_reviewer_agent_stream,
+    "run_report_agent": run_report_agent_stream,
+    "run_report_reviewer_agent": (
+        run_report_reviewer_agent_stream
+    ),
 }

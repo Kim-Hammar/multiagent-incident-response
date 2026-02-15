@@ -2,25 +2,25 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_INFO_STEP_URL,
-  API_AGENTS_INFO_TOOL_URL,
-  API_AGENTS_INFO_PROMPT_URL,
+  API_AGENTS_REPORT_STEP_URL,
+  API_AGENTS_REPORT_TOOL_URL,
+  API_AGENTS_REPORT_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
-import InformationAgentConfigTab from './InformationAgentConfigTab.jsx'
-import InformationAgentReport from './InformationAgentReport.jsx'
+import ReportAgentConfigTab from './ReportAgentConfigTab.jsx'
+import ReportAgentReport from './ReportAgentReport.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
 /**
- * InformationAgent component — drives the agent loop with
+ * ReportAgent component — drives the agent loop with
  * human-in-the-loop tool approval. Renders 3 inner tabs.
  */
-function InformationAgent() {
+function ReportAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('config')
   const [systemDescription, setSystemDescription] = useState('')
@@ -170,7 +170,7 @@ function InformationAgent() {
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory([...history, streamingEntry])
     try {
-      const res = await fetch(API_AGENTS_INFO_STEP_URL, {
+      const res = await fetch(API_AGENTS_REPORT_STEP_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -336,7 +336,7 @@ function InformationAgent() {
       setConversationHistory(base)
       try {
         const { result } = await executeStreamingTool({
-          url: API_AGENTS_INFO_TOOL_URL,
+          url: API_AGENTS_REPORT_TOOL_URL,
           toolName: proposal.tool_name,
           toolArgs: proposal.tool_args,
           incidentId: selectedIncidentId,
@@ -370,7 +370,7 @@ function InformationAgent() {
     }
 
     try {
-      const res = await fetch(API_AGENTS_INFO_TOOL_URL, {
+      const res = await fetch(API_AGENTS_REPORT_TOOL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -471,7 +471,7 @@ function InformationAgent() {
   }
 
   const getPromptText = async () => {
-    const res = await fetch(API_AGENTS_INFO_PROMPT_URL, {
+    const res = await fetch(API_AGENTS_REPORT_PROMPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -508,7 +508,7 @@ function InformationAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=information`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=report`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -531,7 +531,7 @@ function InformationAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'information',
+          agent_type: 'report',
           report,
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(
@@ -569,7 +569,7 @@ function InformationAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <InformationAgentReport
+    <ReportAgentReport
       key={index}
       entry={entry}
       index={index}
@@ -621,7 +621,7 @@ function InformationAgent() {
       </ul>
 
       {activeTab === 'config' && (
-        <InformationAgentConfigTab
+        <ReportAgentConfigTab
           systemDescription={systemDescription}
           setSystemDescription={setSystemDescription}
           securityAlerts={securityAlerts}
@@ -680,7 +680,7 @@ function InformationAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           renderReport={(report) => (
-            <InformationAgentReport
+            <ReportAgentReport
               entry={{ type: 'assessment', assessment: report }}
               index="history"
               isExpanded={true}
@@ -696,4 +696,4 @@ function InformationAgent() {
   )
 }
 
-export default InformationAgent
+export default ReportAgent

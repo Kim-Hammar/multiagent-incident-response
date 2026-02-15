@@ -1,5 +1,5 @@
 """
-Standalone tool functions for the InformationAgent.
+Standalone tool functions for the ReportAgent.
 
 Each function encapsulates the SDK call logic extracted from
 the corresponding route handler, reads its API key from the

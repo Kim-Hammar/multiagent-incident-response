@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import InformationAgent from './InformationAgent.jsx'
+import ReportAgent from './ReportAgent.jsx'
 import PenetrationTestAgent from './PenetrationTestAgent.jsx'
 import ValidationAgent from './ValidationAgent.jsx'
 import CodeAgent from './CodeAgent.jsx'
@@ -7,6 +7,8 @@ import CodeReviewerAgent from './CodeReviewerAgent.jsx'
 import CodeManagerAgent from './CodeManagerAgent.jsx'
 import PlanManagerAgent from './PlanManagerAgent.jsx'
 import RlAgent from './RlAgent.jsx'
+import ReportReviewerAgent from './ReportReviewerAgent.jsx'
+import ReportManagerAgent from './ReportManagerAgent.jsx'
 import DpAgent from './DpAgent.jsx'
 import './Agents.css'
 
@@ -14,7 +16,7 @@ import './Agents.css'
  * Agents page with dropdown selector for individual agents.
  */
 function Agents() {
-  const [selectedAgent, setSelectedAgent] = useState('information')
+  const [selectedAgent, setSelectedAgent] = useState('report')
 
   return (
     <div className="Agents">
@@ -30,7 +32,9 @@ function Agents() {
           value={selectedAgent}
           onChange={(e) => setSelectedAgent(e.target.value)}
         >
-          <option value="information">Information Agent</option>
+          <option value="report">Report Agent</option>
+          <option value="report-review">Report Reviewer Agent</option>
+          <option value="report-manager">Report Manager Agent</option>
           <option value="pentest">Penetration Test Agent</option>
           <option value="validation">Validation Agent</option>
           <option value="code">Code Agent</option>
@@ -42,7 +46,9 @@ function Agents() {
         </select>
       </div>
 
-      {selectedAgent === 'information' && <InformationAgent />}
+      {selectedAgent === 'report' && <ReportAgent />}
+      {selectedAgent === 'report-review' && <ReportReviewerAgent />}
+      {selectedAgent === 'report-manager' && <ReportManagerAgent />}
       {selectedAgent === 'pentest' && <PenetrationTestAgent />}
       {selectedAgent === 'validation' && <ValidationAgent />}
       {selectedAgent === 'code' && <CodeAgent />}

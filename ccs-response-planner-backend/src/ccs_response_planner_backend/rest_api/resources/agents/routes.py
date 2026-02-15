@@ -7,13 +7,13 @@ from typing import Any, Generator
 
 from flask import Blueprint, Response, g, jsonify, request
 
-from ccs_response_planner_backend.agents.information_agent.agent import (
-    InformationAgent,
+from ccs_response_planner_backend.agents.report_agent.agent import (
+    ReportAgent,
 )
-from ccs_response_planner_backend.agents.information_agent.prompt import (
+from ccs_response_planner_backend.agents.report_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
-from ccs_response_planner_backend.agents.information_agent.tools import (
+from ccs_response_planner_backend.agents.report_agent.tools import (
     STREAMING_TOOL_DISPATCH as INFO_STREAMING_DISPATCH,
     TOOL_DISPATCH,
 )
@@ -96,6 +96,26 @@ from ccs_response_planner_backend.agents.dp_agent.prompt import (
 from ccs_response_planner_backend.agents.dp_agent.tools import (
     STREAMING_TOOL_DISPATCH as DP_STREAMING_DISPATCH,
     TOOL_DISPATCH as DP_TOOL_DISPATCH,
+)
+from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
+    ReportReviewerAgent,
+)
+from ccs_response_planner_backend.agents.report_reviewer_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as REPORT_REVIEW_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.report_reviewer_agent.tools import (
+    STREAMING_TOOL_DISPATCH as REPORT_REVIEW_STREAMING_DISPATCH,
+    TOOL_DISPATCH as REPORT_REVIEW_TOOL_DISPATCH,
+)
+from ccs_response_planner_backend.agents.report_manager_agent.agent import (
+    ReportManagerAgent,
+)
+from ccs_response_planner_backend.agents.report_manager_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as REPORT_MANAGER_PROMPT_TEMPLATE,
+)
+from ccs_response_planner_backend.agents.report_manager_agent.tools import (
+    STREAMING_TOOL_DISPATCH as REPORT_MANAGER_STREAMING_DISPATCH,
+    TOOL_DISPATCH as REPORT_MANAGER_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
@@ -263,11 +283,11 @@ def _install_policy_in_sandbox(
     )
 
 
-@agents_bp.route("/information/step", methods=["POST"])
+@agents_bp.route("/report/step", methods=["POST"])
 @token_required
-def agents_information_step() -> Response | tuple[Response, int]:
+def agents_report_step() -> Response | tuple[Response, int]:
     """
-    Advance the InformationAgent loop by one step (NDJSON stream).
+    Advance the ReportAgent loop by one step (NDJSON stream).
 
     :return: an NDJSON streaming Response, or a (JSON, status) tuple
     """
@@ -302,7 +322,7 @@ def agents_information_step() -> Response | tuple[Response, int]:
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
-            agent = InformationAgent()
+            agent = ReportAgent()
             for event in agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
@@ -321,11 +341,11 @@ def agents_information_step() -> Response | tuple[Response, int]:
     return Response(generate(), mimetype="application/x-ndjson")
 
 
-@agents_bp.route("/information/prompt", methods=["POST"])
+@agents_bp.route("/report/prompt", methods=["POST"])
 @token_required
-def agents_information_prompt() -> tuple[Response, int]:
+def agents_report_prompt() -> tuple[Response, int]:
     """
-    Render the InformationAgent system prompt from the given context.
+    Render the ReportAgent system prompt from the given context.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -353,15 +373,16 @@ def agents_information_prompt() -> tuple[Response, int]:
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
         ),
+        revision_notice="",
     )
     return jsonify({"prompt": prompt}), 200
 
 
-@agents_bp.route("/information/tool", methods=["POST"])
+@agents_bp.route("/report/tool", methods=["POST"])
 @token_required
-def agents_information_tool() -> Response | tuple[Response, int]:
+def agents_report_tool() -> Response | tuple[Response, int]:
     """
-    Execute an approved tool call for the InformationAgent.
+    Execute an approved tool call for the ReportAgent.
 
     For ``dt_exec``, streams NDJSON output events.
     For other tools, returns a single JSON response.
@@ -385,7 +406,7 @@ def agents_information_tool() -> Response | tuple[Response, int]:
             :return: a generator of newline-delimited JSON strings
             """
             try:
-                agent = InformationAgent()
+                agent = ReportAgent()
                 for event in agent.execute_tool_stream(
                     tool_name, tool_args,
                 ):
@@ -404,7 +425,7 @@ def agents_information_tool() -> Response | tuple[Response, int]:
             "error": f"Unknown tool: {tool_name}",
         }), 400
     try:
-        agent = InformationAgent()
+        agent = ReportAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:
@@ -1106,6 +1127,437 @@ def agents_code_review_tool() -> Response | tuple[Response, int]:
     try:
         agent = CodeReviewerAgent()
         result = agent.execute_tool(tool_name, tool_args)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route(
+    "/report-review/step", methods=["POST"],
+)
+@token_required
+def agents_report_review_step() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Advance the ReportReviewerAgent loop by one step (NDJSON).
+
+    :return: an NDJSON streaming Response, or (JSON, status)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    security_alerts = body.get("security_alerts", "")
+    operator_feedback = body.get(
+        "operator_feedback", "",
+    )
+    incident_report = body.get("incident_report")
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    if not isinstance(images, list):
+        images = []
+    if not incident_report:
+        return jsonify({
+            "error": "incident_report is required",
+        }), 400
+    if isinstance(incident_report, str):
+        try:
+            incident_report = json.loads(
+                incident_report,
+            )
+        except (json.JSONDecodeError, ValueError):
+            return jsonify({
+                "error": (
+                    "incident_report must be valid JSON"
+                ),
+            }), 400
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: generator of newline-delimited JSON strings
+        """
+        try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
+            agent = ReportReviewerAgent()
+            for event in agent.step_stream(
+                system_description=(
+                    system_description
+                ),
+                security_alerts=security_alerts,
+                operator_feedback=(
+                    operator_feedback
+                ),
+                incident_report=incident_report,
+                conversation_history=(
+                    conversation_history
+                ),
+                images=images,
+                model_name=model_name,
+                dt_config=dt_config,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error",
+                "message": str(e),
+            }) + "\n"
+
+    return Response(
+        generate(), mimetype="application/x-ndjson",
+    )
+
+
+@agents_bp.route(
+    "/report-review/prompt", methods=["POST"],
+)
+@token_required
+def agents_report_review_prompt() -> (
+    tuple[Response, int]
+):
+    """
+    Render the ReportReviewerAgent system prompt.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    incident_report = body.get("incident_report")
+    if isinstance(incident_report, str):
+        try:
+            incident_report = json.loads(
+                incident_report,
+            )
+        except (json.JSONDecodeError, ValueError):
+            incident_report = {}
+    formatted_report = (
+        ReportReviewerAgent._format_incident_report(
+            incident_report or {},
+        )
+    )
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
+    prompt = REPORT_REVIEW_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        security_alerts=body.get(
+            "security_alerts", "",
+        ) or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        incident_report_formatted=formatted_report,
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
+        dt_container_table=format_container_table(
+            dt_config,
+        ),
+        dt_network_connectivity=(
+            format_network_connectivity(dt_config)
+        ),
+        review_iteration_note="",
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route(
+    "/report-review/tool", methods=["POST"],
+)
+@token_required
+def agents_report_review_tool() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Execute an approved tool call for ReportReviewerAgent.
+
+    For ``dt_exec``, streams NDJSON output events.
+    For other tools, returns a single JSON response.
+
+    :return: a streaming Response or (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+    if tool_name in _DT_TOOLS and (
+        incident_id is not None
+    ):
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in REPORT_REVIEW_STREAMING_DISPATCH:
+        def generate() -> Generator[str, None, None]:
+            """
+            Yield NDJSON lines from the streaming tool.
+
+            :return: generator of newline-delimited JSON
+            """
+            try:
+                agent = ReportReviewerAgent()
+                for event in (
+                    agent.execute_tool_stream(
+                        tool_name, tool_args,
+                    )
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error",
+                    "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(),
+            mimetype="application/x-ndjson",
+        )
+
+    if tool_name not in REPORT_REVIEW_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = ReportReviewerAgent()
+        result = agent.execute_tool(
+            tool_name, tool_args,
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route(
+    "/report-manager/step", methods=["POST"],
+)
+@token_required
+def agents_report_manager_step() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Advance the ReportManagerAgent loop by one step (NDJSON).
+
+    :return: an NDJSON streaming Response, or (JSON, status)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    security_alerts = body.get("security_alerts", "")
+    operator_feedback = body.get(
+        "operator_feedback", "",
+    )
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    max_iterations = body.get("max_iterations", 3)
+    if not isinstance(images, list):
+        images = []
+    if not system_description and not security_alerts:
+        return jsonify({
+            "error": (
+                "system_description or "
+                "security_alerts is required"
+            ),
+        }), 400
+
+    def generate() -> Generator[str, None, None]:
+        """
+        Yield NDJSON lines from the agent stream.
+
+        :return: generator of newline-delimited JSON strings
+        """
+        try:
+            if not conversation_history:
+                for ev in _redeploy_dt():
+                    yield json.dumps(ev) + "\n"
+            agent = ReportManagerAgent()
+            for event in agent.step_stream(
+                system_description=system_description,
+                security_alerts=security_alerts,
+                operator_feedback=operator_feedback,
+                conversation_history=(
+                    conversation_history
+                ),
+                images=images,
+                model_name=model_name,
+                max_iterations=max_iterations,
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error",
+                "message": str(e),
+            }) + "\n"
+
+    return Response(
+        generate(), mimetype="application/x-ndjson",
+    )
+
+
+@agents_bp.route(
+    "/report-manager/prompt", methods=["POST"],
+)
+@token_required
+def agents_report_manager_prompt() -> (
+    tuple[Response, int]
+):
+    """
+    Render the ReportManagerAgent system prompt.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    max_iterations = body.get("max_iterations", 3)
+    prompt = REPORT_MANAGER_PROMPT_TEMPLATE.format(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        security_alerts=body.get(
+            "security_alerts", "",
+        ) or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        max_iterations=max_iterations,
+        validation_feedback="N/A",
+        revision_notice="",
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route(
+    "/report-manager/tool", methods=["POST"],
+)
+@token_required
+def agents_report_manager_tool() -> (
+    Response | tuple[Response, int]
+):
+    """
+    Execute an approved tool call for ReportManagerAgent.
+
+    Sub-agent tools (run_report_agent,
+    run_report_reviewer_agent) are streaming and require
+    system context from the request body.
+
+    :return: a streaming Response or (JSON, status) tuple
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+    if tool_name in _DT_TOOLS and (
+        incident_id is not None
+    ):
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in REPORT_MANAGER_STREAMING_DISPATCH:
+        context: dict[str, Any] = {
+            "system_description": body.get(
+                "system_description", "",
+            ),
+            "security_alerts": body.get(
+                "security_alerts", "",
+            ),
+            "operator_feedback": body.get(
+                "operator_feedback", "",
+            ),
+            "images": body.get("images"),
+            "report_agent_model": body.get(
+                "report_agent_model",
+            ),
+            "reviewer_agent_model": body.get(
+                "reviewer_agent_model",
+            ),
+            "username": g.username,
+            "dt_config": (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            ),
+        }
+        if tool_name == (
+            "run_report_reviewer_agent"
+        ):
+            conv_history = body.get(
+                "conversation_history", [],
+            )
+            last_assessment: dict[str, Any] = {}
+            for entry in reversed(conv_history):
+                if (
+                    entry.get("type")
+                    == "tool_result"
+                    and entry.get("tool_name")
+                    == "run_report_agent"
+                ):
+                    result = entry.get(
+                        "result", {},
+                    )
+                    last_assessment = result.get(
+                        "assessment", {},
+                    )
+                    break
+            context["last_assessment"] = (
+                last_assessment
+            )
+
+        def generate() -> (
+            Generator[str, None, None]
+        ):
+            """
+            Yield NDJSON lines from streaming tool.
+
+            :return: generator of newline-delimited JSON
+            """
+            try:
+                agent = ReportManagerAgent()
+                for event in (
+                    agent.execute_tool_stream(
+                        tool_name, tool_args,
+                        context=context,
+                    )
+                ):
+                    yield json.dumps(event) + "\n"
+            except Exception as e:
+                yield json.dumps({
+                    "type": "error",
+                    "message": str(e),
+                }) + "\n"
+
+        return Response(
+            generate(),
+            mimetype="application/x-ndjson",
+        )
+
+    if tool_name not in REPORT_MANAGER_TOOL_DISPATCH:
+        return jsonify({
+            "error": f"Unknown tool: {tool_name}",
+        }), 400
+    try:
+        agent = ReportManagerAgent()
+        result = agent.execute_tool(
+            tool_name, tool_args,
+        )
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

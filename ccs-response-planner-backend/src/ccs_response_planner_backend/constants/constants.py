@@ -59,9 +59,9 @@ class API:
     DT_PYTHON_STOP_ROUTE = "/api/dt-python/stop"
     AGENTS_RESOURCE = "agents"
     AGENTS_ROUTE = "/api/agents"
-    AGENTS_INFO_STEP_ROUTE = "/api/agents/information/step"
-    AGENTS_INFO_TOOL_ROUTE = "/api/agents/information/tool"
-    AGENTS_INFO_PROMPT_ROUTE = "/api/agents/information/prompt"
+    AGENTS_REPORT_STEP_ROUTE = "/api/agents/report/step"
+    AGENTS_REPORT_TOOL_ROUTE = "/api/agents/report/tool"
+    AGENTS_REPORT_PROMPT_ROUTE = "/api/agents/report/prompt"
     AGENTS_PENTEST_STEP_ROUTE = "/api/agents/pentest/step"
     AGENTS_PENTEST_TOOL_ROUTE = "/api/agents/pentest/tool"
     AGENTS_PENTEST_PROMPT_ROUTE = "/api/agents/pentest/prompt"
@@ -96,6 +96,24 @@ class API:
     )
     AGENTS_PLAN_MANAGER_PROMPT_ROUTE = (
         "/api/agents/plan-manager/prompt"
+    )
+    AGENTS_REPORT_REVIEW_STEP_ROUTE = (
+        "/api/agents/report-review/step"
+    )
+    AGENTS_REPORT_REVIEW_TOOL_ROUTE = (
+        "/api/agents/report-review/tool"
+    )
+    AGENTS_REPORT_REVIEW_PROMPT_ROUTE = (
+        "/api/agents/report-review/prompt"
+    )
+    AGENTS_REPORT_MANAGER_STEP_ROUTE = (
+        "/api/agents/report-manager/step"
+    )
+    AGENTS_REPORT_MANAGER_TOOL_ROUTE = (
+        "/api/agents/report-manager/tool"
+    )
+    AGENTS_REPORT_MANAGER_PROMPT_ROUTE = (
+        "/api/agents/report-manager/prompt"
     )
     AGENTS_DP_STEP_ROUTE = "/api/agents/dp/step"
     AGENTS_DP_TOOL_ROUTE = "/api/agents/dp/tool"

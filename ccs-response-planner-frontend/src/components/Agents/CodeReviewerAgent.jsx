@@ -29,6 +29,7 @@ function CodeReviewerAgent() {
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [codeReport, setCodeReport] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
+  const [incidentReportImages, setIncidentReportImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
@@ -172,7 +173,7 @@ function CodeReviewerAgent() {
           operator_feedback: operatorFeedback,
           code_report: codeReport,
           conversation_history: history,
-          images: systemDescriptionImages,
+          images: [...systemDescriptionImages, ...incidentReportImages],
           model_name: selectedModel || undefined
         }),
         signal: controller.signal
@@ -446,14 +447,14 @@ function CodeReviewerAgent() {
       }
 
       const infoRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=information&incident_id=${incidentId}`,
+        `${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
           const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          void attack_path_image
+          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
@@ -469,6 +470,7 @@ function CodeReviewerAgent() {
     setOperatorFeedback('')
     setCodeReport('')
     setSystemDescriptionImages([])
+    setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -636,6 +638,8 @@ function CodeReviewerAgent() {
           setCodeReport={setCodeReport}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
+          incidentReportImages={incidentReportImages}
+          setIncidentReportImages={setIncidentReportImages}
           handlePaste={handlePaste}
           isAgentBusy={isAgentBusy}
           handleRun={handleRun}

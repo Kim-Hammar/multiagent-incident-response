@@ -80,7 +80,7 @@ def mock_db() -> Generator[MagicMock, None, None]:
         agents_db_mock.get_digital_twin_config.return_value = None
         agents_db_mock.save_agent_report.return_value = {
             "id": 1,
-            "agent_type": "information",
+            "agent_type": "report",
             "username": "admin",
             "report": {},
             "created_at": "2026-01-01 00:00:00",

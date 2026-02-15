@@ -9,7 +9,7 @@ def test_save_report(client, auth_headers):
     res = client.post(
         "/api/agents/reports",
         data=json.dumps({
-            "agent_type": "information",
+            "agent_type": "report",
             "report": {"incident_summary": "test"},
         }),
         content_type="application/json",
@@ -18,7 +18,7 @@ def test_save_report(client, auth_headers):
     assert res.status_code == 201
     data = res.get_json()
     assert data["id"] == 1
-    assert data["agent_type"] == "information"
+    assert data["agent_type"] == "report"
 
 
 def test_save_report_missing_fields(client, auth_headers):
@@ -95,7 +95,7 @@ def test_get_report_found(client, auth_headers, mock_db):
     ) as m:
         m.get_agent_report.return_value = {
             "id": 1,
-            "agent_type": "information",
+            "agent_type": "report",
             "username": "admin",
             "report": {"test": True},
             "created_at": "2026-01-01 00:00:00",
@@ -144,7 +144,7 @@ def test_save_report_no_auth(client):
     res = client.post(
         "/api/agents/reports",
         data=json.dumps({
-            "agent_type": "information",
+            "agent_type": "report",
             "report": {},
         }),
         content_type="application/json",
@@ -163,7 +163,7 @@ def test_save_report_with_incident_id(client, auth_headers, mock_db):
     ) as m:
         m.save_agent_report.return_value = {
             "id": 2,
-            "agent_type": "information",
+            "agent_type": "report",
             "username": "admin",
             "report": {"summary": "test"},
             "created_at": "2026-01-01 00:00:00",
@@ -173,7 +173,7 @@ def test_save_report_with_incident_id(client, auth_headers, mock_db):
         res = client.post(
             "/api/agents/reports",
             data=json.dumps({
-                "agent_type": "information",
+                "agent_type": "report",
                 "report": {"summary": "test"},
                 "incident_id": 1,
             }),

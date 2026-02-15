@@ -274,19 +274,19 @@ def test_agents_route_starts_with_api_prefix() -> None:
     assert API.AGENTS_ROUTE == "/api/agents"
 
 
-def test_agents_info_step_route_starts_with_api_prefix() -> None:
-    assert API.AGENTS_INFO_STEP_ROUTE.startswith(API.PREFIX)
-    assert API.AGENTS_INFO_STEP_ROUTE == "/api/agents/information/step"
+def test_agents_report_step_route_starts_with_api_prefix() -> None:
+    assert API.AGENTS_REPORT_STEP_ROUTE.startswith(API.PREFIX)
+    assert API.AGENTS_REPORT_STEP_ROUTE == "/api/agents/report/step"
 
 
-def test_agents_info_tool_route_starts_with_api_prefix() -> None:
-    assert API.AGENTS_INFO_TOOL_ROUTE.startswith(API.PREFIX)
-    assert API.AGENTS_INFO_TOOL_ROUTE == "/api/agents/information/tool"
+def test_agents_report_tool_route_starts_with_api_prefix() -> None:
+    assert API.AGENTS_REPORT_TOOL_ROUTE.startswith(API.PREFIX)
+    assert API.AGENTS_REPORT_TOOL_ROUTE == "/api/agents/report/tool"
 
 
-def test_agents_info_prompt_route_starts_with_api_prefix() -> None:
-    assert API.AGENTS_INFO_PROMPT_ROUTE.startswith(API.PREFIX)
-    assert API.AGENTS_INFO_PROMPT_ROUTE == "/api/agents/information/prompt"
+def test_agents_report_prompt_route_starts_with_api_prefix() -> None:
+    assert API.AGENTS_REPORT_PROMPT_ROUTE.startswith(API.PREFIX)
+    assert API.AGENTS_REPORT_PROMPT_ROUTE == "/api/agents/report/prompt"
 
 
 def test_specification_commands_include_reachability() -> None:
@@ -405,6 +405,60 @@ def test_incident_2_specification_commands_reachability() -> None:
                 if c["command"].startswith("!")]
     assert len(positive) == 10
     assert len(negative) == 7
+
+
+def test_agents_report_manager_step_route() -> None:
+    assert API.AGENTS_REPORT_MANAGER_STEP_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_REPORT_MANAGER_STEP_ROUTE == (
+        "/api/agents/report-manager/step"
+    )
+
+
+def test_agents_report_manager_tool_route() -> None:
+    assert API.AGENTS_REPORT_MANAGER_TOOL_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_REPORT_MANAGER_TOOL_ROUTE == (
+        "/api/agents/report-manager/tool"
+    )
+
+
+def test_agents_report_manager_prompt_route() -> None:
+    assert API.AGENTS_REPORT_MANAGER_PROMPT_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_REPORT_MANAGER_PROMPT_ROUTE == (
+        "/api/agents/report-manager/prompt"
+    )
+
+
+def test_agents_report_review_step_route() -> None:
+    assert API.AGENTS_REPORT_REVIEW_STEP_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_REPORT_REVIEW_STEP_ROUTE == (
+        "/api/agents/report-review/step"
+    )
+
+
+def test_agents_report_review_tool_route() -> None:
+    assert API.AGENTS_REPORT_REVIEW_TOOL_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_REPORT_REVIEW_TOOL_ROUTE == (
+        "/api/agents/report-review/tool"
+    )
+
+
+def test_agents_report_review_prompt_route() -> None:
+    assert API.AGENTS_REPORT_REVIEW_PROMPT_ROUTE.startswith(
+        API.PREFIX,
+    )
+    assert API.AGENTS_REPORT_REVIEW_PROMPT_ROUTE == (
+        "/api/agents/report-review/prompt"
+    )
 
 
 def test_incident_2_subnets_do_not_overlap_incident_1() -> None:

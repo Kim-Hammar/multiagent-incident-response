@@ -41,9 +41,9 @@ import {
   API_DT_PYTHON_START_URL,
   API_DT_PYTHON_STOP_URL,
   AGENTS_RESOURCE,
-  API_AGENTS_INFO_STEP_URL,
-  API_AGENTS_INFO_TOOL_URL,
-  API_AGENTS_INFO_PROMPT_URL
+  API_AGENTS_REPORT_STEP_URL,
+  API_AGENTS_REPORT_TOOL_URL,
+  API_AGENTS_REPORT_PROMPT_URL
 } from './constants'
 
 describe('constants', () => {
@@ -242,18 +242,18 @@ describe('constants', () => {
     expect(AGENTS_RESOURCE).toBe('agents')
   })
 
-  it('API_AGENTS_INFO_STEP_URL starts with API_BASE_URL', () => {
-    expect(API_AGENTS_INFO_STEP_URL.startsWith(API_BASE_URL)).toBe(true)
-    expect(API_AGENTS_INFO_STEP_URL).toBe('/api/agents/information/step')
+  it('API_AGENTS_REPORT_STEP_URL starts with API_BASE_URL', () => {
+    expect(API_AGENTS_REPORT_STEP_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_AGENTS_REPORT_STEP_URL).toBe('/api/agents/report/step')
   })
 
-  it('API_AGENTS_INFO_TOOL_URL starts with API_BASE_URL', () => {
-    expect(API_AGENTS_INFO_TOOL_URL.startsWith(API_BASE_URL)).toBe(true)
-    expect(API_AGENTS_INFO_TOOL_URL).toBe('/api/agents/information/tool')
+  it('API_AGENTS_REPORT_TOOL_URL starts with API_BASE_URL', () => {
+    expect(API_AGENTS_REPORT_TOOL_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_AGENTS_REPORT_TOOL_URL).toBe('/api/agents/report/tool')
   })
 
-  it('API_AGENTS_INFO_PROMPT_URL starts with API_BASE_URL', () => {
-    expect(API_AGENTS_INFO_PROMPT_URL.startsWith(API_BASE_URL)).toBe(true)
-    expect(API_AGENTS_INFO_PROMPT_URL).toBe('/api/agents/information/prompt')
+  it('API_AGENTS_REPORT_PROMPT_URL starts with API_BASE_URL', () => {
+    expect(API_AGENTS_REPORT_PROMPT_URL.startsWith(API_BASE_URL)).toBe(true)
+    expect(API_AGENTS_REPORT_PROMPT_URL).toBe('/api/agents/report/prompt')
   })
 })
