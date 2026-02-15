@@ -32,6 +32,7 @@ function CodeAgentConfigTab({
   setAutopilot,
   showPromptModal,
   promptText,
+  promptImages,
   setShowPromptModal
 }) {
   return (
@@ -182,6 +183,7 @@ function CodeAgentConfigTab({
       <PromptModal
         show={showPromptModal}
         promptText={promptText}
+        promptImages={promptImages}
         onClose={() => setShowPromptModal(false)}
       />
     </div>

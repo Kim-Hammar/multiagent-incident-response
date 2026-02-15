@@ -36,6 +36,7 @@ function ValidationAgentConfigTab({
   setAutopilot,
   showPromptModal,
   promptText,
+  promptImages,
   setShowPromptModal,
   plannerReportId
 }) {
@@ -231,6 +232,7 @@ function ValidationAgentConfigTab({
       <PromptModal
         show={showPromptModal}
         promptText={promptText}
+        promptImages={promptImages}
         onClose={() => setShowPromptModal(false)}
       />
     </div>

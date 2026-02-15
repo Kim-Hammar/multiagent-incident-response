@@ -238,6 +238,12 @@ class DpAgent:
             time_limit_minutes=time_limit_minutes,
         )
 
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+            "images": list(images or []),
+        }
+
         declarations = (
             ALL_DECLARATIONS
             if self._has_solved(conversation_history)

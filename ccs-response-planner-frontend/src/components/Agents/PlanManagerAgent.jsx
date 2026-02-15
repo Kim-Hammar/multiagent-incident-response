@@ -53,6 +53,7 @@ function handleNestedSubEvent(subEvents, innerEvent) {
     if (lastToolCall) {
       if (innerEvent.event.type === 'prompt') {
         lastToolCall._prompt = innerEvent.event.text
+        lastToolCall._promptImages = innerEvent.event.images || []
       } else if (innerEvent.event.type === 'context_usage') {
         lastToolCall._contextUsage = innerEvent.event
       } else {
@@ -155,6 +156,7 @@ function PlanManagerAgent() {
   const [expandedEntries, setExpandedEntries] = useState({})
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
+  const [promptImages, setPromptImages] = useState([])
   const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
@@ -168,7 +170,7 @@ function PlanManagerAgent() {
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
   const [rlAgentModel, setRlAgentModel] = useState('')
   const [validationAgentModel, setValidationAgentModel] = useState('')
-  const [codeManagerIterations, setCodeManagerIterations] = useState(3)
+  const [codeManagerIterations, setCodeManagerIterations] = useState(2)
   const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(5)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -489,6 +491,7 @@ function PlanManagerAgent() {
             }
             if (event.type === 'prompt') {
               streamEntry.prompt = event.text
+              streamEntry.promptImages = event.images || []
               setConversationHistory([...base])
               return
             }
@@ -513,6 +516,7 @@ function PlanManagerAgent() {
               if (lastToolCall) {
                 if (event.event.type === 'prompt') {
                   lastToolCall._prompt = event.event.text
+                  lastToolCall._promptImages = event.event.images || []
                 } else if (event.event.type === 'context_usage') {
                   lastToolCall._contextUsage = event.event
                 } else {
@@ -689,15 +693,24 @@ function PlanManagerAgent() {
       return null
     }
     const data = await res.json()
-    return data.prompt || ''
+    return {
+      text: data.prompt || '',
+      images: [...systemDescriptionImages, ...incidentReportImages]
+    }
   }
 
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const text = await getPromptText()
-      if (text != null) {
-        setPromptText(text)
+      const result = await getPromptText()
+      if (result != null) {
+        if (typeof result === 'object' && result.text !== undefined) {
+          setPromptText(result.text)
+          setPromptImages(result.images || [])
+        } else {
+          setPromptText(result)
+          setPromptImages([])
+        }
         setShowPromptModal(true)
       }
     } catch (err) {
@@ -1142,6 +1155,7 @@ function PlanManagerAgent() {
           <PromptModal
             show={showPromptModal}
             promptText={promptText}
+            promptImages={promptImages}
             onClose={() => setShowPromptModal(false)}
           />
         </div>

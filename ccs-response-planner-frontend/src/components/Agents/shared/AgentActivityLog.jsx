@@ -738,7 +738,7 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
                     style={{ fontSize: '10px', padding: '1px 8px', marginLeft: '8px' }}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onViewPrompt(ev._prompt)
+                      onViewPrompt(ev._prompt, ev._promptImages)
                     }}
                   >
                     <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
@@ -905,6 +905,7 @@ function AgentActivityLog({
   renderToolResult
 }) {
   const [promptModalText, setPromptModalText] = useState(null)
+  const [promptModalImages, setPromptModalImages] = useState([])
   return (
     <div style={{ marginTop: '28px' }}>
       <div className="ia-log-header">
@@ -1081,6 +1082,7 @@ function AgentActivityLog({
                           onClick={(e) => {
                             e.stopPropagation()
                             setPromptModalText(entry.prompt)
+                            setPromptModalImages(entry.promptImages || [])
                           }}
                         >
                           <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
@@ -1092,7 +1094,10 @@ function AgentActivityLog({
                           agentLabel={agentLabel}
                           active={!entry.stopped}
                           modelName={entry._modelName}
-                          onViewPrompt={setPromptModalText}
+                          onViewPrompt={(text, images) => {
+                            setPromptModalText(text)
+                            setPromptModalImages(images || [])
+                          }}
                           contextUsage={entry.contextUsage}
                         />
                       ) : (
@@ -1184,7 +1189,10 @@ function AgentActivityLog({
                                 padding: '2px 10px',
                                 marginBottom: '8px'
                               }}
-                              onClick={() => setPromptModalText(entry.prompt)}
+                              onClick={() => {
+                                setPromptModalText(entry.prompt)
+                                setPromptModalImages(entry.promptImages || [])
+                              }}
                             >
                               <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
                             </button>
@@ -1193,7 +1201,10 @@ function AgentActivityLog({
                             subEvents={entry.subEvents}
                             agentLabel={agentLabel}
                             modelName={entry._modelName}
-                            onViewPrompt={setPromptModalText}
+                            onViewPrompt={(text, images) => {
+                              setPromptModalText(text)
+                              setPromptModalImages(images || [])
+                            }}
                             contextUsage={entry.contextUsage}
                           />
                         </CollapsibleSection>
@@ -1253,7 +1264,11 @@ function AgentActivityLog({
       <PromptModal
         show={!!promptModalText}
         promptText={promptModalText || ''}
-        onClose={() => setPromptModalText(null)}
+        promptImages={promptModalImages}
+        onClose={() => {
+          setPromptModalText(null)
+          setPromptModalImages([])
+        }}
       />
     </div>
   )

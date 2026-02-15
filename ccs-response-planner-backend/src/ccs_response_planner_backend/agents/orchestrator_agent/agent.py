@@ -157,6 +157,12 @@ class OrchestratorAgent:
             max_iterations=max_iterations,
         )
 
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+            "images": list(images or []),
+        }
+
         declarations = (
             ALL_DECLARATIONS
             if self._has_planned(conversation_history)

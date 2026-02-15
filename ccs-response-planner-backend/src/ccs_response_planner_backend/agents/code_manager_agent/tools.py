@@ -90,6 +90,7 @@ def run_code_agent_stream(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":
@@ -339,6 +340,7 @@ def run_code_reviewer_agent_stream(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":

@@ -1377,7 +1377,7 @@ def agents_report_manager_step() -> (
     )
     images = body.get("images", [])
     model_name = body.get("model_name") or None
-    max_iterations = body.get("max_iterations", 3)
+    max_iterations = body.get("max_iterations", 2)
     if not isinstance(images, list):
         images = []
     if not system_description and not security_alerts:
@@ -1435,7 +1435,7 @@ def agents_report_manager_prompt() -> (
     :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
-    max_iterations = body.get("max_iterations", 3)
+    max_iterations = body.get("max_iterations", 2)
     prompt = REPORT_MANAGER_PROMPT_TEMPLATE.format(
         system_description=body.get(
             "system_description", "",
@@ -1509,24 +1509,53 @@ def agents_report_manager_tool() -> (
         if tool_name == (
             "run_report_reviewer_agent"
         ):
-            conv_history = body.get(
-                "conversation_history", [],
+            last_assessment: dict[str, Any] = (
+                body.get("last_assessment") or {}
             )
-            last_assessment: dict[str, Any] = {}
-            for entry in reversed(conv_history):
-                if (
-                    entry.get("type")
-                    == "tool_result"
-                    and entry.get("tool_name")
-                    == "run_report_agent"
-                ):
-                    result = entry.get(
-                        "result", {},
-                    )
-                    last_assessment = result.get(
-                        "assessment", {},
-                    )
-                    break
+            if not last_assessment:
+                conv_history = body.get(
+                    "conversation_history", [],
+                )
+                for entry in reversed(conv_history):
+                    if (
+                        entry.get("type")
+                        == "tool_result"
+                        and entry.get("tool_name")
+                        == "run_report_agent"
+                    ):
+                        result = entry.get(
+                            "result", {},
+                        )
+                        last_assessment = (
+                            result.get(
+                                "assessment", {},
+                            )
+                        )
+                        break
+            if not last_assessment:
+                logger.warning(
+                    "No assessment found for "
+                    "reviewer; body keys=%s, "
+                    "conv_history len=%d, "
+                    "conv_history types=%s",
+                    list(body.keys()),
+                    len(
+                        body.get(
+                            "conversation_history",
+                            [],
+                        )
+                    ),
+                    [
+                        (
+                            e.get("type"),
+                            e.get("tool_name"),
+                        )
+                        for e in body.get(
+                            "conversation_history",
+                            [],
+                        )
+                    ],
+                )
             context["last_assessment"] = (
                 last_assessment
             )
@@ -1595,7 +1624,7 @@ def agents_code_manager_step() -> (
     )
     images = body.get("images", [])
     model_name = body.get("model_name") or None
-    max_iterations = body.get("max_iterations", 3)
+    max_iterations = body.get("max_iterations", 2)
     if not isinstance(images, list):
         images = []
     if not system_description and not incident_report:
@@ -1655,7 +1684,7 @@ def agents_code_manager_prompt() -> tuple[Response, int]:
     """
     body = request.get_json(silent=True) or {}
     specification = body.get("specification", "")
-    max_iterations = body.get("max_iterations", 3)
+    max_iterations = body.get("max_iterations", 2)
     if not specification:
         specification = json.dumps(
             DIGITAL_TWIN.DEFAULT_CONFIG[

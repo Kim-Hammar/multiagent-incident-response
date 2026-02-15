@@ -34,6 +34,7 @@ function CodeReviewerConfigTab({
   setAutopilot,
   showPromptModal,
   promptText,
+  promptImages,
   setShowPromptModal
 }) {
   return (
@@ -193,6 +194,7 @@ function CodeReviewerConfigTab({
       <PromptModal
         show={showPromptModal}
         promptText={promptText}
+        promptImages={promptImages}
         onClose={() => setShowPromptModal(false)}
       />
     </div>

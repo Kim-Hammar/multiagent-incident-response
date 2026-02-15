@@ -464,6 +464,9 @@ def generate_attack_image(
             contents=contents,
             config=genai_types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
+                image_config=genai_types.ImageConfig(
+                    image_size="1K",
+                ),
             ),
         )
         candidates = response.candidates or []

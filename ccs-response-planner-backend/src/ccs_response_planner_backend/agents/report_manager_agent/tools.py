@@ -96,6 +96,7 @@ def run_report_agent_stream(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":
@@ -363,6 +364,7 @@ def run_report_reviewer_agent_stream(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":

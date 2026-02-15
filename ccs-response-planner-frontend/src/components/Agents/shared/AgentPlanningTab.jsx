@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AgentActivityLog from './AgentActivityLog.jsx'
+import ContextModal from './ContextModal.jsx'
 import PromptModal from './PromptModal.jsx'
 
 /**
@@ -30,16 +31,24 @@ function AgentPlanningTab({
 }) {
   const isAgentBusy = running || !!executingTool
   const [promptText, setPromptText] = useState('')
+  const [promptImages, setPromptImages] = useState([])
   const [showPrompt, setShowPrompt] = useState(false)
+  const [showContext, setShowContext] = useState(false)
   const [loadingPrompt, setLoadingPrompt] = useState(false)
 
   const handleViewPrompt = async () => {
     if (!onViewPrompt) return
     setLoadingPrompt(true)
     try {
-      const text = await onViewPrompt()
-      if (text) {
-        setPromptText(text)
+      const result = await onViewPrompt()
+      if (result) {
+        if (typeof result === 'object' && result.text !== undefined) {
+          setPromptText(result.text)
+          setPromptImages(result.images || [])
+        } else {
+          setPromptText(result)
+          setPromptImages([])
+        }
         setShowPrompt(true)
       }
     } catch {
@@ -57,7 +66,7 @@ function AgentPlanningTab({
     )
   }
 
-  const showToolbar = isAgentBusy || onViewPrompt || modelName
+  const showToolbar = isAgentBusy || onViewPrompt || modelName || conversationHistory.length > 0
 
   return (
     <>
@@ -112,6 +121,15 @@ function AgentPlanningTab({
               {loadingPrompt ? 'Loading...' : 'Prompt'}
             </button>
           )}
+          {conversationHistory.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-outline-dark btn-sm"
+              onClick={() => setShowContext(true)}
+            >
+              <i className="fa fa-database" aria-hidden="true" /> Context
+            </button>
+          )}
           {isAgentBusy && onStop && (
             <button type="button" className="btn btn-outline-danger btn-sm" onClick={onStop}>
               <i className="fa fa-stop-circle" aria-hidden="true" /> Stop
@@ -136,7 +154,17 @@ function AgentPlanningTab({
         renderExecutingTool={renderExecutingTool}
         renderToolResult={renderToolResult}
       />
-      <PromptModal show={showPrompt} promptText={promptText} onClose={() => setShowPrompt(false)} />
+      <PromptModal
+        show={showPrompt}
+        promptText={promptText}
+        promptImages={promptImages}
+        onClose={() => setShowPrompt(false)}
+      />
+      <ContextModal
+        show={showContext}
+        conversationHistory={conversationHistory}
+        onClose={() => setShowContext(false)}
+      />
     </>
   )
 }

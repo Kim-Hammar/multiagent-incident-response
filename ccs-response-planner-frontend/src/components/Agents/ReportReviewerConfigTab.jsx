@@ -36,6 +36,7 @@ function ReportReviewerConfigTab({
   setAutopilot,
   showPromptModal,
   promptText,
+  promptImages,
   setShowPromptModal
 }) {
   return (
@@ -190,6 +191,7 @@ function ReportReviewerConfigTab({
       <PromptModal
         show={showPromptModal}
         promptText={promptText}
+        promptImages={promptImages}
         onClose={() => setShowPromptModal(false)}
       />
     </div>

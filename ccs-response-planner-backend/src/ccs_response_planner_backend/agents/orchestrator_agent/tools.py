@@ -89,7 +89,7 @@ def run_report_manager_stream(
             "report_manager_model",
         ),
         "max_iterations": context.get(
-            "report_manager_iterations", 3,
+            "report_manager_iterations", 2,
         ),
         "conversation_history": conversation_history,
     }
@@ -126,6 +126,7 @@ def run_report_manager_stream(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":
@@ -293,6 +294,9 @@ def run_report_manager_stream(
                 if tool_name == "run_report_agent":
                     assessment = tool_result.get(
                         "assessment", {},
+                    )
+                    rm_context["last_assessment"] = (
+                        assessment
                     )
 
                 sub_result = _truncate_result(
@@ -478,7 +482,7 @@ def run_plan_manager_stream(
             "validation_agent_model",
         ),
         "code_manager_iterations": context.get(
-            "code_manager_iterations", 3,
+            "code_manager_iterations", 2,
         ),
         "rl_time_limit_minutes": context.get(
             "rl_time_limit_minutes", 5,
@@ -510,6 +514,7 @@ def run_plan_manager_stream(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":

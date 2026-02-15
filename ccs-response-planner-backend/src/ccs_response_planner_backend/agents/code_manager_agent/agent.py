@@ -122,7 +122,7 @@ class CodeManagerAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
-        max_iterations: int = 3,
+        max_iterations: int = 2,
         validation_feedback: str = "",
     ) -> Generator[dict[str, Any], None, None]:
         """
@@ -185,6 +185,7 @@ class CodeManagerAgent:
         yield {
             "type": "system_prompt",
             "text": system_prompt,
+            "images": list(images or []),
         }
 
         declarations = (

@@ -109,13 +109,14 @@ function ReportManagerAgent() {
   const [expandedEntries, setExpandedEntries] = useState({})
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
+  const [promptImages, setPromptImages] = useState([])
   const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(3)
+  const [maxIterations, setMaxIterations] = useState(2)
   const [managerModel, setManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
@@ -447,6 +448,16 @@ function ReportManagerAgent() {
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
       try {
+        let lastAssessment
+        if (proposal.tool_name === 'run_report_reviewer_agent') {
+          for (let i = conversationHistory.length - 1; i >= 0; i--) {
+            const h = conversationHistory[i]
+            if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
+              lastAssessment = h.result?.assessment || null
+              break
+            }
+          }
+        }
         const extraBody = {
           system_description: systemDescription,
           security_alerts: securityAlerts,
@@ -454,7 +465,8 @@ function ReportManagerAgent() {
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           report_agent_model: reportAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: conversationHistory
+          conversation_history: conversationHistory,
+          last_assessment: lastAssessment
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_REPORT_MANAGER_TOOL_URL,
@@ -475,6 +487,7 @@ function ReportManagerAgent() {
             }
             if (event.type === 'prompt') {
               streamEntry.prompt = event.text
+              streamEntry.promptImages = event.images || []
               setConversationHistory([...base])
               return
             }
@@ -647,15 +660,24 @@ function ReportManagerAgent() {
       return null
     }
     const data = await res.json()
-    return data.prompt || ''
+    return {
+      text: data.prompt || '',
+      images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages]
+    }
   }
 
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const text = await getPromptText()
-      if (text != null) {
-        setPromptText(text)
+      const result = await getPromptText()
+      if (result != null) {
+        if (typeof result === 'object' && result.text !== undefined) {
+          setPromptText(result.text)
+          setPromptImages(result.images || [])
+        } else {
+          setPromptText(result)
+          setPromptImages([])
+        }
         setShowPromptModal(true)
       }
     } catch (err) {
@@ -975,6 +997,7 @@ function ReportManagerAgent() {
           <PromptModal
             show={showPromptModal}
             promptText={promptText}
+            promptImages={promptImages}
             onClose={() => setShowPromptModal(false)}
           />
         </div>

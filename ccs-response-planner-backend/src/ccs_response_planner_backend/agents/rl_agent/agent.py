@@ -330,6 +330,7 @@ class RlAgent:
         yield {
             "type": "system_prompt",
             "text": system_prompt,
+            "images": list(images or []),
         }
 
         declarations = (

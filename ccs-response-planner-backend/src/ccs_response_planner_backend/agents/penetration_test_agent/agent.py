@@ -224,6 +224,11 @@ class PenetrationTestAgent:
             system_description=system_description or "N/A",
         )
 
+        yield {
+            "type": "system_prompt",
+            "text": system_prompt,
+            "images": list(images or []),
+        }
         if is_anthropic_model(effective_model):
             yield from anthropic_stream_step(
                 system_prompt=system_prompt,

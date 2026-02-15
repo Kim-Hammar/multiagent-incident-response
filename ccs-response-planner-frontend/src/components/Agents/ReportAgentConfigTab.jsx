@@ -32,6 +32,7 @@ function ReportAgentConfigTab({
   setAutopilot,
   showPromptModal,
   promptText,
+  promptImages,
   setShowPromptModal
 }) {
   return (
@@ -175,6 +176,7 @@ function ReportAgentConfigTab({
       <PromptModal
         show={showPromptModal}
         promptText={promptText}
+        promptImages={promptImages}
         onClose={() => setShowPromptModal(false)}
       />
     </div>

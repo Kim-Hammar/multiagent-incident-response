@@ -127,6 +127,7 @@ def _run_sub_agent_loop(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":
@@ -443,6 +444,7 @@ def run_code_manager_stream(
                     "event": {
                         "type": "prompt",
                         "text": event.get("text", ""),
+                        "images": event.get("images", []),
                     },
                 }
             elif etype == "thinking":

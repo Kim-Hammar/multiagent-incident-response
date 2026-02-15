@@ -36,6 +36,7 @@ function RlAgentConfigTab({
   setAutopilot,
   showPromptModal,
   promptText,
+  promptImages,
   setShowPromptModal
 }) {
   return (
@@ -211,6 +212,7 @@ function RlAgentConfigTab({
       <PromptModal
         show={showPromptModal}
         promptText={promptText}
+        promptImages={promptImages}
         onClose={() => setShowPromptModal(false)}
       />
     </div>

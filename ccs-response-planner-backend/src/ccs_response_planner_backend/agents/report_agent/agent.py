@@ -15,6 +15,9 @@ from ccs_response_planner_backend.agents.anthropic_adapter import (
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
+from ccs_response_planner_backend.agents.context_utils import (
+    compact_tool_result,
+)
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
     format_container_table,
@@ -310,6 +313,7 @@ class ReportAgent:
         yield {
             "type": "system_prompt",
             "text": system_prompt,
+            "images": list(images or []),
         }
 
         if is_anthropic_model(effective_model):
@@ -624,7 +628,11 @@ class ReportAgent:
         :return: a list of Gemini-compatible content dicts
         """
         contents: list[Any] = []
-        for entry in history:
+        last_tr_idx = -1
+        for idx, h in enumerate(history):
+            if h.get("type") == "tool_result":
+                last_tr_idx = idx
+        for idx, entry in enumerate(history):
             entry_type = entry.get("type", "")
 
             if entry_type == "tool_proposal":
@@ -671,10 +679,14 @@ class ReportAgent:
             elif entry_type == "tool_result":
                 tool_name = entry.get("tool_name", "")
                 result = entry.get("result", {})
-                result_data: Any = result
-                if isinstance(result, dict):
+                compact = compact_tool_result(
+                    tool_name, result,
+                    compact_images=(idx != last_tr_idx),
+                )
+                result_data: Any = compact
+                if isinstance(compact, dict):
                     result_data = json.dumps(
-                        result, default=str,
+                        compact, default=str,
                     )
                 contents.append({
                     "role": "user",

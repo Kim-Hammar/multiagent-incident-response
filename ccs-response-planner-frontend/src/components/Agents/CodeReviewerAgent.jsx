@@ -38,6 +38,7 @@ function CodeReviewerAgent() {
   const [expandedEntries, setExpandedEntries] = useState({})
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
+  const [promptImages, setPromptImages] = useState([])
   const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
@@ -497,15 +498,24 @@ function CodeReviewerAgent() {
       return null
     }
     const data = await res.json()
-    return data.prompt || ''
+    return {
+      text: data.prompt || '',
+      images: [...systemDescriptionImages, ...incidentReportImages]
+    }
   }
 
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const text = await getPromptText()
-      if (text != null) {
-        setPromptText(text)
+      const result = await getPromptText()
+      if (result != null) {
+        if (typeof result === 'object' && result.text !== undefined) {
+          setPromptText(result.text)
+          setPromptImages(result.images || [])
+        } else {
+          setPromptText(result)
+          setPromptImages([])
+        }
         setShowPromptModal(true)
       }
     } catch (err) {
@@ -654,6 +664,7 @@ function CodeReviewerAgent() {
           setAutopilot={setAutopilot}
           showPromptModal={showPromptModal}
           promptText={promptText}
+          promptImages={promptImages}
           setShowPromptModal={setShowPromptModal}
         />
       )}

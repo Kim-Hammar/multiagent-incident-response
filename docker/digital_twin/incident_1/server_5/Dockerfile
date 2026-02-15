@@ -29,8 +29,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN mkdir /var/run/sshd
 
-# Configure Redis to listen on all interfaces
-RUN sed -i 's/^bind .*/bind 0.0.0.0/' /etc/redis/redis.conf
+# Configure Redis to listen on all interfaces with authentication
+RUN sed -i 's/^bind .*/bind 0.0.0.0/' /etc/redis/redis.conf \
+    && echo 'requirepass eYq!93Kx@Wm&ZvR7TjL2pNs' >> /etc/redis/redis.conf
 
 COPY app.py /opt/app.py
 COPY entrypoint.sh /entrypoint.sh

@@ -16,6 +16,7 @@ import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
+import { AssessmentBody } from './shared/ReportBodies.jsx'
 
 const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
 
@@ -51,6 +52,7 @@ function handleNestedSubEvent(subEvents, innerEvent) {
     if (lastToolCall) {
       if (innerEvent.event.type === 'prompt') {
         lastToolCall._prompt = innerEvent.event.text
+        lastToolCall._promptImages = innerEvent.event.images || []
       } else if (innerEvent.event.type === 'context_usage') {
         lastToolCall._contextUsage = innerEvent.event
       } else {
@@ -147,6 +149,7 @@ function OrchestratorAgent() {
   const [expandedEntries, setExpandedEntries] = useState({})
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
+  const [promptImages, setPromptImages] = useState([])
   const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
@@ -164,9 +167,9 @@ function OrchestratorAgent() {
   const [codeReviewerModel, setCodeReviewerModel] = useState('')
   const [rlAgentModel, setRlAgentModel] = useState('')
   const [validationAgentModel, setValidationAgentModel] = useState('')
-  const [reportManagerIterations, setReportManagerIterations] = useState(3)
+  const [reportManagerIterations, setReportManagerIterations] = useState(2)
   const [planManagerIterations, setPlanManagerIterations] = useState(2)
-  const [codeManagerIterations, setCodeManagerIterations] = useState(3)
+  const [codeManagerIterations, setCodeManagerIterations] = useState(2)
   const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(5)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -500,6 +503,7 @@ function OrchestratorAgent() {
             }
             if (event.type === 'prompt') {
               streamEntry.prompt = event.text
+              streamEntry.promptImages = event.images || []
               setConversationHistory([...base])
               return
             }
@@ -524,6 +528,7 @@ function OrchestratorAgent() {
               if (lastToolCall) {
                 if (event.event.type === 'prompt') {
                   lastToolCall._prompt = event.event.text
+                  lastToolCall._promptImages = event.event.images || []
                 } else if (event.event.type === 'context_usage') {
                   lastToolCall._contextUsage = event.event
                 } else {
@@ -685,15 +690,24 @@ function OrchestratorAgent() {
       return null
     }
     const data = await res.json()
-    return data.prompt || ''
+    return {
+      text: data.prompt || '',
+      images: [...systemDescriptionImages, ...securityAlertsImages]
+    }
   }
 
   const fetchPrompt = async () => {
     setLoadingPrompt(true)
     try {
-      const text = await getPromptText()
-      if (text != null) {
-        setPromptText(text)
+      const result = await getPromptText()
+      if (result != null) {
+        if (typeof result === 'object' && result.text !== undefined) {
+          setPromptText(result.text)
+          setPromptImages(result.images || [])
+        } else {
+          setPromptText(result)
+          setPromptImages([])
+        }
         setShowPromptModal(true)
       }
     } catch (err) {
@@ -794,6 +808,12 @@ function OrchestratorAgent() {
               </span>
             </div>
           )}
+          {r.assessment && (
+            <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
+              <div className="ia-assessment-label">Incident Report</div>
+              <AssessmentBody report={r.assessment} />
+            </div>
+          )}
         </div>
       )
     }
@@ -871,7 +891,7 @@ function OrchestratorAgent() {
             onClick={() => setActiveTab('planning')}
           >
             <span className={`status-dot ${isAgentBusy ? 'active' : 'inactive'}`} />
-            Orchestration process
+            Planning process
           </button>
         </li>
         <li className="nav-item">
@@ -1205,6 +1225,7 @@ function OrchestratorAgent() {
           <PromptModal
             show={showPromptModal}
             promptText={promptText}
+            promptImages={promptImages}
             onClose={() => setShowPromptModal(false)}
           />
         </div>
