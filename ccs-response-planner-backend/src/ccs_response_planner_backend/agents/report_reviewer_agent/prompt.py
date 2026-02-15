@@ -73,7 +73,8 @@ diagram for correctness. Verify that the depicted attack path, host \
 compromises, and lateral movement arrows align with the textual \
 analysis, the IOCs listed, and the available evidence from the \
 digital twin. Flag any discrepancies between the visual diagram and \
-the written report.
+the written report. Note that while the attack path should not contain obvious errors, \
+it does not need to include all the details about the incident; it should just provide an overview. 
 
 ## Digital Twin Environment
 
