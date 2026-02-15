@@ -29,6 +29,7 @@ dependencies = [
     "requests==2.32.3",
     "OTXv2==1.5.12",
     "anthropic==0.79.0",
+    "pydantic==2.10.6",
 ]
 
 [project.optional-dependencies]

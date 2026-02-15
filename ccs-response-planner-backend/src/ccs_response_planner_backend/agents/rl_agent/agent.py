@@ -623,7 +623,6 @@ class RlAgent:
                     "hyperparameters": "",
                     "training_summary": "",
                     "action_sequence": [],
-                    "contingencies": [],
                     "expected_total_cost": 0,
                     "risks": [],
                 },
