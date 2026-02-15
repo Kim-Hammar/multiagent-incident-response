@@ -374,9 +374,9 @@ class ReportManagerAgent:
                 assessment = result.get(
                     "assessment", {},
                 )
-                img = assessment.get(
+                img = str(assessment.get(
                     "attack_path_image", "",
-                )
+                ))
                 if img:
                     return img
         return ""
