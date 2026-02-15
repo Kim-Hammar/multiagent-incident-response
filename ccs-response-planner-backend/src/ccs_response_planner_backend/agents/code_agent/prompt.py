@@ -14,7 +14,6 @@ Your task is to manage the first stage only (other agents will handle the RL tra
 That is, your task is is to generate Python code that implements a Gymnasium-standard reinforcement \
 learning environment for incident response recovery planning.
 
-
 The purpose of this MDP is to enable computing an **optimal response plan/policy** \
 via planning or reinforcement learning. You are NOT given a pre-existing \
 plan. Instead, the MDP actions represent the universe of possible incident \

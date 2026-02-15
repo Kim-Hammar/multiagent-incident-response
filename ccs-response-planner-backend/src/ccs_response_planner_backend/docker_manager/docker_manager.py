@@ -75,6 +75,22 @@ class DockerManager:
                        "message": f"Using existing network "
                                   f"{net_name}"}
             except NotFound:
+                # Remove old-format network if it exists to
+                # prevent subnet overlap errors on re-deploy.
+                old_name = DockerManager._net_name(
+                    net_def["id"], None,
+                )
+                if old_name != net_name:
+                    try:
+                        old_net = client.networks.get(old_name)
+                        old_net.remove()
+                        yield {
+                            "type": "progress",
+                            "message": f"Removed stale network "
+                                       f"{old_name}",
+                        }
+                    except NotFound:
+                        pass
                 yield {"type": "progress",
                        "message": f"Creating network {net_name}"
                                   f" ({net_def['subnet']})"}
@@ -268,6 +284,13 @@ class DockerManager:
             }
             network_names = {
                 DockerManager._net_name(nid, config_id)
+                for nid in network_ids
+            }
+            # Also match old-format names (without config_id)
+            # so leftover networks from previous naming schemes
+            # are cleaned up and don't block re-deploy.
+            network_names |= {
+                DockerManager._net_name(nid, None)
                 for nid in network_ids
             }
         else:

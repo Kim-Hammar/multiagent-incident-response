@@ -480,7 +480,9 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
                   </>
                 )}
                 <i className={`fa ${toolIcon(ev.tool_name)}`} aria-hidden="true" />
-                <span>Running {toolLabel(ev.tool_name)}</span>
+                <span>
+                  {isOrchTool ? 'Running agent' : 'Running'} {toolLabel(ev.tool_name)}
+                </span>
                 {ev._prompt && onViewPrompt && (
                   <button
                     type="button"
@@ -712,7 +714,13 @@ function AgentActivityLog({
                   >
                     <i className={`fa ${toolIcon(entry.tool_name)}`} aria-hidden="true" />
                     <span className="ia-proposal-label">
-                      {isCurrentPending ? 'The agent wants to call tool' : 'Called tool'}
+                      {isCurrentPending
+                        ? isOrchTool
+                          ? 'The agent wants to invoke agent'
+                          : 'The agent wants to call tool'
+                        : isOrchTool
+                          ? 'Invoked agent'
+                          : 'Called tool'}
                     </span>
                     <span className="ia-proposal-tool-inline">{toolLabel(entry.tool_name)}</span>
                     {!isCurrentPending && (
@@ -721,7 +729,9 @@ function AgentActivityLog({
                   </div>
                   {isExpanded && (
                     <div className="ia-proposal-details">
-                      <div className="ia-proposal-tool">Tool: {toolLabel(entry.tool_name)}</div>
+                      <div className="ia-proposal-tool">
+                        {isOrchTool ? 'Agent' : 'Tool'}: {toolLabel(entry.tool_name)}
+                      </div>
                       {isOrchTool
                         ? renderOrchestratorArgs(entry.tool_name, entry.tool_args)
                         : argPairs.map(([label, value, isCode], i) => (

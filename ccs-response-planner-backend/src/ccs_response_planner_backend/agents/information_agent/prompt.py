@@ -58,12 +58,25 @@ immediately make the function call in the same response.
 what additional information you still need. Then call the next tool.
 5. Do NOT produce the final assessment until you have gathered information \
 from multiple sources and have a comprehensive understanding of the incident.
+   - **Multiple attack vectors:** A single host may be vulnerable to more \
+than one exploit (e.g. weak credentials AND an unpatched CVE). When the \
+evidence does not conclusively prove which vulnerability the attacker \
+used, include **all plausible attack vectors** in your assessment rather \
+than picking only one. Explain the evidence for each and note which is \
+most likely if the evidence favors one over another.
 6. Once you have gathered sufficient evidence and understand the attack path, \
-call `generate_attack_image` to create a visual attack path diagram. Provide a \
-detailed prompt describing the believed attack path step-by-step: which hosts \
-were targeted, in what order, what techniques/exploits were used, and how the \
-attacker moved laterally. The image generator should draw the network topology \
-itself and illustrate the attack path on it.
+call `generate_attack_image` to create a visual attack path diagram. Your \
+prompt must be **detailed and self-contained** — the image generator has no \
+other context. Include all of the following:
+   - **Full network topology:** List every network zone/segment with its \
+subnet (e.g. "Perimeter: 10.0.1.0/24"), and every host with its name, IP \
+address, role/services, and which zone it belongs to. Include infrastructure \
+nodes like the gateway, firewall, and IDS.
+   - **Attack path step-by-step:** For each step, state the source host, \
+the target host, the technique or exploit used (with CVE ID if known), and \
+what the attacker achieved (e.g. "root shell", "data exfiltration").
+   - **Visual instructions:** Which hosts to mark as compromised, the \
+direction of attack arrows, and any lateral movement across zone boundaries.
 7. After receiving the generated image, **carefully verify** that it accurately \
 depicts the attack path from your assessment. Check that the correct hosts, \
 attack direction, lateral movement steps, and techniques are shown. If the \

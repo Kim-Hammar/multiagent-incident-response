@@ -444,7 +444,22 @@ def generate_attack_image(
         except Exception:
             pass
 
-    contents.append(prompt)
+    image_prompt = (
+        "Generate a professional network security diagram that "
+        "visualizes the following cyber-attack path. Draw each "
+        "host as a labeled box or node showing its IP address "
+        "and role (e.g. 'Server 3 — SSH', 'Server 6 — Samba'). "
+        "Connect the hosts with bold red directional arrows "
+        "showing the order of compromise. Label each arrow with "
+        "the technique or exploit used at that step (e.g. "
+        "'SSH Brute Force', 'CVE-2017-7494 SambaCry', "
+        "'SQL Injection'). Use a clean, dark-on-light color "
+        "scheme suitable for an incident report. Group hosts by "
+        "network zone if applicable. Include a title at the top: "
+        "'Attack Path Diagram'.\n\n"
+        f"Attack path to illustrate:\n{prompt}"
+    )
+    contents.append(image_prompt)
 
     try:
         response = client.models.generate_content(
