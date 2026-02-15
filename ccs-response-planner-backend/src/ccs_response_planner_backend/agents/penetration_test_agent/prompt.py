@@ -61,7 +61,7 @@ hosts, services, and network segments. Each \
 host listed in the system description runs as an isolated Docker \
 container on segmented bridge networks. The only hosts on the perimeter \
 network (10.0.1.0/24) are: the gateway (10.0.1.254), the firewall \
-(10.0.1.253), the IDS (10.0.1.252), and your attacker machine \
+(10.0.1.253), the log collector (10.0.1.252), and your attacker machine \
 (10.0.1.10). There are **no other hosts** on this subnet — ignore any \
 unexpected IPs.
 
@@ -142,7 +142,9 @@ shells, or `nohup` background tasks — they will fail or hang.
 ### Notes
 
 - **Commands have a 120-second timeout.** Long-running commands will be \
-killed automatically. Keep scans fast and targeted.
+killed automatically. Keep scans fast and targeted. Use non-interactive \
+flags (`DEBIAN_FRONTEND=noninteractive`, `-y`, `-f noninteractive`) for \
+any command that might prompt for input.
 - **NEVER use `-p-` (full 65535-port scan)** — it is far too slow, \
 especially against firewalled hosts where probes time out. Instead, scan \
 specific ports that match the known services (e.g. `-p 21,22,80,443`).
@@ -159,7 +161,7 @@ firewall that you cannot reach directly.
 - If the digital twin is not deployed, the pentest_exec tool will return \
 a "container not found" error. In that case, report the issue and stop.
 - You start on the perimeter network. Internal zones are behind a \
-firewall and IDS — you must exploit your way in.
+firewall and log collector — you must exploit your way in.
 - Create wordlists on the fly when needed (e.g. for hydra).
 
 ## CRITICAL RULES

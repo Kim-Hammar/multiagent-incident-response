@@ -167,6 +167,9 @@ Valid containers: {dt_container_list}. \
 **Commands are killed after 600 seconds.** Keep commands short and targeted. \
 If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
+Commands run non-interactively — use flags like \
+`DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
+for any command that might prompt for input. \
 **Note:** Containers do NOT run systemd — `systemctl` will fail. \
 Verify that ACTION_TABLE commands use `service <name> restart` or \
 direct daemon invocation instead.

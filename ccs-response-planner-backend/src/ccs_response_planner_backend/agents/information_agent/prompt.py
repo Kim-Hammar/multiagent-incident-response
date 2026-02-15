@@ -49,7 +49,10 @@ your assessment. Available tools:
 `command` is the shell command to run. \
 **Commands are killed after 600 seconds.** Keep commands short and targeted. \
 If a command may take longer, add a shell timeout \
-(e.g. `timeout 10 nmap -sn 10.0.2.0/24`).
+(e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
+Commands run non-interactively — use flags like \
+`DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
+for any command that might prompt for input.
    - **dt_python_exec**: `code` — Python 3 source code to execute.
 
 3. **Before each tool call**, briefly explain your rationale in text, then \
@@ -71,7 +74,7 @@ other context. Include all of the following:
    - **Full network topology:** List every network zone/segment with its \
 subnet (e.g. "Perimeter: 10.0.1.0/24"), and every host with its name, IP \
 address, role/services, and which zone it belongs to. Include infrastructure \
-nodes like the gateway, firewall, and IDS.
+nodes like the gateway, firewall, and log collector.
    - **Attack path step-by-step:** For each step, state the source host, \
 the target host, the technique or exploit used (with CVE ID if known), and \
 what the attacker achieved (e.g. "root shell", "data exfiltration").
@@ -134,7 +137,7 @@ and re-launch the daemon directly if needed.
 - `ps aux` — list running processes
 - `netstat -tlnp` or `ss -tlnp` — list listening TCP ports
 - `cat /var/log/syslog` — system logs (may be empty in minimal containers)
-- `iptables -L -n -v` — firewall rules (on firewall/IDS containers)
+- `iptables -L -n -v` — firewall rules (on firewall container)
 - `cat /var/log/snort/alert.log` — Snort alerts (on gateway container)
 - `find / -name "*.log" -mmin -60` — recently modified log files
 - `cat /var/log/auth.log` — authentication logs

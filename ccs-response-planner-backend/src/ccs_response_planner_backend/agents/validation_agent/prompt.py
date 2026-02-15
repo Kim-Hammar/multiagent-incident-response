@@ -129,7 +129,10 @@ action definitions (with shell commands), and transition logic.
 apply response actions and check state on DT containers. \
 **Commands are killed after 600 seconds.** Keep commands short and targeted. \
 If a command may take longer, add a shell timeout \
-(e.g. `timeout 10 nmap -sn 10.0.2.0/24`).
+(e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
+Commands run non-interactively — use flags like \
+`DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
+for any command that might prompt for input.
 {query_policy_tool_doc}\
 - **produce_validation_report**: Call this ONLY after applying all response \
 actions and gathering all results.

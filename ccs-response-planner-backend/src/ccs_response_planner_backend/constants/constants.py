@@ -270,7 +270,7 @@ class DIGITAL_TWIN:
             },
             {
                 "id": "i1_ids",
-                "name": "IDS",
+                "name": "Log Collector",
                 "description": "rsyslog, tcpdump",
                 "docker_image": "ccs-dt-i1-ids:latest",
                 "ip_addresses": {
@@ -474,7 +474,7 @@ class DIGITAL_TWIN:
                 "host": "i1_firewall",
                 "command": "ping -c 1 -W 2 10.0.1.252",
                 "description": (
-                    "IDS reachable from Firewall"
+                    "Log Collector reachable from Firewall"
                     " (perimeter)"
                 ),
             },
@@ -482,7 +482,7 @@ class DIGITAL_TWIN:
                 "host": "i1_ids",
                 "command": "ping -c 1 -W 2 10.0.2.2",
                 "description": (
-                    "Server 2 reachable from IDS"
+                    "Server 2 reachable from Log Collector"
                     " (zone1)"
                 ),
             },
@@ -490,7 +490,7 @@ class DIGITAL_TWIN:
                 "host": "i1_ids",
                 "command": "ping -c 1 -W 2 10.0.3.3",
                 "description": (
-                    "Server 3 reachable from IDS"
+                    "Server 3 reachable from Log Collector"
                     " (zone2)"
                 ),
             },
@@ -1007,25 +1007,39 @@ class EXAMPLES:
         "(10.0.3.0/24, Servers 3-4), and Zone 3 "
         "(10.0.4.0/24, Servers 5-6). The network topology is shown "
         "in the attached figure.\n\n"
-        "The perimeter firewall only forwards traffic from the "
-        "perimeter network to two hosts: Server 2 (10.0.2.2) and "
-        "Server 3 (10.0.3.3). All other internal servers are not "
-        "directly reachable from the perimeter and can only be "
-        "accessed by pivoting through an internal host.\n\n"
+        "Routing architecture:\n"
+        "- Perimeter-to-internal traffic: Attacker/Gateway -> "
+        "Firewall (10.0.1.253) -> Log Collector (10.0.1.252) -> "
+        "internal zone. The Firewall only has an interface on the "
+        "perimeter network and only forwards traffic to Server 2 "
+        "(10.0.2.2) and Server 3 (10.0.3.3). All other internal "
+        "servers are not directly reachable from the perimeter and "
+        "can only be accessed by pivoting through an internal "
+        "host.\n"
+        "- Cross-zone internal traffic: routes directly through "
+        "the Log Collector (which has interfaces on all four "
+        "networks: 10.0.1.252, 10.0.2.252, 10.0.3.252, "
+        "10.0.4.252), bypassing the Firewall entirely. For "
+        "example, Server 3 (Zone 2) -> Log Collector "
+        "(10.0.3.252/10.0.4.252) -> Server 6 (Zone 3).\n"
+        "- Implication: iptables rules on the Firewall only "
+        "affect perimeter ingress/egress. To block internal "
+        "lateral movement between zones, rules must be applied "
+        "on the Log Collector or on the servers themselves.\n\n"
         "Each server resides on exactly one internal zone. "
-        "Cross-zone connectivity uses point-to-point routes through "
-        "the IDS. The adjacency links are: "
+        "The adjacency links are: "
         "S1-S2 (Zone 1), S1-S4 (cross-zone), S1-S6 (cross-zone), "
         "S2-S3 (cross-zone), S2-S5 (cross-zone), "
         "S3-S6 (cross-zone), S4-S5 (cross-zone), S5-S6 (Zone 3). "
         "S3 and S4 share Zone 2 but are isolated from each other "
         "by iptables rules. All connections not listed above are "
         "blocked.\n\n"
-        "Gateway (10.0.1.254, Ubuntu 22): Snort IDS v2.9\n"
+        "Gateway (10.0.1.254, Ubuntu 22): Snort IDS v2.9 "
+        "(Snort alert logs are on this host)\n"
         "Firewall (10.0.1.253, Ubuntu 22): iptables packet "
         "filtering\n"
-        "IDS (10.0.1.252, Ubuntu 22): rsyslog log aggregation, "
-        "tcpdump\n"
+        "Log Collector (10.0.1.252, Ubuntu 22): rsyslog log "
+        "aggregation, tcpdump\n"
         "Server 1 (10.0.2.1, Debian 11): Nginx reverse proxy, "
         "PHP-FPM customer portal, dnsmasq internal DNS\n"
         "Server 2 (10.0.2.2, Debian 11): vsftpd FTP, cron nightly "
@@ -1091,7 +1105,7 @@ class EXAMPLES:
         "firewall allows perimeter-to-Server 3 traffic.\n"
         "2. Lateral movement: The attacker pivoted from Server 3 "
         "(Zone 2) to Server 6 (Zone 3) via the cross-zone route "
-        "through the IDS.\n"
+        "through the Log Collector.\n"
         "3. SQL injection: From Server 6 (10.0.4.6), the "
         "attacker targeted Server 1's Nginx/PHP portal with "
         "UNION SELECT injection, attempting privilege "
@@ -1130,7 +1144,7 @@ class EXAMPLES:
         "Block outbound traffic from Server 3 to other zones "
         "to prevent further lateral movement. Server 3 reaches "
         "Server 6 (10.0.4.6) and Server 2 (10.0.2.2) via "
-        "cross-zone routes through the IDS. Blocking those "
+        "cross-zone routes through the Log Collector. Blocking those "
         "subnets on Server 3 severs the attacker's lateral "
         "movement path.\n"
         "Commands on Server 3:\n"
@@ -1140,7 +1154,7 @@ class EXAMPLES:
         "Action 3 — Preserve forensic evidence:\n"
         "Collect authentication logs and bash history from "
         "Server 3 and Server 6 before any cleanup. Save copies "
-        "to the IDS server for analysis.\n"
+        "to the Log Collector for analysis.\n"
         "Commands on Server 3:\n"
         "  cp /var/log/auth.log /tmp/forensics_auth.log\n"
         "  cp /root/.bash_history /tmp/forensics_bash_history\n"
