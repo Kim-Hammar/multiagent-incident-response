@@ -63,11 +63,12 @@ function handleNestedSubEvent(subEvents, innerEvent) {
   } else if (innerEvent.type === 'tool_result') {
     const lastCall = [...subEvents].reverse().find((e) => e.type === 'tool_call')
     if (lastCall) lastCall._completed = true
+    const streamSubs = innerEvent.subEvents || []
     subEvents.push({
       type: 'tool_result',
       tool_name: innerEvent.tool_name,
       result: innerEvent.result,
-      subEvents: innerEvent.subEvents || []
+      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || []
     })
   } else {
     subEvents.push(innerEvent)

@@ -68,7 +68,7 @@ QUERY_POLICY_TOOL_DOC = """\
 states) and receive the RL policy\u2019s recommended action with commands."""
 
 SYSTEM_PROMPT_TEMPLATE = """\
-You are an expert cyber-security incident response operator. You are part of a larger autonomous incident response
+You are an expert cyber-security incident response operator. You are part of a larger autonomous incident response \
 system which generates optimal incident response plans (policies) in two stages: \
 (1) it generates a code model of the process of recovering from the incident; and \
 (2) it uses the generated code model to learn an optimal policy through reinforcement learning.
