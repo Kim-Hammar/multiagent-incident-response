@@ -704,6 +704,7 @@ def agents_validation_prompt() -> tuple[Response, int]:
                 code_report or {},
             )
         ),
+        validation_feedback="",
         dt_container_list=format_container_list(
             dt_config,
         ),

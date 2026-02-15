@@ -162,9 +162,13 @@ class CodeManagerAgent:
                 "carefully address the validation findings "
                 "— do NOT start from scratch. Focus on "
                 "improving the MDP code model to fix the "
-                "specific issues raised. The detailed "
-                "validation feedback is provided in the "
-                "\"Validation Feedback\" section below.\n\n"
+                "specific issues raised. When you call "
+                "`run_code_agent`, include the validation "
+                "findings in the `review_feedback` argument "
+                "so the CodeAgent knows exactly what to fix. "
+                "The detailed validation feedback is provided "
+                "in the \"Validation Feedback\" section below."
+                "\n\n"
             )
         else:
             revision_notice = ""

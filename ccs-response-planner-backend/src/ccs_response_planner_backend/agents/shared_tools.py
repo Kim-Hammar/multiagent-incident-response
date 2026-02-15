@@ -5,6 +5,9 @@ Provides ``dt_exec`` with automatic digital-twin deployment so
 that agents do not fail when the DT containers are not yet running.
 Also provides streaming variants (``_exec_stream_on_container``,
 ``dt_exec_stream``) that yield output line-by-line.
+
+``dt_restart`` / ``dt_restart_stream`` let agents restart a
+crashed container or redeploy the entire digital twin.
 """
 import logging
 import threading
@@ -386,3 +389,185 @@ def dt_exec_stream(
         command=command,
         client=client,
     )
+
+
+def dt_restart(
+    container: str,
+    incident_id: Optional[int] = None,
+) -> dict[str, Any]:
+    """
+    Restart a digital-twin container or redeploy the entire DT.
+
+    When *container* is a specific host id the single container
+    is restarted via ``docker restart``.  When *container* is
+    ``"all"`` the entire digital twin is stopped and redeployed.
+
+    :param container: host id (e.g. i1_server_2) or ``"all"``
+    :param incident_id: optional incident id for config lookup
+    :return: a dict describing the result
+    """
+    if container.lower() == "all":
+        config_id = None
+        if incident_id is not None:
+            config_id = (
+                DatabaseFacade.get_config_id_by_incident(
+                    incident_id,
+                )
+            )
+        for _ in DockerManager.stop():
+            pass
+        DockerManager.ensure_deployed(
+            config_id=config_id,
+        )
+        return {
+            "status": "redeployed",
+            "message": (
+                "Digital twin stopped and redeployed."
+            ),
+        }
+
+    if container not in _VALID_DT_CONTAINERS:
+        return {
+            "error": (
+                f"Unknown container '{container}'. "
+                f"Valid: {', '.join(_VALID_DT_CONTAINERS)}"
+            ),
+        }
+
+    container_name = f"{DOCKER.CONTAINER_PREFIX}{container}"
+    client = docker.from_env()
+    try:
+        ct = client.containers.get(container_name)
+        ct.restart(timeout=30)
+        return {
+            "container": container,
+            "status": "restarted",
+        }
+    except docker.errors.NotFound:
+        logger.info(
+            "Container '%s' not found; triggering "
+            "deploy before restart...", container_name,
+        )
+        try:
+            config_id = None
+            if incident_id is not None:
+                config_id = (
+                    DatabaseFacade.get_config_id_by_incident(
+                        incident_id,
+                    )
+                )
+            DockerManager.ensure_deployed(
+                config_id=config_id,
+            )
+            ct = client.containers.get(container_name)
+            ct.restart(timeout=30)
+            return {
+                "container": container,
+                "status": "restarted",
+            }
+        except Exception as exc:
+            return {
+                "error": (
+                    f"Container '{container_name}' not "
+                    f"found and auto-deploy failed: {exc}"
+                ),
+            }
+
+
+def dt_restart_stream(
+    container: str,
+    incident_id: Optional[int] = None,
+) -> Generator[dict[str, Any], None, None]:
+    """
+    Restart a digital-twin container or redeploy the entire DT.
+
+    Streaming variant of ``dt_restart`` that yields progress
+    events from the stop/deploy generators.
+
+    :param container: host id (e.g. i1_server_2) or ``"all"``
+    :param incident_id: optional incident id for config lookup
+    :return: a generator of event dicts
+    """
+    if container.lower() == "all":
+        config_id = None
+        if incident_id is not None:
+            config_id = (
+                DatabaseFacade.get_config_id_by_incident(
+                    incident_id,
+                )
+            )
+        for event in DockerManager.stop():
+            yield {
+                "type": "output_chunk",
+                "text": (
+                    f"[stop] "
+                    f"{event.get('message', str(event))}\n"
+                ),
+            }
+        DockerManager.ensure_deployed(
+            config_id=config_id,
+        )
+        yield {
+            "type": "done",
+            "container": "all",
+            "status": "redeployed",
+            "output": (
+                "Digital twin stopped and redeployed."
+            ),
+        }
+        return
+
+    if container not in _VALID_DT_CONTAINERS:
+        yield {
+            "type": "done",
+            "container": container,
+            "status": "error",
+            "output": (
+                f"Unknown container '{container}'. "
+                f"Valid: {', '.join(_VALID_DT_CONTAINERS)}"
+            ),
+        }
+        return
+
+    container_name = f"{DOCKER.CONTAINER_PREFIX}{container}"
+    client = docker.from_env()
+    try:
+        ct = client.containers.get(container_name)
+        ct.restart(timeout=30)
+    except docker.errors.NotFound:
+        logger.info(
+            "Container '%s' not found; triggering "
+            "deploy before restart...", container_name,
+        )
+        try:
+            config_id = None
+            if incident_id is not None:
+                config_id = (
+                    DatabaseFacade.get_config_id_by_incident(
+                        incident_id,
+                    )
+                )
+            DockerManager.ensure_deployed(
+                config_id=config_id,
+            )
+            ct = client.containers.get(container_name)
+            ct.restart(timeout=30)
+        except Exception as exc:
+            yield {
+                "type": "done",
+                "container": container,
+                "status": "error",
+                "output": (
+                    f"Container '{container_name}' not "
+                    f"found and auto-deploy failed: "
+                    f"{exc}"
+                ),
+            }
+            return
+
+    yield {
+        "type": "done",
+        "container": container,
+        "status": "restarted",
+        "output": f"Container {container} restarted.",
+    }

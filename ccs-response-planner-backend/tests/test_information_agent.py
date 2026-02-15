@@ -20,7 +20,7 @@ from ccs_response_planner_backend.agents.information_agent.tools import (
 
 def test_tool_dispatch_has_all_tools() -> None:
     """
-    TOOL_DISPATCH must contain all nine tool functions.
+    TOOL_DISPATCH must contain all ten tool functions.
     """
     expected = {
         "tavily_search",
@@ -30,6 +30,7 @@ def test_tool_dispatch_has_all_tools() -> None:
         "abuseipdb_check",
         "otx_search",
         "dt_exec",
+        "dt_restart",
         "dt_python_exec",
         "generate_attack_image",
     }

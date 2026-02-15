@@ -9,6 +9,8 @@ import {
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
+import RlAgentReport from './RlAgentReport.jsx'
+import ValidationAgentReport from './ValidationAgentReport.jsx'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import PromptModal from './shared/PromptModal.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
@@ -798,14 +800,16 @@ function PlanManagerAgent() {
       const r = entry.result
       return (
         <div style={{ marginTop: '10px' }}>
-          {r.planner_report?.executive_summary && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">RL Agent Summary</div>
-              <p className="ia-assessment-body mb-0">{r.planner_report.executive_summary}</p>
-            </div>
+          {r.planner_report && (
+            <RlAgentReport
+              entry={{ type: 'planner_report', planner_report: r.planner_report }}
+              index="pm-rl"
+              isExpanded={true}
+              toggleEntry={() => {}}
+            />
           )}
           {r.response_plan && (
-            <div className="ia-assessment-section">
+            <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
               <div className="ia-assessment-label">Response Plan</div>
               <pre
                 style={{
@@ -830,22 +834,13 @@ function PlanManagerAgent() {
       const r = entry.result
       return (
         <div style={{ marginTop: '10px' }}>
-          {r.validation_report?.executive_summary && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Validation Summary</div>
-              <p className="ia-assessment-body mb-0">{r.validation_report.executive_summary}</p>
-            </div>
-          )}
-          {r.validation_report?.overall_verdict && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Verdict</div>
-              <span
-                className={`badge badge-${VERDICT_STYLES[r.validation_report.overall_verdict] || 'secondary'}`}
-                style={{ fontSize: '12px', padding: '5px 8px' }}
-              >
-                {r.validation_report.overall_verdict.replace(/_/g, ' ')}
-              </span>
-            </div>
+          {r.validation_report && (
+            <ValidationAgentReport
+              entry={{ type: 'validation_report', validation_report: r.validation_report }}
+              index="pm-val"
+              isExpanded={true}
+              toggleEntry={() => {}}
+            />
           )}
         </div>
       )

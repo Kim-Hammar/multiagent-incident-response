@@ -280,10 +280,39 @@ PRODUCE_REPORT_DECL = genai_types.FunctionDeclaration(
     },
 )
 
-TOOL_DECLARATIONS = [DT_EXEC_DECL, PRODUCE_REPORT_DECL]
+DT_RESTART_DECL = genai_types.FunctionDeclaration(
+    name="dt_restart",
+    description=(
+        "Restart a digital-twin container that has "
+        "crashed or stopped. Use when dt_exec fails "
+        "with a 'container is not running' error. "
+        "Pass a specific container name to restart "
+        "just that host, or pass 'all' to redeploy "
+        "the entire digital twin."
+    ),
+    parameters={  # type: ignore[arg-type]
+        "type": "object",
+        "properties": {
+            "container": {
+                "type": "string",
+                "description": (
+                    "The host id to restart "
+                    "(e.g. i1_server_2), or 'all' "
+                    "to redeploy the entire DT."
+                ),
+            },
+        },
+        "required": ["container"],
+    },
+)
+
+TOOL_DECLARATIONS = [
+    DT_EXEC_DECL, DT_RESTART_DECL, PRODUCE_REPORT_DECL,
+]
 
 TOOL_DECLARATIONS_WITH_POLICY = [
     DT_EXEC_DECL,
+    DT_RESTART_DECL,
     QUERY_POLICY_DECL,
     PRODUCE_REPORT_DECL,
 ]

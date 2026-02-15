@@ -24,6 +24,8 @@ from google.genai import types as genai_types  # type: ignore[attr-defined]
 from ccs_response_planner_backend.agents.shared_tools import (
     dt_exec,
     dt_exec_stream,
+    dt_restart,
+    dt_restart_stream,
 )
 from ccs_response_planner_backend.constants.constants import DOCKER, LLM
 from ccs_response_planner_backend.db.database_facade import (
@@ -493,6 +495,7 @@ TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "abuseipdb_check": abuseipdb_check,
     "otx_search": otx_search,
     "dt_exec": dt_exec,
+    "dt_restart": dt_restart,
     "dt_python_exec": dt_python_exec,
     "generate_attack_image": generate_attack_image,
 }
@@ -501,4 +504,5 @@ STREAMING_TOOL_DISPATCH: dict[
     str, Callable[..., Generator[dict[str, Any], None, None]]
 ] = {
     "dt_exec": dt_exec_stream,
+    "dt_restart": dt_restart_stream,
 }
