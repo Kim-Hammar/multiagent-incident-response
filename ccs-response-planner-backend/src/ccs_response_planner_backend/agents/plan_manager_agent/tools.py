@@ -83,6 +83,7 @@ def _run_sub_agent_loop(
     agent_label: str,
     report_event_type: str,
     context: dict[str, Any] | None = None,
+    max_steps: int = MAX_INNER_STEPS,
 ) -> Generator[dict[str, Any], None, None]:
     """
     Run a sub-agent's full multi-step loop, auto-approving
@@ -96,6 +97,7 @@ def _run_sub_agent_loop(
     :param agent_label: label for log messages
     :param report_event_type: event type for the final report
     :param context: optional context dict for streaming tools
+    :param max_steps: maximum number of agent turns
     :return: generator of event dicts
     """
     conversation_history: list[dict[str, Any]] = []
@@ -104,7 +106,7 @@ def _run_sub_agent_loop(
     )
     final_report = None
 
-    for step_num in range(MAX_INNER_STEPS):
+    for step_num in range(max_steps):
         yield {
             "type": "output_chunk",
             "text": (
@@ -920,6 +922,7 @@ def run_validation_agent_stream(
         agent_label="ValidationAgent",
         report_event_type="validation_report",
         context=context,
+        max_steps=150,
     ):
         yield ev
 
