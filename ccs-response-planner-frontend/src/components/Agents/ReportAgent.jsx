@@ -184,7 +184,8 @@ function ReportAgent() {
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           model_name: selectedModel || undefined,
           compaction_model: compactionModel || undefined,
-          compaction_threshold: compactionThreshold / 100
+          compaction_threshold: compactionThreshold / 100,
+          last_prompt_tokens: contextUsage?.prompt_tokens || 0
         }),
         signal: controller.signal
       })

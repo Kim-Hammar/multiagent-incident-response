@@ -180,6 +180,7 @@ function ValidationAgent() {
           model_name: selectedModel || undefined,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
+          last_prompt_tokens: contextUsage?.prompt_tokens || 0,
           planner_report_id: plannerReportId || undefined
         }),
         signal: controller.signal

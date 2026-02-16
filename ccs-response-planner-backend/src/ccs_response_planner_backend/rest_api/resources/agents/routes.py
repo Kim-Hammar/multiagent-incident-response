@@ -333,6 +333,9 @@ def agents_report_step() -> Response | tuple[Response, int]:
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = ReportAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
@@ -479,6 +482,9 @@ def agents_pentest_step() -> Response | tuple[Response, int]:
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
             agent = PenetrationTestAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 conversation_history=conversation_history,
@@ -670,6 +676,9 @@ def agents_validation_step() -> Response | tuple[Response, int]:
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = ValidationAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
@@ -869,6 +878,9 @@ def agents_code_step() -> Response | tuple[Response, int]:
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = CodeAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
@@ -1041,6 +1053,9 @@ def agents_code_review_step() -> Response | tuple[Response, int]:
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = CodeReviewerAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
@@ -1231,6 +1246,9 @@ def agents_report_review_step() -> (
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = ReportReviewerAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=(
                     system_description
@@ -1435,6 +1453,9 @@ def agents_report_manager_step() -> (
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
             agent = ReportManagerAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
@@ -1701,6 +1722,9 @@ def agents_code_manager_step() -> (
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
             agent = CodeManagerAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
@@ -1950,6 +1974,9 @@ def agents_rl_step() -> Response | tuple[Response, int]:
                         }) + "\n"
                         return
             agent = RlAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
@@ -2124,6 +2151,9 @@ def agents_plan_manager_step() -> (
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
             agent = PlanManagerAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
@@ -2396,6 +2426,9 @@ def agents_orchestrator_step() -> (
                 for ev in _redeploy_dt():
                     yield json.dumps(ev) + "\n"
             agent = OrchestratorAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
@@ -2679,6 +2712,9 @@ def agents_dp_step() -> Response | tuple[Response, int]:
         """
         try:
             agent = DpAgent()
+            agent._last_prompt_tokens = body.get(
+                "last_prompt_tokens", 0,
+            )
             for event in agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,

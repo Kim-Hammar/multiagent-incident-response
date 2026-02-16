@@ -304,6 +304,7 @@ function PlanManagerAgent() {
           conversation_history: history,
           images: [...systemDescriptionImages, ...incidentReportImages],
           model_name: managerModel || undefined,
+          last_prompt_tokens: contextUsage?.prompt_tokens || 0,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           max_iterations: maxIterations

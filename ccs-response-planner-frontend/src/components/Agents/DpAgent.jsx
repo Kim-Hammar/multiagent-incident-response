@@ -187,6 +187,7 @@ function DpAgent() {
           ),
           images: [...systemDescriptionImages, ...incidentReportImages],
           model_name: selectedModel || undefined,
+          last_prompt_tokens: contextUsage?.prompt_tokens || 0,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           time_limit_minutes: timeLimitMinutes
