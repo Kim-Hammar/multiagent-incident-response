@@ -214,12 +214,12 @@ def test_digital_twin_status_route() -> None:
 
 def test_digital_twin_default_config_has_specification_commands() -> None:
     """
-    The default DT config must include 28 specification commands
-    (4 service + 16 positive reachability + 8 negative reachability).
+    The default DT config must include 34 specification commands
+    (4 service + 22 positive reachability + 8 negative reachability).
     """
     cmds = DIGITAL_TWIN.DEFAULT_CONFIG["specification_commands"]
     assert isinstance(cmds, list)
-    assert len(cmds) == 28
+    assert len(cmds) == 34
     for cmd in cmds:
         assert "command" in cmd
         assert "description" in cmd
@@ -300,7 +300,7 @@ def test_specification_commands_include_reachability() -> None:
                 if not c["command"].startswith("!")]
     negative = [c for c in ping_cmds
                 if c["command"].startswith("!")]
-    assert len(positive) == 16
+    assert len(positive) == 22
     assert len(negative) == 8
 
 
@@ -381,12 +381,12 @@ def test_incident_2_config_links() -> None:
 
 def test_incident_2_config_has_specification_commands() -> None:
     """
-    The incident 2 DT config must include 22 specification commands
-    (5 service + 10 positive reachability + 7 negative reachability).
+    The incident 2 DT config must include 25 specification commands
+    (5 service + 15 positive reachability + 5 negative reachability).
     """
     cmds = DIGITAL_TWIN.INCIDENT_2_CONFIG["specification_commands"]
     assert isinstance(cmds, list)
-    assert len(cmds) == 22
+    assert len(cmds) == 25
     for cmd in cmds:
         assert "command" in cmd
         assert "description" in cmd
@@ -403,8 +403,8 @@ def test_incident_2_specification_commands_reachability() -> None:
                 if not c["command"].startswith("!")]
     negative = [c for c in ping_cmds
                 if c["command"].startswith("!")]
-    assert len(positive) == 10
-    assert len(negative) == 7
+    assert len(positive) == 15
+    assert len(negative) == 5
 
 
 def test_agents_report_manager_step_route() -> None:

@@ -312,6 +312,26 @@ def run_code_reviewer_agent_stream(
             f"{previous_review_summary}\n"
             "--- END PREVIOUS REVIEW CONTEXT ---"
         )
+    validation_feedback = context.get(
+        "validation_feedback", "",
+    )
+    if validation_feedback:
+        operator_feedback += (
+            "\n\n--- VALIDATION CONTEXT ---\n"
+            "This code was revised to address issues "
+            "found during policy validation on the "
+            "digital twin. The validation feedback "
+            "below describes what went wrong when the "
+            "previous version of this MDP code was "
+            "used to train an RL policy and execute "
+            "it on the digital twin. Focus your "
+            "review on verifying that the revised "
+            "code properly addresses these validation "
+            "issues.\n\n"
+            "## Validation Feedback\n"
+            f"{validation_feedback}\n"
+            "--- END VALIDATION CONTEXT ---"
+        )
     conversation_history: list[dict[str, Any]] = []
     review_report = None
 

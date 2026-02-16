@@ -146,6 +146,24 @@ that can restore it. Similarly, every recovery dimension must have at \
 least one action (or sequence of actions) that can drive it to 1.0. \
 If an action has a failure outcome that lowers a dimension, there \
 must be a way to recover from that failure.
+7. **Measurable progress — avoid no-op loops** — Every non-passive \
+action must produce a visible state change when its prerequisites \
+are met and the relevant recovery dimension is below 1.0. \
+The RL agent that trains on this environment has no external \
+knowledge — it can only observe the state vector. If an action \
+leaves the state unchanged (e.g. an assessment action that always \
+returns the same state regardless of how many times it is called), \
+the agent has no signal that the action "worked" and may loop on \
+it indefinitely. Design transitions so that: (a) each successful \
+action moves at least one state dimension toward 1.0 by a \
+meaningful increment, (b) repeated application of the same action \
+has diminishing or zero additional effect once its contribution is \
+complete (so the agent is incentivized to move on), and (c) when \
+an action has no further effect (e.g. assessment is already at \
+1.0), it should be a no-op rather than resetting or oscillating \
+the state. In short, the environment must give clear, progressive \
+feedback through the state vector so the planning agent can make \
+steady progress toward the terminal state.
 
 ### Action Design — Comprehensiveness is Critical
 

@@ -25,9 +25,41 @@ import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
-import { AssessmentBody } from './shared/ReportBodies.jsx'
+import {
+  AssessmentBody,
+  CodeReportBody,
+  ValidationReportBody,
+  PlannerReportInline,
+  PlanManagerReportBody,
+  VERDICT_STYLES
+} from './shared/ReportBodies.jsx'
 
-const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
+/**
+ * Extract rich sub-agent data from conversation history and merge it into
+ * the orchestrator report so the final view has full details.
+ */
+function enrichOrchestratorReport(report, history) {
+  const rmResult =
+    [...history]
+      .reverse()
+      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_report_manager')?.result || {}
+  const pmResult =
+    [...history]
+      .reverse()
+      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_plan_manager')?.result || {}
+  const assessment = rmResult.assessment ? { ...rmResult.assessment } : {}
+  if (rmResult.attack_path_image) {
+    assessment.attack_path_image = rmResult.attack_path_image
+  }
+  return {
+    ...report,
+    assessment,
+    code_report: pmResult.code_report || {},
+    planner_report: pmResult.planner_report || {},
+    validation_report: pmResult.validation_report || {},
+    response_plan: pmResult.response_plan || ''
+  }
+}
 
 /**
  * Helper to push a nested_event into the correct level of the subEvents tree.
@@ -85,49 +117,71 @@ function handleNestedSubEvent(subEvents, innerEvent) {
 }
 
 /**
- * Render an orchestrator agent report entry.
+ * Render the final consolidated report for the orchestrator agent.
  */
 function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) {
   const report = entry.orchestrator_agent_report || {}
-  const verdictClass =
-    report.final_verdict === 'pass'
-      ? 'badge-success'
-      : report.final_verdict === 'needs_revision'
-        ? 'badge-warning'
-        : 'badge-danger'
 
   return (
     <div className="card ia-entry ia-result-entry">
       <div className="card-body">
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
           <i className="fa fa-flag-checkered" aria-hidden="true" />
-          <span className="ia-result-label">Orchestrator Agent Report</span>
-          {report.final_verdict && (
-            <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
-          )}
+          <span className="ia-result-label">Final Response Plan</span>
           {report.iterations != null && (
             <span className="badge badge-info ml-2">{report.iterations} iteration(s)</span>
           )}
           <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
         </div>
         {isExpanded && (
-          <div style={{ whiteSpace: 'pre-wrap', marginTop: '10px' }}>
+          <div style={{ marginTop: '10px' }}>
             {report.executive_summary && (
-              <div className="mb-3">
-                <strong>Summary:</strong>
-                <p>{report.executive_summary}</p>
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Executive Summary</div>
+                <p className="ia-assessment-body mb-0">{report.executive_summary}</p>
               </div>
             )}
-            {report.assessment_summary && (
-              <div className="mb-3">
-                <strong>Assessment Summary:</strong>
-                <p>{report.assessment_summary}</p>
+            {report.assessment && Object.keys(report.assessment).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Incident Assessment</div>
+                <AssessmentBody report={report.assessment} />
               </div>
             )}
-            {report.response_plan_summary && (
-              <div className="mb-3">
-                <strong>Response Plan Summary:</strong>
-                <p>{report.response_plan_summary}</p>
+            {report.code_report && Object.keys(report.code_report).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">MDP Code Report</div>
+                <CodeReportBody report={report.code_report} />
+              </div>
+            )}
+            {report.planner_report && Object.keys(report.planner_report).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">RL Planner Report</div>
+                <PlannerReportInline report={report.planner_report} />
+              </div>
+            )}
+            {report.validation_report && Object.keys(report.validation_report).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Validation Report</div>
+                <ValidationReportBody report={report.validation_report} />
+              </div>
+            )}
+            {report.response_plan && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Response Plan</div>
+                <pre
+                  style={{
+                    background: '#f5f5f5',
+                    padding: '12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    maxHeight: '400px',
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  {report.response_plan}
+                </pre>
               </div>
             )}
           </div>
@@ -428,6 +482,10 @@ function OrchestratorAgent() {
           setPendingProposal(finalEntry)
         }
         if (finalEntry.type === 'orchestrator_agent_report') {
+          finalEntry.orchestrator_agent_report = enrichOrchestratorReport(
+            finalEntry.orchestrator_agent_report,
+            history
+          )
           saveReport(finalEntry.orchestrator_agent_report)
         }
       } else if (accumulated) {
@@ -438,11 +496,11 @@ function OrchestratorAgent() {
           report = {
             executive_summary: accumulated,
             iterations: 0,
-            final_verdict: 'unknown',
             assessment_summary: '',
             response_plan_summary: ''
           }
         }
+        report = enrichOrchestratorReport(report, history)
         setConversationHistory([
           ...history,
           ...compactionEntries,
@@ -861,47 +919,7 @@ function OrchestratorAgent() {
       )
     }
     if (entry.tool_name === 'run_plan_manager' && entry.result) {
-      const r = entry.result
-      return (
-        <div style={{ marginTop: '10px' }}>
-          {r.plan_manager_report?.executive_summary && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Plan Manager Summary</div>
-              <p className="ia-assessment-body mb-0">{r.plan_manager_report.executive_summary}</p>
-            </div>
-          )}
-          {r.plan_manager_report?.final_verdict && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Verdict</div>
-              <span
-                className={`badge badge-${VERDICT_STYLES[r.plan_manager_report.final_verdict] || 'secondary'}`}
-                style={{ fontSize: '12px', padding: '5px 8px' }}
-              >
-                {r.plan_manager_report.final_verdict.replace(/_/g, ' ')}
-              </span>
-            </div>
-          )}
-          {r.response_plan && (
-            <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
-              <div className="ia-assessment-label">Response Plan</div>
-              <pre
-                style={{
-                  background: '#f5f5f5',
-                  padding: '12px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
-                }}
-              >
-                {r.response_plan}
-              </pre>
-            </div>
-          )}
-        </div>
-      )
+      return <PlanManagerReportBody result={entry.result} />
     }
     return null
   }

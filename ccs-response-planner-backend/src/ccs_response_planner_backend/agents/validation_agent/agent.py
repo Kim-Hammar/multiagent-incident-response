@@ -388,7 +388,6 @@ class ValidationAgent:
             has_policy=has_policy,
             system_description=system_description or "N/A",
             incident_report=incident_report or "N/A",
-            response_plan=response_plan or "N/A",
             specification=specification or "N/A",
             planner_report_formatted=(
                 self._format_planner_report(
@@ -429,6 +428,7 @@ class ValidationAgent:
                 conversation_history, ctx_limit,
                 threshold=compaction_threshold,
                 compaction_model=compaction_model,
+                agent_model=effective_model,
             ):
                 yield ev
 

@@ -423,6 +423,7 @@ def run_code_manager_stream(
         **cm_context_base,
         "last_code_report": {},
         "review_count": 0,
+        "validation_feedback": validation_feedback,
         "code_agent_model": context.get(
             "code_agent_model",
         ),

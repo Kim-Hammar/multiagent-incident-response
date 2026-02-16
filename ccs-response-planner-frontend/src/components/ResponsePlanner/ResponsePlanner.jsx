@@ -791,6 +791,18 @@ function ResponsePlanner() {
     }
   }
 
+  const deleteAllReports = async () => {
+    try {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=orchestrator`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchHistory()
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     fetchHistory()
   }, [token])
@@ -1059,6 +1071,7 @@ function ResponsePlanner() {
           <AgentHistoryTab
             reportHistory={reportHistory}
             deleteReport={deleteReport}
+            deleteAllReports={deleteAllReports}
             renderReport={(report) => (
               <OrchestratorAgentReportView
                 entry={{ type: 'orchestrator_agent_report', orchestrator_agent_report: report }}

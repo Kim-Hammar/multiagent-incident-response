@@ -290,6 +290,7 @@ def maybe_compact_context(
     context_limit: int,
     threshold: float = 0.8,
     compaction_model: str | None = None,
+    agent_model: str | None = None,
     preserve_last_n: int = 2,
 ) -> Generator[dict[str, Any], None, None]:
     """
@@ -305,8 +306,10 @@ def maybe_compact_context(
     :param context_limit: the model's context window size
     :param threshold: fraction of context_limit that triggers
         compaction (default 0.8)
-    :param compaction_model: LLM for compaction
-        (defaults to gemini-2.0-flash)
+    :param compaction_model: explicit LLM override for
+        compaction; when set, always used
+    :param agent_model: the calling agent's own model,
+        used as fallback when compaction_model is not set
     :param preserve_last_n: number of recent entries to keep
     :return: yields a context_compaction event if compaction
         fires, otherwise nothing
@@ -315,7 +318,9 @@ def maybe_compact_context(
     if estimated < threshold * context_limit:
         return
 
-    model = compaction_model or "gemini-2.0-flash"
+    model = (
+        compaction_model or agent_model or "gemini-2.0-flash"
+    )
 
     if len(conversation_history) <= preserve_last_n:
         return

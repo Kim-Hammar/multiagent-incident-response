@@ -242,12 +242,12 @@ CEOF'`
     const results = parsed.filter((o) => o.type === 'result')
     const done = parsed.find((o) => o.type === 'done')
 
-    expect(results.length).toBe(28)
+    expect(results.length).toBe(34)
     expect(done).toBeTruthy()
 
     // All spec commands should pass
     const passed = results.filter((r) => r.passed)
-    expect(passed.length).toBe(28)
+    expect(passed.length).toBe(34)
 
     // Each result should have the expected shape
     for (const r of results) {

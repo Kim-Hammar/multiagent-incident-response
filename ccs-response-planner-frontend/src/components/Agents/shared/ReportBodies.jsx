@@ -529,11 +529,386 @@ function IncidentReviewBody({ report: r }) {
   )
 }
 
+/* ── Validation report body (from ValidationAgent results) ──── */
+
+const RECOVERY_LABELS = {
+  is_attack_contained: 'Contained',
+  is_attack_assessed: 'Assessed',
+  is_forensic_evidence_preserved: 'Evidence Preserved',
+  is_attack_evicted: 'Evicted',
+  is_system_hardened: 'Hardened',
+  are_services_restored: 'Restored'
+}
+
+const VALIDATION_VERDICT_MAP = {
+  'Plan fully validated': 'success',
+  'Plan partially validated': 'warning',
+  'Plan validation failed': 'danger'
+}
+
+function RecoveryStateBadges({ state }) {
+  if (!state || typeof state !== 'object') return null
+  const entries = Object.entries(RECOVERY_LABELS)
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+      {entries.map(([key, label]) => {
+        const val = state[key]
+        if (val === undefined) return null
+        return (
+          <span
+            key={key}
+            className={`badge badge-${val ? 'success' : 'danger'}`}
+            style={{ fontSize: '11px', padding: '4px 8px' }}
+          >
+            <i
+              className={`fa fa-${val ? 'check' : 'times'}`}
+              aria-hidden="true"
+              style={{ marginRight: '4px' }}
+            />
+            {label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function ServiceStateBadges({ services }) {
+  if (!services || services.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+      {services.map((s, i) => (
+        <span
+          key={i}
+          className={`badge badge-${s.passed ? 'success' : 'danger'}`}
+          style={{ fontSize: '11px', padding: '4px 8px' }}
+        >
+          <i
+            className={`fa fa-${s.passed ? 'check' : 'times'}`}
+            aria-hidden="true"
+            style={{ marginRight: '4px' }}
+          />
+          {s.description}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function ValidationReportBody({ report: r }) {
+  const actionResults = r.action_results || []
+  const recommendations = r.recommendations || []
+  const overallResult = r.overall_result || r.overall_verdict || ''
+  const verdictStyle =
+    VALIDATION_VERDICT_MAP[overallResult] || VERDICT_STYLES[overallResult] || 'secondary'
+  return (
+    <div style={{ marginTop: '10px' }}>
+      {overallResult && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Overall Result</div>
+          <span
+            className={`badge badge-${verdictStyle}`}
+            style={{ fontSize: '14px', padding: '6px 12px' }}
+          >
+            {overallResult.replace(/_/g, ' ')}
+          </span>
+        </div>
+      )}
+      {r.executive_summary && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Executive Summary</div>
+          <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+        </div>
+      )}
+      {(r.actual_total_cost != null || r.simulated_total_cost != null) && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Cost Comparison</div>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            {r.actual_total_cost != null && (
+              <div>
+                <strong>Actual:</strong> {r.actual_total_cost}
+              </div>
+            )}
+            {r.simulated_total_cost != null && (
+              <div>
+                <strong>Simulated:</strong> {r.simulated_total_cost}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {r.final_recovery_state && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Final Recovery State</div>
+          <RecoveryStateBadges state={r.final_recovery_state} />
+        </div>
+      )}
+      {r.final_service_state && r.final_service_state.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Final Service State</div>
+          <ServiceStateBadges services={r.final_service_state} />
+        </div>
+      )}
+      {actionResults.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Action Results ({actionResults.length})</div>
+          <table className="ia-ioc-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Action</th>
+                <th>Outcome</th>
+                <th>Recovery</th>
+                <th>Services</th>
+                <th>Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {actionResults.map((a, i) => (
+                <tr key={i}>
+                  <td>{i + 1}</td>
+                  <td>
+                    <strong>{a.action_name}</strong>
+                    {a.action_description && (
+                      <div style={{ fontSize: '11px', color: '#666' }}>{a.action_description}</div>
+                    )}
+                    {a.commands_executed && a.commands_executed.length > 0 && (
+                      <div style={{ marginTop: '4px' }}>
+                        {a.commands_executed.map((cmd, j) => (
+                          <code
+                            key={j}
+                            style={{ fontSize: '10px', display: 'block', whiteSpace: 'nowrap' }}
+                          >
+                            {cmd}
+                          </code>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      className={`badge badge-${a.success === false || (a.outcome && a.outcome.toLowerCase().includes('fail')) ? 'danger' : 'success'}`}
+                      style={{ fontSize: '11px' }}
+                    >
+                      {a.outcome || '-'}
+                    </span>
+                  </td>
+                  <td>
+                    <RecoveryStateBadges state={a.recovery_state} />
+                  </td>
+                  <td>
+                    <ServiceStateBadges services={a.service_state} />
+                  </td>
+                  <td>{a.actual_step_cost != null ? a.actual_step_cost : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {recommendations.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Recommendations</div>
+          <ul style={{ marginBottom: 0 }}>
+            {recommendations.map((rec, i) => (
+              <li key={i}>{rec}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Plan Manager report body (from run_plan_manager result) ─── */
+
+function PlanManagerReportBody({ result: r }) {
+  const report = r.plan_manager_report || {}
+  const verdictStyle = VERDICT_STYLES[report.final_verdict] || 'secondary'
+  return (
+    <div style={{ marginTop: '10px' }}>
+      {report.final_verdict && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Verdict</div>
+          <span
+            className={`badge badge-${verdictStyle}`}
+            style={{ fontSize: '14px', padding: '6px 12px' }}
+          >
+            {report.final_verdict.replace(/_/g, ' ')}
+          </span>
+          {report.iterations != null && (
+            <span
+              className="badge badge-info ml-2"
+              style={{ fontSize: '12px', padding: '5px 8px' }}
+            >
+              {report.iterations} iteration(s)
+            </span>
+          )}
+        </div>
+      )}
+      {report.executive_summary && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Executive Summary</div>
+          <p className="ia-assessment-body mb-0">{report.executive_summary}</p>
+        </div>
+      )}
+      {r.code_report && Object.keys(r.code_report).length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">MDP Code Report</div>
+          <CodeReportBody report={r.code_report} />
+        </div>
+      )}
+      {r.planner_report && Object.keys(r.planner_report).length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">RL Planner Report</div>
+          <PlannerReportInline report={r.planner_report} />
+        </div>
+      )}
+      {r.validation_report && Object.keys(r.validation_report).length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Validation Report</div>
+          <ValidationReportBody report={r.validation_report} />
+        </div>
+      )}
+      {r.response_plan && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Response Plan</div>
+          <pre
+            style={{
+              background: '#f5f5f5',
+              padding: '12px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              maxHeight: '400px',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word'
+            }}
+          >
+            {r.response_plan}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PlannerReportInline({ report: r }) {
+  const actions = r.action_sequence || []
+  const risks = r.risks || []
+  return (
+    <div style={{ marginTop: '6px' }}>
+      {r.executive_summary && (
+        <div className="ia-assessment-section">
+          <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+        </div>
+      )}
+      {(r.algorithm || r.hyperparameters) && (
+        <div className="ia-assessment-section">
+          {r.algorithm && (
+            <p className="ia-assessment-body mb-1">
+              <strong>Algorithm:</strong> {r.algorithm}
+            </p>
+          )}
+          {r.hyperparameters && (
+            <p className="ia-assessment-body mb-0">
+              <strong>Hyperparameters:</strong> {r.hyperparameters}
+            </p>
+          )}
+        </div>
+      )}
+      {r.training_summary && (
+        <div className="ia-assessment-section">
+          <p className="ia-assessment-body mb-0">{r.training_summary}</p>
+        </div>
+      )}
+      {actions.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Action Sequence</div>
+          <table className="ia-ioc-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '4%' }}>Step</th>
+                <th style={{ width: '10%' }}>Phase</th>
+                <th style={{ width: '12%' }}>Action</th>
+                <th style={{ width: '30%' }}>Commands</th>
+                <th style={{ width: '22%' }}>Rationale</th>
+                <th style={{ width: '22%' }}>Spec Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              {actions.map((a, i) => (
+                <tr key={i}>
+                  <td>{a.step}</td>
+                  <td>
+                    <span className="badge badge-secondary">{a.phase || '-'}</span>
+                  </td>
+                  <td>
+                    <strong>{a.action}</strong>
+                    {a.description && (
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                        {a.description}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    {a.commands && a.commands.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        {a.commands.map((c, j) => (
+                          <code
+                            key={j}
+                            style={{
+                              fontSize: '11px',
+                              wordBreak: 'break-all',
+                              whiteSpace: 'pre-wrap'
+                            }}
+                          >
+                            {c.container}: {c.command}
+                          </code>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#999' }}>-</span>
+                    )}
+                  </td>
+                  <td style={{ fontSize: '12px' }}>{a.rationale || a.expected_effect || '-'}</td>
+                  <td style={{ fontSize: '12px' }}>{a.spec_impact || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {r.expected_total_cost !== undefined && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Expected Total Cost</div>
+          <span className="badge badge-dark" style={{ fontSize: '14px', padding: '6px 12px' }}>
+            {r.expected_total_cost}
+          </span>
+        </div>
+      )}
+      {risks.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Risks &amp; Limitations</div>
+          <ul style={{ marginBottom: 0 }}>
+            {risks.map((risk, i) => (
+              <li key={i}>{risk}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export {
   CodeReportBody,
   ReviewReportBody,
   AssessmentBody,
   IncidentReviewBody,
+  ValidationReportBody,
+  PlanManagerReportBody,
+  PlannerReportInline,
   VERDICT_STYLES,
   SEVERITY_STYLES
 }

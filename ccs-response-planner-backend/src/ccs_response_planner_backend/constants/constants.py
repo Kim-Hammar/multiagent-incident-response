@@ -341,6 +341,10 @@ class DIGITAL_TWIN:
                     {"destination": "default",
                      "via": "10.0.2.252"},
                 ],
+                "post_deploy_commands": [
+                    "ip route add unreachable 10.0.3.0/24",
+                    "ip route add unreachable 10.0.4.0/24",
+                ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
             },
@@ -359,6 +363,10 @@ class DIGITAL_TWIN:
                      "via": "10.0.2.252"},
                     {"destination": "default",
                      "via": "10.0.2.252"},
+                ],
+                "post_deploy_commands": [
+                    "ip route add unreachable 10.0.3.0/24",
+                    "ip route add unreachable 10.0.4.0/24",
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -382,6 +390,8 @@ class DIGITAL_TWIN:
                      "via": "10.0.3.252"},
                 ],
                 "post_deploy_commands": [
+                    "ip route add unreachable 10.0.2.0/24",
+                    "ip route add unreachable 10.0.4.0/24",
                     "iptables -I INPUT -s 10.0.3.4 -j DROP",
                     "iptables -I OUTPUT -d 10.0.3.4 -j DROP",
                 ],
@@ -405,6 +415,8 @@ class DIGITAL_TWIN:
                      "via": "10.0.3.252"},
                 ],
                 "post_deploy_commands": [
+                    "ip route add unreachable 10.0.2.0/24",
+                    "ip route add unreachable 10.0.4.0/24",
                     "iptables -I INPUT -s 10.0.3.3 -j DROP",
                     "iptables -I OUTPUT -d 10.0.3.3 -j DROP",
                 ],
@@ -429,6 +441,10 @@ class DIGITAL_TWIN:
                     {"destination": "default",
                      "via": "10.0.4.252"},
                 ],
+                "post_deploy_commands": [
+                    "ip route add unreachable 10.0.2.0/24",
+                    "ip route add unreachable 10.0.3.0/24",
+                ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
             },
@@ -449,6 +465,10 @@ class DIGITAL_TWIN:
                      "via": "10.0.4.252"},
                     {"destination": "default",
                      "via": "10.0.4.252"},
+                ],
+                "post_deploy_commands": [
+                    "ip route add unreachable 10.0.2.0/24",
+                    "ip route add unreachable 10.0.3.0/24",
                 ],
                 "use_image_entrypoint": True,
                 "privileged": True,

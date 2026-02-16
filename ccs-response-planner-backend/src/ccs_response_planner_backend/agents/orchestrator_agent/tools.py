@@ -406,7 +406,7 @@ def run_report_manager_stream(
             "%s", e,
         )
 
-    done_result: dict[str, Any] = {
+    done_result = {
         "report_manager_report": (
             report_manager_report
         ),
@@ -532,6 +532,9 @@ def run_plan_manager_stream(
 
     plan_manager_report: dict[str, Any] = {}
     response_plan = ""
+    planner_report: dict[str, Any] = {}
+    code_report: dict[str, Any] = {}
+    validation_report: dict[str, Any] = {}
 
     for step_num in range(MAX_INNER_STEPS):
         yield {
@@ -723,10 +726,11 @@ def run_plan_manager_stream(
                     tool_result = {"error": str(e)}
 
                 if tool_name == "run_code_manager":
+                    code_report = tool_result.get(
+                        "code_report", {},
+                    )
                     pm_context["code_report"] = (
-                        tool_result.get(
-                            "code_report", {},
-                        )
+                        code_report
                     )
                 elif tool_name == "run_rl_agent":
                     planner = tool_result.get(
@@ -738,6 +742,7 @@ def run_plan_manager_stream(
                             "response_plan", "",
                         ),
                     )
+                    planner_report = planner
                     pm_context["planner_report"] = (
                         planner
                     )
@@ -747,10 +752,13 @@ def run_plan_manager_stream(
                 elif tool_name == (
                     "run_validation_agent"
                 ):
-                    pm_context["validation_report"] = (
+                    validation_report = (
                         tool_result.get(
                             "validation_report", {},
                         )
+                    )
+                    pm_context["validation_report"] = (
+                        validation_report
                     )
 
                 sub_result = _truncate_result(
@@ -831,6 +839,30 @@ def run_plan_manager_stream(
                 )
                 break
 
+    if not code_report:
+        for entry in reversed(conversation_history):
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_code_manager"
+            ):
+                code_report = entry.get(
+                    "result", {},
+                ).get("code_report", {})
+                break
+
+    if not validation_report:
+        for entry in reversed(conversation_history):
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_validation_agent"
+            ):
+                validation_report = entry.get(
+                    "result", {},
+                ).get("validation_report", {})
+                break
+
     try:
         DatabaseFacade.save_agent_report(
             agent_type="plan_manager",
@@ -851,6 +883,9 @@ def run_plan_manager_stream(
             "plan_manager_report": (
                 plan_manager_report
             ),
+            "code_report": code_report,
+            "planner_report": planner_report,
+            "validation_report": validation_report,
             "response_plan": response_plan,
         },
     }

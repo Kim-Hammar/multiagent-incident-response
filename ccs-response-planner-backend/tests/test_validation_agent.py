@@ -221,7 +221,6 @@ def test_validation_prompt_renders(
         data=json.dumps({
             "system_description": "My system",
             "incident_report": "My report",
-            "response_plan": "My plan",
         }),
         content_type="application/json",
         headers=auth_headers,
@@ -231,4 +230,3 @@ def test_validation_prompt_renders(
     assert "prompt" in data
     assert "My system" in data["prompt"]
     assert "My report" in data["prompt"]
-    assert "My plan" in data["prompt"]

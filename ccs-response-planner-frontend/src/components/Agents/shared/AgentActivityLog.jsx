@@ -11,8 +11,11 @@ import {
   ReviewReportBody,
   AssessmentBody,
   IncidentReviewBody,
+  ValidationReportBody,
+  PlanManagerReportBody,
   VERDICT_STYLES
 } from './ReportBodies.jsx'
+import RlAgentReport from '../RlAgentReport.jsx'
 
 const RL_STREAMING_TYPES = new Set(['progress', 'eval_progress', 'started', 'result', 'timeout'])
 
@@ -483,60 +486,17 @@ function renderSubAgentReport(toolName, result) {
     )
   }
   if (toolName === 'run_rl_agent' && result.planner_report) {
-    const r = result.planner_report
     return (
-      <div style={{ marginTop: '10px' }}>
-        {r.executive_summary && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">RL Agent Summary</div>
-            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
-          </div>
-        )}
-        {result.response_plan && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Response Plan</div>
-            <pre
-              style={{
-                background: '#f5f5f5',
-                padding: '12px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                maxHeight: '300px',
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
-              }}
-            >
-              {result.response_plan}
-            </pre>
-          </div>
-        )}
-      </div>
+      <RlAgentReport
+        entry={{ type: 'planner_report', planner_report: result.planner_report }}
+        index="sub-rl"
+        isExpanded={true}
+        toggleEntry={() => {}}
+      />
     )
   }
   if (toolName === 'run_validation_agent' && result.validation_report) {
-    const r = result.validation_report
-    return (
-      <div style={{ marginTop: '10px' }}>
-        {r.executive_summary && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Validation Summary</div>
-            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
-          </div>
-        )}
-        {r.overall_verdict && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Verdict</div>
-            <span
-              className={`badge badge-${VERDICT_STYLES[r.overall_verdict] || 'secondary'}`}
-              style={{ fontSize: '12px', padding: '5px 8px' }}
-            >
-              {r.overall_verdict.replace(/_/g, ' ')}
-            </span>
-          </div>
-        )}
-      </div>
-    )
+    return <ValidationReportBody report={result.validation_report} />
   }
   if (toolName === 'run_report_agent' && result.assessment) {
     return <AssessmentBody report={result.assessment} />
@@ -575,47 +535,7 @@ function renderSubAgentReport(toolName, result) {
     )
   }
   if (toolName === 'run_plan_manager' && result.plan_manager_report) {
-    const r = result.plan_manager_report
-    return (
-      <div style={{ marginTop: '10px' }}>
-        {r.executive_summary && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Plan Manager Summary</div>
-            <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
-          </div>
-        )}
-        {r.final_verdict && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Verdict</div>
-            <span
-              className={`badge badge-${VERDICT_STYLES[r.final_verdict] || 'secondary'}`}
-              style={{ fontSize: '12px', padding: '5px 8px' }}
-            >
-              {r.final_verdict.replace(/_/g, ' ')}
-            </span>
-          </div>
-        )}
-        {result.response_plan && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Response Plan</div>
-            <pre
-              style={{
-                background: '#f5f5f5',
-                padding: '12px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                maxHeight: '300px',
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
-              }}
-            >
-              {result.response_plan}
-            </pre>
-          </div>
-        )}
-      </div>
-    )
+    return <PlanManagerReportBody result={result} />
   }
   return null
 }

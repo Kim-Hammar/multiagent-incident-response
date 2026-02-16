@@ -204,6 +204,7 @@ class CodeAgent:
                 conversation_history, ctx_limit,
                 threshold=compaction_threshold,
                 compaction_model=compaction_model,
+                agent_model=effective_model,
             ):
                 yield ev
 
