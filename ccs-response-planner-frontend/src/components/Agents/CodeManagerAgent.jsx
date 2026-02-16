@@ -504,16 +504,25 @@ function CodeManagerAgent() {
               if (last && last.type === 'reasoning') {
                 last.text += event.text
               } else {
-                streamEntry.subEvents.push({ type: 'reasoning', text: event.text })
+                streamEntry.subEvents.push({
+                  type: 'reasoning',
+                  text: event.text,
+                  _startTime: Date.now()
+                })
               }
             } else if (event.type === 'text_delta') {
               const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
               if (last && last.type === 'text') {
                 last.text += event.text
               } else {
-                streamEntry.subEvents.push({ type: 'text', text: event.text })
+                streamEntry.subEvents.push({
+                  type: 'text',
+                  text: event.text,
+                  _startTime: Date.now()
+                })
               }
             } else {
+              if (!event._startTime) event._startTime = Date.now()
               streamEntry.subEvents.push(event)
             }
             setConversationHistory([...base])

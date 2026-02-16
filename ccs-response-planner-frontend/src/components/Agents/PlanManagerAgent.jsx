@@ -42,14 +42,14 @@ function handleNestedSubEvent(subEvents, innerEvent) {
     if (last && last.type === 'reasoning') {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'reasoning', text: innerEvent.text })
+      subEvents.push({ type: 'reasoning', text: innerEvent.text, _startTime: Date.now() })
     }
   } else if (innerEvent.type === 'text_delta') {
     const last = subEvents[subEvents.length - 1]
     if (last && last.type === 'text') {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'text', text: innerEvent.text })
+      subEvents.push({ type: 'text', text: innerEvent.text, _startTime: Date.now() })
     }
   } else if (innerEvent.type === 'nested_event') {
     const lastToolCall = [...subEvents]
@@ -77,6 +77,7 @@ function handleNestedSubEvent(subEvents, innerEvent) {
       subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || []
     })
   } else {
+    if (!innerEvent._startTime) innerEvent._startTime = Date.now()
     subEvents.push(innerEvent)
   }
 }
@@ -536,14 +537,22 @@ function PlanManagerAgent() {
               if (last && last.type === 'reasoning') {
                 last.text += event.text
               } else {
-                streamEntry.subEvents.push({ type: 'reasoning', text: event.text })
+                streamEntry.subEvents.push({
+                  type: 'reasoning',
+                  text: event.text,
+                  _startTime: Date.now()
+                })
               }
             } else if (event.type === 'text_delta') {
               const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
               if (last && last.type === 'text') {
                 last.text += event.text
               } else {
-                streamEntry.subEvents.push({ type: 'text', text: event.text })
+                streamEntry.subEvents.push({
+                  type: 'text',
+                  text: event.text,
+                  _startTime: Date.now()
+                })
               }
             } else if (event.type === 'nested_event') {
               const lastToolCall = [...streamEntry.subEvents]
@@ -572,6 +581,7 @@ function PlanManagerAgent() {
                 subEvents: event.subEvents || []
               })
             } else {
+              if (!event._startTime) event._startTime = Date.now()
               streamEntry.subEvents.push(event)
             }
             setConversationHistory([...base])

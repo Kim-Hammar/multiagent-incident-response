@@ -128,7 +128,6 @@ for any command that might prompt for input. \
 Use `service <name> restart` or direct daemon invocation instead.
 - **dt_python_exec**: Execute Python analysis scripts in a sandbox.
 - **dt_restart**: Restart a crashed or stopped container.
-- **generate_attack_image**: Generate an attack path diagram.
 - **produce_report_review**: Call this ONLY after you have called at \
 least one investigation tool to verify claims in the report.
 

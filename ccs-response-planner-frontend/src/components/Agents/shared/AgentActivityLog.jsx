@@ -385,6 +385,12 @@ function renderOrchestratorArgs(toolName, args) {
   return null
 }
 
+const HIDE_NESTED_ACTIVITY = new Set([
+  'run_report_agent',
+  'run_report_reviewer_agent',
+  'run_code_agent'
+])
+
 const TERMINAL_TOOLS = new Set([
   'dt_exec',
   'pentest_exec',
@@ -499,7 +505,10 @@ function renderSubAgentReport(toolName, result) {
     return <ValidationReportBody report={result.validation_report} />
   }
   if (toolName === 'run_report_agent' && result.assessment) {
-    return <AssessmentBody report={result.assessment} />
+    const assessment = result.attack_path_image
+      ? { ...result.assessment, attack_path_image: result.attack_path_image }
+      : result.assessment
+    return <AssessmentBody report={assessment} />
   }
   if (toolName === 'run_report_reviewer_agent' && result.report_review) {
     return <IncidentReviewBody report={result.report_review} />
@@ -528,7 +537,13 @@ function renderSubAgentReport(toolName, result) {
         {result.assessment && (
           <div className="ia-assessment-section">
             <div className="ia-assessment-label">Final Assessment</div>
-            <AssessmentBody report={result.assessment} />
+            <AssessmentBody
+              report={
+                result.attack_path_image
+                  ? { ...result.assessment, attack_path_image: result.attack_path_image }
+                  : result.assessment
+              }
+            />
           </div>
         )}
       </div>
@@ -601,7 +616,7 @@ function SubAgentLog({
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
-                    <ElapsedTimer />
+                    <ElapsedTimer startTime={ev._startTime} />
                   </>
                 )}
                 <i className="fa fa-lightbulb-o" aria-hidden="true" />
@@ -626,7 +641,7 @@ function SubAgentLog({
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
-                    <ElapsedTimer />
+                    <ElapsedTimer startTime={ev._startTime} />
                   </>
                 )}
                 <i className="fa fa-comment-o" aria-hidden="true" />
@@ -653,7 +668,7 @@ function SubAgentLog({
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
-                    <ElapsedTimer />
+                    <ElapsedTimer startTime={ev._startTime} />
                   </>
                 )}
                 <i className={`fa ${toolIcon(ev.tool_name)}`} aria-hidden="true" />
@@ -796,7 +811,7 @@ function SubAgentLog({
                           </pre>
                         )
                       )}
-                      {ev.subEvents?.length > 0 && (
+                      {!HIDE_NESTED_ACTIVITY.has(ev.tool_name) && ev.subEvents?.length > 0 && (
                         <SubAgentLog
                           subEvents={ev.subEvents}
                           agentLabel={toolLabel(ev.tool_name)}

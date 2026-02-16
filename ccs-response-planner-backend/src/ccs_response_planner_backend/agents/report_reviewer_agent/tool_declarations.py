@@ -18,7 +18,7 @@ from ccs_response_planner_backend.agents.report_agent.tool_declarations import (
 # All investigation tools (everything except produce_assessment)
 _INVESTIGATION_DECLARATIONS = [
     d for d in _REPORT_TOOL_DECLARATIONS
-    if d.name != "produce_assessment"
+    if d.name not in ("produce_assessment", "generate_attack_image")
 ]
 
 PRODUCE_REPORT_REVIEW_DECL = genai_types.FunctionDeclaration(

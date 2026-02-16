@@ -6,6 +6,12 @@ const STRIP_KEYS = new Set([
   '_runId'
 ])
 
+const STRIP_SUBEVENTS_TOOLS = new Set([
+  'run_report_agent',
+  'run_report_reviewer_agent',
+  'run_code_agent'
+])
+
 /**
  * Recursively walk a subEvents tree and replace base64 image data with
  * small placeholders so persisted JSONB doesn't bloat.
@@ -20,7 +26,12 @@ function stripNestedImages(events) {
       if (r.attack_path_image) r.attack_path_image = '[image stripped]'
       copy.result = r
     }
-    if (copy.subEvents) {
+    // Strip sub-agent activity sub-events — they contain the full
+    // investigation activity which bloats persisted history and is
+    // not needed outside the live streaming view.
+    if (copy.type === 'tool_result' && STRIP_SUBEVENTS_TOOLS.has(copy.tool_name)) {
+      delete copy.subEvents
+    } else if (copy.subEvents) {
       copy.subEvents = stripNestedImages(copy.subEvents)
     }
     return copy

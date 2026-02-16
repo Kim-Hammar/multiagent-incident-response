@@ -27,16 +27,6 @@ function ConfigTab({
 }) {
   return (
     <div style={{ marginTop: '16px' }}>
-      <div className="ia-description">
-        <p>
-          This is the top-level orchestrator agent that coordinates the full end-to-end incident
-          response pipeline. It first runs the ReportManager to generate and review an incident
-          assessment, then feeds that assessment to the PlanManager to generate MDP code, train an
-          RL policy, and validate it on the digital twin. Finally, it produces a consolidated
-          incident response report.
-        </p>
-      </div>
-
       <div className="ia-section">
         <label htmlFor="rp-system-desc">System description</label>
         <p className="ia-hint">
