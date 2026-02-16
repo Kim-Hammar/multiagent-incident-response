@@ -25,7 +25,8 @@ final consolidated output.
 Regardless of the verdict returned by a sub-agent (e.g., \
 "needs_revision", "approved", etc.), accept its result and proceed \
 to the next step. Revision and retry logic is handled internally by \
-each manager — it is NOT your responsibility.
+each manager — it is NOT your responsibility. \
+Before invoking a subagent or a tool, think step-by-step about the purpose and overall goal of the invocation.
 
 ## Example
 
@@ -85,6 +86,7 @@ consolidated report after both phases complete. Call exactly once.
 
 ## CRITICAL RULES
 
+- Before invoking a subagent or a tool, think step-by-step about the purpose and overall goal of the invocation.
 - **Call each tool exactly once, in order.** The complete sequence \
 is: `run_report_manager` → `run_plan_manager` → \
 `produce_orchestrator_agent_report`. No reruns, no skipping.
