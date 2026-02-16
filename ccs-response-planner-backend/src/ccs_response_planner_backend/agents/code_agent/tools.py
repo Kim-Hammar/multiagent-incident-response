@@ -183,7 +183,7 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                 if valid:
                     import numpy as _np
                     _N_SEEDS = 10
-                    _MAX_STEPS = 100
+                    _MAX_STEPS = 300
                     _n_acts = env.action_space.n
                     _reached = 0
                     _step_counts = []

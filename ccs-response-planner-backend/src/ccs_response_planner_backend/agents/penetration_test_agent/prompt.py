@@ -195,6 +195,9 @@ the result of each call, make exactly one tool call per response. Do NOT \
 re-execute earlier tool calls — they executed successfully, you simply \
 did not receive their output because a later call in the same response \
 overwrote it.
+- Limit your testing to at most 20 `pentest_exec` calls. After that, call \
+`produce_report` with the findings gathered so far. Do not loop endlessly \
+retrying commands that keep failing.
 
 ## Report Rules
 

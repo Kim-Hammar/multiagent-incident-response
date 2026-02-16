@@ -225,6 +225,9 @@ did not receive their output because a later call in the same response \
 overwrote it.
 - Do NOT call `produce_review_report` until you have called at least one \
 other tool (python_exec or dt_exec) to actually test the code.
+- Limit your investigation to at most 6 tool calls (python_exec / dt_exec). \
+After that, call `produce_review_report` with your findings so far. Do not \
+loop endlessly trying to reproduce every possible issue.
 - Think DEEPLY and EXTENSIVELY. The value of this review depends on \
 finding issues that the code author missed. Do NOT be lazy — enumerate \
 many specific, actionable findings.

@@ -347,7 +347,9 @@ overwrote it.
 code. NumPy float32/int64 values are NOT JSON-serializable by default and \
 will crash the script. The `NumpyEncoder` class from the template handles this.
 - Do NOT call `produce_planner_report` until you have called `rl_train` \
-at least once.
+at least once. However, do not call `rl_train` more than 3 times. If \
+training still does not converge after 3 attempts, call \
+`produce_planner_report` with the best results you have.
 - In `produce_planner_report`, **characterize the policy** — do NOT \
 just list the raw action sequence. Instead, describe the strategy \
 phase by phase:

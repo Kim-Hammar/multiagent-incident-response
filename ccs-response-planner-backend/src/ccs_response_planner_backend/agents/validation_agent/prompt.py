@@ -237,6 +237,9 @@ the result of each call, make exactly one tool call per response. Do NOT \
 re-execute earlier tool calls — they executed successfully, you simply \
 did not receive their output because a later call in the same response \
 overwrote it.
+- Do not exceed 40 total tool calls. If you have applied all actions or \
+exhausted your budget, call `produce_validation_report` with the results \
+so far. Do not retry failed actions endlessly.
 
 ## Validation Report Rules
 

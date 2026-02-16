@@ -407,7 +407,9 @@ did not receive their output because a later call in the same response \
 overwrote it.
 - You MUST use `dp_solve` for DP solving, NOT `python_exec`.
 - Do NOT call `produce_planner_report` until you have called `dp_solve` \
-at least once.
+at least once. However, do not call `dp_solve` more than 3 times. If \
+solving still fails after 3 attempts, call `produce_planner_report` \
+with the best results you have.
 - In `produce_planner_report`, each action in `action_sequence` MUST \
 include a `commands` field — an array of objects with `container` and \
 `command` fields specifying the actual shell commands to execute on each \

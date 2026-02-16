@@ -193,6 +193,10 @@ the result of each call, make exactly one tool call per response. Do NOT \
 re-execute earlier tool calls — they executed successfully, you simply \
 did not receive their output because a later call in the same response \
 overwrote it.
+- Limit your investigation to at most 10 tool calls. After that, call \
+`produce_assessment` with the evidence gathered so far. Do not loop \
+endlessly — a thorough assessment with available evidence is better \
+than an infinite investigation.
 
 ## Assessment Rules
 

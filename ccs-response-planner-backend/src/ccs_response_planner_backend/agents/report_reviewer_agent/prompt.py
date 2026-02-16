@@ -158,6 +158,9 @@ did not receive their output because a later call in the same response \
 overwrote it.
 - Do NOT call `produce_report_review` until you have called at least one \
 other tool to actually verify claims in the report.
+- Limit your verification to at most 6 tool calls. After that, call \
+`produce_report_review` with your findings so far. Do not loop endlessly \
+trying to verify every single claim.
 - Think DEEPLY and EXTENSIVELY. The value of this review depends on \
 finding issues that the report author missed. Do NOT be lazy — enumerate \
 many specific, actionable findings.

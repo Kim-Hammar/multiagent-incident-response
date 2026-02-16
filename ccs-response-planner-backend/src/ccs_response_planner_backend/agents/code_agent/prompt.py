@@ -172,14 +172,16 @@ might affect other hosts or services. E.g. restarting the firewall \
 might briefly drop all forwarded connections.
 6. **Terminal state reachability** — It must always be feasible to \
 reach the terminal state where all per-host recovery flags are 1.0 \
-and all specifications are satisfied. Verify that no combination of \
-stochastic outcomes creates a dead end from which the terminal state \
-is unreachable. Every action that can break a specification (e.g. \
-dropping a route during containment) must have a corresponding action \
-that can restore it. Similarly, every recovery dimension must have at \
-least one action (or sequence of actions) that can drive it to 1.0. \
-If an action has a failure outcome that lowers a dimension, there \
-must be a way to recover from that failure.
+and all specifications are satisfied. The `gym_verify` tool tests \
+this with a greedy agent (10 seeds, 300 steps). To pass this test: \
+(a) every recovery flag must have at least one action that can \
+advance it toward 1.0; (b) every action that can break a \
+specification (e.g. dropping a route during containment) must have \
+a corresponding action that can restore it; (c) stochastic failure \
+outcomes must not create dead ends — if a failed action lowers a \
+dimension, the same or another action must be able to recover from \
+that failure; (d) success probabilities should be high enough \
+(>= 0.5) that the greedy agent can make progress within 300 steps.
 7. **Measurable progress — avoid no-op loops** — Every non-passive \
 action must produce a visible state change when its prerequisites \
 are met and the relevant recovery dimension is below 1.0. \
@@ -379,11 +381,26 @@ twin if you are unsure whether they work. You do not need to test all \
 commands — just the ones you are uncertain about.
 4. Use `python_exec` to write and iteratively test the code in the sandbox.
 5. Use `gym_verify` to validate the code. This checks required methods, \
-state shape, AND runs a greedy reachability test that confirms the \
-terminal state can be reached within 100 steps. If the reachability \
-check fails, there is a structural problem (e.g. a recovery flag has \
-no action that can advance it, or specification-breaking actions lack \
-corresponding restoration actions). Fix any gaps and re-run `gym_verify`.
+state shape, AND runs a **greedy reachability test**. Understanding \
+this test is important:
+   - The test runs a greedy agent on 10 seeds (300 steps each). On each \
+step it tries every action via `set_state` + `step`, picks the action \
+with the highest immediate reward, then executes that action.
+   - It passes if **at least 1 out of 10** seeds reaches a terminal state.
+   - **Important:** Because the greedy agent re-samples stochastic \
+outcomes on each `step()` call, the action it chose during evaluation \
+may produce a different outcome when executed. This means stochastic \
+environments need more room — but 300 steps × 10 seeds is generous.
+   - **If greedy_reachability fails**, the problem is almost always a \
+structural issue in the MDP, NOT a tuning issue. Common causes: \
+(a) a recovery flag has no action that can advance it toward 1.0; \
+(b) actions that break specifications (e.g. isolating a host) have \
+no corresponding restoration action to fix them; (c) an action's \
+success probability is so low that 300 steps is not enough; \
+(d) a dead-end state exists from which no action can make progress.
+   - **Do NOT redeploy the digital twin** to fix a greedy_reachability \
+failure — this test runs purely in the Python sandbox and does not \
+involve the digital twin. Focus on fixing the MDP code structure.
 6. Only call `produce_code_report` after `gym_verify` returns a passing \
 result.
 
@@ -393,8 +410,9 @@ result.
 Use this to write, test, and iterate on the environment code.
 - **gym_verify**: Verify that the generated code implements a valid \
 Gymnasium environment. Checks for required methods, state shape, and \
-runs a greedy reachability test (10 seeds, 100 steps each) to confirm \
-the terminal state is reachable.
+runs a greedy reachability test (10 seeds, 300 steps each) to confirm \
+the terminal state is reachable. If greedy_reachability fails, fix \
+structural issues in the MDP — do not redeploy the digital twin.
 - **dt_exec**: Execute a shell command on a digital-twin container. \
 A digital twin is a virtual replica of the system affected by the \
 incident, implemented as Docker containers — not everything is \
@@ -426,7 +444,10 @@ the result of each call, make exactly one tool call per response. Do NOT \
 re-execute earlier tool calls — they executed successfully, you simply \
 did not receive their output because a later call in the same response \
 overwrote it.
-- Do NOT call `produce_code_report` until `gym_verify` returns valid=true.
+- Do NOT call `produce_code_report` until `gym_verify` returns valid=true. \
+However, if you have already called `gym_verify` 3 times and it still fails, \
+call `produce_code_report` with your best code so far. Do not loop endlessly \
+— return whatever you have and let the reviewer or manager handle revisions.
 - Think DEEPLY and EXTENSIVELY about transition probabilities and side \
 effects. The quality of the MDP depends on realistic modeling of action \
 contingencies. Do NOT be lazy — enumerate many distinct actions with \
