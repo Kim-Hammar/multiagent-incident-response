@@ -181,6 +181,7 @@ function PlanManagerAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const managerStartTimeRef = useRef(null)
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -283,8 +284,8 @@ function PlanManagerAgent() {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
-    const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
+    const compactionEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
       const res = await fetch(API_AGENTS_PLAN_MANAGER_STEP_URL, {
@@ -315,7 +316,11 @@ function PlanManagerAgent() {
         const data = await res.json().catch(() => ({}))
         const msg = data.error || `Agent step failed (HTTP ${res.status})`
         setAlert({ type: 'danger', message: msg })
-        setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+        setConversationHistory([
+          ...history,
+          ...compactionEntries,
+          { role: 'system', type: 'error', message: msg }
+        ])
         return
       }
 
@@ -336,11 +341,11 @@ function PlanManagerAgent() {
           const event = JSON.parse(line)
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
-            setConversationHistory((prev) => {
-              const next = [...prev]
-              next[streamingIdx] = { ...next[streamingIdx], text: accumulated }
-              return next
-            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
+            ])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
               role: 'model',
@@ -366,21 +371,26 @@ function PlanManagerAgent() {
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
-            setConversationHistory((prev) => [
-              ...prev.slice(0, streamingIdx),
-              {
-                role: 'system',
-                type: 'context_compaction',
-                original_tokens: event.original_tokens,
-                compacted_tokens: event.compacted_tokens,
-                compaction_model: event.compaction_model
-              },
-              prev[streamingIdx]
+            compactionEntries.push({
+              role: 'system',
+              type: 'context_compaction',
+              original_tokens: event.original_tokens,
+              compacted_tokens: event.compacted_tokens,
+              compaction_model: event.compaction_model
+            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
             ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
-            setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { role: 'system', type: 'error', message: msg }
+            ])
             return
           }
         }
@@ -394,7 +404,7 @@ function PlanManagerAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...entries]
+        const updated = [...history, ...compactionEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -418,6 +428,7 @@ function PlanManagerAgent() {
         }
         setConversationHistory([
           ...history,
+          ...compactionEntries,
           {
             role: 'model',
             type: 'plan_manager_report',
@@ -428,13 +439,18 @@ function PlanManagerAgent() {
       } else {
         setConversationHistory([
           ...history,
+          ...compactionEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
     } catch (err) {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
-      setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
+      setConversationHistory([
+        ...history,
+        ...compactionEntries,
+        { role: 'system', type: 'error', message: err.message }
+      ])
     } finally {
       setRunning(false)
     }
@@ -446,6 +462,7 @@ function PlanManagerAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    managerStartTimeRef.current = Date.now()
     callStep([])
   }
 
@@ -469,7 +486,7 @@ function PlanManagerAgent() {
         tool_name: proposal.tool_name,
         output: '',
         subEvents: [],
-        _startTime: Date.now()
+        _startTime: managerStartTimeRef.current || Date.now()
       }
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
@@ -756,6 +773,18 @@ function PlanManagerAgent() {
   const deleteReport = async (id) => {
     try {
       await fetch(`${API_AGENTS_REPORTS_URL}/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchHistory()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const deleteAllReports = async () => {
+    try {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=plan_manager`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -1135,6 +1164,7 @@ function PlanManagerAgent() {
         <AgentHistoryTab
           reportHistory={reportHistory}
           deleteReport={deleteReport}
+          deleteAllReports={deleteAllReports}
           renderReport={(report) => (
             <PlanManagerReport
               entry={{ type: 'plan_manager_report', plan_manager_report: report }}

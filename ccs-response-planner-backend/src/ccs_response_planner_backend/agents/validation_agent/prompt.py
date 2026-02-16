@@ -174,6 +174,12 @@ When running specification commands, a ping test between non-adjacent \
 servers is expected to fail \u2014 this is correct segmentation, not a broken \
 service.
 
+**Internet access:** All servers have outbound internet connectivity \
+through NAT masquerading on the firewall. The default route on each \
+server points to the log collector (or firewall/router), which forwards \
+traffic to the internet. Servers can download packages, resolve DNS, \
+and reach external services.
+
 ## Recovery State Assessment Guidelines
 
 When assessing each boolean, reason about whether the action (and all prior \

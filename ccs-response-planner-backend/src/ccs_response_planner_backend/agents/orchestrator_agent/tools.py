@@ -44,7 +44,7 @@ def _truncate_result(
     """
     out: dict[str, Any] = {}
     for key, val in result.items():
-        if key == "image":
+        if key in ("image", "attack_path_image"):
             out[key] = val
         elif isinstance(val, str) and len(val) > _OUTPUT_LIMIT:
             out[key] = (
@@ -112,6 +112,7 @@ def run_report_manager_stream(
 
     report_manager_report: dict[str, Any] = {}
     assessment: dict[str, Any] = {}
+    attack_path_img: str | None = None
 
     for step_num in range(MAX_INNER_STEPS):
         yield {
@@ -306,6 +307,9 @@ def run_report_manager_stream(
                     assessment = tool_result.get(
                         "assessment", {},
                     )
+                    attack_path_img = tool_result.get(
+                        "attack_path_image",
+                    )
                     rm_context["last_assessment"] = (
                         assessment
                     )
@@ -402,14 +406,19 @@ def run_report_manager_stream(
             "%s", e,
         )
 
+    done_result: dict[str, Any] = {
+        "report_manager_report": (
+            report_manager_report
+        ),
+        "assessment": assessment,
+    }
+    if attack_path_img:
+        done_result["attack_path_image"] = (
+            attack_path_img
+        )
     yield {
         "type": "done",
-        "result": {
-            "report_manager_report": (
-                report_manager_report
-            ),
-            "assessment": assessment,
-        },
+        "result": done_result,
     }
 
 

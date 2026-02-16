@@ -132,6 +132,14 @@ investigating why a standard log file is missing or empty.
 
 {dt_network_connectivity}
 
+### Internet access
+
+All servers have outbound internet connectivity through NAT \
+masquerading on the firewall. The default route on each server points \
+to the log collector (or firewall/router), which forwards traffic to \
+the internet. Servers can download packages, resolve DNS, and reach \
+external services.
+
 ### Service management
 
 The containers do NOT run systemd — there is no D-Bus, no `systemctl`, \

@@ -151,8 +151,8 @@ function PenetrationTestAgent() {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
-    const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
+    const compactionEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
       const res = await fetch(API_AGENTS_PENTEST_STEP_URL, {
@@ -179,7 +179,11 @@ function PenetrationTestAgent() {
         const data = await res.json().catch(() => ({}))
         const msg = data.error || `Agent step failed (HTTP ${res.status})`
         setAlert({ type: 'danger', message: msg })
-        setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+        setConversationHistory([
+          ...history,
+          ...compactionEntries,
+          { role: 'system', type: 'error', message: msg }
+        ])
         return
       }
 
@@ -200,11 +204,11 @@ function PenetrationTestAgent() {
           const event = JSON.parse(line)
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
-            setConversationHistory((prev) => {
-              const next = [...prev]
-              next[streamingIdx] = { ...next[streamingIdx], text: accumulated }
-              return next
-            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
+            ])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
               role: 'model',
@@ -230,21 +234,26 @@ function PenetrationTestAgent() {
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
-            setConversationHistory((prev) => [
-              ...prev.slice(0, streamingIdx),
-              {
-                role: 'system',
-                type: 'context_compaction',
-                original_tokens: event.original_tokens,
-                compacted_tokens: event.compacted_tokens,
-                compaction_model: event.compaction_model
-              },
-              prev[streamingIdx]
+            compactionEntries.push({
+              role: 'system',
+              type: 'context_compaction',
+              original_tokens: event.original_tokens,
+              compacted_tokens: event.compacted_tokens,
+              compaction_model: event.compaction_model
+            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
             ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
-            setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { role: 'system', type: 'error', message: msg }
+            ])
             return
           }
         }
@@ -258,7 +267,7 @@ function PenetrationTestAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...entries]
+        const updated = [...history, ...compactionEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -279,18 +288,27 @@ function PenetrationTestAgent() {
             recommendations: []
           }
         }
-        setConversationHistory([...history, { role: 'model', type: 'report', report }])
+        setConversationHistory([
+          ...history,
+          ...compactionEntries,
+          { role: 'model', type: 'report', report }
+        ])
         saveReport(report)
       } else {
         setConversationHistory([
           ...history,
+          ...compactionEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
     } catch (err) {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
-      setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
+      setConversationHistory([
+        ...history,
+        ...compactionEntries,
+        { role: 'system', type: 'error', message: err.message }
+      ])
     } finally {
       setRunning(false)
     }
@@ -513,6 +531,18 @@ function PenetrationTestAgent() {
     }
   }
 
+  const deleteAllReports = async () => {
+    try {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=pentest`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchHistory()
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     fetchHistory()
   }, [token])
@@ -659,6 +689,7 @@ function PenetrationTestAgent() {
         <AgentHistoryTab
           reportHistory={reportHistory}
           deleteReport={deleteReport}
+          deleteAllReports={deleteAllReports}
           renderReport={(report) => (
             <PentestAgentReport
               entry={{ type: 'report', report }}

@@ -184,6 +184,7 @@ function OrchestratorAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const managerStartTimeRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -289,6 +290,12 @@ function OrchestratorAgent() {
           result: { status: 'success', message: 'Image generated successfully' }
         }
       }
+      if (entry.type === 'tool_result' && entry.result?.attack_path_image) {
+        const rest = Object.fromEntries(
+          Object.entries(entry.result).filter(([k]) => k !== 'attack_path_image')
+        )
+        return { ...entry, result: rest }
+      }
       return entry
     })
 
@@ -296,8 +303,8 @@ function OrchestratorAgent() {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
-    const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
+    const compactionEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
       const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
@@ -327,7 +334,11 @@ function OrchestratorAgent() {
         const data = await res.json().catch(() => ({}))
         const msg = data.error || `Agent step failed (HTTP ${res.status})`
         setAlert({ type: 'danger', message: msg })
-        setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+        setConversationHistory([
+          ...history,
+          ...compactionEntries,
+          { role: 'system', type: 'error', message: msg }
+        ])
         return
       }
 
@@ -348,11 +359,11 @@ function OrchestratorAgent() {
           const event = JSON.parse(line)
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
-            setConversationHistory((prev) => {
-              const next = [...prev]
-              next[streamingIdx] = { ...next[streamingIdx], text: accumulated }
-              return next
-            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
+            ])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
               role: 'model',
@@ -378,21 +389,26 @@ function OrchestratorAgent() {
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
-            setConversationHistory((prev) => [
-              ...prev.slice(0, streamingIdx),
-              {
-                role: 'system',
-                type: 'context_compaction',
-                original_tokens: event.original_tokens,
-                compacted_tokens: event.compacted_tokens,
-                compaction_model: event.compaction_model
-              },
-              prev[streamingIdx]
+            compactionEntries.push({
+              role: 'system',
+              type: 'context_compaction',
+              original_tokens: event.original_tokens,
+              compacted_tokens: event.compacted_tokens,
+              compaction_model: event.compaction_model
+            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
             ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
-            setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { role: 'system', type: 'error', message: msg }
+            ])
             return
           }
         }
@@ -406,7 +422,7 @@ function OrchestratorAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...entries]
+        const updated = [...history, ...compactionEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -429,6 +445,7 @@ function OrchestratorAgent() {
         }
         setConversationHistory([
           ...history,
+          ...compactionEntries,
           {
             role: 'model',
             type: 'orchestrator_agent_report',
@@ -439,13 +456,18 @@ function OrchestratorAgent() {
       } else {
         setConversationHistory([
           ...history,
+          ...compactionEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
     } catch (err) {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
-      setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
+      setConversationHistory([
+        ...history,
+        ...compactionEntries,
+        { role: 'system', type: 'error', message: err.message }
+      ])
     } finally {
       setRunning(false)
     }
@@ -457,6 +479,7 @@ function OrchestratorAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    managerStartTimeRef.current = Date.now()
     callStep([])
   }
 
@@ -480,7 +503,7 @@ function OrchestratorAgent() {
         tool_name: proposal.tool_name,
         output: '',
         subEvents: [],
-        _startTime: Date.now()
+        _startTime: managerStartTimeRef.current || Date.now()
       }
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
@@ -768,6 +791,18 @@ function OrchestratorAgent() {
     }
   }
 
+  const deleteAllReports = async () => {
+    try {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=orchestrator`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchHistory()
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     fetchHistory()
   }, [token])
@@ -813,7 +848,13 @@ function OrchestratorAgent() {
           {r.assessment && (
             <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
               <div className="ia-assessment-label">Incident Report</div>
-              <AssessmentBody report={r.assessment} />
+              <AssessmentBody
+                report={
+                  r.attack_path_image
+                    ? { ...r.assessment, attack_path_image: r.attack_path_image }
+                    : r.assessment
+                }
+              />
             </div>
           )}
         </div>
@@ -1189,6 +1230,7 @@ function OrchestratorAgent() {
         <AgentHistoryTab
           reportHistory={reportHistory}
           deleteReport={deleteReport}
+          deleteAllReports={deleteAllReports}
           renderReport={(report) => (
             <OrchestratorAgentReportView
               entry={{ type: 'orchestrator_agent_report', orchestrator_agent_report: report }}

@@ -126,6 +126,7 @@ function ReportManagerAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const managerStartTimeRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -229,7 +230,9 @@ function ReportManagerAgent() {
     for (let i = history.length - 1; i >= 0; i--) {
       const h = history[i]
       if (!assessment && h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
-        assessment = h.result?.assessment || null
+        const raw = h.result?.assessment || null
+        const img = h.result?.attack_path_image
+        assessment = raw && img ? { ...raw, attack_path_image: img } : raw
       }
       if (
         !reviewReport &&
@@ -251,6 +254,12 @@ function ReportManagerAgent() {
           result: { status: 'success', message: 'Image generated successfully' }
         }
       }
+      if (entry.type === 'tool_result' && entry.result?.attack_path_image) {
+        const rest = Object.fromEntries(
+          Object.entries(entry.result).filter(([k]) => k !== 'attack_path_image')
+        )
+        return { ...entry, result: rest }
+      }
       return entry
     })
 
@@ -258,8 +267,8 @@ function ReportManagerAgent() {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
-    const streamingIdx = history.length
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
+    const compactionEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
       const res = await fetch(API_AGENTS_REPORT_MANAGER_STEP_URL, {
@@ -289,7 +298,11 @@ function ReportManagerAgent() {
         const data = await res.json().catch(() => ({}))
         const msg = data.error || `Agent step failed (HTTP ${res.status})`
         setAlert({ type: 'danger', message: msg })
-        setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+        setConversationHistory([
+          ...history,
+          ...compactionEntries,
+          { role: 'system', type: 'error', message: msg }
+        ])
         return
       }
 
@@ -310,11 +323,11 @@ function ReportManagerAgent() {
           const event = JSON.parse(line)
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
-            setConversationHistory((prev) => {
-              const next = [...prev]
-              next[streamingIdx] = { ...next[streamingIdx], text: accumulated }
-              return next
-            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
+            ])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
               role: 'model',
@@ -340,21 +353,26 @@ function ReportManagerAgent() {
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
-            setConversationHistory((prev) => [
-              ...prev.slice(0, streamingIdx),
-              {
-                role: 'system',
-                type: 'context_compaction',
-                original_tokens: event.original_tokens,
-                compacted_tokens: event.compacted_tokens,
-                compaction_model: event.compaction_model
-              },
-              prev[streamingIdx]
+            compactionEntries.push({
+              role: 'system',
+              type: 'context_compaction',
+              original_tokens: event.original_tokens,
+              compacted_tokens: event.compacted_tokens,
+              compaction_model: event.compaction_model
+            })
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
             ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
-            setConversationHistory([...history, { role: 'system', type: 'error', message: msg }])
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { role: 'system', type: 'error', message: msg }
+            ])
             return
           }
         }
@@ -368,7 +386,7 @@ function ReportManagerAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...entries]
+        const updated = [...history, ...compactionEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -401,6 +419,7 @@ function ReportManagerAgent() {
         report.final_review_report = reviewReport
         setConversationHistory([
           ...history,
+          ...compactionEntries,
           {
             role: 'model',
             type: 'report_manager_report',
@@ -413,13 +432,18 @@ function ReportManagerAgent() {
       } else {
         setConversationHistory([
           ...history,
+          ...compactionEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
     } catch (err) {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
-      setConversationHistory([...history, { role: 'system', type: 'error', message: err.message }])
+      setConversationHistory([
+        ...history,
+        ...compactionEntries,
+        { role: 'system', type: 'error', message: err.message }
+      ])
     } finally {
       setRunning(false)
     }
@@ -431,6 +455,7 @@ function ReportManagerAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    managerStartTimeRef.current = Date.now()
     callStep([])
   }
 
@@ -457,7 +482,7 @@ function ReportManagerAgent() {
         output: '',
         subEvents: [],
         _modelName: subModel || undefined,
-        _startTime: Date.now()
+        _startTime: managerStartTimeRef.current || Date.now()
       }
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
@@ -542,7 +567,7 @@ function ReportManagerAgent() {
           for (let i = conversationHistory.length - 1; i >= 0; i--) {
             const h = conversationHistory[i]
             if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
-              resultEntry._attackPathImage = h.result?.assessment?.attack_path_image
+              resultEntry._attackPathImage = h.result?.attack_path_image
               break
             }
           }
@@ -731,6 +756,18 @@ function ReportManagerAgent() {
     }
   }
 
+  const deleteAllReports = async () => {
+    try {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=report_manager`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchHistory()
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     fetchHistory()
   }, [token])
@@ -753,7 +790,11 @@ function ReportManagerAgent() {
 
   const renderToolResult = (entry) => {
     if (entry.tool_name === 'run_report_agent' && entry.result?.assessment) {
-      return <AssessmentBody report={entry.result.assessment} />
+      const img = entry.result?.attack_path_image
+      const report = img
+        ? { ...entry.result.assessment, attack_path_image: img }
+        : entry.result.assessment
+      return <AssessmentBody report={report} />
     }
     if (entry.tool_name === 'run_report_reviewer_agent' && entry.result?.report_review) {
       return (
@@ -1011,6 +1052,7 @@ function ReportManagerAgent() {
         <AgentHistoryTab
           reportHistory={reportHistory}
           deleteReport={deleteReport}
+          deleteAllReports={deleteAllReports}
           renderReport={(report) => (
             <ReportManagerReportView
               entry={{ type: 'report_manager_report', report_manager_report: report }}

@@ -11,6 +11,7 @@ import { API_AGENTS_REPORTS_URL } from '../../Common/constants.js'
 function AgentHistoryTab({
   reportHistory,
   deleteReport,
+  deleteAllReports,
   renderReport,
   renderFinalReport,
   renderToolResult,
@@ -69,6 +70,22 @@ function AgentHistoryTab({
 
   return (
     <div style={{ marginTop: '16px' }}>
+      {deleteAllReports && reportHistory.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <button
+            type="button"
+            className="btn btn-outline-danger btn-sm"
+            style={{ fontSize: '11px', padding: '2px 10px' }}
+            onClick={() => {
+              if (window.confirm('Delete all reports? This cannot be undone.')) {
+                deleteAllReports()
+              }
+            }}
+          >
+            <i className="fa fa-trash" aria-hidden="true" /> Delete all
+          </button>
+        </div>
+      )}
       {reportHistory.map((entry) => (
         <div key={entry.id} style={{ marginBottom: '12px' }}>
           <div

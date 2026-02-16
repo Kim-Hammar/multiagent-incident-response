@@ -481,6 +481,25 @@ class DatabaseFacade:
             return deleted
 
     @staticmethod
+    def delete_all_agent_reports(agent_type: str) -> int:
+        """
+        Delete all agent reports for a given agent type.
+
+        :param agent_type: the agent type to delete reports for
+        :return: the number of deleted rows
+        """
+        with psycopg.connect(DatabaseFacade._connection_string()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"DELETE FROM {DB.AGENT_REPORTS_TABLE} "
+                    f"WHERE agent_type = %s",
+                    (agent_type,),
+                )
+                deleted_count = cur.rowcount
+            conn.commit()
+            return deleted_count
+
+    @staticmethod
     def get_policy_data(report_id: int) -> Optional[bytes]:
         """
         Retrieve the trained RL policy bytes for a report.

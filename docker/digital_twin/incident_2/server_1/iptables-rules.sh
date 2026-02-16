@@ -42,8 +42,13 @@ iptables -A FORWARD -s 10.1.0.0/24 -d 10.1.1.0/24 -p icmp -j ACCEPT
 iptables -A FORWARD -s 10.1.1.10 -d 10.1.2.50 -j DROP
 iptables -A FORWARD -s 10.1.1.10 -d 10.1.2.60 -j DROP
 
-# Block LAN outbound to Internet
-iptables -A FORWARD -s 10.1.2.0/24 -d 10.1.0.0/24 -j DROP
+# Allow DMZ and LAN to reach the internet (outbound)
+iptables -A FORWARD -s 10.1.1.0/24 -j ACCEPT
+iptables -A FORWARD -s 10.1.2.0/24 -j ACCEPT
+
+# NAT masquerade for outbound traffic from DMZ and LAN
+iptables -t nat -A POSTROUTING -s 10.1.1.0/24 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.1.2.0/24 -j MASQUERADE
 
 # Log dropped packets
 iptables -A FORWARD -j LOG --log-prefix "FW-DROP: " --log-level 4

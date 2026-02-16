@@ -257,6 +257,9 @@ class DIGITAL_TWIN:
                     {"destination": "10.0.4.0/24",
                      "via": "10.0.1.253"},
                 ],
+                "post_deploy_commands": [
+                    "ip route add default via 10.0.1.100",
+                ],
                 "use_image_entrypoint": False,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
             },
@@ -273,6 +276,9 @@ class DIGITAL_TWIN:
                      "via": "10.0.1.253"},
                     {"destination": "10.0.4.0/24",
                      "via": "10.0.1.253"},
+                ],
+                "post_deploy_commands": [
+                    "ip route add default via 10.0.1.100",
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
@@ -291,6 +297,9 @@ class DIGITAL_TWIN:
                     {"destination": "10.0.4.0/24",
                      "via": "10.0.1.252"},
                 ],
+                "post_deploy_commands": [
+                    "ip route add default via 10.0.1.100",
+                ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
                 "sysctls": {"net.ipv4.ip_forward": "1"},
@@ -306,7 +315,10 @@ class DIGITAL_TWIN:
                     "zone2": "10.0.3.252",
                     "zone3": "10.0.4.252",
                 },
-                "routes": [],
+                "routes": [
+                    {"destination": "default",
+                     "via": "10.0.1.253"},
+                ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
                 "sysctls": {"net.ipv4.ip_forward": "1"},
@@ -326,6 +338,8 @@ class DIGITAL_TWIN:
                      "via": "10.0.2.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.2.252"},
+                    {"destination": "default",
+                     "via": "10.0.2.252"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -342,6 +356,8 @@ class DIGITAL_TWIN:
                     {"destination": "10.0.4.5/32",
                      "via": "10.0.2.252"},
                     {"destination": "10.0.1.0/24",
+                     "via": "10.0.2.252"},
+                    {"destination": "default",
                      "via": "10.0.2.252"},
                 ],
                 "use_image_entrypoint": True,
@@ -361,6 +377,8 @@ class DIGITAL_TWIN:
                     {"destination": "10.0.4.6/32",
                      "via": "10.0.3.252"},
                     {"destination": "10.0.1.0/24",
+                     "via": "10.0.3.252"},
+                    {"destination": "default",
                      "via": "10.0.3.252"},
                 ],
                 "post_deploy_commands": [
@@ -382,6 +400,8 @@ class DIGITAL_TWIN:
                     {"destination": "10.0.4.5/32",
                      "via": "10.0.3.252"},
                     {"destination": "10.0.1.0/24",
+                     "via": "10.0.3.252"},
+                    {"destination": "default",
                      "via": "10.0.3.252"},
                 ],
                 "post_deploy_commands": [
@@ -406,6 +426,8 @@ class DIGITAL_TWIN:
                      "via": "10.0.4.252"},
                     {"destination": "10.0.1.0/24",
                      "via": "10.0.4.252"},
+                    {"destination": "default",
+                     "via": "10.0.4.252"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -424,6 +446,8 @@ class DIGITAL_TWIN:
                     {"destination": "10.0.3.3/32",
                      "via": "10.0.4.252"},
                     {"destination": "10.0.1.0/24",
+                     "via": "10.0.4.252"},
+                    {"destination": "default",
                      "via": "10.0.4.252"},
                 ],
                 "use_image_entrypoint": True,
@@ -684,6 +708,49 @@ class DIGITAL_TWIN:
                     " Server 3 (zone2 isolation)"
                 ),
             },
+            # Internet connectivity
+            {
+                "host": "i1_server_1",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 1 can reach the internet"
+                ),
+            },
+            {
+                "host": "i1_server_2",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 2 can reach the internet"
+                ),
+            },
+            {
+                "host": "i1_server_3",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 3 can reach the internet"
+                ),
+            },
+            {
+                "host": "i1_server_4",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 4 can reach the internet"
+                ),
+            },
+            {
+                "host": "i1_server_5",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 5 can reach the internet"
+                ),
+            },
+            {
+                "host": "i1_server_6",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 6 can reach the internet"
+                ),
+            },
         ],
     }
 
@@ -721,6 +788,9 @@ class DIGITAL_TWIN:
                     {"destination": "10.1.2.0/24",
                      "via": "10.1.0.1"},
                 ],
+                "post_deploy_commands": [
+                    "ip route add default via 10.1.0.100",
+                ],
                 "use_image_entrypoint": False,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
             },
@@ -737,6 +807,9 @@ class DIGITAL_TWIN:
                     "lan": "10.1.2.1",
                 },
                 "routes": [],
+                "post_deploy_commands": [
+                    "ip route add default via 10.1.0.100",
+                ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN", "NET_RAW"],
                 "sysctls": {"net.ipv4.ip_forward": "1"},
@@ -751,6 +824,8 @@ class DIGITAL_TWIN:
                     {"destination": "10.1.2.10/32",
                      "via": "10.1.1.1"},
                     {"destination": "10.1.0.0/24",
+                     "via": "10.1.1.1"},
+                    {"destination": "default",
                      "via": "10.1.1.1"},
                 ],
                 "use_image_entrypoint": True,
@@ -767,6 +842,8 @@ class DIGITAL_TWIN:
                      "via": "10.1.1.1"},
                     {"destination": "10.1.0.0/24",
                      "via": "10.1.1.1"},
+                    {"destination": "default",
+                     "via": "10.1.1.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -782,6 +859,8 @@ class DIGITAL_TWIN:
                      "via": "10.1.2.1"},
                     {"destination": "10.1.0.0/24",
                      "via": "10.1.2.1"},
+                    {"destination": "default",
+                     "via": "10.1.2.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -795,6 +874,8 @@ class DIGITAL_TWIN:
                 "routes": [
                     {"destination": "10.1.1.0/24",
                      "via": "10.1.2.1"},
+                    {"destination": "default",
+                     "via": "10.1.2.1"},
                 ],
                 "use_image_entrypoint": True,
                 "capabilities": ["NET_ADMIN"],
@@ -807,6 +888,8 @@ class DIGITAL_TWIN:
                 "ip_addresses": {"lan": "10.1.2.60"},
                 "routes": [
                     {"destination": "10.1.1.0/24",
+                     "via": "10.1.2.1"},
+                    {"destination": "default",
                      "via": "10.1.2.1"},
                 ],
                 "use_image_entrypoint": True,
@@ -1001,20 +1084,40 @@ class DIGITAL_TWIN:
                     " Server 2 (firewall blocks)"
                 ),
             },
+            # Internet connectivity
+            {
+                "host": "i2_server_2",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 2 can reach the internet"
+                ),
+            },
+            {
+                "host": "i2_server_3",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 3 can reach the internet"
+                ),
+            },
+            {
+                "host": "i2_server_4",
+                "command": "ping -c 1 -W 4 8.8.8.8",
+                "description": (
+                    "Server 4 can reach the internet"
+                ),
+            },
             {
                 "host": "i2_server_5",
-                "command": "! ping -c 1 -W 2 10.1.0.10",
+                "command": "ping -c 1 -W 4 8.8.8.8",
                 "description": (
-                    "Attacker not reachable from"
-                    " Server 5 (lan outbound blocked)"
+                    "Server 5 can reach the internet"
                 ),
             },
             {
                 "host": "i2_server_6",
-                "command": "! ping -c 1 -W 2 10.1.0.10",
+                "command": "ping -c 1 -W 4 8.8.8.8",
                 "description": (
-                    "Attacker not reachable from"
-                    " Server 6 (lan outbound blocked)"
+                    "Server 6 can reach the internet"
                 ),
             },
         ],

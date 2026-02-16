@@ -20,5 +20,15 @@ iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A FORWARD -s 10.0.1.0/24 -d 10.0.2.2 -j ACCEPT
 iptables -A FORWARD -s 10.0.1.0/24 -d 10.0.3.3 -j ACCEPT
 
+# Allow internal zones to reach the internet (outbound)
+iptables -A FORWARD -s 10.0.2.0/24 -j ACCEPT
+iptables -A FORWARD -s 10.0.3.0/24 -j ACCEPT
+iptables -A FORWARD -s 10.0.4.0/24 -j ACCEPT
+
+# NAT masquerade for outbound traffic from internal zones
+iptables -t nat -A POSTROUTING -s 10.0.2.0/24 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.0.3.0/24 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.0.4.0/24 -j MASQUERADE
+
 # Log dropped packets
 iptables -A FORWARD -j LOG --log-prefix "FW-DROP: " --log-level 4

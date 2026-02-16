@@ -2888,3 +2888,18 @@ def delete_agent_report(
     if not deleted:
         return jsonify({"error": "Report not found"}), 404
     return jsonify({"deleted": True}), 200
+
+
+@agents_bp.route("/reports", methods=["DELETE"])
+@token_required
+def delete_all_agent_reports() -> tuple[Response, int]:
+    """
+    Delete all agent reports for a given agent type.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    agent_type = request.args.get("agent_type")
+    if not agent_type:
+        return jsonify({"error": "agent_type is required"}), 400
+    deleted_count = DatabaseFacade.delete_all_agent_reports(agent_type)
+    return jsonify({"deleted_count": deleted_count}), 200
