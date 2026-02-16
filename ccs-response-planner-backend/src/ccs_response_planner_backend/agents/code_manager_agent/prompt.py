@@ -171,6 +171,16 @@ actions), go back to step 1 with the review feedback.
 `produce_orchestrator_report` with the best results so far \
 regardless.
 
+**What counts as an iteration:** One iteration is a generate + \
+review pair (one call to `run_code_agent` followed by one call to \
+`run_code_reviewer_agent`). When the iteration limit is reached \
+and the last review identified clearly fixable issues (e.g. a \
+syntax error, a wrong command), you MAY run one final \
+`run_code_agent` call to address those issues before producing \
+the report. This final generation-only pass does not require a \
+follow-up review — its purpose is to avoid handing off code with \
+known, trivially fixable defects.
+
 4. **Report**: Call `produce_orchestrator_report` with a summary \
 of the orchestration process, the number of iterations, the final \
 verdict, and summaries of the code and review reports.
@@ -205,7 +215,10 @@ tool call.
 - Do NOT call `produce_orchestrator_report` until you have run at \
 least one review cycle (both `run_code_agent` and \
 `run_code_reviewer_agent`).
-- Maximum {max_iterations} iterations of the generate-review loop.
+- Maximum {max_iterations} iterations of the generate-review loop \
+(one iteration = one generate + one review). A final generation-only \
+pass to fix trivial issues from the last review is permitted beyond \
+this limit.
 - When revising, ALWAYS pass `previous_code` and `review_feedback` \
 to `run_code_agent` so it can improve the code based on the review.
 """

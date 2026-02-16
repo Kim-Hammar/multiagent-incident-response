@@ -76,8 +76,19 @@ vectors, missing critical IOCs, wrong severity), go back to \
 step 1 by calling `run_report_agent` with the review feedback. \
 The ReportAgent will handle the actual revisions — you just \
 pass it the feedback.
-   - If you have reached {max_iterations} iterations, finalize \
-with `produce_report_manager_report` regardless.
+   - If you have reached {max_iterations} iterations, call \
+`produce_report_manager_report` with the best results so far \
+regardless.
+
+**What counts as an iteration:** One iteration is a generate + \
+review pair (one call to `run_report_agent` followed by one call to \
+`run_report_reviewer_agent`). When the iteration limit is reached \
+and the last review identified clearly fixable issues (e.g., a \
+factual inaccuracy, a missing IOC), you MAY run one final \
+`run_report_agent` call to address those issues before producing \
+the report. This final generation-only pass does not require a \
+follow-up review — its purpose is to avoid handing off a report \
+with known, trivially fixable defects.
 
 4. **Report**: Call `produce_report_manager_report` with a summary \
 of the orchestration process, the number of iterations, the final \
@@ -116,7 +127,10 @@ tool call.
 - Do NOT call `produce_report_manager_report` until you have run at \
 least one review cycle (both `run_report_agent` and \
 `run_report_reviewer_agent`).
-- Maximum {max_iterations} iterations of the generate-review loop.
+- Maximum {max_iterations} iterations of the generate-review loop \
+(one iteration = one generate + one review). A final generation-only \
+pass to fix trivial issues from the last review is permitted beyond \
+this limit.
 - When revising, ALWAYS pass `previous_assessment` and \
 `review_feedback` to `run_report_agent` so it knows what to fix.
 """
