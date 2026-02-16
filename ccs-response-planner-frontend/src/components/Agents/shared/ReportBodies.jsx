@@ -4,6 +4,8 @@
  * nested SubAgentLog contexts.
  */
 
+import ReactMarkdown from 'react-markdown'
+
 const CHECK_LABELS = {
   find_env_class: 'Env class found',
   has_get_actions: 'get_actions()',
@@ -744,32 +746,24 @@ function ValidationReportBody({ report: r }) {
 
 function PlanManagerReportBody({ result: r }) {
   const report = r.plan_manager_report || {}
-  const verdictStyle = VERDICT_STYLES[report.final_verdict] || 'secondary'
   return (
     <div style={{ marginTop: '10px' }}>
-      {report.final_verdict && (
-        <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Verdict</div>
-          <span
-            className={`badge badge-${verdictStyle}`}
-            style={{ fontSize: '14px', padding: '6px 12px' }}
-          >
-            {report.final_verdict.replace(/_/g, ' ')}
-          </span>
-          {report.iterations != null && (
-            <span
-              className="badge badge-info ml-2"
-              style={{ fontSize: '12px', padding: '5px 8px' }}
-            >
-              {report.iterations} iteration(s)
-            </span>
-          )}
-        </div>
-      )}
       {report.executive_summary && (
         <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Executive Summary</div>
-          <p className="ia-assessment-body mb-0">{report.executive_summary}</p>
+          <div className="ia-assessment-label">
+            Plan Manager Summary
+            {report.iterations != null && (
+              <span
+                className="badge badge-info ml-2"
+                style={{ fontSize: '11px', padding: '4px 8px', verticalAlign: 'middle' }}
+              >
+                {report.iterations} iteration(s)
+              </span>
+            )}
+          </div>
+          <div className="ia-assessment-body mb-0">
+            <ReactMarkdown>{report.executive_summary}</ReactMarkdown>
+          </div>
         </div>
       )}
       {r.code_report && Object.keys(r.code_report).length > 0 && (
@@ -780,7 +774,7 @@ function PlanManagerReportBody({ result: r }) {
       )}
       {r.planner_report && Object.keys(r.planner_report).length > 0 && (
         <div className="ia-assessment-section">
-          <div className="ia-assessment-label">RL Planner Report</div>
+          <div className="ia-assessment-label">RL Policy Report</div>
           <PlannerReportInline report={r.planner_report} />
         </div>
       )}
