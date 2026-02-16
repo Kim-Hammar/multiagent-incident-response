@@ -20,12 +20,18 @@ _SANDBOX_OUTPUT_LIMIT = 15000
 def compact_tool_result(
     tool_name: str, result: Any,
     compact_images: bool = True,
+    preserve_full: bool = False,
 ) -> Any:
     """
     Return a compact copy of *result* suitable for the LLM
     context window.  The original dict is never mutated.
 
-    Per-tool rules:
+    When *preserve_full* is ``True`` the result is returned
+    without any output truncation (only attack-path images
+    are stripped).  Use this for the most recent tool result
+    so the agent keeps full fidelity for its next decision.
+
+    Per-tool rules (when *preserve_full* is ``False``):
 
     * ``generate_attack_image`` -- replace the ``image`` field
       with a short placeholder (skipped when *compact_images*
@@ -50,6 +56,8 @@ def compact_tool_result(
     :param compact_images: whether to strip image data
         (default ``True``; pass ``False`` for the most recent
         tool result so the LLM can still see the image)
+    :param preserve_full: when ``True``, skip all output
+        truncation (only strip attack-path images)
     :return: a compacted copy of the result
     """
     if not isinstance(result, dict):
@@ -58,6 +66,14 @@ def compact_tool_result(
     result = copy.deepcopy(result)
 
     _strip_attack_path_images(result)
+
+    if preserve_full:
+        if (
+            tool_name == "generate_attack_image"
+            and compact_images
+        ):
+            return _compact_image(result)
+        return result
 
     if tool_name == "generate_attack_image":
         return _compact_image(result)

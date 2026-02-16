@@ -727,6 +727,7 @@ class ReportAgent:
                 compact = compact_tool_result(
                     tool_name, result,
                     compact_images=(idx != last_tr_idx),
+                    preserve_full=(idx == last_tr_idx),
                 )
                 result_data: Any = compact
                 if isinstance(compact, dict):

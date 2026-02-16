@@ -829,7 +829,12 @@ class ValidationAgent:
             )
 
         contents: list[Any] = []
-        for entry in history:
+        _last_tr_idx = max(
+            (i for i, e in enumerate(history)
+             if e.get("type") == "tool_result"),
+            default=-1,
+        )
+        for _idx, entry in enumerate(history):
             entry_type = entry.get("type", "")
 
             if entry_type == "tool_proposal":
@@ -878,6 +883,7 @@ class ValidationAgent:
                 result = entry.get("result", {})
                 compact = compact_tool_result(
                     tool_name, result,
+                    preserve_full=(_idx == _last_tr_idx),
                 )
                 result_data: Any = compact
                 if isinstance(compact, dict):
