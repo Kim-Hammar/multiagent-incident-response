@@ -162,7 +162,14 @@ function AgentPlanningTab({
       />
       <ContextModal
         show={showContext}
-        conversationHistory={conversationHistory}
+        conversationHistory={conversationHistory
+          .filter((e) => e.type !== 'tool_streaming')
+          .map((e) => {
+            if (e.type === 'tool_result') {
+              return { role: e.role, type: e.type, tool_name: e.tool_name, result: e.result }
+            }
+            return e
+          })}
         onClose={() => setShowContext(false)}
       />
     </>

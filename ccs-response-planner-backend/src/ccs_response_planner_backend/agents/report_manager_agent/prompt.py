@@ -23,6 +23,14 @@ Your job is to coordinate these two agents in a \
 generate-review-revise loop and decide when the report is good \
 enough.
 
+## Example
+
+Input: Security alerts indicating unauthorized SSH access. \
+Solution: Call `run_report_agent` to generate the initial assessment → \
+call `run_report_reviewer_agent` to review it → if substantive issues \
+found, call `run_report_agent` again with review feedback → once solid, \
+call `produce_report_manager_report`.
+
 ## Incident Context
 
 ### System Description

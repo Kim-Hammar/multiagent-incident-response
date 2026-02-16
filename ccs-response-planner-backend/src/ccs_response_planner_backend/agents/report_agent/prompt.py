@@ -9,6 +9,15 @@ tools, then produce a structured incident assessment. \
 Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
 {revision_notice}\
+
+## Example
+
+Input: Alerts showing SSH brute-force from 10.0.1.10 against Server 2. \
+Solution: Think about what to investigate → call `dt_exec` to check auth \
+logs on Server 2 → call `abuseipdb_check` on the attacker IP → call \
+`nvd_search` for relevant CVEs → call `generate_attack_image` with the \
+full attack path → call `produce_assessment` with the structured findings.
+
 ## Incident Context
 
 ### System Description
@@ -171,7 +180,7 @@ or correlate data collected from the containers.
 ## CRITICAL RULES
 
 - Before producing a solution or invoking a tool, think step-by-step \
-about the best approach and explain your reasoning.
+about the best approach.
 - You MUST always respond with a tool call. Either call an investigation \
 tool to gather more information, or call `produce_assessment` to deliver \
 the final assessment.

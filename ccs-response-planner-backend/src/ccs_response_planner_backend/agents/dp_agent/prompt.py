@@ -10,6 +10,14 @@ an incident response scenario, solve it using dynamic programming \
 based on the optimal policy. \
 Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
+## Example
+
+Input: A Gymnasium MDP environment modeling incident recovery with 20 actions. \
+Solution: Analyze the MDP structure and state space → call `dp_solve` \
+with value iteration code (bins=10, gamma=0.99) → analyze convergence \
+and the optimal policy → call `produce_planner_report` with the \
+characterized response plan.
+
 ## Incident Context
 
 ### System Description
@@ -384,7 +392,7 @@ Use the template above as-is, only replacing the ENV_CODE placeholder.
 ## CRITICAL RULES
 
 - Before producing a solution or invoking a tool, think step-by-step \
-about the best approach and explain your reasoning.
+about the best approach.
 - You MUST always respond with a tool call. Either call `python_exec` \
 for quick analysis, `dp_solve` for value iteration, or \
 `produce_planner_report` for the final plan.

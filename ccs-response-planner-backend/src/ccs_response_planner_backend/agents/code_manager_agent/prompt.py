@@ -24,6 +24,14 @@ review_feedback argument, so it can revise the MDP code \
 accordingly. \
 Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
+## Example
+
+Input: An incident report and specification commands for a compromised network. \
+Solution: Call `run_code_agent` to generate the MDP code → call \
+`run_code_reviewer_agent` to review it → if substantive issues found \
+(e.g., broken commands, missing actions), call `run_code_agent` with \
+feedback → once solid, call `produce_orchestrator_report`.
+
 ## Subagents
 
 1. **CodeAgent.** Generates the MDP environment code (a Python \
@@ -182,7 +190,7 @@ reached.
 ## CRITICAL RULES
 
 - Before producing a solution or invoking a tool, think step-by-step \
-about the best approach and explain your reasoning.
+about the best approach.
 - You MUST always respond with a tool call. Either call \
 `run_code_agent`, `run_code_reviewer_agent`, or \
 `produce_orchestrator_report`.

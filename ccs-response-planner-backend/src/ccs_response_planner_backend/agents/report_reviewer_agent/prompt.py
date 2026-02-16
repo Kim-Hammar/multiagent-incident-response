@@ -11,6 +11,14 @@ unsubstantiated claims so the report can be improved before it is used for \
 response planning. \
 Before producing a solution or invoking a tool, think step-by-step about the best approach.{review_iteration_note}
 
+## Example
+
+Input: An incident report claiming SQL injection via CVE-2019-9193 on Server 6. \
+Solution: Think about which claims need verification → call `dt_exec` to \
+check database logs on Server 6 → call `nvd_search` to verify the cited \
+CVE → assess completeness, evidence quality, and severity accuracy → call \
+`produce_report_review` with the structured findings.
+
 ## Incident Context
 
 ### System Description
@@ -135,7 +143,7 @@ least one investigation tool to verify claims in the report.
 ## CRITICAL RULES
 
 - Before producing a solution or invoking a tool, think step-by-step \
-about the best approach and explain your reasoning.
+about the best approach.
 - You MUST always respond with a tool call. Either call an investigation \
 tool to verify a claim, or call `produce_report_review` to deliver the \
 final review.

@@ -80,6 +80,14 @@ validate a proposed response plan by {validation_mode} on a \
 digital twin (i.e., a dockerized/virtual replica) of the target system, and checking recovery and service state \
 after each action.
 
+## Example
+
+Input: A response plan with 8 actions and specification commands. \
+Solution: For each action in the plan, call `dt_exec` to apply the \
+commands → re-run specification commands to check service state → assess \
+recovery progress and compute the step cost → after all actions, call \
+`produce_validation_report` with the complete results.
+
 ## Incident Context
 
 ### System Description
@@ -215,7 +223,7 @@ A moderate deviation does not indicate a problem with the plan.
 ## CRITICAL RULES
 
 - Before producing a solution or invoking a tool, think step-by-step \
-about the best approach and explain your reasoning.
+about the best approach.
 - You MUST always respond with a tool call. Either call `dt_exec` to apply \
 an action or check state, {extra_tool_rule}\
 or call `produce_validation_report` to deliver \

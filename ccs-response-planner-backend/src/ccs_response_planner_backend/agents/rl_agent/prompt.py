@@ -16,6 +16,14 @@ incident response system) that models an incident response scenario, train a rei
 on it, and produce an actionable incident response plan based on the learned policy. \
 To do you job, you will have access to a Python sandbox to execute code.
 
+## Example
+
+Input: A Gymnasium MDP environment modeling incident recovery with 20 actions. \
+Solution: Analyze the MDP state space and action definitions → call \
+`rl_train` with the training code template (PPO, 250k timesteps) → \
+analyze convergence and the learned action sequence → call \
+`produce_planner_report` with the characterized response plan.
+
 ## Incident Context
 
 ### System Description
@@ -321,7 +329,7 @@ assess operational impact.
 ## CRITICAL RULES
 
 - Before producing a solution or invoking a tool, think step-by-step \
-about the best approach and explain your reasoning.
+about the best approach.
 - You MUST always respond with a tool call. Either call `python_exec` \
 for quick analysis, `rl_train` for RL training, or `produce_planner_report` \
 for the final plan.

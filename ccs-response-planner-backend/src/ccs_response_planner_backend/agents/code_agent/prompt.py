@@ -9,11 +9,9 @@ system must satisfy) we will generate an optimal incident response plan in two s
 we will generate a code model in the form of an MDP of the process of recovering from the incident. \
 Then, we will use the code model to learn an optimal response policy using reinforcement learning (RL). \
 Your task is to manage the first stage only (other agents will handle the RL training). \
-Before producing a solution or invoking a tool, think step-by-step about the best approach.
-
-
 That is, your task is is to generate Python code that implements a Gymnasium-standard reinforcement \
-learning environment for incident response recovery planning.
+learning environment for incident response recovery planning. \
+Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
 The purpose of this MDP is to enable computing an **optimal response plan/policy** \
 via planning or reinforcement learning. You are NOT given a pre-existing \
@@ -23,6 +21,16 @@ how each action affects the system — both recovery progress AND service \
 availability according to the system specification.
 
 {revision_notice}\
+
+## Example
+
+Input: A compromised Samba server with lateral movement to a database. \
+Solution: Think about actions needed for each recovery phase → use \
+`dt_exec` to test uncertain commands on the digital twin → write the \
+environment code with `python_exec` and iterate → call `gym_verify` to \
+validate → once passing, call `produce_code_report`.
+
+
 ## Incident Context
 
 ### System Description
@@ -377,7 +385,7 @@ Provide the final code and metadata.
 ## CRITICAL RULES
 
 - Before producing a solution or invoking a tool, think step-by-step \
-about the best approach and explain your reasoning.
+about the best approach.
 - You MUST always respond with a tool call. Either call `python_exec` to \
 test code, `gym_verify` to verify it, `dt_exec` to test a command, or \
 `produce_code_report` to deliver the final result.
