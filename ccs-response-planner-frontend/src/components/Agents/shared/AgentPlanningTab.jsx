@@ -165,6 +165,14 @@ function AgentPlanningTab({
         conversationHistory={conversationHistory
           .filter((e) => e.type !== 'tool_streaming')
           .map((e) => {
+            if (e.type === 'tool_result' && e.result?.image) {
+              return {
+                role: e.role,
+                type: e.type,
+                tool_name: e.tool_name,
+                result: { status: 'success', message: 'Image generated (excluded from context)' }
+              }
+            }
             if (e.type === 'tool_result') {
               return { role: e.role, type: e.type, tool_name: e.tool_name, result: e.result }
             }

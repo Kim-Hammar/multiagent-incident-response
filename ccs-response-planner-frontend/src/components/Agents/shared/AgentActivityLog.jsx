@@ -471,15 +471,44 @@ function renderSubAgentReport(toolName, result) {
             <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
           </div>
         )}
-        {r.final_verdict && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Verdict</div>
+        <div className="ia-assessment-section">
+          {r.final_verdict && (
             <span
               className={`badge badge-${VERDICT_STYLES[r.final_verdict] || 'secondary'}`}
-              style={{ fontSize: '12px', padding: '5px 8px' }}
+              style={{ fontSize: '12px', padding: '5px 8px', marginRight: '8px' }}
             >
               {r.final_verdict.replace(/_/g, ' ')}
             </span>
+          )}
+          {r.iterations != null && (
+            <span
+              className="badge badge-secondary"
+              style={{ fontSize: '12px', padding: '5px 8px' }}
+            >
+              {r.iterations} iteration{r.iterations !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        {r.review_report_summary && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Reviewer Feedback</div>
+            <div className="ia-assessment-body mb-0">
+              <ReactMarkdown>{r.review_report_summary}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+        {r.code_report_summary && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Code Agent Summary</div>
+            <div className="ia-assessment-body mb-0">
+              <ReactMarkdown>{r.code_report_summary}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+        {result.code_report && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Final Code Report</div>
+            <CodeReportBody report={result.code_report} />
           </div>
         )}
       </div>

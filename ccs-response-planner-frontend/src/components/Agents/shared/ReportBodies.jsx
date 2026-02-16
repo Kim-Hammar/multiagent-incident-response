@@ -82,44 +82,55 @@ function CodeReportBody({ report: r }) {
       {r.actions && r.actions.length > 0 && (
         <div className="ia-assessment-section">
           <div className="ia-assessment-label">Actions</div>
-          <table className="ia-ioc-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Commands</th>
-                <th>State Effect</th>
-                <th>P(success)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {r.actions.map((a, i) => (
-                <tr key={i}>
-                  <td>
-                    <strong>{a.name}</strong>
-                  </td>
-                  <td>{a.description}</td>
-                  <td>
-                    {a.commands && a.commands.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {a.commands.map((c, j) => (
-                          <code key={j} style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
-                            {c.container}: {c.command}
-                          </code>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ color: '#999' }}>-</span>
-                    )}
-                  </td>
-                  <td>
-                    <code>{a.state_effect}</code>
-                  </td>
-                  <td>{a.success_probability || '-'}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="ia-ioc-table" style={{ minWidth: '600px' }}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Commands</th>
+                  <th>State Effect</th>
+                  <th>P(success)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {r.actions.map((a, i) => (
+                  <tr key={i}>
+                    <td>
+                      <strong>{a.name}</strong>
+                    </td>
+                    <td>{a.description}</td>
+                    <td>
+                      {a.commands && a.commands.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          {a.commands.map((c, j) => (
+                            <code
+                              key={j}
+                              style={{
+                                fontSize: '11px',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {c.container}: {c.command}
+                            </code>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#999' }}>-</span>
+                      )}
+                    </td>
+                    <td>
+                      <code style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {a.state_effect}
+                      </code>
+                    </td>
+                    <td>{a.success_probability || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {r.generated_code && (
@@ -652,58 +663,67 @@ function ValidationReportBody({ report: r }) {
       {actionResults.length > 0 && (
         <div className="ia-assessment-section">
           <div className="ia-assessment-label">Action Results ({actionResults.length})</div>
-          <table className="ia-ioc-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Action</th>
-                <th>Outcome</th>
-                <th>Recovery</th>
-                <th>Services</th>
-                <th>Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actionResults.map((a, i) => (
-                <tr key={i}>
-                  <td>{i + 1}</td>
-                  <td>
-                    <strong>{a.action_name}</strong>
-                    {a.action_description && (
-                      <div style={{ fontSize: '11px', color: '#666' }}>{a.action_description}</div>
-                    )}
-                    {a.commands_executed && a.commands_executed.length > 0 && (
-                      <div style={{ marginTop: '4px' }}>
-                        {a.commands_executed.map((cmd, j) => (
-                          <code
-                            key={j}
-                            style={{ fontSize: '10px', display: 'block', whiteSpace: 'nowrap' }}
-                          >
-                            {cmd}
-                          </code>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge badge-${a.success === false || (a.outcome && a.outcome.toLowerCase().includes('fail')) ? 'danger' : 'success'}`}
-                      style={{ fontSize: '11px' }}
-                    >
-                      {a.outcome || '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <RecoveryStateBadges state={a.recovery_state} />
-                  </td>
-                  <td>
-                    <ServiceStateBadges services={a.service_state} />
-                  </td>
-                  <td>{a.actual_step_cost != null ? a.actual_step_cost : '-'}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="ia-ioc-table" style={{ minWidth: '700px' }}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Action</th>
+                  <th>Outcome</th>
+                  <th>Recovery</th>
+                  <th>Services</th>
+                  <th>Cost</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {actionResults.map((a, i) => (
+                  <tr key={i}>
+                    <td>{i + 1}</td>
+                    <td>
+                      <strong>{a.action_name}</strong>
+                      {a.action_description && (
+                        <div style={{ fontSize: '11px', color: '#666' }}>
+                          {a.action_description}
+                        </div>
+                      )}
+                      {a.commands_executed && a.commands_executed.length > 0 && (
+                        <div style={{ marginTop: '4px' }}>
+                          {a.commands_executed.map((cmd, j) => (
+                            <code
+                              key={j}
+                              style={{
+                                fontSize: '10px',
+                                display: 'block',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {cmd}
+                            </code>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        className={`badge badge-${a.success === false || (a.outcome && a.outcome.toLowerCase().includes('fail')) ? 'danger' : 'success'}`}
+                        style={{ fontSize: '11px' }}
+                      >
+                        {a.outcome || '-'}
+                      </span>
+                    </td>
+                    <td>
+                      <RecoveryStateBadges state={a.recovery_state} />
+                    </td>
+                    <td>
+                      <ServiceStateBadges services={a.service_state} />
+                    </td>
+                    <td>{a.actual_step_cost != null ? a.actual_step_cost : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {recommendations.length > 0 && (
