@@ -182,15 +182,21 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                     valid = False
                 if valid:
                     import numpy as _np
+                    from collections import Counter
                     _N_SEEDS = 10
                     _MAX_STEPS = 300
                     _n_acts = env.action_space.n
                     _reached = 0
                     _step_counts = []
+                    _diag_trace = []
+                    _diag_final_state = None
+                    _diag_last_reward = None
+                    _diag_action_counts = None
                     for _sd in range(_N_SEEDS):
                         obs, _ = env.reset(
                             seed=_sd + 42
                         )
+                        _actions_chosen = []
                         for _t in range(_MAX_STEPS):
                             _bk = _np.array(
                                 obs, dtype=_np.float64
@@ -205,8 +211,20 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                                     _ba = _a
                                     _br = _r
                             env.set_state(_bk)
-                            obs, _, _tm, _tr, _ = (
+                            obs, _rew, _tm, _tr, _ = (
                                 env.step(_ba)
+                            )
+                            _act_name = "?"
+                            _acts = env.get_actions()
+                            if _ba < len(_acts):
+                                _act_name = (
+                                    _acts[_ba].get(
+                                        "name",
+                                        str(_ba)
+                                    )
+                                )
+                            _actions_chosen.append(
+                                _act_name
                             )
                             if _tm or _tr:
                                 _reached += 1
@@ -217,6 +235,27 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                         else:
                             _step_counts.append(
                                 _MAX_STEPS
+                            )
+                        if _sd == 0:
+                            _diag_trace = (
+                                _actions_chosen[:30]
+                            )
+                            _diag_last_reward = _rew
+                            _diag_final_state = {
+                                i: round(float(v), 2)
+                                for i, v
+                                in enumerate(obs)
+                                if abs(v) > 0.001
+                            }
+                            _cnt = Counter(
+                                _actions_chosen
+                            )
+                            _diag_action_counts = (
+                                dict(
+                                    _cnt.most_common(
+                                        10
+                                    )
+                                )
                             )
                     _rok = _reached > 0
                     _rdt = (
@@ -230,6 +269,20 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                         ) / _reached
                         _rdt += (
                             f" (avg {_avg:.0f} steps)"
+                        )
+                    if not _rok:
+                        _rdt += (
+                            f". DIAGNOSTIC (seed 0,"
+                            f" first 30 actions):"
+                            f" {_diag_trace}."
+                            f" Action frequencies"
+                            f" (all {_MAX_STEPS}"
+                            f" steps):"
+                            f" {_diag_action_counts}."
+                            f" Last reward:"
+                            f" {_diag_last_reward}."
+                            f" Non-zero state dims:"
+                            f" {_diag_final_state}"
                         )
                     checks.append({
                         "check":
