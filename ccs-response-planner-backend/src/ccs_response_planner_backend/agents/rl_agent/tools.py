@@ -183,7 +183,7 @@ def _extract_policy_zip(
 
 
 def rl_train(
-    code: str, time_limit_minutes: int = 5,
+    code: str, time_limit_minutes: int = 10,
     algorithm: str = "", hyperparameters: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """

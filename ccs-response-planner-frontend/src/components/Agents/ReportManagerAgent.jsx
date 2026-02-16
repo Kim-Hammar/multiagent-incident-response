@@ -5,12 +5,14 @@ import {
   API_AGENTS_REPORT_MANAGER_STEP_URL,
   API_AGENTS_REPORT_MANAGER_TOOL_URL,
   API_AGENTS_REPORT_MANAGER_PROMPT_URL,
+  API_AGENTS_REPORT_PROMPT_URL,
+  API_AGENTS_REPORT_REVIEW_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
-import PromptModal from './shared/PromptModal.jsx'
+import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
@@ -107,10 +109,6 @@ function ReportManagerAgent() {
   const [pendingProposal, setPendingProposal] = useState(null)
   const [alert, setAlert] = useState(null)
   const [expandedEntries, setExpandedEntries] = useState({})
-  const [showPromptModal, setShowPromptModal] = useState(false)
-  const [promptText, setPromptText] = useState('')
-  const [promptImages, setPromptImages] = useState([])
-  const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
@@ -120,6 +118,8 @@ function ReportManagerAgent() {
   const [managerModel, setManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
+  const [compactionModel, setCompactionModel] = useState('')
+  const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -276,6 +276,8 @@ function ReportManagerAgent() {
           conversation_history: stripImagesFromHistory(history),
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           model_name: managerModel || undefined,
+          compaction_model: compactionModel || undefined,
+          compaction_threshold: compactionThreshold / 100,
           max_iterations: maxIterations
         })
       })
@@ -337,6 +339,18 @@ function ReportManagerAgent() {
             setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
+          } else if (event.type === 'context_compaction') {
+            setConversationHistory((prev) => [
+              ...prev.slice(0, streamingIdx),
+              {
+                role: 'system',
+                type: 'context_compaction',
+                original_tokens: event.original_tokens,
+                compacted_tokens: event.compacted_tokens,
+                compaction_model: event.compaction_model
+              },
+              prev[streamingIdx]
+            ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
@@ -466,7 +480,9 @@ function ReportManagerAgent() {
           report_agent_model: reportAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
           conversation_history: conversationHistory,
-          last_assessment: lastAssessment
+          last_assessment: lastAssessment,
+          compaction_model: compactionModel || undefined,
+          compaction_threshold: compactionThreshold / 100
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_REPORT_MANAGER_TOOL_URL,
@@ -666,27 +682,6 @@ function ReportManagerAgent() {
     }
   }
 
-  const fetchPrompt = async () => {
-    setLoadingPrompt(true)
-    try {
-      const result = await getPromptText()
-      if (result != null) {
-        if (typeof result === 'object' && result.text !== undefined) {
-          setPromptText(result.text)
-          setPromptImages(result.images || [])
-        } else {
-          setPromptText(result)
-          setPromptImages([])
-        }
-        setShowPromptModal(true)
-      }
-    } catch (err) {
-      setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
-    } finally {
-      setLoadingPrompt(false)
-    }
-  }
-
   const fetchHistory = async () => {
     try {
       const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=report_manager`, {
@@ -808,6 +803,15 @@ function ReportManagerAgent() {
         <li className="nav-item">
           <button
             type="button"
+            className={`nav-link${activeTab === 'agents' ? ' active' : ''}`}
+            onClick={() => setActiveTab('agents')}
+          >
+            Agents
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
             className={`nav-link${activeTab === 'planning' ? ' active' : ''}`}
             onClick={() => setActiveTab('planning')}
           >
@@ -916,71 +920,6 @@ function ReportManagerAgent() {
           >
             <i className="fa fa-eraser" aria-hidden="true" /> Clear all
           </button>
-          <button
-            type="button"
-            className="btn btn-outline-dark btn-sm ia-btn"
-            onClick={fetchPrompt}
-            disabled={loadingPrompt}
-          >
-            <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
-            {loadingPrompt ? 'Loading...' : 'Show prompt'}
-          </button>
-          <span className="ia-model-label">Max iterations:</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={10}
-            value={maxIterations}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 10) setMaxIterations(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">Manager LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={managerModel}
-            onChange={(e) => setManagerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Report Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={reportAgentModel}
-            onChange={(e) => setReportAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Reviewer Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={reviewerAgentModel}
-            onChange={(e) => setReviewerAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
           <div className="form-check form-check-inline ia-btn">
             <input
               className="form-check-input"
@@ -993,14 +932,55 @@ function ReportManagerAgent() {
               Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
             </label>
           </div>
-
-          <PromptModal
-            show={showPromptModal}
-            promptText={promptText}
-            promptImages={promptImages}
-            onClose={() => setShowPromptModal(false)}
-          />
         </div>
+      )}
+
+      {activeTab === 'agents' && (
+        <AgentConfigTable
+          models={models}
+          isAgentBusy={isAgentBusy}
+          token={token}
+          getPromptBody={() => ({
+            system_description: systemDescription,
+            security_alerts: securityAlerts,
+            operator_feedback: operatorFeedback
+          })}
+          rows={[
+            {
+              label: 'Report Manager',
+              model: managerModel,
+              setModel: setManagerModel,
+              iteration: {
+                min: 1,
+                max: 10,
+                value: maxIterations,
+                set: setMaxIterations,
+                suffix: 'iterations'
+              },
+              compaction: compactionThreshold,
+              setCompaction: setCompactionThreshold,
+              promptUrl: API_AGENTS_REPORT_MANAGER_PROMPT_URL
+            },
+            {
+              label: 'Report Agent',
+              model: reportAgentModel,
+              setModel: setReportAgentModel,
+              promptUrl: API_AGENTS_REPORT_PROMPT_URL
+            },
+            {
+              label: 'Report Reviewer',
+              model: reviewerAgentModel,
+              setModel: setReviewerAgentModel,
+              promptUrl: API_AGENTS_REPORT_REVIEW_PROMPT_URL
+            },
+            {
+              label: 'Compaction LLM',
+              model: compactionModel,
+              setModel: setCompactionModel,
+              defaultLabel: 'Default (same as agent)'
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'planning' && (

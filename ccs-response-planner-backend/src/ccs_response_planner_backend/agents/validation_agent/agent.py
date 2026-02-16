@@ -12,8 +12,13 @@ from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
 from ccs_response_planner_backend.agents.anthropic_adapter import (
+    ANTHROPIC_CONTEXT_LIMIT,
     is_anthropic_model,
     stream_step as anthropic_stream_step,
+)
+from ccs_response_planner_backend.agents.context_utils import (
+    compact_tool_result,
+    maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
@@ -346,6 +351,8 @@ class ValidationAgent:
         has_policy: bool = False,
         dt_config: dict[str, Any] | None = None,
         validation_feedback: dict[str, Any] | None = None,
+        compaction_model: str | None = None,
+        compaction_threshold: float = 0.8,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -365,10 +372,13 @@ class ValidationAgent:
         :param code_report: code agent report dict
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
-        :param model_name: optional LLM model name override
+        :param model_name: optional LLM name override
         :param has_policy: True if RL policy is loaded in sandbox
         :param dt_config: digital twin configuration dict
         :param validation_feedback: previous validation report dict
+        :param compaction_model: optional LLM for compaction
+        :param compaction_threshold: context usage fraction that
+            triggers compaction (default 0.8)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -409,6 +419,19 @@ class ValidationAgent:
             "images": list(images or []),
         }
 
+        ctx_limit = (
+            ANTHROPIC_CONTEXT_LIMIT
+            if is_anthropic_model(effective_model)
+            else CONTEXT_LIMIT
+        )
+        if conversation_history and compaction_threshold > 0:
+            for ev in maybe_compact_context(
+                conversation_history, ctx_limit,
+                threshold=compaction_threshold,
+                compaction_model=compaction_model,
+            ):
+                yield ev
+
         declarations = (
             TOOL_DECLARATIONS_WITH_POLICY
             if has_policy else TOOL_DECLARATIONS
@@ -440,7 +463,10 @@ class ValidationAgent:
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type="validation_report",
                 thinking_budget=THINKING_BUDGET,
-                images=images,
+                images=(
+                    images if not conversation_history
+                    else None
+                ),
                 model_name=effective_model,
             )
             return
@@ -451,8 +477,13 @@ class ValidationAgent:
             declarations=declarations,
         )
 
+        initial_images = (
+            images if not conversation_history else None
+        )
         contents = (
-            [_build_initial_message(images, has_policy)]
+            [_build_initial_message(
+                initial_images, has_policy,
+            )]
             + self._build_contents(
                 conversation_history, has_policy,
             )
@@ -826,10 +857,13 @@ class ValidationAgent:
             elif entry_type == "tool_result":
                 tool_name = entry.get("tool_name", "")
                 result = entry.get("result", {})
-                result_data: Any = result
-                if isinstance(result, dict):
+                compact = compact_tool_result(
+                    tool_name, result,
+                )
+                result_data: Any = compact
+                if isinstance(compact, dict):
                     result_data = json.dumps(
-                        result, default=str,
+                        compact, default=str,
                     )
                 contents.append({
                     "role": "user",
@@ -844,6 +878,16 @@ class ValidationAgent:
                         },
                         {"text": nudge},
                     ],
+                })
+
+            elif entry_type == "context_summary":
+                summary_text = (
+                    "Previous conversation summary:\n"
+                    + entry.get("summary", "")
+                )
+                contents.append({
+                    "role": "user",
+                    "parts": [{"text": summary_text}],
                 })
 
             elif entry_type == "validation_report":

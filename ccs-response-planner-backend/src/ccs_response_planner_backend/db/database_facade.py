@@ -326,7 +326,7 @@ class DatabaseFacade:
         :param incident_id: optional FK to example_incidents
         :param conversation_history: optional planning process log
         :param policy_data: optional trained RL policy bytes
-        :param model_name: optional LLM model name used
+        :param model_name: optional LLM name used
         :return: a dict with id, agent_type, username, report, created_at,
                  incident_id, incident_name, model_name
         """

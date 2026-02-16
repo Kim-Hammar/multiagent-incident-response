@@ -173,7 +173,7 @@ class SERVER:
 
 class LLM:
     """
-    Constants related to LLM models.
+    Constants related to LLMs.
     """
     IMAGE_GENERATION_MODEL = "gemini-3-pro-image-preview"
 

@@ -1,66 +1,10 @@
-import { useState } from 'react'
 import ExampleSelector from '../Agents/shared/ExampleSelector.jsx'
+import ImageThumbnails from '../Agents/shared/ImageThumbnails.jsx'
 
 /**
- * Renders a strip of image thumbnails with remove buttons.
- * Clicking a thumbnail opens a full-size lightbox overlay.
- */
-function ImageThumbnails({ images, setImages }) {
-  const [lightboxSrc, setLightboxSrc] = useState(null)
-
-  if (images.length === 0) return null
-
-  const removeImage = (index) => {
-    setImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  return (
-    <>
-      <div className="image-thumbnails">
-        {images.map((src, index) => (
-          <div key={index} className="thumbnail-wrapper">
-            <img
-              src={src}
-              alt={`Pasted ${index + 1}`}
-              className="thumbnail-img"
-              onClick={() => setLightboxSrc(src)}
-            />
-            <button
-              type="button"
-              className="thumbnail-remove"
-              onClick={() => removeImage(index)}
-              aria-label="Remove image"
-            >
-              &times;
-            </button>
-          </div>
-        ))}
-      </div>
-      {lightboxSrc && (
-        <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
-          <button
-            type="button"
-            className="lightbox-close"
-            onClick={() => setLightboxSrc(null)}
-            aria-label="Close preview"
-          >
-            &times;
-          </button>
-          <img
-            src={lightboxSrc}
-            alt="Full size preview"
-            className="lightbox-img"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
-    </>
-  )
-}
-
-/**
- * Configuration tab for the response planner — input form with
- * system description, security alerts, and operator input fields.
+ * Incident description tab for the response planner — input form with
+ * system description, security alerts, operator feedback, action buttons,
+ * and inline controls.
  */
 function ConfigTab({
   systemDescription,
@@ -73,101 +17,111 @@ function ConfigTab({
   setSystemDescriptionImages,
   securityAlertsImages,
   setSecurityAlertsImages,
-  operatorFeedbackImages,
-  setOperatorFeedbackImages,
-  specification,
-  setSpecification,
-  specificationImages,
-  setSpecificationImages,
   handlePaste,
   loadExample,
+  onRun,
   onClear,
-  onGenerate,
-  generating
+  isAgentBusy,
+  autopilot,
+  setAutopilot
 }) {
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        onGenerate()
-      }}
-    >
-      <div className="input-section">
-        <label htmlFor="systemDescription">System description</label>
-        <p className="input-hint">
+    <div style={{ marginTop: '16px' }}>
+      <div className="ia-description">
+        <p>
+          This is the top-level orchestrator agent that coordinates the full end-to-end incident
+          response pipeline. It first runs the ReportManager to generate and review an incident
+          assessment, then feeds that assessment to the PlanManager to generate MDP code, train an
+          RL policy, and validate it on the digital twin. Finally, it produces a consolidated
+          incident response report.
+        </p>
+      </div>
+
+      <div className="ia-section">
+        <label htmlFor="rp-system-desc">System description</label>
+        <p className="ia-hint">
           Describe the target system, its architecture, hosts, and services.
         </p>
         <textarea
-          className="form-control planner-textarea"
-          id="systemDescription"
-          rows="8"
-          placeholder="e.g., The system consists of a web server (Apache on 10.0.0.1), a database server (PostgreSQL on 10.0.0.2), and a firewall..."
+          id="rp-system-desc"
+          className="form-control ia-textarea"
+          rows="6"
           value={systemDescription}
           onChange={(e) => setSystemDescription(e.target.value)}
           onPaste={handlePaste(setSystemDescriptionImages)}
+          disabled={isAgentBusy}
+          placeholder="e.g., The system consists of a web server, database server, and firewall..."
         />
-        <ImageThumbnails images={systemDescriptionImages} setImages={setSystemDescriptionImages} />
+        <ImageThumbnails
+          images={systemDescriptionImages}
+          setImages={setSystemDescriptionImages}
+          disabled={isAgentBusy}
+        />
       </div>
-      <div className="input-section">
-        <label htmlFor="securityAlerts">Security alerts and logs</label>
-        <p className="input-hint">
-          Paste relevant security alerts, IDS logs, or other indicators of compromise.
-        </p>
+      <div className="ia-section">
+        <label htmlFor="rp-security-alerts">Security alerts</label>
+        <p className="ia-hint">Paste the security alerts/logs that triggered incident response.</p>
         <textarea
-          className="form-control planner-textarea"
-          id="securityAlerts"
-          rows="8"
-          placeholder="e.g., [ALERT] Brute-force SSH login detected on 10.0.0.1 from 192.168.1.50 (200 attempts in 5 min)..."
+          id="rp-security-alerts"
+          className="form-control ia-textarea"
+          rows="6"
           value={securityAlerts}
           onChange={(e) => setSecurityAlerts(e.target.value)}
           onPaste={handlePaste(setSecurityAlertsImages)}
+          disabled={isAgentBusy}
+          placeholder="e.g., IDS alert: SSH brute-force detected from 10.0.0.2 targeting server 3..."
         />
-        <ImageThumbnails images={securityAlertsImages} setImages={setSecurityAlertsImages} />
+        <ImageThumbnails
+          images={securityAlertsImages}
+          setImages={setSecurityAlertsImages}
+          disabled={isAgentBusy}
+        />
       </div>
-      <div className="input-section">
-        <label htmlFor="operatorFeedback">Operator input</label>
-        <p className="input-hint">
-          Optionally provide additional context or instructions for the planner.
-        </p>
+      <div className="ia-section">
+        <label htmlFor="rp-operator-feedback">Operator feedback (optional)</label>
+        <p className="ia-hint">Additional guidance or constraints for the pipeline.</p>
         <textarea
-          className="form-control planner-textarea"
-          id="operatorFeedback"
-          rows="6"
-          placeholder="e.g., The proposed isolation of 10.0.0.1 is not feasible because it hosts a critical customer-facing service..."
+          id="rp-operator-feedback"
+          className="form-control ia-textarea"
+          rows="4"
           value={operatorFeedback}
           onChange={(e) => setOperatorFeedback(e.target.value)}
-          onPaste={handlePaste(setOperatorFeedbackImages)}
+          disabled={isAgentBusy}
+          placeholder="e.g., Focus on containment actions first."
         />
-        <ImageThumbnails images={operatorFeedbackImages} setImages={setOperatorFeedbackImages} />
       </div>
-      <div className="input-section">
-        <label htmlFor="specification">Specification</label>
-        <p className="input-hint">
-          Define constraints the plan must satisfy, e.g., which services must remain accessible.
-        </p>
-        <textarea
-          className="form-control planner-textarea"
-          id="specification"
-          rows="6"
-          placeholder="e.g., Server 1 Nginx must remain accessible from the gateway at all times..."
-          value={specification}
-          onChange={(e) => setSpecification(e.target.value)}
-          onPaste={handlePaste(setSpecificationImages)}
-        />
-        <ImageThumbnails images={specificationImages} setImages={setSpecificationImages} />
-      </div>
-      <button type="submit" className="btn btn-dark btn-sm btn-generate" disabled={generating}>
-        <i className="fa fa-bolt" aria-hidden="true" /> Generate plan
-      </button>
-      <ExampleSelector onLoad={loadExample} disabled={generating} />
+
       <button
         type="button"
-        className="btn btn-outline-secondary btn-sm btn-clear"
+        className="btn btn-dark btn-sm ia-btn"
+        onClick={onRun}
+        disabled={isAgentBusy || (!systemDescription && !securityAlerts)}
+      >
+        <i className="fa fa-bolt" aria-hidden="true" />
+        {isAgentBusy ? ' Running...' : ' Run agent'}
+      </button>
+      <ExampleSelector onLoad={loadExample} disabled={isAgentBusy} />
+      <button
+        type="button"
+        className="btn btn-outline-secondary btn-sm ia-btn"
         onClick={onClear}
+        disabled={isAgentBusy}
       >
         <i className="fa fa-eraser" aria-hidden="true" /> Clear all
       </button>
-    </form>
+      <div className="form-check form-check-inline ia-btn">
+        <input
+          className="form-check-input"
+          type="checkbox"
+          id="rp-autopilot"
+          checked={autopilot}
+          onChange={(e) => setAutopilot(e.target.checked)}
+        />
+        <label className="form-check-label" htmlFor="rp-autopilot">
+          Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
+        </label>
+      </div>
+    </div>
   )
 }
 

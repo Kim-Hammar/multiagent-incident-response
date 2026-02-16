@@ -5,16 +5,18 @@ import {
   API_AGENTS_CODE_MANAGER_STEP_URL,
   API_AGENTS_CODE_MANAGER_TOOL_URL,
   API_AGENTS_CODE_MANAGER_PROMPT_URL,
+  API_AGENTS_CODE_PROMPT_URL,
+  API_AGENTS_CODE_REVIEW_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
-import PromptModal from './shared/PromptModal.jsx'
+import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
-import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { cleanConversationHistory, stripForBackend } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 import { CodeReportBody, ReviewReportBody } from './shared/ReportBodies.jsx'
 
@@ -105,10 +107,6 @@ function CodeManagerAgent() {
   const [pendingProposal, setPendingProposal] = useState(null)
   const [alert, setAlert] = useState(null)
   const [expandedEntries, setExpandedEntries] = useState({})
-  const [showPromptModal, setShowPromptModal] = useState(false)
-  const [promptText, setPromptText] = useState('')
-  const [promptImages, setPromptImages] = useState([])
-  const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
@@ -118,6 +116,8 @@ function CodeManagerAgent() {
   const [managerModel, setManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
+  const [compactionModel, setCompactionModel] = useState('')
+  const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -258,9 +258,11 @@ function CodeManagerAgent() {
           incident_report: incidentReport,
           specification: specification,
           operator_feedback: operatorFeedback,
-          conversation_history: history,
+          conversation_history: stripForBackend(history),
           images: [...systemDescriptionImages, ...incidentReportImages],
           model_name: managerModel || undefined,
+          compaction_model: compactionModel || undefined,
+          compaction_threshold: compactionThreshold / 100,
           max_iterations: maxIterations
         })
       })
@@ -322,6 +324,18 @@ function CodeManagerAgent() {
             setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
+          } else if (event.type === 'context_compaction') {
+            setConversationHistory((prev) => [
+              ...prev.slice(0, streamingIdx),
+              {
+                role: 'system',
+                type: 'context_compaction',
+                original_tokens: event.original_tokens,
+                compacted_tokens: event.compacted_tokens,
+                compaction_model: event.compaction_model
+              },
+              prev[streamingIdx]
+            ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
@@ -441,7 +455,9 @@ function CodeManagerAgent() {
           images: [...systemDescriptionImages, ...incidentReportImages],
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: conversationHistory
+          conversation_history: stripForBackend(conversationHistory),
+          compaction_model: compactionModel || undefined,
+          compaction_threshold: compactionThreshold / 100
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_CODE_MANAGER_TOOL_URL,
@@ -645,27 +661,6 @@ function CodeManagerAgent() {
     }
   }
 
-  const fetchPrompt = async () => {
-    setLoadingPrompt(true)
-    try {
-      const result = await getPromptText()
-      if (result != null) {
-        if (typeof result === 'object' && result.text !== undefined) {
-          setPromptText(result.text)
-          setPromptImages(result.images || [])
-        } else {
-          setPromptText(result)
-          setPromptImages([])
-        }
-        setShowPromptModal(true)
-      }
-    } catch (err) {
-      setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
-    } finally {
-      setLoadingPrompt(false)
-    }
-  }
-
   const fetchHistory = async () => {
     try {
       const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code_manager`, {
@@ -764,6 +759,15 @@ function CodeManagerAgent() {
             onClick={() => setActiveTab('config')}
           >
             Configuration
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'agents' ? ' active' : ''}`}
+            onClick={() => setActiveTab('agents')}
+          >
+            Agents
           </button>
         </li>
         <li className="nav-item">
@@ -887,71 +891,6 @@ function CodeManagerAgent() {
           >
             <i className="fa fa-eraser" aria-hidden="true" /> Clear all
           </button>
-          <button
-            type="button"
-            className="btn btn-outline-dark btn-sm ia-btn"
-            onClick={fetchPrompt}
-            disabled={loadingPrompt}
-          >
-            <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
-            {loadingPrompt ? 'Loading...' : 'Show prompt'}
-          </button>
-          <span className="ia-model-label">Max iterations:</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={10}
-            value={maxIterations}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 10) setMaxIterations(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">Manager LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={managerModel}
-            onChange={(e) => setManagerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Code Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={codeAgentModel}
-            onChange={(e) => setCodeAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Reviewer Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={reviewerAgentModel}
-            onChange={(e) => setReviewerAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
           <div className="form-check form-check-inline ia-btn">
             <input
               className="form-check-input"
@@ -964,14 +903,56 @@ function CodeManagerAgent() {
               Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
             </label>
           </div>
-
-          <PromptModal
-            show={showPromptModal}
-            promptText={promptText}
-            promptImages={promptImages}
-            onClose={() => setShowPromptModal(false)}
-          />
         </div>
+      )}
+
+      {activeTab === 'agents' && (
+        <AgentConfigTable
+          models={models}
+          isAgentBusy={isAgentBusy}
+          token={token}
+          getPromptBody={() => ({
+            system_description: systemDescription,
+            incident_report: incidentReport,
+            specification: specification,
+            operator_feedback: operatorFeedback
+          })}
+          rows={[
+            {
+              label: 'Code Manager',
+              model: managerModel,
+              setModel: setManagerModel,
+              iteration: {
+                min: 1,
+                max: 10,
+                value: maxIterations,
+                set: setMaxIterations,
+                suffix: 'iterations'
+              },
+              compaction: compactionThreshold,
+              setCompaction: setCompactionThreshold,
+              promptUrl: API_AGENTS_CODE_MANAGER_PROMPT_URL
+            },
+            {
+              label: 'Code Agent',
+              model: codeAgentModel,
+              setModel: setCodeAgentModel,
+              promptUrl: API_AGENTS_CODE_PROMPT_URL
+            },
+            {
+              label: 'Code Reviewer',
+              model: reviewerAgentModel,
+              setModel: setReviewerAgentModel,
+              promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL
+            },
+            {
+              label: 'Compaction LLM',
+              model: compactionModel,
+              setModel: setCompactionModel,
+              defaultLabel: 'Default (same as agent)'
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'planning' && (

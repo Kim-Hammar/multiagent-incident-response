@@ -341,6 +341,12 @@ def agents_report_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -478,6 +484,12 @@ def agents_pentest_step() -> Response | tuple[Response, int]:
                 conversation_history=conversation_history,
                 images=images,
                 model_name=model_name,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -670,6 +682,12 @@ def agents_validation_step() -> Response | tuple[Response, int]:
                 model_name=model_name,
                 has_policy=has_policy,
                 dt_config=dt_config,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -860,6 +878,12 @@ def agents_code_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -1027,6 +1051,12 @@ def agents_code_review_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -1216,6 +1246,12 @@ def agents_report_review_step() -> (
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -1409,6 +1445,12 @@ def agents_report_manager_step() -> (
                 images=images,
                 model_name=model_name,
                 max_iterations=max_iterations,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -1504,6 +1546,12 @@ def agents_report_manager_tool() -> (
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
+            ),
+            "compaction_model": body.get(
+                "compaction_model",
+            ),
+            "compaction_threshold": body.get(
+                "compaction_threshold", 0.8,
             ),
         }
         if tool_name == (
@@ -1662,6 +1710,12 @@ def agents_code_manager_step() -> (
                 images=images,
                 model_name=model_name,
                 max_iterations=max_iterations,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -1760,6 +1814,12 @@ def agents_code_manager_tool() -> (
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
+            ),
+            "compaction_model": body.get(
+                "compaction_model",
+            ),
+            "compaction_threshold": body.get(
+                "compaction_threshold", 0.8,
             ),
         }
         if tool_name == "run_code_reviewer_agent":
@@ -1900,6 +1960,12 @@ def agents_rl_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 time_limit_minutes=time_limit_minutes,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -2069,6 +2135,12 @@ def agents_plan_manager_step() -> (
                 images=images,
                 model_name=model_name,
                 max_iterations=max_iterations,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -2184,6 +2256,12 @@ def agents_plan_manager_tool() -> (
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
+            ),
+            "compaction_model": body.get(
+                "compaction_model",
+            ),
+            "compaction_threshold": body.get(
+                "compaction_threshold", 0.8,
             ),
         }
         conv_history = body.get(
@@ -2328,6 +2406,12 @@ def agents_orchestrator_step() -> (
                 images=images,
                 model_name=model_name,
                 max_iterations=max_iterations,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:
@@ -2450,6 +2534,36 @@ def agents_orchestrator_tool() -> (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             ),
+            "compaction_model": body.get(
+                "compaction_model",
+            ),
+            "report_manager_compaction": body.get(
+                "report_manager_compaction", 0.8,
+            ),
+            "report_agent_compaction": body.get(
+                "report_agent_compaction", 0.8,
+            ),
+            "report_reviewer_compaction": body.get(
+                "report_reviewer_compaction", 0.8,
+            ),
+            "plan_manager_compaction": body.get(
+                "plan_manager_compaction", 0.8,
+            ),
+            "code_manager_compaction": body.get(
+                "code_manager_compaction", 0.8,
+            ),
+            "code_agent_compaction": body.get(
+                "code_agent_compaction", 0.8,
+            ),
+            "code_reviewer_compaction": body.get(
+                "code_reviewer_compaction", 0.8,
+            ),
+            "rl_agent_compaction": body.get(
+                "rl_agent_compaction", 0.8,
+            ),
+            "validation_agent_compaction": body.get(
+                "validation_agent_compaction", 0.8,
+            ),
         }
         if tool_name == "run_plan_manager":
             conv_history = body.get(
@@ -2466,9 +2580,13 @@ def agents_orchestrator_tool() -> (
                     result = entry.get(
                         "result", {},
                     )
-                    assessment = result.get(
+                    raw = result.get(
                         "assessment", {},
                     )
+                    assessment = {
+                        k: v for k, v in raw.items()
+                        if k != "attack_path_image"
+                    } if isinstance(raw, dict) else raw
                     break
             context["assessment"] = assessment
 
@@ -2571,6 +2689,12 @@ def agents_dp_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 time_limit_minutes=time_limit_minutes,
+                compaction_model=body.get(
+                    "compaction_model",
+                ) or None,
+                compaction_threshold=body.get(
+                    "compaction_threshold", 0.8,
+                ),
             ):
                 yield json.dumps(event) + "\n"
         except Exception as e:

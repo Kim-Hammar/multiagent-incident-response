@@ -136,6 +136,16 @@ it should have reduced effectiveness (lower state change) or no effect.
 5. **Cascading effects** — Think about how an action on one host \
 might affect other hosts or services. E.g. restarting the firewall \
 might briefly drop all forwarded connections.
+6. **Terminal state reachability** — It must always be feasible to \
+reach the terminal state where all recovery dimensions are 1.0 and \
+all specifications are satisfied. Verify that no combination of \
+stochastic outcomes creates a dead end from which the terminal state \
+is unreachable. Every action that can break a specification (e.g. \
+dropping a route during containment) must have a corresponding action \
+that can restore it. Similarly, every recovery dimension must have at \
+least one action (or sequence of actions) that can drive it to 1.0. \
+If an action has a failure outcome that lowers a dimension, there \
+must be a way to recover from that failure.
 
 ### Action Design — Comprehensiveness is Critical
 
@@ -313,8 +323,14 @@ risk/speed trade-offs.
 twin if you are unsure whether they work. You do not need to test all \
 commands — just the ones you are uncertain about.
 4. Use `python_exec` to write and iteratively test the code in the sandbox.
-5. Use `gym_verify` to validate the code is a correct Gymnasium environment.
-6. Only call `produce_code_report` after `gym_verify` returns a passing \
+5. Use `python_exec` to verify terminal state reachability: instantiate \
+the environment and confirm that for every recovery dimension and every \
+specification dimension, there exists at least one action whose \
+transition dynamics can increase it toward 1.0, and that no \
+specification-breaking action lacks a corresponding restoration action. \
+Fix any gaps before proceeding.
+6. Use `gym_verify` to validate the code is a correct Gymnasium environment.
+7. Only call `produce_code_report` after `gym_verify` returns a passing \
 result.
 
 ## Available Tools

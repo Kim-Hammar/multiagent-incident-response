@@ -75,11 +75,16 @@ def run_code_agent_stream(
             specification=context.get("specification", ""),
             operator_feedback=operator_feedback,
             conversation_history=conversation_history,
-            images=context.get("images"),
             model_name=context.get("code_agent_model"),
             dt_config=context.get("dt_config"),
             is_revision=bool(
                 previous_code and review_feedback
+            ),
+            compaction_model=context.get(
+                "compaction_model",
+            ),
+            compaction_threshold=context.get(
+                "code_agent_compaction", 0.8,
             ),
         ):
             etype = event.get("type")
@@ -144,6 +149,11 @@ def run_code_agent_stream(
                             "context_limit", 0,
                         ),
                     },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
                 }
             elif etype == "tool_proposal":
                 tool_name = event.get("tool_name", "")
@@ -325,11 +335,16 @@ def run_code_reviewer_agent_stream(
             operator_feedback=operator_feedback,
             code_report=code_report,
             conversation_history=conversation_history,
-            images=context.get("images"),
             model_name=context.get("reviewer_agent_model"),
             dt_config=context.get("dt_config"),
             review_iteration=context.get(
                 "review_count", 1,
+            ),
+            compaction_model=context.get(
+                "compaction_model",
+            ),
+            compaction_threshold=context.get(
+                "code_reviewer_compaction", 0.8,
             ),
         ):
             etype = event.get("type")
@@ -397,6 +412,11 @@ def run_code_reviewer_agent_stream(
                             "context_limit", 0,
                         ),
                     },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
                 }
             elif etype == "tool_proposal":
                 tool_name = event.get("tool_name", "")

@@ -1,5 +1,4 @@
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
-import PromptModal from './shared/PromptModal.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
@@ -27,17 +26,8 @@ function ValidationAgentConfigTab({
   handleRun,
   loadExample,
   handleClear,
-  fetchPrompt,
-  loadingPrompt,
-  models,
-  selectedModel,
-  setSelectedModel,
   autopilot,
   setAutopilot,
-  showPromptModal,
-  promptText,
-  promptImages,
-  setShowPromptModal,
   plannerReportId
 }) {
   return (
@@ -193,29 +183,6 @@ function ValidationAgentConfigTab({
       >
         <i className="fa fa-eraser" aria-hidden="true" /> Clear all
       </button>
-      <button
-        type="button"
-        className="btn btn-outline-dark btn-sm ia-btn"
-        onClick={fetchPrompt}
-        disabled={loadingPrompt}
-      >
-        <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
-        {loadingPrompt ? 'Loading...' : 'Show prompt'}
-      </button>
-      <span className="ia-model-label">LLM:</span>
-      <select
-        className="form-control form-control-sm ia-model-select"
-        value={selectedModel}
-        onChange={(e) => setSelectedModel(e.target.value)}
-        disabled={isAgentBusy}
-      >
-        <option value="">Default (Gemini 3 Pro)</option>
-        {models.map((m) => (
-          <option key={m.name} value={m.name}>
-            {m.display_name}
-          </option>
-        ))}
-      </select>
       <div className="form-check form-check-inline ia-btn">
         <input
           className="form-check-input"
@@ -228,13 +195,6 @@ function ValidationAgentConfigTab({
           Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
         </label>
       </div>
-
-      <PromptModal
-        show={showPromptModal}
-        promptText={promptText}
-        promptImages={promptImages}
-        onClose={() => setShowPromptModal(false)}
-      />
     </div>
   )
 }

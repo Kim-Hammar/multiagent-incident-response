@@ -67,15 +67,6 @@ service versions) against authoritative sources.
 Does the report provide enough detail for response planning? Can an \
 IR team use this report to prioritize and execute remediation steps?
 
-### 8. Attack Path Visualization
-If an attack path image is attached to this conversation, review the \
-diagram for correctness. Verify that the depicted attack path, host \
-compromises, and lateral movement arrows align with the textual \
-analysis, the IOCs listed, and the available evidence from the \
-digital twin. Flag any discrepancies between the visual diagram and \
-the written report. Note that while the attack path should not contain obvious errors, \
-it does not need to include all the details about the incident; it should just provide an overview.
-
 ## Digital Twin Environment
 
 A **digital twin** of the target system may be deployed. A digital twin \

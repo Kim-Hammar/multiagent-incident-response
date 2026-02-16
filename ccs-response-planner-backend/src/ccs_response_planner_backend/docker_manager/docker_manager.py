@@ -185,6 +185,20 @@ class DockerManager:
             except Exception:
                 pass
 
+            # Delete the default route that Docker adds via
+            # the bridge gateway (10.0.x.100).  This prevents
+            # containers from reaching the Docker host and
+            # removes confusing routes from the routing table.
+            try:
+                exec_id = client.api.exec_create(
+                    container_name,
+                    ["/bin/sh", "-c",
+                     "ip route del default 2>/dev/null || true"],
+                )["Id"]
+                client.api.exec_start(exec_id)
+            except Exception:
+                pass
+
             yield {
                 "type": "progress",
                 "message": f"[{idx}/{total}] Container "

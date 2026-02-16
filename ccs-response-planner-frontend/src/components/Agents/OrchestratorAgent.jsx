@@ -5,12 +5,21 @@ import {
   API_AGENTS_ORCHESTRATOR_STEP_URL,
   API_AGENTS_ORCHESTRATOR_TOOL_URL,
   API_AGENTS_ORCHESTRATOR_PROMPT_URL,
+  API_AGENTS_REPORT_MANAGER_PROMPT_URL,
+  API_AGENTS_REPORT_PROMPT_URL,
+  API_AGENTS_REPORT_REVIEW_PROMPT_URL,
+  API_AGENTS_PLAN_MANAGER_PROMPT_URL,
+  API_AGENTS_CODE_MANAGER_PROMPT_URL,
+  API_AGENTS_CODE_PROMPT_URL,
+  API_AGENTS_CODE_REVIEW_PROMPT_URL,
+  API_AGENTS_RL_PROMPT_URL,
+  API_AGENTS_VALIDATION_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
-import PromptModal from './shared/PromptModal.jsx'
+import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
@@ -147,10 +156,6 @@ function OrchestratorAgent() {
   const [pendingProposal, setPendingProposal] = useState(null)
   const [alert, setAlert] = useState(null)
   const [expandedEntries, setExpandedEntries] = useState({})
-  const [showPromptModal, setShowPromptModal] = useState(false)
-  const [promptText, setPromptText] = useState('')
-  const [promptImages, setPromptImages] = useState([])
-  const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
@@ -167,10 +172,12 @@ function OrchestratorAgent() {
   const [codeReviewerModel, setCodeReviewerModel] = useState('')
   const [rlAgentModel, setRlAgentModel] = useState('')
   const [validationAgentModel, setValidationAgentModel] = useState('')
+  const [compactionModel, setCompactionModel] = useState('')
+  const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [reportManagerIterations, setReportManagerIterations] = useState(2)
   const [planManagerIterations, setPlanManagerIterations] = useState(2)
   const [codeManagerIterations, setCodeManagerIterations] = useState(2)
-  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(5)
+  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -307,6 +314,8 @@ function OrchestratorAgent() {
           conversation_history: stripImagesFromHistory(history),
           images: [...systemDescriptionImages, ...securityAlertsImages],
           model_name: orchestratorModel || undefined,
+          compaction_model: compactionModel || undefined,
+          compaction_threshold: compactionThreshold / 100,
           max_iterations: maxIterations
         })
       })
@@ -368,6 +377,18 @@ function OrchestratorAgent() {
             setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
+          } else if (event.type === 'context_compaction') {
+            setConversationHistory((prev) => [
+              ...prev.slice(0, streamingIdx),
+              {
+                role: 'system',
+                type: 'context_compaction',
+                original_tokens: event.original_tokens,
+                compacted_tokens: event.compacted_tokens,
+                compaction_model: event.compaction_model
+              },
+              prev[streamingIdx]
+            ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
@@ -482,7 +503,9 @@ function OrchestratorAgent() {
           report_manager_iterations: reportManagerIterations,
           plan_manager_iterations: planManagerIterations,
           code_manager_iterations: codeManagerIterations,
-          rl_time_limit_minutes: rlTimeLimitMinutes
+          rl_time_limit_minutes: rlTimeLimitMinutes,
+          compaction_model: compactionModel || undefined,
+          compaction_threshold: compactionThreshold / 100
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -696,27 +719,6 @@ function OrchestratorAgent() {
     }
   }
 
-  const fetchPrompt = async () => {
-    setLoadingPrompt(true)
-    try {
-      const result = await getPromptText()
-      if (result != null) {
-        if (typeof result === 'object' && result.text !== undefined) {
-          setPromptText(result.text)
-          setPromptImages(result.images || [])
-        } else {
-          setPromptText(result)
-          setPromptImages([])
-        }
-        setShowPromptModal(true)
-      }
-    } catch (err) {
-      setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
-    } finally {
-      setLoadingPrompt(false)
-    }
-  }
-
   const fetchHistory = async () => {
     try {
       const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=orchestrator`, {
@@ -887,6 +889,15 @@ function OrchestratorAgent() {
         <li className="nav-item">
           <button
             type="button"
+            className={`nav-link${activeTab === 'agents' ? ' active' : ''}`}
+            onClick={() => setActiveTab('agents')}
+          >
+            Agents
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
             className={`nav-link${activeTab === 'planning' ? ' active' : ''}`}
             onClick={() => setActiveTab('planning')}
           >
@@ -990,225 +1001,6 @@ function OrchestratorAgent() {
           >
             <i className="fa fa-eraser" aria-hidden="true" /> Clear all
           </button>
-          <button
-            type="button"
-            className="btn btn-outline-dark btn-sm ia-btn"
-            onClick={fetchPrompt}
-            disabled={loadingPrompt}
-          >
-            <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
-            {loadingPrompt ? 'Loading...' : 'Show prompt'}
-          </button>
-          <span className="ia-model-label">Max iterations:</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={5}
-            value={maxIterations}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 5) setMaxIterations(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">Report Manager Iterations:</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={10}
-            value={reportManagerIterations}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 10) setReportManagerIterations(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">Plan Manager Iterations:</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={5}
-            value={planManagerIterations}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 5) setPlanManagerIterations(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">Code Manager Iterations:</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={10}
-            value={codeManagerIterations}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 10) setCodeManagerIterations(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">RL Training Time Limit (min):</span>
-          <input
-            type="number"
-            className="form-control form-control-sm"
-            style={{ width: '70px', display: 'inline-block' }}
-            min={1}
-            max={60}
-            value={rlTimeLimitMinutes}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (v >= 1 && v <= 60) setRlTimeLimitMinutes(v)
-            }}
-            disabled={isAgentBusy}
-          />
-          <span className="ia-model-label">Orchestrator LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={orchestratorModel}
-            onChange={(e) => setOrchestratorModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Report Manager LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={reportManagerModel}
-            onChange={(e) => setReportManagerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Report Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={reportAgentModel}
-            onChange={(e) => setReportAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Report Reviewer LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={reportReviewerModel}
-            onChange={(e) => setReportReviewerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Plan Manager LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={planManagerModel}
-            onChange={(e) => setPlanManagerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Code Manager LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={codeManagerModel}
-            onChange={(e) => setCodeManagerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Code Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={codeAgentModel}
-            onChange={(e) => setCodeAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Code Reviewer LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={codeReviewerModel}
-            onChange={(e) => setCodeReviewerModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">RL Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={rlAgentModel}
-            onChange={(e) => setRlAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-          <span className="ia-model-label">Validation Agent LLM:</span>
-          <select
-            className="form-control form-control-sm ia-model-select"
-            value={validationAgentModel}
-            onChange={(e) => setValidationAgentModel(e.target.value)}
-            disabled={isAgentBusy}
-          >
-            <option value="">Default (Gemini 3 Pro)</option>
-            {models.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
           <div className="form-check form-check-inline ia-btn">
             <input
               className="form-check-input"
@@ -1221,14 +1013,152 @@ function OrchestratorAgent() {
               Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
             </label>
           </div>
-
-          <PromptModal
-            show={showPromptModal}
-            promptText={promptText}
-            promptImages={promptImages}
-            onClose={() => setShowPromptModal(false)}
-          />
         </div>
+      )}
+
+      {activeTab === 'agents' && (
+        <AgentConfigTable
+          models={models}
+          isAgentBusy={isAgentBusy}
+          token={token}
+          getPromptBody={() => ({
+            system_description: systemDescription,
+            security_alerts: securityAlerts,
+            operator_feedback: operatorFeedback
+          })}
+          rows={[
+            {
+              label: 'Orchestrator',
+              model: orchestratorModel,
+              setModel: setOrchestratorModel,
+              promptUrl: API_AGENTS_ORCHESTRATOR_PROMPT_URL,
+              iteration: {
+                value: maxIterations,
+                set: setMaxIterations,
+                min: 1,
+                max: 5,
+                suffix: 'iterations'
+              },
+              compaction: compactionThreshold,
+              setCompaction: setCompactionThreshold
+            },
+            {
+              label: 'Report Manager',
+              model: reportManagerModel,
+              setModel: setReportManagerModel,
+              promptUrl: API_AGENTS_REPORT_MANAGER_PROMPT_URL,
+              iteration: {
+                value: reportManagerIterations,
+                set: setReportManagerIterations,
+                min: 1,
+                max: 10,
+                suffix: 'iterations'
+              },
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Report Agent',
+              model: reportAgentModel,
+              setModel: setReportAgentModel,
+              promptUrl: API_AGENTS_REPORT_PROMPT_URL,
+              iteration: null,
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Report Reviewer',
+              model: reportReviewerModel,
+              setModel: setReportReviewerModel,
+              promptUrl: API_AGENTS_REPORT_REVIEW_PROMPT_URL,
+              iteration: null,
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Plan Manager',
+              model: planManagerModel,
+              setModel: setPlanManagerModel,
+              promptUrl: API_AGENTS_PLAN_MANAGER_PROMPT_URL,
+              iteration: {
+                value: planManagerIterations,
+                set: setPlanManagerIterations,
+                min: 1,
+                max: 5,
+                suffix: 'iterations'
+              },
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Code Manager',
+              model: codeManagerModel,
+              setModel: setCodeManagerModel,
+              promptUrl: API_AGENTS_CODE_MANAGER_PROMPT_URL,
+              iteration: {
+                value: codeManagerIterations,
+                set: setCodeManagerIterations,
+                min: 1,
+                max: 10,
+                suffix: 'iterations'
+              },
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Code Agent',
+              model: codeAgentModel,
+              setModel: setCodeAgentModel,
+              promptUrl: API_AGENTS_CODE_PROMPT_URL,
+              iteration: null,
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Code Reviewer',
+              model: codeReviewerModel,
+              setModel: setCodeReviewerModel,
+              promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL,
+              iteration: null,
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'RL Agent',
+              model: rlAgentModel,
+              setModel: setRlAgentModel,
+              promptUrl: API_AGENTS_RL_PROMPT_URL,
+              iteration: {
+                value: rlTimeLimitMinutes,
+                set: setRlTimeLimitMinutes,
+                min: 1,
+                max: 60,
+                suffix: 'min'
+              },
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Validation Agent',
+              model: validationAgentModel,
+              setModel: setValidationAgentModel,
+              promptUrl: API_AGENTS_VALIDATION_PROMPT_URL,
+              iteration: null,
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Compaction LLM',
+              model: compactionModel,
+              setModel: setCompactionModel,
+              promptUrl: null,
+              iteration: null,
+              compaction: null,
+              setCompaction: null,
+              defaultLabel: 'Default (same as agent)'
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'planning' && (

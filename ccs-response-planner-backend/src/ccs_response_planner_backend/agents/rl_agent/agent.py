@@ -13,8 +13,13 @@ from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
 from ccs_response_planner_backend.agents.anthropic_adapter import (
+    ANTHROPIC_CONTEXT_LIMIT,
     is_anthropic_model,
     stream_step as anthropic_stream_step,
+)
+from ccs_response_planner_backend.agents.context_utils import (
+    compact_tool_result,
+    maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.rl_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
@@ -281,11 +286,13 @@ class RlAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
-        time_limit_minutes: int = 5,
+        time_limit_minutes: int = 10,
         prev_planner_report: dict[str, Any] | None = None,
         prev_validation_report: (
             dict[str, Any] | None
         ) = None,
+        compaction_model: str | None = None,
+        compaction_threshold: float = 0.8,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -304,10 +311,13 @@ class RlAgent:
         :param code_report: the Code Agent report dict
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
-        :param model_name: optional LLM model name override
+        :param model_name: optional LLM name override
         :param time_limit_minutes: RL training time limit
         :param prev_planner_report: previous RL report for revision
         :param prev_validation_report: previous validation report
+        :param compaction_model: optional LLM for compaction
+        :param compaction_threshold: context usage fraction that
+            triggers compaction (default 0.8)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -333,6 +343,19 @@ class RlAgent:
             "images": list(images or []),
         }
 
+        ctx_limit = (
+            ANTHROPIC_CONTEXT_LIMIT
+            if is_anthropic_model(effective_model)
+            else CONTEXT_LIMIT
+        )
+        if conversation_history and compaction_threshold > 0:
+            for ev in maybe_compact_context(
+                conversation_history, ctx_limit,
+                threshold=compaction_threshold,
+                compaction_model=compaction_model,
+            ):
+                yield ev
+
         declarations = (
             ALL_DECLARATIONS
             if self._has_trained(conversation_history)
@@ -353,7 +376,10 @@ class RlAgent:
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type="planner_report",
                 thinking_budget=THINKING_BUDGET,
-                images=images,
+                images=(
+                    images if not conversation_history
+                    else None
+                ),
                 model_name=effective_model,
             )
             return
@@ -361,8 +387,11 @@ class RlAgent:
         client = self._create_client()
         config = self._make_config(system_prompt, declarations)
 
+        initial_images = (
+            images if not conversation_history else None
+        )
         contents = (
-            [_build_initial_message(images)]
+            [_build_initial_message(initial_images)]
             + self._build_contents(conversation_history)
         )
 
@@ -686,10 +715,13 @@ class RlAgent:
             elif entry_type == "tool_result":
                 tool_name = entry.get("tool_name", "")
                 result = entry.get("result", {})
-                result_data: Any = result
-                if isinstance(result, dict):
+                compact = compact_tool_result(
+                    tool_name, result,
+                )
+                result_data: Any = compact
+                if isinstance(compact, dict):
                     result_data = json.dumps(
-                        result, default=str,
+                        compact, default=str,
                     )
                 contents.append({
                     "role": "user",
@@ -711,6 +743,16 @@ class RlAgent:
                             ),
                         },
                     ],
+                })
+
+            elif entry_type == "context_summary":
+                summary_text = (
+                    "Previous conversation summary:\n"
+                    + entry.get("summary", "")
+                )
+                contents.append({
+                    "role": "user",
+                    "parts": [{"text": summary_text}],
                 })
 
             elif entry_type == "planner_report":

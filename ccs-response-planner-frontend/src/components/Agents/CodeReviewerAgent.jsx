@@ -11,6 +11,7 @@ import {
 } from '../Common/constants'
 import CodeReviewerConfigTab from './CodeReviewerConfigTab.jsx'
 import CodeReviewerReport from './CodeReviewerReport.jsx'
+import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
@@ -36,16 +37,14 @@ function CodeReviewerAgent() {
   const [pendingProposal, setPendingProposal] = useState(null)
   const [alert, setAlert] = useState(null)
   const [expandedEntries, setExpandedEntries] = useState({})
-  const [showPromptModal, setShowPromptModal] = useState(false)
-  const [promptText, setPromptText] = useState('')
-  const [promptImages, setPromptImages] = useState([])
-  const [loadingPrompt, setLoadingPrompt] = useState(false)
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
+  const [compactionModel, setCompactionModel] = useState('')
+  const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -175,7 +174,9 @@ function CodeReviewerAgent() {
           code_report: codeReport,
           conversation_history: history,
           images: [...systemDescriptionImages, ...incidentReportImages],
-          model_name: selectedModel || undefined
+          model_name: selectedModel || undefined,
+          compaction_model: compactionModel || undefined,
+          compaction_threshold: compactionThreshold / 100
         }),
         signal: controller.signal
       })
@@ -237,6 +238,18 @@ function CodeReviewerAgent() {
             setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
+          } else if (event.type === 'context_compaction') {
+            setConversationHistory((prev) => [
+              ...prev.slice(0, streamingIdx),
+              {
+                role: 'system',
+                type: 'context_compaction',
+                original_tokens: event.original_tokens,
+                compacted_tokens: event.compacted_tokens,
+                compaction_model: event.compaction_model
+              },
+              prev[streamingIdx]
+            ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
@@ -504,27 +517,6 @@ function CodeReviewerAgent() {
     }
   }
 
-  const fetchPrompt = async () => {
-    setLoadingPrompt(true)
-    try {
-      const result = await getPromptText()
-      if (result != null) {
-        if (typeof result === 'object' && result.text !== undefined) {
-          setPromptText(result.text)
-          setPromptImages(result.images || [])
-        } else {
-          setPromptText(result)
-          setPromptImages([])
-        }
-        setShowPromptModal(true)
-      }
-    } catch (err) {
-      setAlert({ type: 'danger', message: `Failed to fetch prompt: ${err.message}` })
-    } finally {
-      setLoadingPrompt(false)
-    }
-  }
-
   const fetchHistory = async () => {
     try {
       const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code_review`, {
@@ -616,6 +608,15 @@ function CodeReviewerAgent() {
         <li className="nav-item">
           <button
             type="button"
+            className={`nav-link${activeTab === 'agents' ? ' active' : ''}`}
+            onClick={() => setActiveTab('agents')}
+          >
+            Agents
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
             className={`nav-link${activeTab === 'planning' ? ' active' : ''}`}
             onClick={() => setActiveTab('planning')}
           >
@@ -655,17 +656,44 @@ function CodeReviewerAgent() {
           handleRun={handleRun}
           loadExample={loadExample}
           handleClear={handleClear}
-          fetchPrompt={fetchPrompt}
-          loadingPrompt={loadingPrompt}
-          models={models}
-          selectedModel={selectedModel}
-          setSelectedModel={setSelectedModel}
           autopilot={autopilot}
           setAutopilot={setAutopilot}
-          showPromptModal={showPromptModal}
-          promptText={promptText}
-          promptImages={promptImages}
-          setShowPromptModal={setShowPromptModal}
+        />
+      )}
+
+      {activeTab === 'agents' && (
+        <AgentConfigTable
+          models={models}
+          isAgentBusy={isAgentBusy}
+          token={token}
+          getPromptBody={() => ({
+            system_description: systemDescription,
+            incident_report: incidentReport,
+            specification: specification,
+            operator_feedback: operatorFeedback,
+            code_report: codeReport
+          })}
+          rows={[
+            {
+              label: 'Code Reviewer',
+              model: selectedModel,
+              setModel: setSelectedModel,
+              promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL,
+              iteration: null,
+              compaction: compactionThreshold,
+              setCompaction: setCompactionThreshold
+            },
+            {
+              label: 'Compaction LLM',
+              model: compactionModel,
+              setModel: setCompactionModel,
+              promptUrl: null,
+              iteration: null,
+              compaction: null,
+              setCompaction: null,
+              defaultLabel: 'Default (same as agent)'
+            }
+          ]}
         />
       )}
 

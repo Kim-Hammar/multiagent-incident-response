@@ -13,8 +13,13 @@ from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
 from ccs_response_planner_backend.agents.anthropic_adapter import (
+    ANTHROPIC_CONTEXT_LIMIT,
     is_anthropic_model,
     stream_step as anthropic_stream_step,
+)
+from ccs_response_planner_backend.agents.context_utils import (
+    compact_tool_result,
+    maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
@@ -122,6 +127,8 @@ class ReportManagerAgent:
         model_name: str | None = None,
         max_iterations: int = 2,
         validation_feedback: str = "",
+        compaction_model: str | None = None,
+        compaction_threshold: float = 0.8,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the orchestrator agent loop by one step.
@@ -138,9 +145,12 @@ class ReportManagerAgent:
         :param operator_feedback: operator feedback or guidance
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
-        :param model_name: optional LLM model name override
+        :param model_name: optional LLM name override
         :param max_iterations: maximum generate-review cycles
         :param validation_feedback: feedback from validation phase
+        :param compaction_model: optional LLM for compaction
+        :param compaction_threshold: context usage fraction that
+            triggers compaction (default 0.8)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -194,6 +204,19 @@ class ReportManagerAgent:
             "images": list(images or []),
         }
 
+        ctx_limit = (
+            ANTHROPIC_CONTEXT_LIMIT
+            if is_anthropic_model(effective_model)
+            else CONTEXT_LIMIT
+        )
+        if conversation_history and compaction_threshold > 0:
+            for ev in maybe_compact_context(
+                conversation_history, ctx_limit,
+                threshold=compaction_threshold,
+                compaction_model=compaction_model,
+            ):
+                yield ev
+
         declarations = (
             ALL_DECLARATIONS
             if self._has_reviewed(conversation_history)
@@ -218,7 +241,10 @@ class ReportManagerAgent:
                     "report_manager_report"
                 ),
                 thinking_budget=THINKING_BUDGET,
-                images=images,
+                images=(
+                    images if not conversation_history
+                    else None
+                ),
                 model_name=effective_model,
             )
             return
@@ -228,8 +254,11 @@ class ReportManagerAgent:
             system_prompt, declarations,
         )
 
+        initial_images = (
+            images if not conversation_history else None
+        )
         contents = (
-            [_build_initial_message(images)]
+            [_build_initial_message(initial_images)]
             + self._build_contents(
                 conversation_history,
             )
@@ -309,11 +338,6 @@ class ReportManagerAgent:
                     if function_call.args
                     else {},
                 )
-                img = self._extract_attack_path_image(
-                    conversation_history,
-                )
-                if img:
-                    report["attack_path_image"] = img
                 event: dict[str, Any] = {
                     "type": "report_manager_report",
                     "report_manager_report": report,
@@ -344,43 +368,7 @@ class ReportManagerAgent:
             fallback = self._parse_report_manager_report(
                 full_text,
             )
-            img = self._extract_attack_path_image(
-                conversation_history,
-            )
-            if img:
-                fallback["report_manager_report"][
-                    "attack_path_image"
-                ] = img
             yield fallback
-
-    @staticmethod
-    def _extract_attack_path_image(
-        history: list[dict[str, Any]],
-    ) -> str:
-        """
-        Extract the attack_path_image from the most recent
-        run_report_agent tool result in the conversation
-        history.
-
-        :param history: the conversation history list
-        :return: the image data URL, or empty string
-        """
-        for entry in reversed(history):
-            if (
-                entry.get("type") == "tool_result"
-                and entry.get("tool_name")
-                == "run_report_agent"
-            ):
-                result = entry.get("result", {})
-                assessment = result.get(
-                    "assessment", {},
-                )
-                img = str(assessment.get(
-                    "attack_path_image", "",
-                ))
-                if img:
-                    return img
-        return ""
 
     @staticmethod
     def _has_reviewed(
@@ -668,10 +656,13 @@ class ReportManagerAgent:
                     "tool_name", "",
                 )
                 result = entry.get("result", {})
-                result_data: Any = result
-                if isinstance(result, dict):
+                compact = compact_tool_result(
+                    tool_name, result,
+                )
+                result_data: Any = compact
+                if isinstance(compact, dict):
                     result_data = json.dumps(
-                        result, default=str,
+                        compact, default=str,
                     )
                 contents.append({
                     "role": "user",
@@ -698,6 +689,16 @@ class ReportManagerAgent:
                             ),
                         },
                     ],
+                })
+
+            elif entry_type == "context_summary":
+                summary_text = (
+                    "Previous conversation summary:\n"
+                    + entry.get("summary", "")
+                )
+                contents.append({
+                    "role": "user",
+                    "parts": [{"text": summary_text}],
                 })
 
             elif entry_type == (

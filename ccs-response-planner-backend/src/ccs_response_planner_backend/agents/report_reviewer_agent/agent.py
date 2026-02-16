@@ -12,11 +12,13 @@ from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
 from ccs_response_planner_backend.agents.anthropic_adapter import (
+    ANTHROPIC_CONTEXT_LIMIT,
     is_anthropic_model,
     stream_step as anthropic_stream_step,
 )
 from ccs_response_planner_backend.agents.context_utils import (
     compact_tool_result,
+    maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
@@ -225,6 +227,8 @@ class ReportReviewerAgent:
         model_name: str | None = None,
         dt_config: dict[str, Any] | None = None,
         review_iteration: int = 1,
+        compaction_model: str | None = None,
+        compaction_threshold: float = 0.8,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -242,9 +246,12 @@ class ReportReviewerAgent:
         :param incident_report: the ReportAgent assessment to review
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
-        :param model_name: optional LLM model name override
+        :param model_name: optional LLM name override
         :param dt_config: digital twin configuration dict
         :param review_iteration: 1-based review iteration number
+        :param compaction_model: optional LLM for compaction
+        :param compaction_threshold: context usage fraction that
+            triggers compaction (default 0.8)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -275,17 +282,24 @@ class ReportReviewerAgent:
                 )
             ),
         )
-        all_images = list(images or [])
-        attack_img = (incident_report or {}).get(
-            "attack_path_image",
-        )
-        if attack_img and isinstance(attack_img, str):
-            all_images.append(attack_img)
         yield {
             "type": "system_prompt",
             "text": system_prompt,
-            "images": all_images,
+            "images": list(images or []),
         }
+
+        ctx_limit = (
+            ANTHROPIC_CONTEXT_LIMIT
+            if is_anthropic_model(effective_model)
+            else CONTEXT_LIMIT
+        )
+        if conversation_history and compaction_threshold > 0:
+            for ev in maybe_compact_context(
+                conversation_history, ctx_limit,
+                threshold=compaction_threshold,
+                compaction_model=compaction_model,
+            ):
+                yield ev
 
         declarations = (
             ALL_DECLARATIONS
@@ -310,7 +324,11 @@ class ReportReviewerAgent:
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type="report_review",
                 thinking_budget=THINKING_BUDGET,
-                images=all_images,
+                images=(
+                    images
+                    if not conversation_history
+                    else None
+                ),
                 model_name=effective_model,
             )
             return
@@ -320,8 +338,12 @@ class ReportReviewerAgent:
             system_prompt, declarations,
         )
 
+        initial_images = (
+            images if not conversation_history
+            else None
+        )
         contents = (
-            [_build_initial_message(all_images)]
+            [_build_initial_message(initial_images)]
             + self._build_contents(conversation_history)
         )
 
@@ -736,6 +758,16 @@ class ReportReviewerAgent:
                             ),
                         },
                     ],
+                })
+
+            elif entry_type == "context_summary":
+                summary_text = (
+                    "Previous conversation summary:\n"
+                    + entry.get("summary", "")
+                )
+                contents.append({
+                    "role": "user",
+                    "parts": [{"text": summary_text}],
                 })
 
             elif entry_type == "report_review":

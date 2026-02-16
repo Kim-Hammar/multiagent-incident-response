@@ -116,7 +116,16 @@ Are ordering constraints between actions properly modeled? For example:
 - Can't restore before evicting
 If an action is taken out of order, does it have reduced effectiveness?
 
-### 6. Reward Function
+### 6. Terminal State Reachability
+Verify that it is always feasible to reach the terminal state where \
+all recovery dimensions are 1.0 and all specifications are satisfied. \
+Check that every recovery dimension has at least one action (or \
+sequence of actions) that can drive it to 1.0, and that every action \
+which can break a specification has a corresponding action that can \
+restore it. Flag any dead ends where stochastic outcomes could leave \
+the agent stuck.
+
+### 7. Reward Function
 Is the phase-weighted reward function implemented correctly? The reward \
 per step must be:
 
@@ -135,7 +144,7 @@ specs passing)
 commands pass — specs may be temporarily violated during recovery but \
 must be fully satisfied before the episode ends
 
-### 7. Code Quality
+### 8. Code Quality
 Does the code subclass `gymnasium.Env` properly? Does it implement all 4 \
 required methods (`get_actions`, `step`, `reset`, `set_state`)? Does it \
 handle seeding via `reset(seed=...)`? Are numpy arrays used correctly?

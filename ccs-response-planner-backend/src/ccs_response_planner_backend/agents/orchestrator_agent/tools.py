@@ -91,6 +91,12 @@ def run_report_manager_stream(
         "max_iterations": context.get(
             "report_manager_iterations", 2,
         ),
+        "compaction_model": context.get(
+            "compaction_model",
+        ),
+        "compaction_threshold": context.get(
+            "report_manager_compaction", 0.8,
+        ),
         "conversation_history": conversation_history,
     }
     rm_context: dict[str, Any] = {
@@ -178,6 +184,11 @@ def run_report_manager_stream(
                             "context_limit", 0,
                         ),
                     },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
                 }
             elif etype == "tool_proposal":
                 pending_tool = event
@@ -424,7 +435,11 @@ def run_plan_manager_stream(
         DIGITAL_TWIN,
     )
 
-    assessment = context.get("assessment", {})
+    raw_assessment = context.get("assessment", {})
+    assessment = {
+        k: v for k, v in raw_assessment.items()
+        if k != "attack_path_image"
+    }
     incident_report = json.dumps(
         assessment, indent=2, default=str,
     )
@@ -455,17 +470,31 @@ def run_plan_manager_stream(
         "operator_feedback": context.get(
             "operator_feedback", "",
         ),
-        "images": context.get("images"),
         "model_name": context.get(
             "plan_manager_model",
         ),
         "max_iterations": context.get(
             "plan_manager_iterations", 2,
         ),
+        "compaction_model": context.get(
+            "compaction_model",
+        ),
+        "compaction_threshold": context.get(
+            "plan_manager_compaction", 0.8,
+        ),
         "conversation_history": conversation_history,
     }
+    # Strip images and attack_path_image from the plan
+    # manager context — it works with the text-based
+    # incident report and specification, not the raw
+    # base64 blobs (which bloat the context).
+    pm_context_base = {
+        k: v for k, v in context.items()
+        if k not in ("images", "assessment")
+    }
+    pm_context_base["assessment"] = assessment
     pm_context: dict[str, Any] = {
-        **context,
+        **pm_context_base,
         "code_manager_model": context.get(
             "code_manager_model",
         ),
@@ -566,6 +595,11 @@ def run_plan_manager_stream(
                             "context_limit", 0,
                         ),
                     },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
                 }
             elif etype == "tool_proposal":
                 pending_tool = event
@@ -679,7 +713,13 @@ def run_plan_manager_stream(
                 except Exception as e:
                     tool_result = {"error": str(e)}
 
-                if tool_name == "run_rl_agent":
+                if tool_name == "run_code_manager":
+                    pm_context["code_report"] = (
+                        tool_result.get(
+                            "code_report", {},
+                        )
+                    )
+                elif tool_name == "run_rl_agent":
                     planner = tool_result.get(
                         "planner_report", {},
                     )
@@ -688,6 +728,20 @@ def run_plan_manager_stream(
                         tool_result.get(
                             "response_plan", "",
                         ),
+                    )
+                    pm_context["planner_report"] = (
+                        planner
+                    )
+                    pm_context["response_plan"] = (
+                        response_plan
+                    )
+                elif tool_name == (
+                    "run_validation_agent"
+                ):
+                    pm_context["validation_report"] = (
+                        tool_result.get(
+                            "validation_report", {},
+                        )
                     )
 
                 sub_result = _truncate_result(

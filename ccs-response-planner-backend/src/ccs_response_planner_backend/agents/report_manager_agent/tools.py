@@ -87,6 +87,12 @@ def run_report_agent_stream(
             is_revision=bool(
                 previous_assessment and review_feedback
             ),
+            compaction_model=context.get(
+                "compaction_model",
+            ),
+            compaction_threshold=context.get(
+                "report_agent_compaction", 0.8,
+            ),
         ):
             etype = event.get("type")
 
@@ -153,6 +159,11 @@ def run_report_agent_stream(
                             "context_limit", 0,
                         ),
                     },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
                 }
             elif etype == "tool_proposal":
                 tool_name = event.get("tool_name", "")
@@ -282,9 +293,22 @@ def run_report_agent_stream(
             "Failed to save report: %s", e,
         )
 
+    # Separate attack_path_image from assessment to prevent
+    # the large base64 blob from entering conversation history
+    # and downstream agent contexts.  The image is already
+    # saved in the DB record above.
+    done_assessment = {
+        k: v for k, v in assessment.items()
+        if k != "attack_path_image"
+    }
     yield {
         "type": "done",
-        "result": {"assessment": assessment},
+        "result": {
+            "assessment": done_assessment,
+            "attack_path_image": assessment.get(
+                "attack_path_image",
+            ),
+        },
     }
 
 
@@ -355,6 +379,12 @@ def run_report_reviewer_agent_stream(
             review_iteration=context.get(
                 "review_count", 1,
             ),
+            compaction_model=context.get(
+                "compaction_model",
+            ),
+            compaction_threshold=context.get(
+                "report_reviewer_compaction", 0.8,
+            ),
         ):
             etype = event.get("type")
 
@@ -421,6 +451,11 @@ def run_report_reviewer_agent_stream(
                             "context_limit", 0,
                         ),
                     },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
                 }
             elif etype == "tool_proposal":
                 tool_name = event.get("tool_name", "")

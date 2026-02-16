@@ -81,14 +81,9 @@ the target host, the technique or exploit used (with CVE ID if known), and \
 what the attacker achieved (e.g. "root shell", "data exfiltration").
    - **Visual instructions:** Which hosts to mark as compromised, the \
 direction of attack arrows, and any lateral movement across zone boundaries.
-7. After receiving the generated image, **carefully verify** that it accurately \
-depicts the attack path from your assessment. Check that the correct hosts, \
-attack direction, lateral movement steps, and techniques are shown. If the \
-image is inaccurate or misleading (e.g. wrong hosts, missing steps, incorrect \
-arrows), call `generate_attack_image` again with a revised, more specific \
-prompt that corrects the issues. Repeat until the image properly matches your \
-assessment. Only proceed to the next step once you are satisfied with the image.
-8. After the image is verified, call the \
+   Call the tool once with a thorough prompt and move on — do NOT attempt to \
+verify or regenerate the image.
+7. After generating the image, call the \
 `produce_assessment` tool with the structured assessment data.
 
 ## Digital Twin Environment

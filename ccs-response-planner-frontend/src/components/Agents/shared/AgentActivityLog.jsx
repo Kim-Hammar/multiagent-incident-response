@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import ElapsedTimer from './ElapsedTimer.jsx'
 import PromptModal from './PromptModal.jsx'
+import ContextModal from './ContextModal.jsx'
 import RewardChart from '../RewardChart.jsx'
 import RlTrainResult from '../RlTrainResult.jsx'
 import { formatToolArgs, toolLabel, toolIcon } from './toolUtils.js'
@@ -622,7 +623,15 @@ function renderSubAgentReport(toolName, result) {
 /**
  * Render sub-agent activity events inside a nested container.
  */
-function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, contextUsage }) {
+function SubAgentLog({
+  subEvents,
+  agentLabel,
+  active,
+  modelName,
+  onViewPrompt,
+  onViewContext,
+  contextUsage
+}) {
   const [expanded, setExpanded] = useState({})
   const toggle = (i) => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))
 
@@ -744,6 +753,19 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
                     <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
                   </button>
                 )}
+                {ev.subEvents?.length > 0 && onViewContext && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark btn-sm"
+                    style={{ fontSize: '10px', padding: '1px 8px', marginLeft: '4px' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onViewContext(ev.subEvents)
+                    }}
+                  >
+                    <i className="fa fa-database" aria-hidden="true" /> Context
+                  </button>
+                )}
                 <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
               </div>
               {isOpen && (
@@ -769,6 +791,7 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
                       active={isLast}
                       modelName={ev._modelName}
                       onViewPrompt={onViewPrompt}
+                      onViewContext={onViewContext}
                       contextUsage={ev._contextUsage}
                     />
                   )}
@@ -869,6 +892,22 @@ function SubAgentLog({ subEvents, agentLabel, active, modelName, onViewPrompt, c
             </div>
           )
         }
+        if (ev.type === 'context_compaction') {
+          return (
+            <div key={i} className="ia-sub-entry">
+              <div className="mb-1">
+                <i className="fa fa-compress" aria-hidden="true" />
+                <span className="badge badge-info ml-1" style={{ fontSize: '10px' }}>
+                  Context Compacted
+                </span>
+                <span style={{ fontSize: '10px', color: '#666', marginLeft: '4px' }}>
+                  {ev.original_tokens?.toLocaleString()} &rarr;{' '}
+                  {ev.compacted_tokens?.toLocaleString()} tokens
+                </span>
+              </div>
+            </div>
+          )
+        }
         if (ev.type === 'report') {
           return (
             <div key={i} className="ia-sub-entry ia-sub-report">
@@ -906,6 +945,7 @@ function AgentActivityLog({
 }) {
   const [promptModalText, setPromptModalText] = useState(null)
   const [promptModalImages, setPromptModalImages] = useState([])
+  const [contextModalHistory, setContextModalHistory] = useState(null)
   return (
     <div style={{ marginTop: '28px' }}>
       <div className="ia-log-header">
@@ -1074,20 +1114,35 @@ function AgentActivityLog({
                   </div>
                   {isOpen && (
                     <>
-                      {entry.prompt && (
-                        <button
-                          type="button"
-                          className="btn btn-outline-dark btn-sm"
-                          style={{ fontSize: '11px', padding: '2px 10px', marginTop: '8px' }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPromptModalText(entry.prompt)
-                            setPromptModalImages(entry.promptImages || [])
-                          }}
-                        >
-                          <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
-                        </button>
-                      )}
+                      <div style={{ marginTop: '8px' }}>
+                        {entry.prompt && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-dark btn-sm"
+                            style={{ fontSize: '11px', padding: '2px 10px' }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPromptModalText(entry.prompt)
+                              setPromptModalImages(entry.promptImages || [])
+                            }}
+                          >
+                            <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
+                          </button>
+                        )}
+                        {hasSubEvents && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-dark btn-sm"
+                            style={{ fontSize: '11px', padding: '2px 10px', marginLeft: '4px' }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setContextModalHistory(entry.subEvents)
+                            }}
+                          >
+                            <i className="fa fa-database" aria-hidden="true" /> Context
+                          </button>
+                        )}
+                      </div>
                       {hasSubEvents ? (
                         <SubAgentLog
                           subEvents={entry.subEvents}
@@ -1098,6 +1153,7 @@ function AgentActivityLog({
                             setPromptModalText(text)
                             setPromptModalImages(images || [])
                           }}
+                          onViewContext={(history) => setContextModalHistory(history)}
                           contextUsage={entry.contextUsage}
                         />
                       ) : (
@@ -1180,23 +1236,36 @@ function AgentActivityLog({
                           label={`${agentLabel} planning process`}
                           icon="fa-sitemap"
                         >
-                          {entry.prompt && (
+                          <div style={{ marginBottom: '8px' }}>
+                            {entry.prompt && (
+                              <button
+                                type="button"
+                                className="btn btn-outline-dark btn-sm"
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '2px 10px'
+                                }}
+                                onClick={() => {
+                                  setPromptModalText(entry.prompt)
+                                  setPromptModalImages(entry.promptImages || [])
+                                }}
+                              >
+                                <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="btn btn-outline-dark btn-sm"
                               style={{
                                 fontSize: '11px',
                                 padding: '2px 10px',
-                                marginBottom: '8px'
+                                marginLeft: '4px'
                               }}
-                              onClick={() => {
-                                setPromptModalText(entry.prompt)
-                                setPromptModalImages(entry.promptImages || [])
-                              }}
+                              onClick={() => setContextModalHistory(entry.subEvents)}
                             >
-                              <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
+                              <i className="fa fa-database" aria-hidden="true" /> Context
                             </button>
-                          )}
+                          </div>
                           <SubAgentLog
                             subEvents={entry.subEvents}
                             agentLabel={agentLabel}
@@ -1205,6 +1274,7 @@ function AgentActivityLog({
                               setPromptModalText(text)
                               setPromptModalImages(images || [])
                             }}
+                            onViewContext={(history) => setContextModalHistory(history)}
                             contextUsage={entry.contextUsage}
                           />
                         </CollapsibleSection>
@@ -1225,6 +1295,26 @@ function AgentActivityLog({
                     <span className="ia-tool-name">Agent step failed</span>
                   </div>
                   <p className="ia-error-message mb-0">{entry.message}</p>
+                </div>
+              </div>
+            )
+          }
+
+          if (entry.type === 'context_compaction') {
+            return (
+              <div key={index} className="card ia-entry">
+                <div className="card-body">
+                  <i className="fa fa-compress" aria-hidden="true" />
+                  <span className="badge badge-info ml-2">Context Compacted</span>
+                  <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>
+                    {entry.original_tokens?.toLocaleString()} &rarr;{' '}
+                    {entry.compacted_tokens?.toLocaleString()} tokens
+                  </span>
+                  {entry.compaction_model && (
+                    <span style={{ fontSize: '10px', color: '#888', marginLeft: '8px' }}>
+                      via {entry.compaction_model}
+                    </span>
+                  )}
                 </div>
               </div>
             )
@@ -1269,6 +1359,11 @@ function AgentActivityLog({
           setPromptModalText(null)
           setPromptModalImages([])
         }}
+      />
+      <ContextModal
+        show={!!contextModalHistory}
+        conversationHistory={contextModalHistory || []}
+        onClose={() => setContextModalHistory(null)}
       />
     </div>
   )

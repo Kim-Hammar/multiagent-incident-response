@@ -102,7 +102,7 @@ def python_exec(code: str) -> dict[str, Any]:
 
 
 def dp_solve(
-    code: str, time_limit_minutes: int = 5,
+    code: str, time_limit_minutes: int = 10,
     method: str = "", parameters: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """

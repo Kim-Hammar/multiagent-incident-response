@@ -1,5 +1,4 @@
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
-import PromptModal from './shared/PromptModal.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
@@ -16,8 +15,6 @@ function RlAgentConfigTab({
   setOperatorFeedback,
   codeReport,
   setCodeReport,
-  timeLimitMinutes,
-  setTimeLimitMinutes,
   systemDescriptionImages,
   setSystemDescriptionImages,
   incidentReportImages,
@@ -27,17 +24,8 @@ function RlAgentConfigTab({
   handleRun,
   loadExample,
   handleClear,
-  fetchPrompt,
-  loadingPrompt,
-  models,
-  selectedModel,
-  setSelectedModel,
   autopilot,
-  setAutopilot,
-  showPromptModal,
-  promptText,
-  promptImages,
-  setShowPromptModal
+  setAutopilot
 }) {
   return (
     <div style={{ marginTop: '16px' }}>
@@ -138,23 +126,6 @@ function RlAgentConfigTab({
           style={{ fontFamily: 'monospace', fontSize: '12px' }}
         />
       </div>
-      <div className="ia-section">
-        <label htmlFor="mdp-time-limit">Training time limit (minutes)</label>
-        <p className="ia-hint">
-          Maximum wall-clock time for RL training. Training stops when this limit is reached.
-        </p>
-        <input
-          id="mdp-time-limit"
-          type="number"
-          className="form-control form-control-sm"
-          style={{ width: '120px' }}
-          min="1"
-          max="60"
-          value={timeLimitMinutes}
-          onChange={(e) => setTimeLimitMinutes(Math.max(1, Math.min(60, Number(e.target.value))))}
-          disabled={isAgentBusy}
-        />
-      </div>
       <button
         type="button"
         className="btn btn-dark btn-sm ia-btn"
@@ -173,29 +144,6 @@ function RlAgentConfigTab({
       >
         <i className="fa fa-eraser" aria-hidden="true" /> Clear all
       </button>
-      <button
-        type="button"
-        className="btn btn-outline-dark btn-sm ia-btn"
-        onClick={fetchPrompt}
-        disabled={loadingPrompt}
-      >
-        <i className="fa fa-file-text-o" aria-hidden="true" />{' '}
-        {loadingPrompt ? 'Loading...' : 'Show prompt'}
-      </button>
-      <span className="ia-model-label">LLM:</span>
-      <select
-        className="form-control form-control-sm ia-model-select"
-        value={selectedModel}
-        onChange={(e) => setSelectedModel(e.target.value)}
-        disabled={isAgentBusy}
-      >
-        <option value="">Default (Gemini 3 Pro)</option>
-        {models.map((m) => (
-          <option key={m.name} value={m.name}>
-            {m.display_name}
-          </option>
-        ))}
-      </select>
       <div className="form-check form-check-inline ia-btn">
         <input
           className="form-check-input"
@@ -208,13 +156,6 @@ function RlAgentConfigTab({
           Autopilot <span className="ia-hint">(auto-approve all tool requests)</span>
         </label>
       </div>
-
-      <PromptModal
-        show={showPromptModal}
-        promptText={promptText}
-        promptImages={promptImages}
-        onClose={() => setShowPromptModal(false)}
-      />
     </div>
   )
 }

@@ -186,6 +186,11 @@ def _run_sub_agent_loop(
                         ),
                     },
                 }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
+                }
             elif etype == "tool_proposal":
                 pending_tool = event
 
@@ -395,7 +400,6 @@ def run_code_manager_stream(
         "operator_feedback": context.get(
             "operator_feedback", "",
         ),
-        "images": context.get("images"),
         "validation_feedback": validation_feedback,
         "conversation_history": [],
         "model_name": context.get(
@@ -404,9 +408,19 @@ def run_code_manager_stream(
         "max_iterations": context.get(
             "code_manager_iterations", 3,
         ),
+        "compaction_model": context.get(
+            "compaction_model",
+        ),
+        "compaction_threshold": context.get(
+            "code_manager_compaction", 0.8,
+        ),
+    }
+    cm_context_base = {
+        k: v for k, v in context.items()
+        if k not in ("images", "attack_path_image")
     }
     cm_context = {
-        **context,
+        **cm_context_base,
         "last_code_report": {},
         "review_count": 0,
         "code_agent_model": context.get(
@@ -496,6 +510,11 @@ def run_code_manager_stream(
                             "context_limit", 0,
                         ),
                     },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
                 }
             elif etype == "tool_proposal":
                 pending_tool = event
@@ -758,7 +777,6 @@ def run_rl_agent_stream(
             "operator_feedback", "",
         ),
         "code_report": code_report,
-        "images": context.get("images"),
         "conversation_history": [],
         "model_name": context.get(
             "rl_agent_model",
@@ -771,6 +789,12 @@ def run_rl_agent_stream(
         ),
         "prev_validation_report": context.get(
             "validation_report",
+        ),
+        "compaction_model": context.get(
+            "compaction_model",
+        ),
+        "compaction_threshold": context.get(
+            "rl_agent_compaction", 0.8,
         ),
     }
 
@@ -906,7 +930,6 @@ def run_validation_agent_stream(
         "specification": specification,
         "planner_report": planner_report,
         "code_report": code_report,
-        "images": context.get("images"),
         "has_policy": True,
         "conversation_history": [],
         "model_name": context.get(
@@ -915,6 +938,12 @@ def run_validation_agent_stream(
         "dt_config": context.get("dt_config"),
         "validation_feedback": context.get(
             "validation_report",
+        ),
+        "compaction_model": context.get(
+            "compaction_model",
+        ),
+        "compaction_threshold": context.get(
+            "validation_agent_compaction", 0.8,
         ),
     }
 

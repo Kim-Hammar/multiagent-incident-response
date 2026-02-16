@@ -23,7 +23,8 @@ export const TOOL_LABELS = {
   run_rl_agent: { label: 'RL Agent', icon: 'fa-line-chart' },
   run_validation_agent: { label: 'Validation Agent', icon: 'fa-check-circle' },
   produce_plan_manager_report: { label: 'Plan Manager Report', icon: 'fa-flag-checkered' },
-  generate_attack_image: { label: 'Attack Path Image', icon: 'fa-image' }
+  generate_attack_image: { label: 'Attack Path Image', icon: 'fa-image' },
+  context_compaction: { label: 'Context Compaction', icon: 'fa-compress' }
 }
 
 export function formatToolArgs(toolName, args) {
@@ -63,12 +64,12 @@ export function formatToolArgs(toolName, args) {
     case 'rl_train':
       return [
         ['Code', args.code || '', true],
-        ['Time limit', `${args.time_limit_minutes || 5} min`]
+        ['Time limit', `${args.time_limit_minutes || 10} min`]
       ]
     case 'dp_solve':
       return [
         ['Code', args.code || '', true],
-        ['Time limit', `${args.time_limit_minutes || 5} min`]
+        ['Time limit', `${args.time_limit_minutes || 10} min`]
       ]
     case 'gym_verify':
       return [['Code', args.code || '', true]]

@@ -1,6 +1,10 @@
 """Tests for the context_utils compact_tool_result helper."""
+from unittest.mock import patch
+
 from ccs_response_planner_backend.agents.context_utils import (
     compact_tool_result,
+    estimate_tokens,
+    maybe_compact_context,
 )
 
 
@@ -163,30 +167,156 @@ def test_compact_non_dict_passthrough() -> None:
     assert compact_tool_result("dt_exec", None) is None
 
 
-def test_compact_images_false_preserves_image() -> None:
+def test_compact_always_strips_image() -> None:
     """
-    When compact_images=False the image data should be
-    kept so the agent can inspect it on the next step.
+    Image data should always be replaced with a placeholder
+    regardless of the compact_images flag.
     """
     big_image = "data:image/png;base64," + "A" * 100_000
     result = {"image": big_image, "description": "Attack path"}
-    compact = compact_tool_result(
-        "generate_attack_image", result,
-        compact_images=False,
-    )
-    assert compact["image"] == big_image
-    assert compact["description"] == "Attack path"
+    for flag in (True, False):
+        compact = compact_tool_result(
+            "generate_attack_image", result,
+            compact_images=flag,
+        )
+        assert compact["image"] == "(image generated successfully)"
+        assert compact["description"] == "Attack path"
 
 
-def test_compact_images_true_strips_image() -> None:
+def test_compact_strips_attack_path_image_nested() -> None:
     """
-    When compact_images=True (default) the image data
-    should be replaced with a placeholder.
+    attack_path_image keys should be recursively stripped
+    from any tool result.
     """
-    big_image = "data:image/png;base64," + "A" * 100_000
-    result = {"image": big_image}
+    big_image = "data:image/png;base64," + "B" * 50_000
+    result = {
+        "assessment": {
+            "title": "Report",
+            "attack_path_image": big_image,
+        },
+        "status": "ok",
+    }
     compact = compact_tool_result(
-        "generate_attack_image", result,
-        compact_images=True,
+        "run_report_agent", result,
     )
-    assert compact["image"] == "(image generated successfully)"
+    assert "attack_path_image" not in compact["assessment"]
+    assert compact["assessment"]["title"] == "Report"
+    assert compact["status"] == "ok"
+
+
+def test_estimate_tokens_empty() -> None:
+    """
+    An empty conversation history should return near 0.
+    """
+    result = estimate_tokens([])
+    assert result < 5
+
+
+def test_estimate_tokens_proportional() -> None:
+    """
+    A larger history should return a proportionally larger
+    estimate.
+    """
+    small = [{"type": "tool_result", "result": "ok"}]
+    large = [
+        {"type": "tool_result", "result": "x" * 1000}
+        for _ in range(10)
+    ]
+    assert estimate_tokens(large) > estimate_tokens(small)
+
+
+def test_maybe_compact_below_threshold() -> None:
+    """
+    When the estimated tokens are below the threshold,
+    no event should be yielded and history is unchanged.
+    """
+    history = [
+        {"type": "tool_result", "result": "ok"},
+        {"type": "tool_proposal", "tool_name": "t"},
+    ]
+    original = list(history)
+    events = list(maybe_compact_context(
+        history,
+        context_limit=1_000_000,
+        threshold=0.8,
+    ))
+    assert events == []
+    assert history == original
+
+
+@patch(
+    "ccs_response_planner_backend.agents"
+    ".context_utils.compact_context",
+)
+def test_maybe_compact_above_threshold(
+    mock_compact,
+) -> None:
+    """
+    When the estimated tokens exceed the threshold,
+    a context_compaction event should be yielded and
+    history should be mutated.
+    """
+    mock_compact.return_value = "Summary of older entries."
+    history = [
+        {"type": "tool_proposal", "tool_name": "a"},
+        {"type": "tool_result", "result": "res_a"},
+        {"type": "tool_proposal", "tool_name": "b"},
+        {"type": "tool_result", "result": "res_b"},
+    ]
+    events = list(maybe_compact_context(
+        history,
+        context_limit=10,
+        threshold=0.01,
+    ))
+    assert len(events) == 1
+    ev = events[0]
+    assert ev["type"] == "context_compaction"
+    assert "original_tokens" in ev
+    assert "compacted_tokens" in ev
+    assert "compaction_model" in ev
+    assert history[0]["type"] == "context_summary"
+    assert history[0]["summary"] == (
+        "Summary of older entries."
+    )
+    mock_compact.assert_called_once()
+
+
+@patch(
+    "ccs_response_planner_backend.agents"
+    ".context_utils.compact_context",
+)
+def test_maybe_compact_preserves_recent(
+    mock_compact,
+) -> None:
+    """
+    The last N entries should be preserved verbatim
+    after compaction.
+    """
+    mock_compact.return_value = "Summary."
+    entry_a = {
+        "type": "tool_proposal",
+        "tool_name": "old",
+    }
+    entry_b = {
+        "type": "tool_result",
+        "result": "old_res",
+    }
+    entry_c = {
+        "type": "tool_proposal",
+        "tool_name": "recent1",
+    }
+    entry_d = {
+        "type": "tool_result",
+        "result": "recent2",
+    }
+    history = [entry_a, entry_b, entry_c, entry_d]
+    list(maybe_compact_context(
+        history,
+        context_limit=10,
+        threshold=0.01,
+        preserve_last_n=2,
+    ))
+    assert len(history) == 3
+    assert history[0]["type"] == "context_summary"
+    assert history[1] is entry_c
+    assert history[2] is entry_d

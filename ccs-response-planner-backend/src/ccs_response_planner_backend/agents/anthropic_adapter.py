@@ -10,6 +10,10 @@ from typing import Any, Generator
 
 import anthropic
 
+from ccs_response_planner_backend.agents.context_utils import (
+    compact_tool_result,
+)
+
 ANTHROPIC_CONTEXT_LIMIT = 200_000
 ANTHROPIC_MAX_TOKENS = 32768
 
@@ -237,18 +241,34 @@ def build_messages(
                 messages, tool_name,
             )
             result = entry.get("result", {})
-            if isinstance(result, dict):
+            compact = compact_tool_result(
+                tool_name, result,
+            )
+            if isinstance(compact, dict):
                 result_str = json.dumps(
-                    result, default=str,
+                    compact, default=str,
                 )
             else:
-                result_str = str(result)
+                result_str = str(compact)
             messages.append({
                 "role": "user",
                 "content": [{
                     "type": "tool_result",
                     "tool_use_id": tool_use_id,
                     "content": result_str,
+                }],
+            })
+
+        elif entry_type == "context_summary":
+            messages.append({
+                "role": "user",
+                "content": [{
+                    "type": "text",
+                    "text": (
+                        "Previous conversation "
+                        "summary:\n"
+                        + entry.get("summary", "")
+                    ),
                 }],
             })
 
