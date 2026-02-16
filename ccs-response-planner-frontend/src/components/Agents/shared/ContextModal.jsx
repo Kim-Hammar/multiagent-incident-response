@@ -104,7 +104,22 @@ function ContextModal({ show, conversationHistory, onClose }) {
             )}
           </div>
 
-          <pre className="ia-prompt-text">{JSON.stringify(entries, null, 2)}</pre>
+          <pre className="ia-prompt-text">
+            {JSON.stringify(
+              entries,
+              (key, value) => {
+                if (
+                  typeof value === 'string' &&
+                  value.startsWith('data:image/') &&
+                  value.length > 200
+                ) {
+                  return '(base64 image omitted)'
+                }
+                return value
+              },
+              2
+            )}
+          </pre>
         </div>
       </div>
     </div>
