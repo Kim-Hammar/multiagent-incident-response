@@ -180,6 +180,65 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                 })
                 if not ok:
                     valid = False
+                if valid:
+                    import numpy as _np
+                    _N_SEEDS = 10
+                    _MAX_STEPS = 100
+                    _n_acts = env.action_space.n
+                    _reached = 0
+                    _step_counts = []
+                    for _sd in range(_N_SEEDS):
+                        obs, _ = env.reset(
+                            seed=_sd + 42
+                        )
+                        for _t in range(_MAX_STEPS):
+                            _bk = _np.array(
+                                obs, dtype=_np.float64
+                            )
+                            _ba, _br = 0, -1e18
+                            for _a in range(_n_acts):
+                                env.set_state(_bk)
+                                _, _r, *_ = env.step(
+                                    _a
+                                )
+                                if _r > _br:
+                                    _ba = _a
+                                    _br = _r
+                            env.set_state(_bk)
+                            obs, _, _tm, _tr, _ = (
+                                env.step(_ba)
+                            )
+                            if _tm or _tr:
+                                _reached += 1
+                                _step_counts.append(
+                                    _t + 1
+                                )
+                                break
+                        else:
+                            _step_counts.append(
+                                _MAX_STEPS
+                            )
+                    _rok = _reached > 0
+                    _rdt = (
+                        f"{_reached}/{_N_SEEDS}"
+                        " seeds reached terminal"
+                    )
+                    if _reached > 0:
+                        _avg = sum(
+                            s for s in _step_counts
+                            if s < _MAX_STEPS
+                        ) / _reached
+                        _rdt += (
+                            f" (avg {_avg:.0f} steps)"
+                        )
+                    checks.append({
+                        "check":
+                            "greedy_reachability",
+                        "passed": _rok,
+                        "detail": _rdt
+                    })
+                    if not _rok:
+                        valid = False
     except Exception:
         valid = False
         error = traceback.format_exc()

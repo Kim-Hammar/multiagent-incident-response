@@ -65,29 +65,52 @@ will use this environment to compute an optimal response plan.
 
 The state must capture **both** the recovery progress and the service \
 / specification health of the system. Use a numpy array of floats in \
-[0, 1]. The state dimensions must include:
+[0, 1].
 
-**Recovery dimensions** (6 floats in [0, 1]):
-- `containment` — degree to which the attack is contained (attacker \
-isolated, lateral movement blocked)
-- `assessment` — degree to which the attack scope is understood \
-(affected hosts, data, entry points identified)
-- `preservation` — degree to which forensic evidence is preserved \
-(logs, artifacts collected before cleanup)
-- `eviction` — degree to which the attacker is evicted (backdoors, \
-malware, unauthorized access removed)
-- `hardening` — degree to which the system is hardened (vulnerabilities \
-patched, configurations tightened)
-- `restoration` — **computed automatically** from the specification \
-dimensions. It equals the fraction of specifications currently \
-passing: `restoration = mean(spec_dims)`. Do NOT make restoration \
-depend on explicit "restart" or "restore" actions — it is purely \
-a function of the specification state. If all specifications are \
-satisfied (all spec dims = 1.0), restoration is automatically 1.0, \
-even if no dedicated restoration action was taken. Specifications \
-may be temporarily violated during earlier phases (e.g. isolating \
-a host breaks connectivity), so restoration may dip during recovery \
-and rise again once specs recover.
+**Six recovery phases.** Incident response follows six well-known \
+phases, each representing a distinct objective:
+1. **Containment** — isolate the attacker: block lateral movement, \
+sever the attacker's network access, segment compromised hosts.
+2. **Assessment** — understand the scope: identify which hosts are \
+compromised, what data was affected, how the attacker entered.
+3. **Preservation** — collect forensic evidence: save logs, capture \
+artifacts before any destructive cleanup.
+4. **Eviction** — remove the attacker: delete backdoors, malware, \
+unauthorized accounts, and persistent mechanisms.
+5. **Hardening** — fix the root cause: patch exploited \
+vulnerabilities, rotate credentials, tighten configurations.
+6. **Restoration** — restore services: bring all specification \
+commands back to passing (computed automatically from spec \
+dimensions — see below).
+
+These six phases are fixed domain knowledge. Do NOT invent other \
+recovery phases.
+
+**Per-host recovery flags in the state vector.** Not every phase \
+needs a state dimension for every host. A host that was not \
+compromised or affected does not need assessment, preservation, \
+eviction, or hardening — it is already recovered. Including only \
+the relevant flags per host keeps the state vector small and, \
+critically, lets the RL agent see **exactly which host still needs \
+which action**. Without per-host flags, aggregate averages hide \
+which host is missing work — e.g. if "assessment" averages 0.66 \
+across three hosts, the agent cannot tell whether Server 1 or \
+Server 6 still needs assessment, causing it to repeat actions on \
+already-assessed hosts.
+
+For each host involved in the incident, add a float in [0, 1] for \
+each relevant recovery sub-task on that host. For example:
+- `fw_block_attacker` (containment — often a single global flag)
+- `s1_assessed`, `s1_preserved`, `s1_evicted`, `s1_web_hardened`
+- `s3_assessed`, `s3_preserved`, `s3_evicted`, `s3_ssh_hardened`
+- `s6_assessed`, `s6_preserved`, `s6_evicted`, `s6_samba_hardened`
+
+The exact flags depend on the incident — think about what recovery \
+sub-tasks are needed for each affected host and add a flag for each. \
+Hosts not involved in the incident do NOT need flags. If you are \
+uncertain whether a host was affected, add an assessment flag for \
+it (initialized to 0.0 — it needs investigation) but omit \
+preservation, eviction, and hardening flags (no known action needed).
 
 **Specification dimensions** (one float per specification command, \
 each in [0, 1]):
@@ -102,18 +125,20 @@ incident report). Actions may inadvertently break specifications \
 (e.g. blocking network traffic to contain the attack may also \
 block a legitimate service).
 
-The initial state should reflect the system at the start of \
-incident response: recovery dimensions at 0 (nothing recovered yet), \
-specification dimensions at values you determine based on the \
-incident report (most services may still be operational, but some \
-may already be degraded by the attack).
+**Restoration** is NOT a per-host flag. It equals the fraction of \
+specifications currently passing: `restoration = mean(spec_dims)`. \
+It reaches 1.0 automatically when all specifications are satisfied. \
+Specifications may be temporarily violated during earlier phases \
+(e.g. isolating a host breaks connectivity), so restoration may \
+dip during recovery and rise again once specs recover.
 
-The episode terminates when all 6 recovery dimensions reach 1.0. \
-Since restoration is computed as `mean(spec_dims)`, it reaches 1.0 \
-automatically when all specifications pass. The episode ends when \
-containment, assessment, preservation, eviction, and hardening are \
-all 1.0 AND all specifications are satisfied (which makes \
-restoration = 1.0 too).
+The initial state should reflect the system at the start of \
+incident response: per-host flags at 0.0 for affected hosts \
+(nothing recovered yet), and specification dimensions at values \
+you determine based on the incident report.
+
+The episode terminates when all per-host recovery flags reach 1.0 \
+AND all specification dimensions reach 1.0.
 
 ### Transition Dynamics — Stochastic Contingencies
 
@@ -146,8 +171,8 @@ it should have reduced effectiveness (lower state change) or no effect.
 might affect other hosts or services. E.g. restarting the firewall \
 might briefly drop all forwarded connections.
 6. **Terminal state reachability** — It must always be feasible to \
-reach the terminal state where all recovery dimensions are 1.0 and \
-all specifications are satisfied. Verify that no combination of \
+reach the terminal state where all per-host recovery flags are 1.0 \
+and all specifications are satisfied. Verify that no combination of \
 stochastic outcomes creates a dead end from which the terminal state \
 is unreachable. Every action that can break a specification (e.g. \
 dropping a route during containment) must have a corresponding action \
@@ -256,8 +281,9 @@ correct incident response ordering: containment first, then \
 assessment, preservation, eviction, hardening, and finally \
 restoration.
 
-The six recovery-state dimensions correspond to these phases \
-(in priority order) with these weights:
+The six recovery phases are **computed from per-host flags** (not \
+stored in the state vector). Each phase's value is the mean of the \
+per-host flags belonging to that phase. The phases and their weights:
 
 | Phase         | Recovery dimension          | Weight |
 |---------------|-----------------------------|--------|
@@ -273,7 +299,7 @@ At every time step the reward is:
     reward = -(6*(1-containment) + 5*(1-assessment) + 4*(1-preservation)
               + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
 
-where each value is the current recovery-state dimension (0.0–1.0). \
+where each phase value is the mean of its per-host flags (0.0–1.0). \
 Do NOT add a separate specification penalty — the impact of failing \
 specifications is already captured by the restoration dimension, which \
 is computed as `mean(spec_dims)`. Adding a separate spec penalty would \
@@ -287,25 +313,27 @@ policy prioritizes them first.
 immediately halves the containment penalty.
 - The maximum per-step penalty is -(6+5+4+3+2+1) = -21.
 
-**Restoration is computed, not set by actions.** After applying the \
-action's effects on recovery dimensions [0:5] and spec dimensions, \
-always recompute restoration from the spec state:
+**The 6 recovery phases are not stored in the state** — they are \
+computed on the fly from the per-host flags for the reward function. \
+Group per-host flags by phase and average them:
 
 ```python
-self.state[5] = np.mean(self.state[6:])  # restoration = mean(specs)
+containment = np.mean([self.state[i] for i in CONTAINMENT_FLAGS])
+assessment = np.mean([self.state[i] for i in ASSESSMENT_FLAGS])
+preservation = np.mean([self.state[i] for i in PRESERVATION_FLAGS])
+eviction = np.mean([self.state[i] for i in EVICTION_FLAGS])
+hardening = np.mean([self.state[i] for i in HARDENING_FLAGS])
+restoration = np.mean(self.state[SPEC_START:])  # fraction of specs passing
+
+PHASE_WEIGHTS = [6, 5, 4, 3, 2, 1]
+phases = [containment, assessment, preservation, eviction, hardening, restoration]
+reward = -sum(w * (1 - p) for w, p in zip(PHASE_WEIGHTS, phases))
 ```
 
-This must happen at the END of every `step()` call, AFTER all other \
-state updates. Actions should NOT directly modify `self.state[5]`.
-
-Implementation of the reward in the `step()` method:
-
-```python
-PHASE_WEIGHTS = [6, 5, 4, 3, 2, 1]  # containment..restoration
-recovery = self.state[:6]  # first 6 dims are recovery progress
-recovery_penalty = sum(w * (1 - p) for w, p in zip(PHASE_WEIGHTS, recovery))
-reward = -recovery_penalty
-```
+Where `CONTAINMENT_FLAGS`, `ASSESSMENT_FLAGS`, etc. are lists of \
+state indices for per-host flags belonging to each phase. \
+Actions update individual per-host flags; the reward sees the \
+aggregate progress automatically.
 
 ### Required Methods
 
@@ -350,14 +378,13 @@ risk/speed trade-offs.
 twin if you are unsure whether they work. You do not need to test all \
 commands — just the ones you are uncertain about.
 4. Use `python_exec` to write and iteratively test the code in the sandbox.
-5. Use `python_exec` to verify terminal state reachability: instantiate \
-the environment and confirm that for every recovery dimension and every \
-specification dimension, there exists at least one action whose \
-transition dynamics can increase it toward 1.0, and that no \
-specification-breaking action lacks a corresponding restoration action. \
-Fix any gaps before proceeding.
-6. Use `gym_verify` to validate the code is a correct Gymnasium environment.
-7. Only call `produce_code_report` after `gym_verify` returns a passing \
+5. Use `gym_verify` to validate the code. This checks required methods, \
+state shape, AND runs a greedy reachability test that confirms the \
+terminal state can be reached within 100 steps. If the reachability \
+check fails, there is a structural problem (e.g. a recovery flag has \
+no action that can advance it, or specification-breaking actions lack \
+corresponding restoration actions). Fix any gaps and re-run `gym_verify`.
+6. Only call `produce_code_report` after `gym_verify` returns a passing \
 result.
 
 ## Available Tools
@@ -365,8 +392,9 @@ result.
 - **python_exec**: Execute arbitrary Python code in a sandbox container. \
 Use this to write, test, and iterate on the environment code.
 - **gym_verify**: Verify that the generated code implements a valid \
-Gymnasium environment. Checks for required methods, state shape, action \
-space, and runs a basic episode.
+Gymnasium environment. Checks for required methods, state shape, and \
+runs a greedy reachability test (10 seeds, 100 steps each) to confirm \
+the terminal state is reachable.
 - **dt_exec**: Execute a shell command on a digital-twin container. \
 A digital twin is a virtual replica of the system affected by the \
 incident, implemented as Docker containers — not everything is \

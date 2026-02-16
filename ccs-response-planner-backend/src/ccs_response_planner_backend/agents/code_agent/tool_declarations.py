@@ -31,8 +31,10 @@ GYM_VERIFY_DECL = genai_types.FunctionDeclaration(
         "Verify that the generated code implements "
         "a valid Gymnasium environment. Checks for "
         "required methods (reset, step, get_actions, "
-        "set_state), runs a basic episode, and "
-        "validates state shape."
+        "set_state), validates state shape, and runs "
+        "a greedy reachability test to confirm the "
+        "terminal state can be reached within 100 "
+        "steps."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",

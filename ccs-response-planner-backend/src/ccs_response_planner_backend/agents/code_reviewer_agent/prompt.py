@@ -56,25 +56,33 @@ The generated code follows a specific design. Your review should \
 work within this structure, not propose a fundamentally different \
 architecture:
 
-- **State** has two parts: (1) six recovery-phase dimensions \
-(containment, assessment, preservation, eviction, hardening, \
-restoration), each a float in [0, 1] tracking progress through \
-that phase; and (2) one specification dimension per specification \
-command, each a float in [0, 1] indicating whether that \
-operational constraint is currently satisfied. Together these \
-capture both how far the response has progressed and whether the \
-system's services are healthy.
+- **State** has two parts: (1) **per-host recovery flags** — one \
+float in [0, 1] for each relevant recovery sub-task on each \
+affected host (e.g. `fw_block_attacker`, `s1_assessed`, \
+`s1_preserved`, `s1_evicted`, `s1_web_hardened`). These flags \
+track exactly which host still needs which action. Hosts not \
+involved in the incident do not need flags. (2) One \
+**specification dimension** per specification command, each a \
+float in [0, 1] indicating whether that operational constraint \
+is currently satisfied. Together these capture both how far the \
+response has progressed and whether the system's services are \
+healthy.
 - **Actions** are concrete incident response commands (shell \
 commands or configuration changes) mapped to specific hosts. \
 Each action advances one or more recovery phases and may have \
 side effects on specification dimensions (e.g., isolating a host \
 improves containment but breaks reachability).
-- **Goal** is to drive all six recovery phases to 1.0 with all \
-specification constraints satisfied, representing a fully \
+- **Goal** is to drive all per-host recovery flags to 1.0 with \
+all specification constraints satisfied, representing a fully \
 recovered system. The episode terminates when this is reached.
 - **Reward** is a weighted negative penalty per step based on \
-remaining progress, incentivizing the agent to reach full \
-recovery as quickly as possible.
+remaining progress. The six canonical recovery phases \
+(containment, assessment, preservation, eviction, hardening, \
+restoration) are **computed on the fly** from per-host flags — \
+each phase value is the mean of the per-host flags belonging to \
+that phase. Restoration equals `mean(spec_dims)`. The weighted \
+penalty incentivizes the agent to reach full recovery as quickly \
+as possible, prioritizing containment first.
 
 Your critiques should focus on whether the model correctly and \
 completely instantiates this structure for the given incident — \
@@ -127,12 +135,12 @@ If an action is taken out of order, does it have reduced effectiveness?
 
 ### 6. Terminal State Reachability
 Verify that it is always feasible to reach the terminal state where \
-all recovery dimensions are 1.0 and all specifications are satisfied. \
-Check that every recovery dimension has at least one action (or \
-sequence of actions) that can drive it to 1.0, and that every action \
-which can break a specification has a corresponding action that can \
-restore it. Flag any dead ends where stochastic outcomes could leave \
-the agent stuck.
+all per-host recovery flags are 1.0 and all specifications are \
+satisfied. Check that every per-host flag has at least one action \
+(or sequence of actions) that can drive it to 1.0, and that every \
+action which can break a specification has a corresponding action \
+that can restore it. Flag any dead ends where stochastic outcomes \
+could leave the agent stuck.
 
 ### 7. Reward Function
 Is the phase-weighted reward function implemented correctly? The reward \
@@ -142,13 +150,17 @@ per step must be:
               + 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration))
 
 Check that:
+- The six phase values are **computed on the fly** from per-host flags: \
+each phase value is `mean(per-host flags for that phase)`, and \
+restoration is `mean(spec_dims)`
 - The weights are correct: containment=6, assessment=5, preservation=4, \
 eviction=3, hardening=2, restoration=1
-- Each penalty term uses `(1 - progress)` where progress is the recovery \
-dimension value (0.0–1.0), so partial progress is rewarded
+- Each penalty term uses `(1 - phase_value)` where phase_value is \
+0.0–1.0, so partial progress is rewarded
 - The reward is always <= 0 (zero only when fully recovered with all \
 specs passing)
-- The episode terminates when all 6 recovery dimensions reach 1.0
+- The episode terminates when all per-host recovery flags reach 1.0 \
+AND all specification dimensions reach 1.0
 - The **restoration** phase can only reach 1.0 when ALL specification \
 commands pass — specs may be temporarily violated during recovery but \
 must be fully satisfied before the episode ends
