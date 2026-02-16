@@ -2404,7 +2404,6 @@ def agents_orchestrator_step() -> (
     )
     images = body.get("images", [])
     model_name = body.get("model_name") or None
-    max_iterations = body.get("max_iterations", 2)
     if not isinstance(images, list):
         images = []
     if not system_description and not security_alerts:
@@ -2438,7 +2437,6 @@ def agents_orchestrator_step() -> (
                 ),
                 images=images,
                 model_name=model_name,
-                max_iterations=max_iterations,
                 compaction_model=body.get(
                     "compaction_model",
                 ) or None,
@@ -2471,7 +2469,6 @@ def agents_orchestrator_prompt() -> (
     :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
-    max_iterations = body.get("max_iterations", 2)
     prompt = ORCHESTRATOR_PROMPT_TEMPLATE.format(
         system_description=body.get(
             "system_description", "",
@@ -2482,7 +2479,6 @@ def agents_orchestrator_prompt() -> (
         operator_feedback=body.get(
             "operator_feedback", "",
         ) or "N/A",
-        max_iterations=max_iterations,
     )
     return jsonify({"prompt": prompt}), 200
 

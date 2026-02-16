@@ -159,7 +159,6 @@ function ResponsePlanner() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(2)
   const [orchestratorModel, setOrchestratorModel] = useState('')
   const [reportManagerModel, setReportManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
@@ -331,8 +330,7 @@ function ResponsePlanner() {
           images: [...systemDescriptionImages, ...securityAlertsImages],
           model_name: orchestratorModel || undefined,
           compaction_model: compactionModel || undefined,
-          compaction_threshold: orchestratorCompaction / 100,
-          max_iterations: maxIterations
+          compaction_threshold: orchestratorCompaction / 100
         })
       })
       if (res.status === 401) {
@@ -750,8 +748,7 @@ function ResponsePlanner() {
       body: JSON.stringify({
         system_description: systemDescription,
         security_alerts: securityAlerts,
-        operator_feedback: operatorFeedback,
-        max_iterations: maxIterations
+        operator_feedback: operatorFeedback
       })
     })
     if (res.status === 401) {
@@ -1037,8 +1034,6 @@ function ResponsePlanner() {
             setValidationAgentModel={setValidationAgentModel}
             compactionModel={compactionModel}
             setCompactionModel={setCompactionModel}
-            maxIterations={maxIterations}
-            setMaxIterations={setMaxIterations}
             reportManagerIterations={reportManagerIterations}
             setReportManagerIterations={setReportManagerIterations}
             planManagerIterations={planManagerIterations}

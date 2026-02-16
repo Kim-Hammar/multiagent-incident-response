@@ -126,7 +126,6 @@ class OrchestratorAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
-        max_iterations: int = 2,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
     ) -> Generator[dict[str, Any], None, None]:
@@ -146,7 +145,6 @@ class OrchestratorAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM name override
-        :param max_iterations: maximum pipeline iterations
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
@@ -164,7 +162,6 @@ class OrchestratorAgent:
             operator_feedback=(
                 operator_feedback or "N/A"
             ),
-            max_iterations=max_iterations,
         )
 
         yield {

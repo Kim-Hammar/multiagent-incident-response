@@ -222,7 +222,6 @@ function OrchestratorAgent() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(2)
   const [orchestratorModel, setOrchestratorModel] = useState('')
   const [reportManagerModel, setReportManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
@@ -383,8 +382,7 @@ function OrchestratorAgent() {
           model_name: orchestratorModel || undefined,
           last_prompt_tokens: contextUsage?.prompt_tokens || 0,
           compaction_model: compactionModel || undefined,
-          compaction_threshold: compactionThreshold / 100,
-          max_iterations: maxIterations
+          compaction_threshold: compactionThreshold / 100
         })
       })
       if (res.status === 401) {
@@ -796,8 +794,7 @@ function OrchestratorAgent() {
       body: JSON.stringify({
         system_description: systemDescription,
         security_alerts: securityAlerts,
-        operator_feedback: operatorFeedback,
-        max_iterations: maxIterations
+        operator_feedback: operatorFeedback
       })
     })
     if (res.status === 401) {
@@ -1102,13 +1099,7 @@ function OrchestratorAgent() {
               model: orchestratorModel,
               setModel: setOrchestratorModel,
               promptUrl: API_AGENTS_ORCHESTRATOR_PROMPT_URL,
-              iteration: {
-                value: maxIterations,
-                set: setMaxIterations,
-                min: 1,
-                max: 5,
-                suffix: 'iterations'
-              },
+              iteration: null,
               compaction: compactionThreshold,
               setCompaction: setCompactionThreshold
             },

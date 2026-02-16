@@ -27,8 +27,6 @@ function SubAgentsTab({
   operatorFeedback,
   orchestratorModel,
   setOrchestratorModel,
-  maxIterations,
-  setMaxIterations,
   reportManagerModel,
   setReportManagerModel,
   reportAgentModel,
@@ -95,8 +93,7 @@ function SubAgentsTab({
         body: JSON.stringify({
           system_description: systemDescription,
           security_alerts: securityAlerts,
-          operator_feedback: operatorFeedback,
-          max_iterations: maxIterations
+          operator_feedback: operatorFeedback
         })
       })
       if (!res.ok) return
@@ -128,13 +125,7 @@ function SubAgentsTab({
       model: orchestratorModel,
       setModel: setOrchestratorModel,
       promptUrl: API_AGENTS_ORCHESTRATOR_PROMPT_URL,
-      iteration: {
-        value: maxIterations,
-        set: setMaxIterations,
-        min: 1,
-        max: 5,
-        suffix: 'iterations'
-      },
+      iteration: null,
       compaction: orchestratorCompaction,
       setCompaction: setOrchestratorCompaction
     },
