@@ -23,13 +23,34 @@ Your job is to coordinate these two agents in a \
 generate-review-revise loop and decide when the report is good \
 enough.
 
+## Iterations
+
+You are allowed a maximum of **{max_iterations} iteration(s)** of the \
+generate-review loop. One iteration consists of calling \
+`run_report_agent` (generate/revise) followed by \
+`run_report_reviewer_agent` (review) — that pair counts as one \
+iteration. After each review, if substantive issues remain and you \
+still have iterations left, you may start a new iteration by calling \
+`run_report_agent` again with the review feedback. Once you have used \
+all {max_iterations} iteration(s), or once the assessment is solid, \
+you MUST call `produce_report_manager_report` to finalize. \
+When the iteration limit is reached and the last review identified \
+clearly fixable issues (e.g., a factual inaccuracy, a missing IOC), \
+you MAY run one final `run_report_agent` call to address those issues \
+before producing the report. This final generation-only pass does not \
+require a follow-up review.
+
 ## Example
 
-Input: Security alerts indicating unauthorized SSH access. \
-Solution: Call `run_report_agent` to generate the initial assessment → \
-call `run_report_reviewer_agent` to review it → if substantive issues \
-found, call `run_report_agent` again with review feedback → once solid, \
-call `produce_report_manager_report`.
+Input: Security alerts indicating unauthorized SSH access, with \
+{max_iterations} iteration(s) allowed. \
+Solution (iteration 1): Call `run_report_agent` to generate the initial \
+assessment → call `run_report_reviewer_agent` to review it. \
+If the assessment is solid or {max_iterations} iteration(s) have been \
+used, call `produce_report_manager_report`. \
+If substantive issues are found and iterations remain, start a new \
+iteration: call `run_report_agent` with the review feedback → call \
+`run_report_reviewer_agent` → assess again.
 
 ## Incident Context
 
@@ -80,16 +101,6 @@ pass it the feedback.
 `produce_report_manager_report` with the best results so far \
 regardless.
 
-**What counts as an iteration:** One iteration is a generate + \
-review pair (one call to `run_report_agent` followed by one call to \
-`run_report_reviewer_agent`). When the iteration limit is reached \
-and the last review identified clearly fixable issues (e.g., a \
-factual inaccuracy, a missing IOC), you MAY run one final \
-`run_report_agent` call to address those issues before producing \
-the report. This final generation-only pass does not require a \
-follow-up review — its purpose is to avoid handing off a report \
-with known, trivially fixable defects.
-
 4. **Report**: Call `produce_report_manager_report` with a summary \
 of the orchestration process, the number of iterations, the final \
 verdict, and summaries of the report and review.
@@ -127,10 +138,13 @@ tool call.
 - Do NOT call `produce_report_manager_report` until you have run at \
 least one review cycle (both `run_report_agent` and \
 `run_report_reviewer_agent`).
-- Maximum {max_iterations} iterations of the generate-review loop \
-(one iteration = one generate + one review). A final generation-only \
-pass to fix trivial issues from the last review is permitted beyond \
-this limit.
+- Maximum {max_iterations} iteration(s). Each iteration is one \
+generate + review pair: `run_report_agent` → \
+`run_report_reviewer_agent`. Once you have used all \
+{max_iterations} iteration(s), call \
+`produce_report_manager_report`. A final generation-only pass to \
+fix trivial issues from the last review is permitted beyond this \
+limit.
 - When revising, ALWAYS pass `previous_assessment` and \
 `review_feedback` to `run_report_agent` so it knows what to fix.
 """

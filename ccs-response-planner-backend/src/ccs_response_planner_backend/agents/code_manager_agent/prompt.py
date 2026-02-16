@@ -24,13 +24,35 @@ review_feedback argument, so it can revise the MDP code \
 accordingly. \
 Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
+## Iterations
+
+You are allowed a maximum of **{max_iterations} iteration(s)** of the \
+generate-review loop. One iteration consists of calling \
+`run_code_agent` (generate/revise) followed by \
+`run_code_reviewer_agent` (review) — that pair counts as one \
+iteration. After each review, if substantive issues remain and you \
+still have iterations left, you may start a new iteration by calling \
+`run_code_agent` again with the review feedback. Once you have used \
+all {max_iterations} iteration(s), or once the code is solid, you \
+MUST call `produce_orchestrator_report` to finalize. \
+When the iteration limit is reached and the last review identified \
+clearly fixable issues (e.g., a syntax error, a wrong command), you \
+MAY run one final `run_code_agent` call to address those issues \
+before producing the report. This final generation-only pass does not \
+require a follow-up review.
+
 ## Example
 
-Input: An incident report and specification commands for a compromised network. \
-Solution: Call `run_code_agent` to generate the MDP code → call \
-`run_code_reviewer_agent` to review it → if substantive issues found \
-(e.g., broken commands, missing actions), call `run_code_agent` with \
-feedback → once solid, call `produce_orchestrator_report`.
+Input: An incident report and specification commands for a compromised \
+network, with {max_iterations} iteration(s) allowed. \
+Solution (iteration 1): Call `run_code_agent` to generate the MDP code \
+→ call `run_code_reviewer_agent` to review it. \
+If the code is solid or {max_iterations} iteration(s) have been used, \
+call `produce_orchestrator_report`. \
+If substantive issues are found (e.g., broken commands, missing \
+actions) and iterations remain, start a new iteration: call \
+`run_code_agent` with the review feedback → call \
+`run_code_reviewer_agent` → assess again.
 
 ## Subagents
 
@@ -171,16 +193,6 @@ actions), go back to step 1 with the review feedback.
 `produce_orchestrator_report` with the best results so far \
 regardless.
 
-**What counts as an iteration:** One iteration is a generate + \
-review pair (one call to `run_code_agent` followed by one call to \
-`run_code_reviewer_agent`). When the iteration limit is reached \
-and the last review identified clearly fixable issues (e.g. a \
-syntax error, a wrong command), you MAY run one final \
-`run_code_agent` call to address those issues before producing \
-the report. This final generation-only pass does not require a \
-follow-up review — its purpose is to avoid handing off code with \
-known, trivially fixable defects.
-
 4. **Report**: Call `produce_orchestrator_report` with a summary \
 of the orchestration process, the number of iterations, the final \
 verdict, and summaries of the code and review reports.
@@ -215,10 +227,12 @@ tool call.
 - Do NOT call `produce_orchestrator_report` until you have run at \
 least one review cycle (both `run_code_agent` and \
 `run_code_reviewer_agent`).
-- Maximum {max_iterations} iterations of the generate-review loop \
-(one iteration = one generate + one review). A final generation-only \
-pass to fix trivial issues from the last review is permitted beyond \
-this limit.
+- Maximum {max_iterations} iteration(s). Each iteration is one \
+generate + review pair: `run_code_agent` → \
+`run_code_reviewer_agent`. Once you have used all \
+{max_iterations} iteration(s), call `produce_orchestrator_report`. \
+A final generation-only pass to fix trivial issues from the last \
+review is permitted beyond this limit.
 - When revising, ALWAYS pass `previous_code` and `review_feedback` \
 to `run_code_agent` so it can improve the code based on the review.
 """
