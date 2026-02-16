@@ -160,9 +160,7 @@ function ReportManagerAgent() {
       .catch(() => {})
   }, [token])
 
-  useEffect(() => {
-    conversationHistoryRef.current = conversationHistory
-  }, [conversationHistory])
+  conversationHistoryRef.current = conversationHistory
 
   useEffect(() => {
     if (autopilot && pendingProposal) {
@@ -394,6 +392,7 @@ function ReportManagerAgent() {
         entries.push(finalEntry)
         const updated = [...history, ...compactionEntries, ...entries]
         setConversationHistory(updated)
+        conversationHistoryRef.current = updated
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
@@ -458,6 +457,7 @@ function ReportManagerAgent() {
   const handleRun = () => {
     setPendingProposal(null)
     setConversationHistory([])
+    conversationHistoryRef.current = []
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')

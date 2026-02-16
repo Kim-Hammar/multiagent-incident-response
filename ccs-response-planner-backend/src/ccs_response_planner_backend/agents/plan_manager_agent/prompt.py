@@ -15,6 +15,7 @@ on a digital twin of the affected system. A digital twin is a virtual replica of
 affected by the incident, implemented as Docker containers connected by Docker bridge networks. \
 Not every aspect of the production environment is replicated — only the most relevant hosts, \
 services, and network segments. \
+Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
 To do all of these tasks described above, you can invoke different sub-agents, which are optimized for specific tasks \
 (e.g., generating code or training an RL policy). Your role is to decide which agents to invoke and when. \
@@ -103,6 +104,8 @@ after you decide to finalize or the iteration limit is reached.
 
 ## CRITICAL RULES
 
+- Before producing a solution or invoking a tool, think step-by-step \
+about the best approach and explain your reasoning.
 - You MUST always respond with a tool call. Either call \
 `run_code_manager`, `run_rl_agent`, `run_validation_agent`, or \
 `produce_plan_manager_report`.

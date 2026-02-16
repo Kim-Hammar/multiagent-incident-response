@@ -21,7 +21,8 @@ plan was tested on the digital twin. When this feedback is \
 present, your primary goal is to address those issues by passing \
 the validation findings to the CodeAgent as part of the \
 review_feedback argument, so it can revise the MDP code \
-accordingly.
+accordingly. \
+Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
 ## Subagents
 
@@ -180,6 +181,8 @@ reached.
 
 ## CRITICAL RULES
 
+- Before producing a solution or invoking a tool, think step-by-step \
+about the best approach and explain your reasoning.
 - You MUST always respond with a tool call. Either call \
 `run_code_agent`, `run_code_reviewer_agent`, or \
 `produce_orchestrator_report`.

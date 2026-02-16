@@ -1010,7 +1010,7 @@ function AgentActivityLog({
                     onClick={() => toggleEntry(index)}
                   >
                     {entry.stopped ? (
-                      <span className="badge badge-secondary">Stopped</span>
+                      <span className="badge badge-secondary">Completed</span>
                     ) : (
                       <>
                         <div className="spinner-border spinner-border-sm" role="status">

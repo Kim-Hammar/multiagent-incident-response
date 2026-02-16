@@ -205,8 +205,13 @@ function OrchestratorAgent() {
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
-  const [conversationHistory, setConversationHistory] = useState([])
+  const [conversationHistory, rawSetConversationHistory] = useState([])
   const conversationHistoryRef = useRef([])
+  const setConversationHistory = (value) => {
+    const next = typeof value === 'function' ? value(conversationHistoryRef.current) : value
+    conversationHistoryRef.current = next
+    rawSetConversationHistory(next)
+  }
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -272,10 +277,6 @@ function OrchestratorAgent() {
       .then((data) => setModels(data.models || []))
       .catch(() => {})
   }, [token])
-
-  useEffect(() => {
-    conversationHistoryRef.current = conversationHistory
-  }, [conversationHistory])
 
   useEffect(() => {
     if (autopilot && pendingProposal) {
@@ -364,8 +365,7 @@ function OrchestratorAgent() {
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
-    const compactionEntries = []
-    setConversationHistory([...history, streamingEntry])
+    setConversationHistory((prev) => [...prev, streamingEntry])
     try {
       const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
         method: 'POST',
@@ -395,11 +395,10 @@ function OrchestratorAgent() {
         const data = await res.json().catch(() => ({}))
         const msg = data.error || `Agent step failed (HTTP ${res.status})`
         setAlert({ type: 'danger', message: msg })
-        setConversationHistory([
-          ...history,
-          ...compactionEntries,
-          { role: 'system', type: 'error', message: msg }
-        ])
+        setConversationHistory((prev) => {
+          const base = prev.filter((e) => e !== streamingEntry)
+          return [...base, { role: 'system', type: 'error', message: msg }]
+        })
         return
       }
 
@@ -420,11 +419,8 @@ function OrchestratorAgent() {
           const event = JSON.parse(line)
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
-            setConversationHistory([
-              ...history,
-              ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
-            ])
+            streamingEntry.text = accumulated
+            setConversationHistory((prev) => [...prev])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
               role: 'model',
@@ -450,26 +446,25 @@ function OrchestratorAgent() {
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
-            compactionEntries.push({
+            const compactionEntry = {
               role: 'system',
               type: 'context_compaction',
               original_tokens: event.original_tokens,
               compacted_tokens: event.compacted_tokens,
               compaction_model: event.compaction_model
+            }
+            setConversationHistory((prev) => {
+              const idx = prev.indexOf(streamingEntry)
+              if (idx === -1) return [...prev, compactionEntry]
+              return [...prev.slice(0, idx), compactionEntry, ...prev.slice(idx)]
             })
-            setConversationHistory([
-              ...history,
-              ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
-            ])
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
-            setConversationHistory([
-              ...history,
-              ...compactionEntries,
-              { role: 'system', type: 'error', message: msg }
-            ])
+            setConversationHistory((prev) => {
+              const base = prev.filter((e) => e !== streamingEntry)
+              return [...base, { role: 'system', type: 'error', message: msg }]
+            })
             return
           }
         }
@@ -483,8 +478,10 @@ function OrchestratorAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...compactionEntries, ...entries]
-        setConversationHistory(updated)
+        setConversationHistory((prev) => {
+          const base = prev.filter((e) => e !== streamingEntry)
+          return [...base, ...entries]
+        })
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
@@ -508,31 +505,34 @@ function OrchestratorAgent() {
           }
         }
         report = enrichOrchestratorReport(report, history)
-        setConversationHistory([
-          ...history,
-          ...compactionEntries,
-          {
-            role: 'model',
-            type: 'orchestrator_agent_report',
-            orchestrator_agent_report: report
-          }
-        ])
+        setConversationHistory((prev) => {
+          const base = prev.filter((e) => e !== streamingEntry)
+          return [
+            ...base,
+            {
+              role: 'model',
+              type: 'orchestrator_agent_report',
+              orchestrator_agent_report: report
+            }
+          ]
+        })
         saveReport(report)
       } else {
-        setConversationHistory([
-          ...history,
-          ...compactionEntries,
-          { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
-        ])
+        setConversationHistory((prev) => {
+          const base = prev.filter((e) => e !== streamingEntry)
+          return [
+            ...base,
+            { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
+          ]
+        })
       }
     } catch (err) {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
-      setConversationHistory([
-        ...history,
-        ...compactionEntries,
-        { role: 'system', type: 'error', message: err.message }
-      ])
+      setConversationHistory((prev) => {
+        const base = prev.filter((e) => e !== streamingEntry)
+        return [...base, { role: 'system', type: 'error', message: err.message }]
+      })
     } finally {
       setRunning(false)
     }
@@ -570,16 +570,15 @@ function OrchestratorAgent() {
         subEvents: [],
         _startTime: managerStartTimeRef.current || Date.now()
       }
-      const latestHistory = conversationHistoryRef.current
-      const base = [...latestHistory, approvalEntry, streamEntry]
-      setConversationHistory(base)
+      const historyForBackend = conversationHistoryRef.current
+      setConversationHistory((prev) => [...prev, approvalEntry, streamEntry])
       try {
         const extraBody = {
           system_description: systemDescription,
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages, ...securityAlertsImages],
-          conversation_history: latestHistory,
+          conversation_history: historyForBackend,
           report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
           report_reviewer_model: reportReviewerModel || undefined,
@@ -605,18 +604,18 @@ function OrchestratorAgent() {
           signal: controller.signal,
           onChunk: (text) => {
             streamEntry.output += text
-            setConversationHistory([...base])
+            setConversationHistory((prev) => [...prev])
           },
           onSubEvent: (event) => {
             if (event.type === 'context_usage') {
               streamEntry.contextUsage = event
-              setConversationHistory([...base])
+              setConversationHistory((prev) => [...prev])
               return
             }
             if (event.type === 'prompt') {
               streamEntry.prompt = event.text
               streamEntry.promptImages = event.images || []
-              setConversationHistory([...base])
+              setConversationHistory((prev) => [...prev])
               return
             }
             if (event.type === 'thinking_delta') {
@@ -671,7 +670,7 @@ function OrchestratorAgent() {
               if (!event._startTime) event._startTime = Date.now()
               streamEntry.subEvents.push(event)
             }
-            setConversationHistory([...base])
+            setConversationHistory((prev) => [...prev])
           },
           extraBody
         })
@@ -682,11 +681,9 @@ function OrchestratorAgent() {
           tool_name: proposal.tool_name,
           result
         }
-        const updated = [...base, resultEntry]
-        setConversationHistory(updated)
-        conversationHistoryRef.current = updated
+        setConversationHistory((prev) => [...prev, resultEntry])
         setExecutingTool(null)
-        await callStep(updated)
+        await callStep(conversationHistoryRef.current)
       } catch (err) {
         if (err.name === 'AbortError') return
         if (err.status === 401) {
@@ -733,11 +730,9 @@ function OrchestratorAgent() {
         tool_name: proposal.tool_name,
         result: data.error ? { error: data.error } : data.result
       }
-      const updated = [...conversationHistoryRef.current, approvalEntry, resultEntry]
-      setConversationHistory(updated)
-      conversationHistoryRef.current = updated
+      setConversationHistory((prev) => [...prev, approvalEntry, resultEntry])
       setExecutingTool(null)
-      await callStep(updated)
+      await callStep(conversationHistoryRef.current)
     } catch (err) {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
@@ -753,11 +748,9 @@ function OrchestratorAgent() {
       tool_name: pendingProposal.tool_name,
       approved: false
     }
-    const updated = [...conversationHistoryRef.current, denialEntry]
-    setConversationHistory(updated)
-    conversationHistoryRef.current = updated
+    setConversationHistory((prev) => [...prev, denialEntry])
     setPendingProposal(null)
-    await callStep(updated)
+    await callStep(conversationHistoryRef.current)
   }
 
   const loadExample = async (incidentId) => {

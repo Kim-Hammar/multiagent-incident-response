@@ -159,9 +159,7 @@ function CodeManagerAgent() {
       .catch(() => {})
   }, [token])
 
-  useEffect(() => {
-    conversationHistoryRef.current = conversationHistory
-  }, [conversationHistory])
+  conversationHistoryRef.current = conversationHistory
 
   useEffect(() => {
     if (autopilot && pendingProposal) {
@@ -371,6 +369,7 @@ function CodeManagerAgent() {
         entries.push(finalEntry)
         const updated = [...history, ...compactionEntries, ...entries]
         setConversationHistory(updated)
+        conversationHistoryRef.current = updated
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
@@ -435,6 +434,7 @@ function CodeManagerAgent() {
   const handleRun = () => {
     setPendingProposal(null)
     setConversationHistory([])
+    conversationHistoryRef.current = []
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')

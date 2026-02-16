@@ -9,6 +9,7 @@ system must satisfy) we will generate an optimal incident response plan in two s
 we will generate a code model in the form of an MDP of the process of recovering from the incident. \
 Then, we will use the code model to learn an optimal response policy using reinforcement learning (RL). \
 Your task is to manage the first stage only (other agents will handle the RL training). \
+Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
 
 That is, your task is is to generate Python code that implements a Gymnasium-standard reinforcement \
@@ -375,6 +376,8 @@ Provide the final code and metadata.
 
 ## CRITICAL RULES
 
+- Before producing a solution or invoking a tool, think step-by-step \
+about the best approach and explain your reasoning.
 - You MUST always respond with a tool call. Either call `python_exec` to \
 test code, `gym_verify` to verify it, `dt_exec` to test a command, or \
 `produce_code_report` to deliver the final result.

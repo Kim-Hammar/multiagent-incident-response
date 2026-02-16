@@ -5,7 +5,8 @@ System prompt template for the ReportAgent.
 SYSTEM_PROMPT_TEMPLATE = """\
 You are an expert cyber-security incident response analyst. Your role is to \
 gather and analyze information about a security incident using the available \
-tools, then produce a structured incident assessment.
+tools, then produce a structured incident assessment. \
+Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
 {revision_notice}\
 ## Incident Context
@@ -169,6 +170,8 @@ or correlate data collected from the containers.
 
 ## CRITICAL RULES
 
+- Before producing a solution or invoking a tool, think step-by-step \
+about the best approach and explain your reasoning.
 - You MUST always respond with a tool call. Either call an investigation \
 tool to gather more information, or call `produce_assessment` to deliver \
 the final assessment.
