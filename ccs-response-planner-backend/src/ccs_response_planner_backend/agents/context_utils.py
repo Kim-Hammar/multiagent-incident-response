@@ -26,17 +26,22 @@ def compact_tool_result(
     Return a compact copy of *result* suitable for the LLM
     context window.  The original dict is never mutated.
 
+    Images are **always** stripped from the context:
+    ``generate_attack_image`` results have their ``image``
+    field replaced with a placeholder, and
+    ``attack_path_image`` keys are recursively removed.
+    Images are for UI display only — they must never appear
+    in any agent's context window.
+
     When *preserve_full* is ``True`` the result is returned
-    without any output truncation (only attack-path images
-    are stripped).  Use this for the most recent tool result
-    so the agent keeps full fidelity for its next decision.
+    without any output truncation (only images are stripped).
+    Use this for the most recent tool result so the agent
+    keeps full fidelity for its next decision.
 
     Per-tool rules (when *preserve_full* is ``False``):
 
     * ``generate_attack_image`` -- replace the ``image`` field
-      with a short placeholder (skipped when *compact_images*
-      is ``False`` so the agent can inspect the image on the
-      step immediately after generation).
+      with a short placeholder.
     * ``dt_exec`` / ``dt_python_exec`` -- truncate ``output``
       to 3 000 characters.
     * ``python_exec`` -- strip the ``code`` echo (already in
@@ -53,11 +58,9 @@ def compact_tool_result(
 
     :param tool_name: the name of the tool that produced *result*
     :param result: the raw tool result (dict, list, or scalar)
-    :param compact_images: whether to strip image data
-        (default ``True``; pass ``False`` for the most recent
-        tool result so the LLM can still see the image)
+    :param compact_images: unused, kept for API compatibility
     :param preserve_full: when ``True``, skip all output
-        truncation (only strip attack-path images)
+        truncation (only images are stripped)
     :return: a compacted copy of the result
     """
     if not isinstance(result, dict):
@@ -67,16 +70,11 @@ def compact_tool_result(
 
     _strip_attack_path_images(result)
 
-    if preserve_full:
-        if (
-            tool_name == "generate_attack_image"
-            and compact_images
-        ):
-            return _compact_image(result)
-        return result
-
     if tool_name == "generate_attack_image":
         return _compact_image(result)
+
+    if preserve_full:
+        return result
     if tool_name in ("dt_exec", "dt_python_exec"):
         return _compact_dt_output(result)
     if tool_name == "python_exec":
