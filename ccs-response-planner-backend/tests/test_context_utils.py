@@ -204,6 +204,86 @@ def test_compact_strips_attack_path_image_nested() -> None:
     assert compact["status"] == "ok"
 
 
+def test_compact_python_exec_strips_code_echo() -> None:
+    """
+    python_exec results should replace the code echo with a
+    placeholder and keep the output intact when short.
+    """
+    result = {
+        "code": "print('hello')\n" * 1000,
+        "exit_code": 0,
+        "output": "hello\n",
+    }
+    compact = compact_tool_result("python_exec", result)
+    assert compact["code"] == "(see tool call above)"
+    assert compact["output"] == "hello\n"
+    assert compact["exit_code"] == 0
+
+
+def test_compact_python_exec_truncates_long_output() -> None:
+    """
+    python_exec output exceeding 15 000 chars should be
+    truncated.
+    """
+    result = {
+        "code": "x = 1",
+        "exit_code": 0,
+        "output": "Z" * 20_000,
+    }
+    compact = compact_tool_result("python_exec", result)
+    assert len(compact["output"]) < 15_200
+    assert compact["output"].endswith("... (truncated)")
+    assert compact["code"] == "(see tool call above)"
+
+
+def test_compact_python_exec_preserves_original() -> None:
+    """
+    python_exec compaction must not mutate the original dict.
+    """
+    original_code = "print('hello')\n" * 1000
+    result = {
+        "code": original_code,
+        "exit_code": 0,
+        "output": "hello\n",
+    }
+    compact_tool_result("python_exec", result)
+    assert result["code"] == original_code
+
+
+def test_compact_gym_verify_keeps_checks() -> None:
+    """
+    gym_verify results should keep the checks list intact.
+    """
+    result = {
+        "valid": True,
+        "checks": [
+            {"check": "find_env_class", "passed": True},
+            {"check": "has_step", "passed": True},
+        ],
+        "error": None,
+    }
+    compact = compact_tool_result("gym_verify", result)
+    assert compact["valid"] is True
+    assert len(compact["checks"]) == 2
+    assert compact["checks"][0]["check"] == "find_env_class"
+
+
+def test_compact_gym_verify_truncates_long_error() -> None:
+    """
+    gym_verify error tracebacks exceeding 15 000 chars should
+    be truncated.
+    """
+    result = {
+        "valid": False,
+        "checks": [],
+        "error": "Traceback...\n" * 5_000,
+    }
+    compact = compact_tool_result("gym_verify", result)
+    assert len(compact["error"]) < 15_200
+    assert compact["error"].endswith("... (truncated)")
+    assert compact["checks"] == []
+
+
 def test_estimate_tokens_empty() -> None:
     """
     An empty conversation history should return near 0.
@@ -320,3 +400,122 @@ def test_maybe_compact_preserves_recent(
     assert history[0]["type"] == "context_summary"
     assert history[1] is entry_c
     assert history[2] is entry_d
+
+
+def test_maybe_compact_skips_when_real_tokens_below_threshold() -> None:
+    """
+    When last_prompt_tokens is well below the threshold,
+    no compaction should fire even if estimate_tokens()
+    would return a huge number.
+    """
+    history = [
+        {"type": "tool_result", "result": "x" * 100_000},
+        {"type": "tool_proposal", "tool_name": "t"},
+        {"type": "tool_result", "result": "y" * 100_000},
+        {"type": "tool_proposal", "tool_name": "u"},
+    ]
+    original = list(history)
+    events = list(maybe_compact_context(
+        history,
+        context_limit=1_000_000,
+        threshold=0.8,
+        last_prompt_tokens=1_000,
+    ))
+    assert events == []
+    assert history == original
+
+
+@patch(
+    "ccs_response_planner_backend.agents"
+    ".context_utils.compact_context",
+)
+def test_maybe_compact_fires_when_real_tokens_above_threshold(
+    mock_compact,
+) -> None:
+    """
+    When last_prompt_tokens exceeds the threshold,
+    compaction should fire.
+    """
+    mock_compact.return_value = "Summary."
+    history = [
+        {"type": "tool_proposal", "tool_name": "a"},
+        {"type": "tool_result", "result": "res_a"},
+        {"type": "tool_proposal", "tool_name": "b"},
+        {"type": "tool_result", "result": "res_b"},
+    ]
+    events = list(maybe_compact_context(
+        history,
+        context_limit=1_000_000,
+        threshold=0.8,
+        last_prompt_tokens=900_000,
+    ))
+    assert len(events) == 1
+    assert events[0]["type"] == "context_compaction"
+    assert history[0]["type"] == "context_summary"
+    mock_compact.assert_called_once()
+
+
+@patch(
+    "ccs_response_planner_backend.agents"
+    ".context_utils.compact_context",
+)
+def test_maybe_compact_event_uses_real_tokens(
+    mock_compact,
+) -> None:
+    """
+    When last_prompt_tokens is provided, the event should
+    report original_tokens equal to last_prompt_tokens and
+    compacted_tokens proportionally scaled.
+    """
+    mock_compact.return_value = "Summary."
+    history = [
+        {"type": "tool_proposal", "tool_name": "a"},
+        {"type": "tool_result", "result": "res_a"},
+        {"type": "tool_proposal", "tool_name": "b"},
+        {"type": "tool_result", "result": "res_b"},
+    ]
+    events = list(maybe_compact_context(
+        history,
+        context_limit=1_000_000,
+        threshold=0.8,
+        last_prompt_tokens=900_000,
+    ))
+    ev = events[0]
+    assert ev["original_tokens"] == 900_000
+    assert ev["compacted_tokens"] < 900_000
+    assert isinstance(ev["compacted_tokens"], int)
+
+
+@patch(
+    "ccs_response_planner_backend.agents"
+    ".context_utils.compact_context",
+)
+def test_maybe_compact_falls_back_without_real_tokens(
+    mock_compact,
+) -> None:
+    """
+    When last_prompt_tokens is 0 (default), the function
+    falls back to estimate_tokens() for both the threshold
+    check and the event values.
+    """
+    mock_compact.return_value = "Summary."
+    history = [
+        {"type": "tool_proposal", "tool_name": "a"},
+        {"type": "tool_result", "result": "res_a"},
+        {"type": "tool_proposal", "tool_name": "b"},
+        {"type": "tool_result", "result": "res_b"},
+    ]
+    events = list(maybe_compact_context(
+        history,
+        context_limit=10,
+        threshold=0.01,
+        last_prompt_tokens=0,
+    ))
+    assert len(events) == 1
+    ev = events[0]
+    assert ev["original_tokens"] == estimate_tokens([
+        {"type": "tool_proposal", "tool_name": "a"},
+        {"type": "tool_result", "result": "res_a"},
+        {"type": "tool_proposal", "tool_name": "b"},
+        {"type": "tool_result", "result": "res_b"},
+    ])

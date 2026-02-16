@@ -205,6 +205,9 @@ class CodeAgent:
                 threshold=compaction_threshold,
                 compaction_model=compaction_model,
                 agent_model=effective_model,
+                last_prompt_tokens=getattr(
+                    self, '_last_prompt_tokens', 0,
+                ),
             ):
                 yield ev
 
@@ -215,17 +218,20 @@ class CodeAgent:
         )
 
         if is_anthropic_model(effective_model):
-            yield from anthropic_stream_step(
+            for ev in anthropic_stream_step(
                 system_prompt=system_prompt,
                 tool_declarations=declarations,
                 history=conversation_history,
-                initial_user_parts=[{"type": "text", "text": (
-                    "Please generate a Gymnasium MDP "
-                    "environment for incident response "
-                    "recovery planning based on the "
-                    "provided system description, incident "
-                    "report, and specification."
-                )}],
+                initial_user_parts=[{
+                    "type": "text", "text": (
+                        "Please generate a Gymnasium "
+                        "MDP environment for incident "
+                        "response recovery planning "
+                        "based on the provided system "
+                        "description, incident report, "
+                        "and specification."
+                    ),
+                }],
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type="code_report",
                 thinking_budget=THINKING_BUDGET,
@@ -234,7 +240,12 @@ class CodeAgent:
                     else None
                 ),
                 model_name=effective_model,
-            )
+            ):
+                if ev.get("type") == "context_usage":
+                    self._last_prompt_tokens = (
+                        ev.get("prompt_tokens", 0)
+                    )
+                yield ev
             return
 
         client = self._create_client()
@@ -285,18 +296,22 @@ class CodeAgent:
                     function_call = part.function_call
 
         if usage_metadata:
+            self._last_prompt_tokens = (
+                usage_metadata.prompt_token_count or 0
+            )
             yield {
                 "type": "context_usage",
                 "prompt_tokens": (
-                    usage_metadata.prompt_token_count or 0
+                    self._last_prompt_tokens
                 ),
                 "candidates_tokens": (
-                    usage_metadata.candidates_token_count or 0
+                    usage_metadata.candidates_token_count
+                    or 0
                 ),
                 "total_tokens": (
                     usage_metadata.total_token_count or 0
                 ),
-                "context_limit": CONTEXT_LIMIT,
+                "context_limit": ctx_limit,
             }
 
         raw_parts = [

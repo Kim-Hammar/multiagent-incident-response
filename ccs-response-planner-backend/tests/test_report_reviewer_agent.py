@@ -11,7 +11,10 @@ from ccs_response_planner_backend.agents.report_reviewer_agent.tools import (
 
 def test_tool_dispatch_has_all_tools() -> None:
     """
-    TOOL_DISPATCH must contain all ten tool functions.
+    TOOL_DISPATCH must contain all nine tool functions.
+
+    ``generate_attack_image`` is intentionally excluded
+    because the reviewer should not regenerate images.
     """
     expected = {
         "tavily_search",
@@ -23,7 +26,6 @@ def test_tool_dispatch_has_all_tools() -> None:
         "dt_exec",
         "dt_restart",
         "dt_python_exec",
-        "generate_attack_image",
     }
     assert set(TOOL_DISPATCH.keys()) == expected
 

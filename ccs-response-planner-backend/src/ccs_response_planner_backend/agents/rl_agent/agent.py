@@ -354,6 +354,9 @@ class RlAgent:
                 threshold=compaction_threshold,
                 compaction_model=compaction_model,
                 agent_model=effective_model,
+                last_prompt_tokens=getattr(
+                    self, '_last_prompt_tokens', 0,
+                ),
             ):
                 yield ev
 
@@ -364,16 +367,20 @@ class RlAgent:
         )
 
         if is_anthropic_model(effective_model):
-            yield from anthropic_stream_step(
+            for ev in anthropic_stream_step(
                 system_prompt=system_prompt,
                 tool_declarations=declarations,
                 history=conversation_history,
-                initial_user_parts=[{"type": "text", "text": (
-                    "Please analyze the provided Gymnasium "
-                    "MDP environment, train an RL policy on "
-                    "it, and produce an incident response "
-                    "plan based on the learned policy."
-                )}],
+                initial_user_parts=[{
+                    "type": "text", "text": (
+                        "Please analyze the provided "
+                        "Gymnasium MDP environment, "
+                        "train an RL policy on it, "
+                        "and produce an incident "
+                        "response plan based on the "
+                        "learned policy."
+                    ),
+                }],
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type="planner_report",
                 thinking_budget=THINKING_BUDGET,
@@ -382,7 +389,12 @@ class RlAgent:
                     else None
                 ),
                 model_name=effective_model,
-            )
+            ):
+                if ev.get("type") == "context_usage":
+                    self._last_prompt_tokens = (
+                        ev.get("prompt_tokens", 0)
+                    )
+                yield ev
             return
 
         client = self._create_client()
@@ -433,18 +445,22 @@ class RlAgent:
                     function_call = part.function_call
 
         if usage_metadata:
+            self._last_prompt_tokens = (
+                usage_metadata.prompt_token_count or 0
+            )
             yield {
                 "type": "context_usage",
                 "prompt_tokens": (
-                    usage_metadata.prompt_token_count or 0
+                    self._last_prompt_tokens
                 ),
                 "candidates_tokens": (
-                    usage_metadata.candidates_token_count or 0
+                    usage_metadata.candidates_token_count
+                    or 0
                 ),
                 "total_tokens": (
                     usage_metadata.total_token_count or 0
                 ),
-                "context_limit": CONTEXT_LIMIT,
+                "context_limit": ctx_limit,
             }
 
         raw_parts = [

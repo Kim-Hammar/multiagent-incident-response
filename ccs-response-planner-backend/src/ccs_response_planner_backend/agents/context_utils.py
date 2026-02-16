@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 _DT_OUTPUT_LIMIT = 3000
 _SEARCH_CONTENT_LIMIT = 500
 _GENERAL_STRING_LIMIT = 5000
+_SANDBOX_OUTPUT_LIMIT = 15000
 
 
 def compact_tool_result(
@@ -32,6 +33,11 @@ def compact_tool_result(
       step immediately after generation).
     * ``dt_exec`` / ``dt_python_exec`` -- truncate ``output``
       to 3 000 characters.
+    * ``python_exec`` -- strip the ``code`` echo (already in
+      the tool proposal) and truncate ``output`` to 15 000
+      characters.
+    * ``gym_verify`` -- truncate ``error`` to 15 000
+      characters; ``checks`` list is kept intact.
     * ``tavily_search`` -- truncate each result's ``content``
       to 500 characters.
     * ``nvd_search`` -- truncate each CVE's ``description``
@@ -57,6 +63,10 @@ def compact_tool_result(
         return _compact_image(result)
     if tool_name in ("dt_exec", "dt_python_exec"):
         return _compact_dt_output(result)
+    if tool_name == "python_exec":
+        return _compact_python_exec(result)
+    if tool_name == "gym_verify":
+        return _compact_gym_verify(result)
     if tool_name == "tavily_search":
         return _compact_tavily(result)
     if tool_name == "nvd_search":
@@ -108,6 +118,60 @@ def _compact_dt_output(
     if isinstance(output, str) and len(output) > _DT_OUTPUT_LIMIT:
         result["output"] = (
             output[:_DT_OUTPUT_LIMIT] + "\n... (truncated)"
+        )
+    return result
+
+
+def _compact_python_exec(
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Compact a ``python_exec`` tool result.
+
+    The ``code`` field is a redundant echo of the code the
+    agent just submitted (already preserved in the
+    ``tool_proposal`` entry) so it is replaced with a short
+    placeholder.  The ``output`` field is truncated to
+    *_SANDBOX_OUTPUT_LIMIT* characters.
+
+    :param result: the python_exec result dict
+    :return: the compacted dict
+    """
+    if "code" in result:
+        result["code"] = "(see tool call above)"
+    output = result.get("output", "")
+    if (
+        isinstance(output, str)
+        and len(output) > _SANDBOX_OUTPUT_LIMIT
+    ):
+        result["output"] = (
+            output[:_SANDBOX_OUTPUT_LIMIT]
+            + "\n... (truncated)"
+        )
+    return result
+
+
+def _compact_gym_verify(
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Compact a ``gym_verify`` tool result.
+
+    The ``checks`` list and ``valid`` flag are kept intact.
+    The ``error`` field (which may contain a long traceback)
+    is truncated to *_SANDBOX_OUTPUT_LIMIT* characters.
+
+    :param result: the gym_verify result dict
+    :return: the compacted dict
+    """
+    error = result.get("error", "")
+    if (
+        isinstance(error, str)
+        and len(error) > _SANDBOX_OUTPUT_LIMIT
+    ):
+        result["error"] = (
+            error[:_SANDBOX_OUTPUT_LIMIT]
+            + "\n... (truncated)"
         )
     return result
 
@@ -292,6 +356,7 @@ def maybe_compact_context(
     compaction_model: str | None = None,
     agent_model: str | None = None,
     preserve_last_n: int = 2,
+    last_prompt_tokens: int = 0,
 ) -> Generator[dict[str, Any], None, None]:
     """
     Check whether the conversation history exceeds a token
@@ -300,6 +365,11 @@ def maybe_compact_context(
     Mutates *conversation_history* in place when compaction
     fires: replaces all but the last *preserve_last_n* entries
     with a single ``context_summary`` entry.
+
+    When *last_prompt_tokens* is positive the real token count
+    from the previous API call is used for the threshold check
+    instead of the ``estimate_tokens`` heuristic, which can
+    overestimate by ~40x due to JSON serialisation overhead.
 
     :param conversation_history: the conversation history
         (mutated in place on compaction)
@@ -311,11 +381,18 @@ def maybe_compact_context(
     :param agent_model: the calling agent's own model,
         used as fallback when compaction_model is not set
     :param preserve_last_n: number of recent entries to keep
+    :param last_prompt_tokens: real token count from the
+        previous API call (0 = fall back to heuristic)
     :return: yields a context_compaction event if compaction
         fires, otherwise nothing
     """
     estimated = estimate_tokens(conversation_history)
-    if estimated < threshold * context_limit:
+    effective = (
+        last_prompt_tokens
+        if last_prompt_tokens > 0
+        else estimated
+    )
+    if effective < threshold * context_limit:
         return
 
     model = (
@@ -342,10 +419,21 @@ def maybe_compact_context(
         + recent
     )
 
-    compacted = estimate_tokens(conversation_history)
-    yield {
-        "type": "context_compaction",
-        "original_tokens": estimated,
-        "compacted_tokens": compacted,
-        "compaction_model": model,
-    }
+    compacted_est = estimate_tokens(conversation_history)
+    if last_prompt_tokens > 0 and estimated > 0:
+        ratio = compacted_est / estimated
+        yield {
+            "type": "context_compaction",
+            "original_tokens": last_prompt_tokens,
+            "compacted_tokens": int(
+                last_prompt_tokens * ratio,
+            ),
+            "compaction_model": model,
+        }
+    else:
+        yield {
+            "type": "context_compaction",
+            "original_tokens": estimated,
+            "compacted_tokens": compacted_est,
+            "compaction_model": model,
+        }
