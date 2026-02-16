@@ -270,13 +270,18 @@ def _run_sub_agent_loop(
                         elif te_type == "output_chunk":
                             yield tool_event
                         elif te_type == "done":
-                            done_result = (
-                                tool_event.get(
-                                    "result", {},
-                                )
+                            done_result = tool_event.get(
+                                "result",
                             )
-                            if done_result:
+                            if done_result is not None:
                                 tool_result = done_result
+                            else:
+                                tool_result = {
+                                    k: v
+                                    for k, v in
+                                    tool_event.items()
+                                    if k != "type"
+                                }
                             if tool_event.get("error"):
                                 tool_result["error"] = (
                                     tool_event["error"]
@@ -605,15 +610,20 @@ def run_code_manager_stream(
                         elif te_type == "output_chunk":
                             yield tool_event
                         elif te_type == "done":
-                            done_result = (
-                                tool_event.get(
-                                    "result", {},
-                                )
+                            done_result = tool_event.get(
+                                "result",
                             )
-                            if done_result:
+                            if done_result is not None:
                                 tool_result = (
                                     done_result
                                 )
+                            else:
+                                tool_result = {
+                                    k: v
+                                    for k, v in
+                                    tool_event.items()
+                                    if k != "type"
+                                }
                             if tool_event.get("error"):
                                 tool_result["error"] = (
                                     tool_event["error"]
