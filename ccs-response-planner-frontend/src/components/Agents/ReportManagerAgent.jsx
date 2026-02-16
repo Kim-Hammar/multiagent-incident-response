@@ -104,6 +104,7 @@ function ReportManagerAgent() {
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
   const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
+  const conversationHistoryRef = useRef([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -158,6 +159,10 @@ function ReportManagerAgent() {
       .then((data) => setModels(data.models || []))
       .catch(() => {})
   }, [token])
+
+  useEffect(() => {
+    conversationHistoryRef.current = conversationHistory
+  }, [conversationHistory])
 
   useEffect(() => {
     if (autopilot && pendingProposal) {
@@ -485,13 +490,14 @@ function ReportManagerAgent() {
         _modelName: subModel || undefined,
         _startTime: managerStartTimeRef.current || Date.now()
       }
-      const base = [...conversationHistory, approvalEntry, streamEntry]
+      const latestHistory = conversationHistoryRef.current
+      const base = [...latestHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
       try {
         let lastAssessment
         if (proposal.tool_name === 'run_report_reviewer_agent') {
-          for (let i = conversationHistory.length - 1; i >= 0; i--) {
-            const h = conversationHistory[i]
+          for (let i = latestHistory.length - 1; i >= 0; i--) {
+            const h = latestHistory[i]
             if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
               lastAssessment = h.result?.assessment || null
               break
@@ -505,7 +511,7 @@ function ReportManagerAgent() {
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           report_agent_model: reportAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: conversationHistory,
+          conversation_history: latestHistory,
           last_assessment: lastAssessment,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100
@@ -563,27 +569,25 @@ function ReportManagerAgent() {
           },
           extraBody
         })
+        streamEntry.stopped = true
         const resultEntry = {
           role: 'tool',
           type: 'tool_result',
           tool_name: proposal.tool_name,
-          result,
-          subEvents: streamEntry.subEvents,
-          prompt: streamEntry.prompt,
-          _modelName: streamEntry._modelName,
-          contextUsage: streamEntry.contextUsage
+          result
         }
         if (proposal.tool_name === 'run_report_reviewer_agent') {
-          for (let i = conversationHistory.length - 1; i >= 0; i--) {
-            const h = conversationHistory[i]
+          for (let i = base.length - 1; i >= 0; i--) {
+            const h = base[i]
             if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
               resultEntry._attackPathImage = h.result?.attack_path_image
               break
             }
           }
         }
-        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        const updated = [...base, resultEntry]
         setConversationHistory(updated)
+        conversationHistoryRef.current = updated
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
@@ -632,8 +636,9 @@ function ReportManagerAgent() {
         tool_name: proposal.tool_name,
         result: data.error ? { error: data.error } : data.result
       }
-      const updated = [...conversationHistory, approvalEntry, resultEntry]
+      const updated = [...conversationHistoryRef.current, approvalEntry, resultEntry]
       setConversationHistory(updated)
+      conversationHistoryRef.current = updated
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {
@@ -651,8 +656,9 @@ function ReportManagerAgent() {
       tool_name: pendingProposal.tool_name,
       approved: false
     }
-    const updated = [...conversationHistory, denialEntry]
+    const updated = [...conversationHistoryRef.current, denialEntry]
     setConversationHistory(updated)
+    conversationHistoryRef.current = updated
     setPendingProposal(null)
     await callStep(updated)
   }

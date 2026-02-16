@@ -427,7 +427,7 @@ class DIGITAL_TWIN:
                 "id": "i1_server_5",
                 "name": "Server 5",
                 "description": (
-                    "SSH, Python REST API, Redis cache"
+                    "SSH, Python REST API, Redis cache (password-protected)"
                 ),
                 "docker_image": "ccs-dt-i1-server5:latest",
                 "ip_addresses": {"zone3": "10.0.4.5"},
@@ -1199,7 +1199,7 @@ class EXAMPLES:
         "Server 4 (10.0.3.4, Debian 11): Postfix SMTP mail "
         "server\n"
         "Server 5 (10.0.4.5, Debian 11): SSH, Python REST API, "
-        "Redis session cache\n"
+        "Redis session cache (password-protected)\n"
         "Server 6 (10.0.4.6, Debian 8): PostgreSQL database, "
         "Samba file shares"
     )

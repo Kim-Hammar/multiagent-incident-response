@@ -102,6 +102,7 @@ function CodeManagerAgent() {
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [incidentReportImages, setIncidentReportImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
+  const conversationHistoryRef = useRef([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -157,6 +158,10 @@ function CodeManagerAgent() {
       .then((data) => setModels(data.models || []))
       .catch(() => {})
   }, [token])
+
+  useEffect(() => {
+    conversationHistoryRef.current = conversationHistory
+  }, [conversationHistory])
 
   useEffect(() => {
     if (autopilot && pendingProposal) {
@@ -462,7 +467,8 @@ function CodeManagerAgent() {
         _modelName: subModel || undefined,
         _startTime: managerStartTimeRef.current || Date.now()
       }
-      const base = [...conversationHistory, approvalEntry, streamEntry]
+      const latestHistory = conversationHistoryRef.current
+      const base = [...latestHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
       try {
         const extraBody = {
@@ -473,7 +479,7 @@ function CodeManagerAgent() {
           images: [...systemDescriptionImages, ...incidentReportImages],
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: stripForBackend(conversationHistory),
+          conversation_history: stripForBackend(latestHistory),
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100
         }
@@ -530,18 +536,16 @@ function CodeManagerAgent() {
           },
           extraBody
         })
+        streamEntry.stopped = true
         const resultEntry = {
           role: 'tool',
           type: 'tool_result',
           tool_name: proposal.tool_name,
-          result,
-          subEvents: streamEntry.subEvents,
-          prompt: streamEntry.prompt,
-          _modelName: streamEntry._modelName,
-          contextUsage: streamEntry.contextUsage
+          result
         }
-        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        const updated = [...base, resultEntry]
         setConversationHistory(updated)
+        conversationHistoryRef.current = updated
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
@@ -590,8 +594,9 @@ function CodeManagerAgent() {
         tool_name: proposal.tool_name,
         result: data.error ? { error: data.error } : data.result
       }
-      const updated = [...conversationHistory, approvalEntry, resultEntry]
+      const updated = [...conversationHistoryRef.current, approvalEntry, resultEntry]
       setConversationHistory(updated)
+      conversationHistoryRef.current = updated
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {
@@ -609,8 +614,9 @@ function CodeManagerAgent() {
       tool_name: pendingProposal.tool_name,
       approved: false
     }
-    const updated = [...conversationHistory, denialEntry]
+    const updated = [...conversationHistoryRef.current, denialEntry]
     setConversationHistory(updated)
+    conversationHistoryRef.current = updated
     setPendingProposal(null)
     await callStep(updated)
   }

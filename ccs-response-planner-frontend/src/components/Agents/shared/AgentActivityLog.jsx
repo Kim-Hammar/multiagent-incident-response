@@ -768,17 +768,6 @@ function SubAgentLog({
               </div>
               {isOpen && (
                 <>
-                  {ev.subEvents?.length > 0 && (
-                    <SubAgentLog
-                      subEvents={ev.subEvents}
-                      agentLabel={toolLabel(ev.tool_name)}
-                      active={false}
-                      modelName={ev._modelName}
-                      onViewPrompt={onViewPrompt}
-                      onViewContext={onViewContext}
-                      contextUsage={ev._contextUsage}
-                    />
-                  )}
                   {isRlTrain && rlProgressData.length > 0 ? (
                     <RlTrainResult
                       trainingData={rlProgressData}
@@ -1126,7 +1115,6 @@ function AgentActivityLog({
             const displayResult = hasImage
               ? { status: 'success', message: 'Attack path image generated successfully' }
               : entry.result
-            const hasSubEvents = entry.subEvents && entry.subEvents.length > 0
             return (
               <div key={index} className="card ia-entry ia-result-entry">
                 <div className="card-body">
@@ -1140,48 +1128,26 @@ function AgentActivityLog({
                     )}
                     <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
                   </div>
-                  {isExpanded && (
-                    <>
-                      {hasSubEvents && (
-                        <CollapsibleSection
-                          label={`${toolLabel(entry.tool_name)} activity`}
-                          icon="fa-sitemap"
-                        >
-                          <SubAgentLog
-                            subEvents={entry.subEvents}
-                            agentLabel={toolLabel(entry.tool_name)}
-                            active={false}
-                            modelName={entry._modelName}
-                            onViewPrompt={(text, images) => {
-                              setPromptModalText(text)
-                              setPromptModalImages(images || [])
+                  {isExpanded &&
+                    (customRender || renderTerminalResult(entry.tool_name, displayResult) || (
+                      <>
+                        <pre className="ia-result-data mb-0">
+                          {JSON.stringify(displayResult, null, 2)}
+                        </pre>
+                        {hasImage && (
+                          <img
+                            src={entry.result.image}
+                            alt="Generated attack path"
+                            style={{
+                              maxWidth: '100%',
+                              border: '1px solid #dee2e6',
+                              borderRadius: '4px',
+                              marginTop: '8px'
                             }}
-                            onViewContext={(history) => setContextModalHistory(history)}
-                            contextUsage={entry.contextUsage}
                           />
-                        </CollapsibleSection>
-                      )}
-                      {customRender || renderTerminalResult(entry.tool_name, displayResult) || (
-                        <>
-                          <pre className="ia-result-data mb-0">
-                            {JSON.stringify(displayResult, null, 2)}
-                          </pre>
-                          {hasImage && (
-                            <img
-                              src={entry.result.image}
-                              alt="Generated attack path"
-                              style={{
-                                maxWidth: '100%',
-                                border: '1px solid #dee2e6',
-                                borderRadius: '4px',
-                                marginTop: '8px'
-                              }}
-                            />
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
+                        )}
+                      </>
+                    ))}
                 </div>
               </div>
             )

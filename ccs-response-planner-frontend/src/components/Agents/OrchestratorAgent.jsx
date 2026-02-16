@@ -206,6 +206,7 @@ function OrchestratorAgent() {
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
   const [conversationHistory, setConversationHistory] = useState([])
+  const conversationHistoryRef = useRef([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -271,6 +272,10 @@ function OrchestratorAgent() {
       .then((data) => setModels(data.models || []))
       .catch(() => {})
   }, [token])
+
+  useEffect(() => {
+    conversationHistoryRef.current = conversationHistory
+  }, [conversationHistory])
 
   useEffect(() => {
     if (autopilot && pendingProposal) {
@@ -565,7 +570,8 @@ function OrchestratorAgent() {
         subEvents: [],
         _startTime: managerStartTimeRef.current || Date.now()
       }
-      const base = [...conversationHistory, approvalEntry, streamEntry]
+      const latestHistory = conversationHistoryRef.current
+      const base = [...latestHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
       try {
         const extraBody = {
@@ -573,7 +579,7 @@ function OrchestratorAgent() {
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages, ...securityAlertsImages],
-          conversation_history: conversationHistory,
+          conversation_history: latestHistory,
           report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
           report_reviewer_model: reportReviewerModel || undefined,
@@ -669,17 +675,16 @@ function OrchestratorAgent() {
           },
           extraBody
         })
+        streamEntry.stopped = true
         const resultEntry = {
           role: 'tool',
           type: 'tool_result',
           tool_name: proposal.tool_name,
-          result,
-          subEvents: streamEntry.subEvents,
-          prompt: streamEntry.prompt,
-          contextUsage: streamEntry.contextUsage
+          result
         }
-        const updated = [...conversationHistory, approvalEntry, resultEntry]
+        const updated = [...base, resultEntry]
         setConversationHistory(updated)
+        conversationHistoryRef.current = updated
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
@@ -728,8 +733,9 @@ function OrchestratorAgent() {
         tool_name: proposal.tool_name,
         result: data.error ? { error: data.error } : data.result
       }
-      const updated = [...conversationHistory, approvalEntry, resultEntry]
+      const updated = [...conversationHistoryRef.current, approvalEntry, resultEntry]
       setConversationHistory(updated)
+      conversationHistoryRef.current = updated
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {
@@ -747,8 +753,9 @@ function OrchestratorAgent() {
       tool_name: pendingProposal.tool_name,
       approved: false
     }
-    const updated = [...conversationHistory, denialEntry]
+    const updated = [...conversationHistoryRef.current, denialEntry]
     setConversationHistory(updated)
+    conversationHistoryRef.current = updated
     setPendingProposal(null)
     await callStep(updated)
   }
