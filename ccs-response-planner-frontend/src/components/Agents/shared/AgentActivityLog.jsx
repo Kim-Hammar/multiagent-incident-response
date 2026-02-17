@@ -72,9 +72,24 @@ function renderOrchestratorArgs(toolName, args) {
       <div className="ia-orchestrator-args">
         {args.review_feedback && (
           <CollapsibleSection label="Review Feedback" icon="fa-comments">
-            <div className="ia-arg-markdown">
-              <ReactMarkdown>{args.review_feedback}</ReactMarkdown>
-            </div>
+            {(() => {
+              try {
+                const parsed =
+                  typeof args.review_feedback === 'string'
+                    ? JSON.parse(args.review_feedback)
+                    : args.review_feedback
+                if (parsed && typeof parsed === 'object' && parsed.findings) {
+                  return <ReviewReportBody report={parsed} />
+                }
+              } catch {
+                /* not JSON — fall through */
+              }
+              return (
+                <div className="ia-arg-markdown">
+                  <ReactMarkdown>{args.review_feedback}</ReactMarkdown>
+                </div>
+              )
+            })()}
           </CollapsibleSection>
         )}
         {args.previous_code && (
@@ -240,9 +255,24 @@ function renderOrchestratorArgs(toolName, args) {
       <div className="ia-orchestrator-args">
         {args.review_feedback && (
           <CollapsibleSection label="Review Feedback" icon="fa-comments">
-            <div className="ia-arg-markdown">
-              <ReactMarkdown>{args.review_feedback}</ReactMarkdown>
-            </div>
+            {(() => {
+              try {
+                const parsed =
+                  typeof args.review_feedback === 'string'
+                    ? JSON.parse(args.review_feedback)
+                    : args.review_feedback
+                if (parsed && typeof parsed === 'object' && parsed.findings) {
+                  return <IncidentReviewBody report={parsed} />
+                }
+              } catch {
+                /* not JSON — fall through */
+              }
+              return (
+                <div className="ia-arg-markdown">
+                  <ReactMarkdown>{args.review_feedback}</ReactMarkdown>
+                </div>
+              )
+            })()}
           </CollapsibleSection>
         )}
         {args.previous_assessment && (
