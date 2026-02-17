@@ -3,8 +3,8 @@ import ImageThumbnails from '../Agents/shared/ImageThumbnails.jsx'
 
 /**
  * Incident description tab for the response planner — input form with
- * system description, security alerts, operator feedback, action buttons,
- * and inline controls.
+ * system description, security alerts, operator feedback, specification
+ * commands, action buttons, and inline controls.
  */
 function ConfigTab({
   systemDescription,
@@ -13,6 +13,7 @@ function ConfigTab({
   setSecurityAlerts,
   operatorFeedback,
   setOperatorFeedback,
+  specification,
   systemDescriptionImages,
   setSystemDescriptionImages,
   securityAlertsImages,
@@ -80,6 +81,23 @@ function ConfigTab({
           placeholder="e.g., Focus on containment actions first."
         />
       </div>
+      {specification && (
+        <div className="ia-section">
+          <label htmlFor="rp-specification">Specification commands</label>
+          <p className="ia-hint">
+            Service-level requirements that must be satisfied after recovery. These are loaded from
+            the selected example and used by the planning agents.
+          </p>
+          <textarea
+            id="rp-specification"
+            className="form-control ia-textarea"
+            rows="4"
+            value={specification}
+            readOnly
+            style={{ backgroundColor: '#f8f9fa' }}
+          />
+        </div>
+      )}
 
       <button
         type="button"

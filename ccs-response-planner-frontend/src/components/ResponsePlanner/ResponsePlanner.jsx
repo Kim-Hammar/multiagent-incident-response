@@ -167,6 +167,7 @@ function ResponsePlanner() {
   const [systemDescription, setSystemDescription] = useState('')
   const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
+  const [specification, setSpecification] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
   const [conversationHistory, rawSetConversationHistory] = useState([])
@@ -333,6 +334,7 @@ function ResponsePlanner() {
         setSystemDescription(inputs.systemDescription || '')
         setSecurityAlerts(inputs.securityAlerts || '')
         setOperatorFeedback(inputs.operatorFeedback || '')
+        setSpecification(inputs.specification || '')
         setSystemDescriptionImages(inputs.systemDescriptionImages || [])
         setSecurityAlertsImages(inputs.securityAlertsImages || [])
         setSelectedIncidentId(inputs.selectedIncidentId || null)
@@ -687,6 +689,7 @@ function ResponsePlanner() {
             systemDescription,
             securityAlerts,
             operatorFeedback,
+            specification,
             systemDescriptionImages,
             securityAlertsImages,
             selectedIncidentId
@@ -975,6 +978,7 @@ function ResponsePlanner() {
       setSystemDescription(data.system_description || '')
       setSecurityAlerts(data.security_alerts || '')
       setOperatorFeedback(data.operator_feedback || '')
+      setSpecification(data.specification || '')
       setSystemDescriptionImages(data.system_description_images || [])
       setSecurityAlertsImages([])
     } catch (err) {
@@ -999,6 +1003,7 @@ function ResponsePlanner() {
     setSystemDescription('')
     setSecurityAlerts('')
     setOperatorFeedback('')
+    setSpecification('')
     setSystemDescriptionImages([])
     setSecurityAlertsImages([])
     setConversationHistory([])
@@ -1234,6 +1239,7 @@ function ResponsePlanner() {
             setSecurityAlerts={setSecurityAlerts}
             operatorFeedback={operatorFeedback}
             setOperatorFeedback={setOperatorFeedback}
+            specification={specification}
             systemDescriptionImages={systemDescriptionImages}
             setSystemDescriptionImages={setSystemDescriptionImages}
             securityAlertsImages={securityAlertsImages}
