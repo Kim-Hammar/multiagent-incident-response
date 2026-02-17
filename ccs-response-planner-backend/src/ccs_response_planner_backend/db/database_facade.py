@@ -128,6 +128,32 @@ class DatabaseFacade:
                     f"SET agent_type = 'rl' "
                     f"WHERE agent_type = 'mdp_planner'"
                 )
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS
+                        {DB.PLANNING_SESSIONS_TABLE} (
+                        id SERIAL PRIMARY KEY,
+                        username VARCHAR(255) NOT NULL,
+                        status VARCHAR(20) NOT NULL
+                            DEFAULT 'active',
+                        conversation_history JSONB
+                            NOT NULL DEFAULT '[]'::jsonb,
+                        pending_proposal JSONB,
+                        incident_inputs JSONB NOT NULL,
+                        agent_config JSONB NOT NULL,
+                        context_usage JSONB,
+                        ui_state JSONB,
+                        created_at TIMESTAMP NOT NULL
+                            DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL
+                            DEFAULT NOW()
+                    )
+                """)
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS
+                        idx_planning_sessions_username_status
+                    ON {DB.PLANNING_SESSIONS_TABLE}
+                        (username, status)
+                """)
             conn.commit()
 
     @staticmethod
@@ -759,3 +785,219 @@ class DatabaseFacade:
                 if row is None or row[0] is None:
                     return None
                 return row[0]  # type: ignore[no-any-return]
+
+    @staticmethod
+    def get_active_planning_session(
+        username: str,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get the active planning session for a user.
+
+        :param username: the username to search for
+        :return: a dict with session data or None
+        """
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT id, username, status, "
+                    f"conversation_history, "
+                    f"pending_proposal, incident_inputs, "
+                    f"agent_config, context_usage, "
+                    f"ui_state, "
+                    f"created_at, updated_at "
+                    f"FROM {DB.PLANNING_SESSIONS_TABLE} "
+                    f"WHERE username = %s "
+                    f"AND status = 'active' "
+                    f"ORDER BY created_at DESC LIMIT 1",
+                    (username,),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "id": row[0],
+                    "username": row[1],
+                    "status": row[2],
+                    "conversation_history": row[3],
+                    "pending_proposal": row[4],
+                    "incident_inputs": row[5],
+                    "agent_config": row[6],
+                    "context_usage": row[7],
+                    "ui_state": row[8],
+                    "created_at": str(row[9]),
+                    "updated_at": str(row[10]),
+                }
+
+    @staticmethod
+    def create_planning_session(
+        username: str,
+        incident_inputs: dict[str, Any],
+        agent_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Create a new planning session for a user.
+
+        Auto-cancels any existing active session for this user.
+
+        :param username: the username creating the session
+        :param incident_inputs: incident description and images
+        :param agent_config: model selections and configuration
+        :return: the created session dict
+        """
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"UPDATE {DB.PLANNING_SESSIONS_TABLE} "
+                    f"SET status = 'cancelled', "
+                    f"updated_at = NOW() "
+                    f"WHERE username = %s "
+                    f"AND status = 'active'",
+                    (username,),
+                )
+                cur.execute(
+                    f"INSERT INTO "
+                    f"{DB.PLANNING_SESSIONS_TABLE} "
+                    f"(username, status, "
+                    f"conversation_history, "
+                    f"incident_inputs, agent_config) "
+                    f"VALUES (%s, 'active', "
+                    f"'[]'::jsonb, %s, %s) "
+                    f"RETURNING id, username, status, "
+                    f"conversation_history, "
+                    f"pending_proposal, incident_inputs, "
+                    f"agent_config, context_usage, "
+                    f"ui_state, "
+                    f"created_at, updated_at",
+                    (
+                        username,
+                        json.dumps(incident_inputs),
+                        json.dumps(agent_config),
+                    ),
+                )
+                row = cur.fetchone()
+            conn.commit()
+            if row is None:
+                return {}
+            return {
+                "id": row[0],
+                "username": row[1],
+                "status": row[2],
+                "conversation_history": row[3],
+                "pending_proposal": row[4],
+                "incident_inputs": row[5],
+                "agent_config": row[6],
+                "context_usage": row[7],
+                "ui_state": row[8],
+                "created_at": str(row[9]),
+                "updated_at": str(row[10]),
+            }
+
+    @staticmethod
+    def update_planning_session(
+        session_id: int,
+        username: str,
+        conversation_history: Optional[list[Any]] = None,
+        pending_proposal: Any = None,
+        context_usage: Optional[dict[str, Any]] = None,
+        status: Optional[str] = None,
+        ui_state: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """
+        Update a planning session.
+
+        Only updates fields that are not None.
+        Pass pending_proposal=False to clear it.
+
+        :param session_id: the session id to update
+        :param username: the username (ownership check)
+        :param conversation_history: optional updated history
+        :param pending_proposal: optional pending proposal
+        :param context_usage: optional context usage stats
+        :param status: optional new status
+        :param ui_state: optional ephemeral UI state
+        :return: True if the session was updated
+        """
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                updates: list[str] = []
+                params: list[Any] = []
+                if conversation_history is not None:
+                    updates.append(
+                        "conversation_history = %s"
+                    )
+                    params.append(
+                        json.dumps(conversation_history)
+                    )
+                if pending_proposal is not None:
+                    if pending_proposal is False:
+                        updates.append(
+                            "pending_proposal = NULL"
+                        )
+                    else:
+                        updates.append(
+                            "pending_proposal = %s"
+                        )
+                        params.append(
+                            json.dumps(pending_proposal)
+                        )
+                if context_usage is not None:
+                    updates.append("context_usage = %s")
+                    params.append(
+                        json.dumps(context_usage)
+                    )
+                if status is not None:
+                    updates.append("status = %s")
+                    params.append(status)
+                if ui_state is not None:
+                    updates.append("ui_state = %s")
+                    params.append(
+                        json.dumps(ui_state)
+                    )
+                if not updates:
+                    return False
+                updates.append("updated_at = NOW()")
+                params.extend([session_id, username])
+                cur.execute(
+                    f"UPDATE "
+                    f"{DB.PLANNING_SESSIONS_TABLE} "
+                    f"SET {', '.join(updates)} "
+                    f"WHERE id = %s "
+                    f"AND username = %s",
+                    tuple(params),
+                )
+                updated = cur.rowcount > 0
+            conn.commit()
+            return updated
+
+    @staticmethod
+    def delete_planning_session(
+        session_id: int,
+        username: str,
+    ) -> bool:
+        """
+        Delete a planning session.
+
+        :param session_id: the session id to delete
+        :param username: the username (ownership check)
+        :return: True if the session was deleted
+        """
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"DELETE FROM "
+                    f"{DB.PLANNING_SESSIONS_TABLE} "
+                    f"WHERE id = %s "
+                    f"AND username = %s",
+                    (session_id, username),
+                )
+                deleted = cur.rowcount > 0
+            conn.commit()
+            return deleted

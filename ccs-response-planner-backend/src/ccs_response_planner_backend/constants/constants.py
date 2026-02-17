@@ -129,6 +129,13 @@ class API:
     AGENTS_DP_PROMPT_ROUTE = "/api/agents/dp/prompt"
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
+    AGENTS_SESSIONS_ACTIVE_ROUTE = (
+        "/api/agents/sessions/active"
+    )
+    AGENTS_SESSIONS_ROUTE = "/api/agents/sessions"
+    AGENTS_SESSION_ROUTE = (
+        "/api/agents/sessions/<int:session_id>"
+    )
     EXAMPLES_RESOURCE = "examples"
     EXAMPLES_ROUTE = "/api/examples"
     DIGITAL_TWIN_CONFIGS_ROUTE = "/api/digital-twin/configs"
@@ -151,6 +158,7 @@ class DB:
     DIGITAL_TWIN_CONFIGS_TABLE = "digital_twin_configs"
     AGENT_REPORTS_TABLE = "agent_reports"
     EXAMPLE_INCIDENTS_TABLE = "example_incidents"
+    PLANNING_SESSIONS_TABLE = "planning_sessions"
 
 
 class AUTH:

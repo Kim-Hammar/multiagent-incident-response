@@ -90,6 +90,16 @@ def mock_db() -> Generator[MagicMock, None, None]:
         agents_db_mock.list_agent_reports.return_value = []
         agents_db_mock.get_agent_report.return_value = None
         agents_db_mock.delete_agent_report.return_value = False
+        agents_db_mock.get_active_planning_session.return_value = (
+            None
+        )
+        agents_db_mock.create_planning_session.return_value = {}
+        agents_db_mock.update_planning_session.return_value = (
+            False
+        )
+        agents_db_mock.delete_planning_session.return_value = (
+            False
+        )
         example_db_mock.get_example_incident.return_value = None
         example_db_mock.list_example_incidents.return_value = []
         yield login_mock

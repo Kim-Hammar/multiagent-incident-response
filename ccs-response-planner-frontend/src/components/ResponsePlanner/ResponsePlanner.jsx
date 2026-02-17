@@ -7,7 +7,9 @@ import {
   API_AGENTS_ORCHESTRATOR_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
-  API_DT_PYTHON_STOP_URL
+  API_DT_PYTHON_STOP_URL,
+  API_AGENTS_SESSIONS_ACTIVE_URL,
+  API_AGENTS_SESSIONS_URL
 } from '../Common/constants'
 import AgentPlanningTab from '../Agents/shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from '../Agents/shared/AgentHistoryTab.jsx'
@@ -186,10 +188,17 @@ function ResponsePlanner() {
   const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
+  const sessionIdRef = useRef(null)
+  const setSessionId = (value) => {
+    sessionIdRef.current = value
+  }
+  const [restoredSession, setRestoredSession] = useState(false)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const isSourceTabRef = useRef(false)
+  const pollingRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -254,6 +263,139 @@ function ResponsePlanner() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  useEffect(() => {
+    if (!isSourceTabRef.current) return
+    const sid = sessionIdRef.current
+    if (!sid) return
+    const timer = setTimeout(() => {
+      fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          conversation_history: conversationHistoryRef.current,
+          pending_proposal: pendingProposal,
+          context_usage: contextUsage,
+          ui_state: { running, executingTool, dtStatus }
+        })
+      }).catch(() => {})
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [conversationHistory])
+
+  useEffect(() => {
+    if (restoredSession) return
+    fetch(API_AGENTS_SESSIONS_ACTIVE_URL, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (res.status === 401) {
+          logout()
+          return null
+        }
+        return res.ok ? res.json() : null
+      })
+      .then((data) => {
+        if (!data || !data.session) {
+          setRestoredSession(true)
+          return
+        }
+        const session = data.session
+        setSessionId(session.id)
+        const inputs = session.incident_inputs || {}
+        setSystemDescription(inputs.systemDescription || '')
+        setSecurityAlerts(inputs.securityAlerts || '')
+        setOperatorFeedback(inputs.operatorFeedback || '')
+        setSystemDescriptionImages(inputs.systemDescriptionImages || [])
+        setSecurityAlertsImages(inputs.securityAlertsImages || [])
+        setSelectedIncidentId(inputs.selectedIncidentId || null)
+        const config = session.agent_config || {}
+        setOrchestratorModel(config.orchestratorModel || '')
+        setReportManagerModel(config.reportManagerModel || '')
+        setReportAgentModel(config.reportAgentModel || '')
+        setReportReviewerModel(config.reportReviewerModel || '')
+        setPlanManagerModel(config.planManagerModel || '')
+        setCodeManagerModel(config.codeManagerModel || '')
+        setCodeAgentModel(config.codeAgentModel || '')
+        setCodeReviewerModel(config.codeReviewerModel || '')
+        setRlAgentModel(config.rlAgentModel || '')
+        setValidationAgentModel(config.validationAgentModel || '')
+        setCompactionModel(config.compactionModel || '')
+        setOrchestratorCompaction(config.orchestratorCompaction || 80)
+        setReportManagerCompaction(config.reportManagerCompaction || 80)
+        setReportAgentCompaction(config.reportAgentCompaction || 80)
+        setReportReviewerCompaction(config.reportReviewerCompaction || 80)
+        setPlanManagerCompaction(config.planManagerCompaction || 80)
+        setCodeManagerCompaction(config.codeManagerCompaction || 80)
+        setCodeAgentCompaction(config.codeAgentCompaction || 80)
+        setCodeReviewerCompaction(config.codeReviewerCompaction || 80)
+        setRlAgentCompaction(config.rlAgentCompaction || 80)
+        setValidationAgentCompaction(config.validationAgentCompaction || 80)
+        setReportManagerIterations(config.reportManagerIterations || 2)
+        setPlanManagerIterations(config.planManagerIterations || 2)
+        setCodeManagerIterations(config.codeManagerIterations || 2)
+        setRlTimeLimitMinutes(config.rlTimeLimitMinutes || 10)
+        setAutopilot(config.autopilot ?? true)
+        let history = session.conversation_history || []
+        let proposal = session.pending_proposal || null
+        if (history.length > 0) {
+          const last = history[history.length - 1]
+          if (last.type === 'tool_approval' && last.approved) {
+            history = history.slice(0, -1)
+            const lastProposal = [...history].reverse().find((e) => e.type === 'tool_proposal')
+            if (lastProposal) {
+              proposal = lastProposal
+            }
+          }
+        }
+        setConversationHistory(history)
+        setPendingProposal(proposal)
+        setContextUsage(session.context_usage || null)
+        const ui = session.ui_state || {}
+        setRunning(!!ui.running)
+        setExecutingTool(ui.executingTool || null)
+        setDtStatus(ui.dtStatus || null)
+        setActiveTab('planning')
+        setRestoredSession(true)
+      })
+      .catch(() => {
+        setRestoredSession(true)
+      })
+  }, [token, restoredSession, logout])
+
+  useEffect(() => {
+    if (isSourceTabRef.current) return
+    const sid = sessionIdRef.current
+    if (!sid) return
+    const interval = setInterval(() => {
+      fetch(API_AGENTS_SESSIONS_ACTIVE_URL, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data?.session) return
+          const s = data.session
+          setConversationHistory(s.conversation_history || [])
+          setPendingProposal(s.pending_proposal || null)
+          setContextUsage(s.context_usage || null)
+          const ui = s.ui_state || {}
+          setRunning(!!ui.running)
+          setExecutingTool(ui.executingTool || null)
+          setDtStatus(ui.dtStatus || null)
+          if (s.status !== 'active') {
+            clearInterval(interval)
+            setRunning(false)
+            setExecutingTool(null)
+          }
+        })
+        .catch(() => {})
+    }, 3000)
+    pollingRef.current = interval
+    return () => clearInterval(interval)
+  }, [restoredSession, token])
+
   const scrollToBottom = () => {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
     setHasNewActivity(false)
@@ -271,6 +413,7 @@ function ResponsePlanner() {
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
+    isSourceTabRef.current = false
     setConversationHistory((prev) => {
       const cleaned = prev
         .map((entry) => {
@@ -285,6 +428,21 @@ function ResponsePlanner() {
         .filter(Boolean)
       return [...cleaned, { role: 'system', type: 'error', message: 'Planning stopped by user.' }]
     })
+    const sid = sessionIdRef.current
+    if (sid) {
+      fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: 'cancelled',
+          conversation_history: conversationHistoryRef.current,
+          ui_state: { running: false, executingTool: null, dtStatus: null }
+        })
+      }).catch(() => {})
+    }
   }
 
   const stripForBackend = (history) =>
@@ -480,17 +638,84 @@ function ResponsePlanner() {
     }
   }
 
-  const handleRun = () => {
+  const handleRun = async () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+    isSourceTabRef.current = true
     setPendingProposal(null)
     setConversationHistory([])
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    try {
+      const res = await fetch(API_AGENTS_SESSIONS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          incident_inputs: {
+            systemDescription,
+            securityAlerts,
+            operatorFeedback,
+            systemDescriptionImages,
+            securityAlertsImages,
+            selectedIncidentId
+          },
+          agent_config: {
+            orchestratorModel,
+            reportManagerModel,
+            reportAgentModel,
+            reportReviewerModel,
+            planManagerModel,
+            codeManagerModel,
+            codeAgentModel,
+            codeReviewerModel,
+            rlAgentModel,
+            validationAgentModel,
+            compactionModel,
+            orchestratorCompaction,
+            reportManagerCompaction,
+            reportAgentCompaction,
+            reportReviewerCompaction,
+            planManagerCompaction,
+            codeManagerCompaction,
+            codeAgentCompaction,
+            codeReviewerCompaction,
+            rlAgentCompaction,
+            validationAgentCompaction,
+            reportManagerIterations,
+            planManagerIterations,
+            codeManagerIterations,
+            rlTimeLimitMinutes,
+            autopilot
+          }
+        })
+      })
+      if (res.status === 401) {
+        logout()
+        return
+      }
+      if (res.ok) {
+        const data = await res.json()
+        setSessionId(data.session?.id || null)
+      }
+    } catch {
+      /* session creation is optional */
+    }
     callStep([])
   }
 
   const handleApprove = async () => {
     if (!pendingProposal) return
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+    isSourceTabRef.current = true
     const proposal = pendingProposal
     const approvalEntry = {
       role: 'user',
@@ -694,6 +919,11 @@ function ResponsePlanner() {
 
   const handleDeny = async () => {
     if (!pendingProposal) return
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+    isSourceTabRef.current = true
     const denialEntry = {
       role: 'user',
       type: 'tool_approval',
@@ -727,6 +957,19 @@ function ResponsePlanner() {
   }
 
   const handleClear = () => {
+    isSourceTabRef.current = false
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+    const sid = sessionIdRef.current
+    if (sid) {
+      fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => {})
+    }
+    setSessionId(null)
     setSystemDescription('')
     setSecurityAlerts('')
     setOperatorFeedback('')
@@ -792,6 +1035,21 @@ function ResponsePlanner() {
         })
       })
       await fetchHistory()
+      isSourceTabRef.current = false
+      const sid = sessionIdRef.current
+      if (sid) {
+        fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            status: 'completed',
+            ui_state: { running: false, executingTool: null, dtStatus: null }
+          })
+        }).catch(() => {})
+      }
     } catch {
       /* ignore */
     }

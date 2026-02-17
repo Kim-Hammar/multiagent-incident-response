@@ -2935,3 +2935,145 @@ def delete_all_agent_reports() -> tuple[Response, int]:
         return jsonify({"error": "agent_type is required"}), 400
     deleted_count = DatabaseFacade.delete_all_agent_reports(agent_type)
     return jsonify({"deleted_count": deleted_count}), 200
+
+
+@agents_bp.route("/sessions/active", methods=["GET"])
+@token_required
+def get_active_session() -> tuple[Response, int]:
+    """
+    Get the active planning session for the current user.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    try:
+        session = (
+            DatabaseFacade.get_active_planning_session(
+                g.username,
+            )
+        )
+        if session is None:
+            return jsonify({"session": None}), 200
+        return jsonify({"session": session}), 200
+    except Exception as e:
+        logger.error(
+            "Failed to get active session: %s", e,
+        )
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/sessions", methods=["POST"])
+@token_required
+def create_session() -> tuple[Response, int]:
+    """
+    Create a new planning session.
+
+    Auto-cancels any existing active session for the user.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    incident_inputs = body.get("incident_inputs", {})
+    agent_config = body.get("agent_config", {})
+    if not incident_inputs:
+        return jsonify({
+            "error": "incident_inputs is required",
+        }), 400
+    if not agent_config:
+        return jsonify({
+            "error": "agent_config is required",
+        }), 400
+    try:
+        session = DatabaseFacade.create_planning_session(
+            g.username, incident_inputs, agent_config,
+        )
+        return jsonify({"session": session}), 201
+    except Exception as e:
+        logger.error(
+            "Failed to create session: %s", e,
+        )
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route(
+    "/sessions/<int:session_id>", methods=["PUT"],
+)
+@token_required
+def update_session(
+    session_id: int,
+) -> tuple[Response, int]:
+    """
+    Update a planning session.
+
+    :param session_id: the session id
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    conversation_history = body.get(
+        "conversation_history",
+    )
+    pending_proposal = body.get("pending_proposal")
+    context_usage = body.get("context_usage")
+    status = body.get("status")
+    ui_state = body.get("ui_state")
+    if (
+        "pending_proposal" in body
+        and pending_proposal is None
+    ):
+        pending_proposal = False
+    try:
+        updated = DatabaseFacade.update_planning_session(
+            session_id, g.username,
+            conversation_history=conversation_history,
+            pending_proposal=pending_proposal,
+            context_usage=context_usage,
+            status=status,
+            ui_state=ui_state,
+        )
+        if not updated:
+            return jsonify({
+                "error": (
+                    "Session not found or "
+                    "not owned by user"
+                ),
+            }), 404
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        logger.error(
+            "Failed to update session %d: %s",
+            session_id, e,
+        )
+        return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route(
+    "/sessions/<int:session_id>",
+    methods=["DELETE"],
+)
+@token_required
+def delete_session(
+    session_id: int,
+) -> tuple[Response, int]:
+    """
+    Delete a planning session.
+
+    :param session_id: the session id
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    try:
+        deleted = DatabaseFacade.delete_planning_session(
+            session_id, g.username,
+        )
+        if not deleted:
+            return jsonify({
+                "error": (
+                    "Session not found or "
+                    "not owned by user"
+                ),
+            }), 404
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        logger.error(
+            "Failed to delete session %d: %s",
+            session_id, e,
+        )
+        return jsonify({"error": str(e)}), 500
