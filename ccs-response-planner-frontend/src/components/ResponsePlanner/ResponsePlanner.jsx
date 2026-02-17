@@ -398,7 +398,7 @@ function ResponsePlanner() {
         }
         return res.ok ? res.json() : null
       })
-      .then((data) => {
+      .then(async (data) => {
         if (!data || !data.session) {
           setRestoredSession(true)
           return
@@ -440,41 +440,79 @@ function ResponsePlanner() {
         setCodeManagerIterations(config.codeManagerIterations || 1)
         setRlTimeLimitMinutes(config.rlTimeLimitMinutes || 10)
         setAutopilot(config.autopilot ?? true)
+        const uiState = session.ui_state || {}
+        let jobRunning = false
+        try {
+          const jobRes = await fetch(apiJobStatusUrl(String(session.id)), {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          if (jobRes.ok) {
+            const jobData = await jobRes.json()
+            jobRunning = jobData.running && !jobData.done
+          }
+        } catch {
+          /* treat as no running job */
+        }
         let history = session.conversation_history || []
         let proposal = session.pending_proposal || null
-        if (history.length > 0) {
-          const last = history[history.length - 1]
-          if (last.type === 'tool_approval' && last.approved) {
-            history = history.slice(0, -1)
-            const lastProposal = [...history].reverse().find((e) => e.type === 'tool_proposal')
-            if (lastProposal) {
-              proposal = lastProposal
+        if (jobRunning) {
+          // Strip streaming entries — polling will rebuild them from scratch
+          history = history.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
+          setContextUsage(session.context_usage || null)
+          setConversationHistory(history)
+          setPendingProposal(null)
+          if (!window.location.hash) setActiveTab('planning')
+          setRestoredSession(true)
+          // Claim this tab as the source and stop multi-tab polling
+          isSourceTabRef.current = true
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current)
+            pollingRef.current = null
+          }
+          setRunning(true)
+          // Detect job type and resume
+          const toolName = uiState.executingTool
+          if (toolName && STREAMING_TOOLS.has(toolName)) {
+            setExecutingTool(toolName)
+            resumeToolJob(String(session.id), toolName)
+          } else {
+            callStep(history, String(session.id))
+          }
+        } else {
+          if (history.length > 0) {
+            const last = history[history.length - 1]
+            if (last.type === 'tool_approval' && last.approved) {
+              history = history.slice(0, -1)
+              const lastProposal = [...history].reverse().find((e) => e.type === 'tool_proposal')
+              if (lastProposal) {
+                proposal = lastProposal
+              }
             }
           }
+          // Clean stale in-flight entries — no live job exists after reload
+          history = history
+            .map((e) => {
+              if (e.type === 'streaming') {
+                return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+              }
+              if (e.type === 'tool_streaming' && !e.stopped) {
+                return { ...e, stopped: true }
+              }
+              return e
+            })
+            .filter(Boolean)
+          setContextUsage(session.context_usage || null)
+          // Never restore running/executingTool — jobs are in-memory only
+          setRunning(false)
+          setExecutingTool(null)
+          setDtStatus(null)
+          // Stash restored history; the job-status effect will decide
+          // whether to show it (job still alive) or clear it (stale).
+          setConversationHistory(history)
+          setPendingProposal(proposal)
+          if (!window.location.hash) setActiveTab('planning')
+          setRestoredSession(true)
         }
-        // Clean stale in-flight entries — no live job exists after reload
-        history = history
-          .map((e) => {
-            if (e.type === 'streaming') {
-              return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
-            }
-            if (e.type === 'tool_streaming' && !e.stopped) {
-              return { ...e, stopped: true }
-            }
-            return e
-          })
-          .filter(Boolean)
-        setContextUsage(session.context_usage || null)
-        // Never restore running/executingTool — jobs are in-memory only
-        setRunning(false)
-        setExecutingTool(null)
-        setDtStatus(null)
-        // Stash restored history; the job-status effect will decide
-        // whether to show it (job still alive) or clear it (stale).
-        setConversationHistory(history)
-        setPendingProposal(proposal)
-        if (!window.location.hash) setActiveTab('planning')
-        setRestoredSession(true)
       })
       .catch(() => {
         setRestoredSession(true)
@@ -531,6 +569,7 @@ function ResponsePlanner() {
 
   useEffect(() => {
     if (!restoredSession || !sessionIdRef.current) return
+    if (isSourceTabRef.current) return
     const sid = sessionIdRef.current
     fetch(apiJobStatusUrl(sid), {
       headers: { Authorization: `Bearer ${token}` }
@@ -685,7 +724,7 @@ function ResponsePlanner() {
         return entry
       })
 
-  const callStep = async (history) => {
+  const callStep = async (history, resumeJobId = null) => {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
@@ -693,41 +732,45 @@ function ResponsePlanner() {
     let errorOccurred = false
     setConversationHistory((prev) => [...prev, streamingEntry])
     try {
-      const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          session_id: sessionIdRef.current,
-          system_description: systemDescription,
-          security_alerts: securityAlerts,
-          operator_feedback: operatorFeedback,
-          conversation_history: stripForBackend(history),
-          images: [...systemDescriptionImages, ...securityAlertsImages],
-          model_name: orchestratorModel || undefined,
-          compaction_model: compactionModel || undefined,
-          compaction_threshold: orchestratorCompaction / 100
+      let job_id
+      if (resumeJobId) {
+        job_id = resumeJobId
+      } else {
+        const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            session_id: sessionIdRef.current,
+            system_description: systemDescription,
+            security_alerts: securityAlerts,
+            operator_feedback: operatorFeedback,
+            conversation_history: stripForBackend(history),
+            images: [...systemDescriptionImages, ...securityAlertsImages],
+            model_name: orchestratorModel || undefined,
+            compaction_model: compactionModel || undefined,
+            compaction_threshold: orchestratorCompaction / 100
+          })
         })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+        if (res.status === 401) {
+          logout()
+          return
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          const msg = data.error || `Agent step failed (HTTP ${res.status})`
+          setAlert({ type: 'danger', message: msg })
+          setConversationHistory((prev) => {
+            const base = prev.filter((e) => e !== streamingEntry)
+            return [...base, { role: 'system', type: 'error', message: msg }]
+          })
+          return
+        }
+        ;({ job_id } = await res.json())
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        const msg = data.error || `Agent step failed (HTTP ${res.status})`
-        setAlert({ type: 'danger', message: msg })
-        setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry)
-          return [...base, { role: 'system', type: 'error', message: msg }]
-        })
-        return
-      }
-
-      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
 
@@ -877,6 +920,142 @@ function ResponsePlanner() {
           )
           .filter(Boolean)
       })
+    }
+  }
+
+  const resumeToolJob = async (jobId, toolName) => {
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    const streamEntry = {
+      type: 'tool_streaming',
+      tool_name: toolName,
+      output: '',
+      subEvents: [],
+      _startTime: Date.now()
+    }
+    setConversationHistory((prev) => [...prev, streamEntry])
+    try {
+      let doneEvent = null
+      setLivenessStatus('alive')
+      lastHeartbeatRef.current = Date.now()
+      await pollJobEvents({
+        jobId,
+        token,
+        signal: controller.signal,
+        onHeartbeat: (status) => {
+          lastHeartbeatRef.current = Date.now()
+          setHeartbeatStatus(status)
+        },
+        onStale: () => setLivenessStatus('stale'),
+        onEvent: (event) => {
+          lastHeartbeatRef.current = Date.now()
+          setLivenessStatus('alive')
+          if (event.type === 'output_chunk') {
+            streamEntry.output += event.text
+            setConversationHistory((prev) => [...prev])
+          } else if (event.type === 'sub_event') {
+            const inner = event.event
+            if (inner.type === 'context_usage') {
+              streamEntry.contextUsage = inner
+              setConversationHistory((prev) => [...prev])
+              return
+            }
+            if (inner.type === 'prompt') {
+              streamEntry.prompt = inner.text
+              streamEntry.promptImages = inner.images || []
+              setConversationHistory((prev) => [...prev])
+              return
+            }
+            if (inner.type === 'thinking_delta') {
+              const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+              if (last && last.type === 'reasoning') {
+                last.text += inner.text
+              } else {
+                streamEntry.subEvents.push({
+                  type: 'reasoning',
+                  text: inner.text,
+                  _startTime: Date.now()
+                })
+              }
+            } else if (inner.type === 'text_delta') {
+              const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+              if (last && last.type === 'text') {
+                last.text += inner.text
+              } else {
+                streamEntry.subEvents.push({
+                  type: 'text',
+                  text: inner.text,
+                  _startTime: Date.now()
+                })
+              }
+            } else if (inner.type === 'nested_event') {
+              const lastToolCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call' && !e._completed)
+              if (lastToolCall) {
+                if (inner.event.type === 'prompt') {
+                  lastToolCall._prompt = inner.event.text
+                  lastToolCall._promptImages = inner.event.images || []
+                } else if (inner.event.type === 'context_usage') {
+                  lastToolCall._contextUsage = inner.event
+                } else {
+                  if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                  handleNestedSubEvent(lastToolCall.subEvents, inner.event)
+                }
+              }
+            } else if (inner.type === 'tool_result') {
+              const lastCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call')
+              if (lastCall) lastCall._completed = true
+              streamEntry.subEvents.push({
+                type: 'tool_result',
+                tool_name: inner.tool_name,
+                result: inner.result,
+                subEvents: inner.subEvents || []
+              })
+            } else {
+              if (!inner._startTime) inner._startTime = Date.now()
+              streamEntry.subEvents.push(inner)
+            }
+            setConversationHistory((prev) => [...prev])
+          } else if (event.type === 'done') {
+            doneEvent = event
+          } else if (event.type === 'error') {
+            throw new Error(event.message || 'Streaming tool error')
+          }
+        }
+      })
+      streamEntry.stopped = true
+      const result = doneEvent
+        ? doneEvent.result || {
+            container: doneEvent.container,
+            command: doneEvent.command,
+            exit_code: doneEvent.exit_code,
+            output: doneEvent.output
+          }
+        : { status: 'unknown', message: 'Job ended without a done event' }
+      const resultEntry = {
+        role: 'tool',
+        type: 'tool_result',
+        tool_name: toolName,
+        result,
+        subEvents: streamEntry.subEvents,
+        prompt: streamEntry.prompt,
+        contextUsage: streamEntry.contextUsage
+      }
+      setConversationHistory((prev) => [...prev, resultEntry])
+      setExecutingTool(null)
+      await callStep(conversationHistoryRef.current)
+    } catch (err) {
+      if (err.name === 'AbortError') return
+      if (err.status === 401) {
+        logout()
+        return
+      }
+      setAlert({ type: 'danger', message: `Tool resume error: ${err.message}` })
+      setExecutingTool(null)
+      setRunning(false)
     }
   }
 
@@ -1585,11 +1764,14 @@ function ResponsePlanner() {
         {activeTab === 'jobs' && (
           <div style={{ marginTop: '16px' }}>
             <div className="d-flex mb-2" style={{ gap: '8px' }}>
-              <button className="btn btn-sm btn-outline-secondary" onClick={fetchJobs}>
+              <button className="btn btn-sm btn-outline-secondary ia-btn" onClick={fetchJobs}>
                 <i className="fa fa-refresh" /> Refresh
               </button>
               {jobs.some((j) => j.done) && (
-                <button className="btn btn-sm btn-outline-danger" onClick={removeAllDoneJobs}>
+                <button
+                  className="btn btn-sm btn-outline-danger ia-btn"
+                  onClick={removeAllDoneJobs}
+                >
                   Remove all done
                 </button>
               )}
@@ -1655,8 +1837,7 @@ function ResponsePlanner() {
                           <td>
                             {!j.done && !j.cancelled && (
                               <button
-                                className="btn btn-outline-danger mr-1"
-                                style={{ fontSize: '11px', padding: '1px 6px' }}
+                                className="btn btn-sm btn-outline-danger ia-btn mr-1"
                                 onClick={() => cancelJob(j.job_id)}
                               >
                                 Cancel
@@ -1664,7 +1845,7 @@ function ResponsePlanner() {
                             )}
                             {j.done && (
                               <button
-                                className="btn btn-xs btn-outline-danger"
+                                className="btn btn-sm btn-outline-danger ia-btn"
                                 onClick={() => removeJob(j.job_id)}
                               >
                                 Remove
