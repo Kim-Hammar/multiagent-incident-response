@@ -16,37 +16,70 @@ const API_BASE = '/api/agents/jobs'
  * @param {AbortSignal} [opts.signal] - Optional AbortController signal
  * @param {(event: Object) => void} opts.onEvent - Called for each new event
  * @param {number} [opts.pollInterval=300] - Milliseconds between polls
+ * @param {number} [opts.maxDuration=1200000] - Max polling duration in ms (default 20 min)
  * @returns {Promise<void>}
  */
-export async function pollJobEvents({ jobId, token, signal, onEvent, pollInterval = 300 }) {
+export async function pollJobEvents({
+  jobId,
+  token,
+  signal,
+  onEvent,
+  pollInterval = 300,
+  maxDuration = 20 * 60 * 1000
+}) {
   let nextIndex = 0
+  let retries = 0
+  const MAX_RETRIES = 3
+  const startTime = Date.now()
+
   while (true) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
-    const res = await fetch(`${API_BASE}/${jobId}/events?after=${nextIndex}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal
-    })
-
-    if (res.status === 401) {
-      throw Object.assign(new Error('Unauthorized'), { status: 401 })
-    }
-    if (!res.ok) {
-      throw new Error(`Job poll failed (HTTP ${res.status})`)
+    if (Date.now() - startTime > maxDuration) {
+      throw new Error(
+        'Job polling timed out — the operation took too long. Check the History tab for results.'
+      )
     }
 
-    const data = await res.json()
-    const { events, done, error, next_index } = data
+    try {
+      const fetchSignal = signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
+        : AbortSignal.timeout(30000)
 
-    for (const event of events) {
-      onEvent(event)
-    }
+      const res = await fetch(`${API_BASE}/${jobId}/events?after=${nextIndex}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: fetchSignal
+      })
 
-    nextIndex = next_index
+      if (res.status === 401) {
+        throw Object.assign(new Error('Unauthorized'), { status: 401 })
+      }
+      if (!res.ok) {
+        throw new Error(`Job poll failed (HTTP ${res.status})`)
+      }
 
-    if (done) {
-      if (error) throw new Error(error)
-      return
+      const data = await res.json()
+      const { events, done, error, next_index } = data
+
+      retries = 0
+
+      for (const event of events) {
+        onEvent(event)
+      }
+
+      nextIndex = next_index
+
+      if (done) {
+        if (error) throw new Error(error)
+        return
+      }
+    } catch (err) {
+      if (err.name === 'AbortError' && signal?.aborted) throw err
+      if (err.name === 'TimeoutError' && retries < MAX_RETRIES) {
+        retries++
+        continue
+      }
+      throw err
     }
 
     await new Promise((resolve) => setTimeout(resolve, pollInterval))

@@ -326,6 +326,19 @@ function DpAgent() {
       ])
     } finally {
       setRunning(false)
+      setConversationHistory((prev) => {
+        const hasStreaming = prev.some((e) => e.type === 'streaming')
+        if (!hasStreaming) return prev
+        return prev
+          .map((e) =>
+            e.type === 'streaming'
+              ? e.text
+                ? { ...e, type: 'reasoning', role: 'model' }
+                : null
+              : e
+          )
+          .filter(Boolean)
+      })
     }
   }
 
