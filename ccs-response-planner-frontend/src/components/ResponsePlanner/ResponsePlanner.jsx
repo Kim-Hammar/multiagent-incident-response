@@ -168,6 +168,7 @@ function ResponsePlanner() {
   const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [specification, setSpecification] = useState('')
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
   const [conversationHistory, rawSetConversationHistory] = useState([])
@@ -979,6 +980,7 @@ function ResponsePlanner() {
       setSecurityAlerts(data.security_alerts || '')
       setOperatorFeedback(data.operator_feedback || '')
       setSpecification(data.specification || '')
+      setSpecificationCommands(data.specification_commands || [])
       setSystemDescriptionImages(data.system_description_images || [])
       setSecurityAlertsImages([])
     } catch (err) {
@@ -1004,6 +1006,7 @@ function ResponsePlanner() {
     setSecurityAlerts('')
     setOperatorFeedback('')
     setSpecification('')
+    setSpecificationCommands([])
     setSystemDescriptionImages([])
     setSecurityAlertsImages([])
     setConversationHistory([])
@@ -1239,7 +1242,8 @@ function ResponsePlanner() {
             setSecurityAlerts={setSecurityAlerts}
             operatorFeedback={operatorFeedback}
             setOperatorFeedback={setOperatorFeedback}
-            specification={specification}
+            specificationCommands={specificationCommands}
+            setSpecificationCommands={setSpecificationCommands}
             systemDescriptionImages={systemDescriptionImages}
             setSystemDescriptionImages={setSystemDescriptionImages}
             securityAlertsImages={securityAlertsImages}
