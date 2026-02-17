@@ -78,7 +78,10 @@ Treat all feedback here as actionable context for your task.
 generate the incident assessment report. On the first iteration, \
 call it with no arguments. On subsequent iterations, pass \
 `previous_assessment` and `review_feedback` so the ReportAgent \
-can revise the assessment.
+can revise the assessment. The `review_feedback` you pass must be \
+a concise, high-level summary in short bullet points — only the \
+issues that need fixing and the reviewer's recommendations. Do NOT \
+paste the raw reviewer output verbatim.
 
 2. **Review**: Call `run_report_reviewer_agent` to have the \
 ReportReviewerAgent review the generated assessment. \
@@ -146,5 +149,8 @@ generate + review pair: `run_report_agent` → \
 fix trivial issues from the last review is permitted beyond this \
 limit.
 - When revising, ALWAYS pass `previous_assessment` and \
-`review_feedback` to `run_report_agent` so it knows what to fix.
+`review_feedback` to `run_report_agent` so it knows what to fix. \
+The `review_feedback` must be a concise, human-readable bullet-point \
+summary of the issues — not a verbatim dump of the reviewer's raw \
+output.
 """

@@ -247,7 +247,24 @@ function renderOrchestratorArgs(toolName, args) {
         )}
         {args.previous_assessment && (
           <CollapsibleSection label="Previous Assessment" icon="fa-file-text">
-            <pre className="ia-arg-code">{args.previous_assessment}</pre>
+            {(() => {
+              try {
+                const parsed =
+                  typeof args.previous_assessment === 'string'
+                    ? JSON.parse(args.previous_assessment)
+                    : args.previous_assessment
+                if (parsed && typeof parsed === 'object' && parsed.incident_summary) {
+                  return <AssessmentBody report={parsed} />
+                }
+              } catch {
+                /* not JSON — fall through */
+              }
+              return (
+                <div className="ia-arg-markdown">
+                  <ReactMarkdown>{args.previous_assessment}</ReactMarkdown>
+                </div>
+              )
+            })()}
           </CollapsibleSection>
         )}
       </div>
@@ -544,17 +561,6 @@ function renderSubAgentReport(toolName, result) {
           <div className="ia-assessment-section">
             <div className="ia-assessment-label">Report Manager Summary</div>
             <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
-          </div>
-        )}
-        {r.final_verdict && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Verdict</div>
-            <span
-              className={`badge badge-${VERDICT_STYLES[r.final_verdict] || 'secondary'}`}
-              style={{ fontSize: '12px', padding: '5px 8px' }}
-            >
-              {r.final_verdict.replace(/_/g, ' ')}
-            </span>
           </div>
         )}
         {result.assessment && (

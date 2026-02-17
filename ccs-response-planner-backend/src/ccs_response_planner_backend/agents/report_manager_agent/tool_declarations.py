@@ -26,9 +26,13 @@ RUN_REPORT_AGENT_DECL = genai_types.FunctionDeclaration(
             "review_feedback": {
                 "type": "string",
                 "description": (
-                    "The reviewer's findings and "
-                    "recommendations to address in "
-                    "the revision."
+                    "A concise, high-level summary "
+                    "of the reviewer's findings — "
+                    "use short bullet points listing "
+                    "only the issues that need fixing "
+                    "and what the reviewer recommended. "
+                    "Do NOT paste the raw reviewer "
+                    "output verbatim."
                 ),
             },
         },

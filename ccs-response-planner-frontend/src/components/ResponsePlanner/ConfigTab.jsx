@@ -99,9 +99,7 @@ function ConfigTab({
 
       <div className="ia-section">
         <label>Specification commands</label>
-        <p className="ia-hint">
-          Service-level requirements that must hold after recovery.
-        </p>
+        <p className="ia-hint">Service-level requirements that must hold after recovery.</p>
         <div
           style={{
             border: '1px solid #dee2e6',

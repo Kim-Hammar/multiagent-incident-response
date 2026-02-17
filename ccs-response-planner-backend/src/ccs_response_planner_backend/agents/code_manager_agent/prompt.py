@@ -160,8 +160,10 @@ Follow this orchestration workflow:
 environment code. On the first iteration, call it with no \
 arguments. On subsequent iterations, pass `previous_code` (the \
 generated_code from the last code report) and `review_feedback` \
-(the reviewer's findings and recommendations) so the CodeAgent \
-can revise the code.
+so the CodeAgent can revise the code. The `review_feedback` you \
+pass must be a concise, high-level summary in short bullet points \
+— only the issues that need fixing and the reviewer's \
+recommendations. Do NOT paste the raw reviewer output verbatim.
 
 2. **Review**: Call `run_code_reviewer_agent` to review the \
 generated code. The reviewer will analyze the code for \
@@ -234,5 +236,8 @@ generate + review pair: `run_code_agent` → \
 A final generation-only pass to fix trivial issues from the last \
 review is permitted beyond this limit.
 - When revising, ALWAYS pass `previous_code` and `review_feedback` \
-to `run_code_agent` so it can improve the code based on the review.
+to `run_code_agent` so it can improve the code based on the review. \
+The `review_feedback` must be a concise, human-readable bullet-point \
+summary of the issues — not a verbatim dump of the reviewer's raw \
+output.
 """
