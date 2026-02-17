@@ -92,6 +92,7 @@ import numpy as np
 import gymnasium
 from gymnasium.wrappers import TimeLimit
 from sb3_contrib import MaskablePPO
+from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.callbacks import BaseCallback
 
 # 0. JSON encoder that handles numpy types (float32, int64, ndarray, etc.)
@@ -143,8 +144,12 @@ class ProgressCallback(BaseCallback):
 # 3. Train with MaskablePPO — the env's get_action_mask() method
 #    tells the policy which actions are valid in each state,
 #    preventing the agent from wasting steps on completed actions.
+#    ActionMasker bridges get_action_mask() to the action_masks()
+#    interface that MaskablePPO expects during collect_rollouts().
 MAX_EPISODE_STEPS = 200
-env = TimeLimit(EnvClass(), max_episode_steps=MAX_EPISODE_STEPS)
+def mask_fn(env):
+    return env.get_action_mask()
+env = ActionMasker(TimeLimit(EnvClass(), max_episode_steps=MAX_EPISODE_STEPS), mask_fn)
 model = MaskablePPO("MlpPolicy", env, verbose=0, n_steps=2048,
                     batch_size=128, learning_rate=3e-4,
                     policy_kwargs=dict(net_arch=[64, 64]))
@@ -279,7 +284,13 @@ Use these defaults unless you have a specific reason to change them:
 
 - **Algorithm:** MaskablePPO (from sb3-contrib) — PPO with native action \
 masking. The environment's `get_action_mask()` method tells the policy \
-which actions are valid, preventing wasted steps on completed actions.
+which actions are valid, preventing wasted steps on completed actions. \
+**Important:** MaskablePPO requires the `action_masks()` interface on \
+the env. Since the environment exposes `get_action_mask()` and \
+`TimeLimit` does not forward custom methods, you MUST wrap the env \
+with `ActionMasker` from `sb3_contrib.common.wrappers` (as shown in \
+the template). Without this wrapper, training will fail with \
+`ValueError: Environment does not support action masking`.
 - **Learning rate:** 3e-4
 - **n_steps:** 2048 (larger rollout buffers give smoother training)
 - **batch_size:** 128 (moderate — very large batches can hurt learning)
@@ -311,10 +322,13 @@ suboptimal. The stochastic policy naturally breaks out of such cycles \
 through sampling. The template also includes loop detection (breaks if \
 the same action repeats 10+ consecutive times) as a safety net.
 
-Action masking via `env.unwrapped.get_action_mask()` is applied during \
-both training and evaluation. This prevents the agent from selecting \
-actions that are already completed or whose prerequisites are not met — \
-eliminating the primary cause of action-repeat loops.
+Action masking is applied during both training and evaluation, but \
+through different mechanisms: during **training**, MaskablePPO reads \
+the mask via the `ActionMasker` wrapper's `action_masks()` method; \
+during **evaluation**, the mask is passed explicitly to \
+`model.predict(action_masks=mask)` using `env.unwrapped.get_action_mask()`. \
+The eval envs do NOT need the `ActionMasker` wrapper — only the \
+training env does.
 
 ## Specification Violations During Recovery
 
