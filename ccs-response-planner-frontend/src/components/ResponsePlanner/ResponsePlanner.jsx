@@ -464,13 +464,15 @@ function ResponsePlanner() {
             return e
           })
           .filter(Boolean)
-        setConversationHistory(history)
-        setPendingProposal(proposal)
         setContextUsage(session.context_usage || null)
         // Never restore running/executingTool — jobs are in-memory only
         setRunning(false)
         setExecutingTool(null)
         setDtStatus(null)
+        // Stash restored history; the job-status effect will decide
+        // whether to show it (job still alive) or clear it (stale).
+        setConversationHistory(history)
+        setPendingProposal(proposal)
         if (!window.location.hash) setActiveTab('planning')
         setRestoredSession(true)
       })
@@ -484,13 +486,28 @@ function ResponsePlanner() {
     const sid = sessionIdRef.current
     if (!sid) return
     const interval = setInterval(() => {
-      fetch(API_AGENTS_SESSIONS_ACTIVE_URL, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
+      Promise.all([
+        fetch(API_AGENTS_SESSIONS_ACTIVE_URL, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then((res) => (res.ok ? res.json() : null)),
+        fetch(apiJobStatusUrl(sid), {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then((res) => (res.ok ? res.json() : null))
+      ])
+        .then(([data, jobData]) => {
           if (!data?.session) return
           const s = data.session
+          const jobRunning = jobData ? !jobData.done : false
+          if (!jobRunning) {
+            setConversationHistory([])
+            setPendingProposal(null)
+            setContextUsage(null)
+            setRunning(false)
+            setExecutingTool(null)
+            setDtStatus(null)
+            if (s.status !== 'active') clearInterval(interval)
+            return
+          }
           const rawHistory = (s.conversation_history || [])
             .map((e) => {
               if (e.type === 'streaming')
@@ -502,15 +519,9 @@ function ResponsePlanner() {
           setConversationHistory(rawHistory)
           setPendingProposal(s.pending_proposal || null)
           setContextUsage(s.context_usage || null)
-          const ui = s.ui_state || {}
-          setRunning(!!ui.running)
-          setExecutingTool(ui.executingTool || null)
-          setDtStatus(ui.dtStatus || null)
-          if (s.status !== 'active') {
-            clearInterval(interval)
-            setRunning(false)
-            setExecutingTool(null)
-          }
+          setRunning(true)
+          setExecutingTool(s.ui_state?.executingTool || null)
+          setDtStatus(s.ui_state?.dtStatus || null)
         })
         .catch(() => {})
     }, 1000)
@@ -528,6 +539,38 @@ function ResponsePlanner() {
       .then((data) => {
         if (!data) return
         if (data.done && !data.running) {
+          // Job is not running — could be a stale session after backend
+          // restart. If no events were recorded the job never existed in
+          // this server lifetime, so cancel the session and reset all state.
+          if (data.event_count === 0) {
+            fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                status: 'cancelled',
+                conversation_history: [],
+                ui_state: { running: false, executingTool: null, dtStatus: null }
+              })
+            }).catch(() => {})
+            setSessionId(null)
+            setConversationHistory([])
+            setPendingProposal(null)
+            setContextUsage(null)
+            setRunning(false)
+            setExecutingTool(null)
+            setDtStatus(null)
+            setSystemDescription('')
+            setSecurityAlerts('')
+            setOperatorFeedback('')
+            setSpecification('')
+            setSystemDescriptionImages([])
+            setSecurityAlertsImages([])
+            setSelectedIncidentId(null)
+            return
+          }
           return fetch(API_AGENTS_SESSIONS_ACTIVE_URL, {
             headers: { Authorization: `Bearer ${token}` }
           })
@@ -546,10 +589,9 @@ function ResponsePlanner() {
               setConversationHistory(history)
               setPendingProposal(s.pending_proposal || null)
               setContextUsage(s.context_usage || null)
-              const ui = s.ui_state || {}
-              setRunning(!!ui.running)
-              setExecutingTool(ui.executingTool || null)
-              setDtStatus(ui.dtStatus || null)
+              setRunning(false)
+              setExecutingTool(null)
+              setDtStatus(null)
               if (s.status === 'active' && history.length > 0) {
                 const last = history[history.length - 1]
                 if (last.type === 'tool_result') {
