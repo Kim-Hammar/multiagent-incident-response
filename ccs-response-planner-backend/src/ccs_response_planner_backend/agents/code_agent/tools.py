@@ -120,7 +120,8 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                 "detail": env_cls.__name__
             })
             for method in ["get_actions", "step",
-                           "reset", "set_state"]:
+                           "reset", "set_state",
+                           "get_action_mask"]:
                 has = hasattr(env_cls, method)
                 checks.append({
                     "check": f"has_{method}",
@@ -180,12 +181,45 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                 })
                 if not ok:
                     valid = False
+                env.reset()
+                _n_acts = env.action_space.n
+                mask = env.get_action_mask()
+                mask_list = [
+                    bool(m) for m in mask
+                ]
+                mask_ok = (
+                    len(mask_list) == _n_acts
+                    and any(mask_list)
+                    and mask_list[0]
+                )
+                checks.append({
+                    "check": "action_mask_valid",
+                    "passed": mask_ok,
+                    "detail": (
+                        f"{sum(mask_list)}/{_n_acts}"
+                        " actions valid after reset"
+                        if mask_ok
+                        else
+                        "len=" + str(len(mask_list))
+                        + " expected="
+                        + str(_n_acts)
+                        + " any="
+                        + str(any(mask_list))
+                        + " idx0="
+                        + str(
+                            mask_list[0]
+                            if mask_list
+                            else "?"
+                        )
+                    )
+                })
+                if not mask_ok:
+                    valid = False
                 if valid:
                     import numpy as _np
                     from collections import Counter
                     _N_SEEDS = 10
                     _MAX_STEPS = 300
-                    _n_acts = env.action_space.n
                     _reached = 0
                     _step_counts = []
                     _diag_trace = []
@@ -201,8 +235,13 @@ _GYM_VERIFY_SCRIPT = textwrap.dedent("""\
                             _bk = _np.array(
                                 obs, dtype=_np.float64
                             )
+                            _mask = (
+                                env.get_action_mask()
+                            )
                             _ba, _br = 0, -1e18
                             for _a in range(_n_acts):
+                                if not _mask[_a]:
+                                    continue
                                 env.set_state(_bk)
                                 _, _r, *_ = env.step(
                                     _a

@@ -28,12 +28,13 @@ PYTHON_EXEC_DECL = genai_types.FunctionDeclaration(
 GYM_VERIFY_DECL = genai_types.FunctionDeclaration(
     name="gym_verify",
     description=(
-        "Verify that the generated code implements "
-        "a valid Gymnasium environment. Checks for "
+        "Verify the Gymnasium environment: checks "
         "required methods (reset, step, get_actions, "
-        "set_state), validates state shape, and runs "
-        "a greedy reachability test to confirm the "
-        "terminal state can be reached within 100 "
+        "set_state, get_action_mask), validates state "
+        "shape and action mask format, and runs a "
+        "greedy reachability test (using the action "
+        "mask to skip invalid actions) to confirm the "
+        "terminal state can be reached within 300 "
         "steps."
     ),
     parameters={  # type: ignore[arg-type]

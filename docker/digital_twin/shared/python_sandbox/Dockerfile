@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir \
-    numpy scipy gymnasium stable-baselines3 \
+    numpy scipy gymnasium stable-baselines3 sb3-contrib \
     matplotlib pandas pytest
 RUN mkdir -p /workspace
 WORKDIR /workspace

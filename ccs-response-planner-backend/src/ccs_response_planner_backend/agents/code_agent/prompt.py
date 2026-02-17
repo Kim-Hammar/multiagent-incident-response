@@ -199,7 +199,11 @@ an action has no further effect (e.g. assessment is already at \
 1.0), it should be a no-op rather than resetting or oscillating \
 the state. In short, the environment must give clear, progressive \
 feedback through the state vector so the planning agent can make \
-steady progress toward the terminal state.
+steady progress toward the terminal state. \
+Additionally, implement `get_action_mask()` to return `False` for \
+actions whose effect is already complete (e.g. the relevant state \
+dimension is >= 1.0) or whose prerequisites are not yet met. This \
+prevents the solver from wasting steps on already-completed actions.
 
 ### Action Design — Comprehensiveness is Critical
 
@@ -354,6 +358,22 @@ array. Implementation: `self.state = np.array(state, \
 dtype=np.float64)`. Do NOT recompute or snap values — the \
 verifier reads `env.state` after calling `set_state` and expects \
 the values to match exactly.
+5. `get_action_mask()` — Return a list of booleans of length \
+`action_space.n`. `True` means the action is currently valid, \
+`False` means it should be masked out (the solver will never \
+select it). Rules: \
+(a) Mask actions whose effect is already complete — e.g. if \
+`s1_assessed` is already 1.0, mask all assessment actions \
+targeting Server 1. \
+(b) Mask actions whose prerequisites are not met — e.g. mask \
+eviction actions for a host that has not been contained yet. \
+(c) Action 0 (passive monitoring) must always be unmasked. \
+(d) At least one action must always be unmasked. \
+Implementation: check `self.state` dimensions and return a \
+boolean list. The `gym_verify` tool tests this method — after \
+`reset()` most actions should be valid (nothing is done yet); \
+after `set_state([1.0]*n)` (everything done) only action 0 \
+(and possibly restoration actions) should remain valid.
 
 ### Code Requirements
 

@@ -20,7 +20,7 @@ To do you job, you will have access to a Python sandbox to execute code.
 
 Input: A Gymnasium MDP environment modeling incident recovery with 20 actions. \
 Solution: Analyze the MDP state space and action definitions → call \
-`rl_train` with the training code template (PPO, 250k timesteps) → \
+`rl_train` with the training code template (MaskablePPO, 250k timesteps) → \
 analyze convergence and the learned action sequence → call \
 `produce_planner_report` with the characterized response plan.
 
@@ -91,7 +91,7 @@ import json, sys, time, importlib.util
 import numpy as np
 import gymnasium
 from gymnasium.wrappers import TimeLimit
-from stable_baselines3 import PPO
+from sb3_contrib import MaskablePPO
 from stable_baselines3.common.callbacks import BaseCallback
 
 # 0. JSON encoder that handles numpy types (float32, int64, ndarray, etc.)
@@ -140,13 +140,14 @@ class ProgressCallback(BaseCallback):
                 }}, cls=NumpyEncoder), flush=True)
         return True
 
-# 3. Train — wrap with TimeLimit so episodes truncate after 200 steps
-#    (untrained policies rarely satisfy the full termination condition,
-#    so without TimeLimit episodes run forever and no progress is logged)
+# 3. Train with MaskablePPO — the env's get_action_mask() method
+#    tells the policy which actions are valid in each state,
+#    preventing the agent from wasting steps on completed actions.
 MAX_EPISODE_STEPS = 200
 env = TimeLimit(EnvClass(), max_episode_steps=MAX_EPISODE_STEPS)
-model = PPO("MlpPolicy", env, verbose=0, n_steps=2048, batch_size=128,
-            learning_rate=3e-4, policy_kwargs=dict(net_arch=[64, 64]))
+model = MaskablePPO("MlpPolicy", env, verbose=0, n_steps=2048,
+                    batch_size=128, learning_rate=3e-4,
+                    policy_kwargs=dict(net_arch=[64, 64]))
 model.learn(total_timesteps=250000, callback=ProgressCallback())
 
 # 3a. Save trained policy for validation
@@ -167,11 +168,15 @@ for ep_i in range(NUM_EVAL_EPISODES):
     ep_reward = 0.0
     recent_actions = []
     for _ in range(MAX_EVAL_STEPS):
-        action, _ = model.predict(obs, deterministic=False)
+        mask = np.array(
+            eval_env.unwrapped.get_action_mask(), dtype=np.bool_
+        )
+        action, _ = model.predict(
+            obs, deterministic=False, action_masks=mask
+        )
         obs, reward, terminated, truncated, _ = eval_env.step(int(action))
         obs = np.array(obs, dtype=np.float32)
         ep_reward += reward
-        # Loop detection: break if the same action repeats 10+ times
         recent_actions.append(int(action))
         if len(recent_actions) > 10 and len(set(recent_actions[-10:])) == 1:
             break
@@ -194,12 +199,16 @@ obs = np.array(obs, dtype=np.float32)
 actions_taken = []
 ep_reward = 0.0
 for _ in range(MAX_EVAL_STEPS):
-    action, _ = model.predict(obs, deterministic=False)
+    mask = np.array(
+        detail_env.unwrapped.get_action_mask(), dtype=np.bool_
+    )
+    action, _ = model.predict(
+        obs, deterministic=False, action_masks=mask
+    )
     obs, reward, terminated, truncated, info = detail_env.step(int(action))
     obs = np.array(obs, dtype=np.float32)
     actions_taken.append(int(action))
     ep_reward += reward
-    # Loop detection: break if same action repeats 10+ times
     if len(actions_taken) > 10 and len(set(actions_taken[-10:])) == 1:
         break
     if terminated or truncated:
@@ -268,7 +277,9 @@ output.
 
 Use these defaults unless you have a specific reason to change them:
 
-- **Algorithm:** PPO
+- **Algorithm:** MaskablePPO (from sb3-contrib) — PPO with native action \
+masking. The environment's `get_action_mask()` method tells the policy \
+which actions are valid, preventing wasted steps on completed actions.
 - **Learning rate:** 3e-4
 - **n_steps:** 2048 (larger rollout buffers give smoother training)
 - **batch_size:** 128 (moderate — very large batches can hurt learning)
@@ -299,6 +310,11 @@ picking a no-op action when the greedy choice for a particular state is \
 suboptimal. The stochastic policy naturally breaks out of such cycles \
 through sampling. The template also includes loop detection (breaks if \
 the same action repeats 10+ consecutive times) as a safety net.
+
+Action masking via `env.unwrapped.get_action_mask()` is applied during \
+both training and evaluation. This prevents the agent from selecting \
+actions that are already completed or whose prerequisites are not met — \
+eliminating the primary cause of action-repeat loops.
 
 ## Specification Violations During Recovery
 
