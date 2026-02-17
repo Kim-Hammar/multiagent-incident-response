@@ -33,6 +33,8 @@ class JobManager:
 
     _instance: Optional["JobManager"] = None
     _init_lock: threading.Lock = threading.Lock()
+    _jobs: dict[str, _Job]
+    _lock: threading.Lock
 
     def __new__(cls) -> "JobManager":
         """
@@ -44,7 +46,7 @@ class JobManager:
             with cls._init_lock:
                 if cls._instance is None:
                     inst = super().__new__(cls)
-                    inst._jobs: dict[str, _Job] = {}
+                    inst._jobs = {}
                     inst._lock = threading.Lock()
                     cls._instance = inst
         return cls._instance
