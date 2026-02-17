@@ -1,7 +1,11 @@
 /**
- * Shared NDJSON streaming helper for dt_exec / pentest_exec tool execution
+ * Shared helper for dt_exec / pentest_exec tool execution
  * and sub-agent streaming tools (run_code_agent, run_code_reviewer_agent).
+ *
+ * Uses background job polling instead of NDJSON streaming.
  */
+
+import { pollJobEvents } from './pollJobEvents.js'
 
 export const STREAMING_TOOLS = new Set([
   'dt_exec',
@@ -18,7 +22,9 @@ export const STREAMING_TOOLS = new Set([
 ])
 
 /**
- * Execute a streaming tool call, reading NDJSON from the response body.
+ * Execute a streaming tool call via a background job.
+ *
+ * POSTs to start the job, then polls for events.
  *
  * @param {Object} opts
  * @param {string} opts.url - The tool endpoint URL
@@ -66,39 +72,29 @@ export async function executeStreamingTool({
     throw new Error(errData.error || `Tool execution failed (HTTP ${res.status})`)
   }
 
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+  const { job_id } = await res.json()
+
   let doneEvent = null
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop()
-    for (const line of lines) {
-      if (!line.trim()) continue
-      try {
-        const event = JSON.parse(line)
-        if (event.type === 'output_chunk') {
-          onChunk(event.text)
-        } else if (event.type === 'sub_event' && onSubEvent) {
-          onSubEvent(event.event)
-        } else if (event.type === 'done') {
-          doneEvent = event
-        } else if (event.type === 'error') {
-          throw new Error(event.message || 'Streaming tool error')
-        }
-      } catch (e) {
-        if (e.message && !e.message.startsWith('Unexpected')) throw e
-        /* skip non-JSON lines */
+  await pollJobEvents({
+    jobId: job_id,
+    token,
+    signal,
+    onEvent: (event) => {
+      if (event.type === 'output_chunk') {
+        onChunk(event.text)
+      } else if (event.type === 'sub_event' && onSubEvent) {
+        onSubEvent(event.event)
+      } else if (event.type === 'done') {
+        doneEvent = event
+      } else if (event.type === 'error') {
+        throw new Error(event.message || 'Streaming tool error')
       }
     }
-  }
+  })
 
   if (!doneEvent) {
-    throw new Error('Stream ended without a done event')
+    throw new Error('Job ended without a done event')
   }
 
   if (doneEvent.result) {

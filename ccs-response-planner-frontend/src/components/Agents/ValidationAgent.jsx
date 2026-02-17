@@ -16,6 +16,7 @@ import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
+import { pollJobEvents } from './shared/pollJobEvents.js'
 
 /**
  * ValidationAgent component — drives the validation agent loop with
@@ -182,8 +183,7 @@ function ValidationAgent() {
           compaction_threshold: compactionThreshold / 100,
           last_prompt_tokens: contextUsage?.prompt_tokens || 0,
           planner_report_id: plannerReportId || undefined
-        }),
-        signal: controller.signal
+        })
       })
       if (res.status === 401) {
         logout()
@@ -201,21 +201,15 @@ function ValidationAgent() {
         return
       }
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()
-        for (const line of lines) {
-          if (!line.trim()) continue
-          const event = JSON.parse(line)
+      await pollJobEvents({
+        jobId: job_id,
+        token,
+        signal: controller.signal,
+        onEvent: (event) => {
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             setConversationHistory([
@@ -273,7 +267,7 @@ function ValidationAgent() {
             return
           }
         }
-      }
+      })
       setDtStatus(null)
 
       if (finalEntry) {

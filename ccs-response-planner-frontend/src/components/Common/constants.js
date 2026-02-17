@@ -82,6 +82,9 @@ export const API_AGENTS_DP_PROMPT_URL = '/api/agents/dp/prompt'
 export const API_AGENTS_REPORTS_URL = '/api/agents/reports'
 export const API_AGENTS_SESSIONS_ACTIVE_URL = '/api/agents/sessions/active'
 export const API_AGENTS_SESSIONS_URL = '/api/agents/sessions'
+export const apiJobEventsUrl = (jobId) => `/api/agents/jobs/${jobId}/events`
+export const apiJobCancelUrl = (jobId) => `/api/agents/jobs/${jobId}/cancel`
+export const apiJobStatusUrl = (jobId) => `/api/agents/jobs/${jobId}/status`
 export const API_EXAMPLES_URL = '/api/examples'
 export const API_DIGITAL_TWIN_CONFIGS_URL = '/api/digital-twin/configs'
 export const apiDigitalTwinConfigDeployUrl = (id) => `/api/digital-twin/configs/${id}/deploy`

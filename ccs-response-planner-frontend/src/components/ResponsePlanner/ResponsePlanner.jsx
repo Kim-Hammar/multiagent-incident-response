@@ -9,12 +9,15 @@ import {
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL,
   API_AGENTS_SESSIONS_ACTIVE_URL,
-  API_AGENTS_SESSIONS_URL
+  API_AGENTS_SESSIONS_URL,
+  apiJobCancelUrl,
+  apiJobStatusUrl
 } from '../Common/constants'
 import AgentPlanningTab from '../Agents/shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from '../Agents/shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from '../Agents/shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from '../Agents/shared/streamingToolExec.js'
+import { pollJobEvents } from '../Agents/shared/pollJobEvents.js'
 import {
   AssessmentBody,
   CodeReportBody,
@@ -224,6 +227,7 @@ function ResponsePlanner() {
   const abortControllerRef = useRef(null)
   const isSourceTabRef = useRef(false)
   const pollingRef = useRef(null)
+  const lastSaveRef = useRef(0)
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -292,7 +296,9 @@ function ResponsePlanner() {
     if (!isSourceTabRef.current) return
     const sid = sessionIdRef.current
     if (!sid) return
-    const timer = setTimeout(() => {
+
+    const save = () => {
+      lastSaveRef.current = Date.now()
       fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
         method: 'PUT',
         headers: {
@@ -306,7 +312,14 @@ function ResponsePlanner() {
           ui_state: { running, executingTool, dtStatus }
         })
       }).catch(() => {})
-    }, 2000)
+    }
+
+    const elapsed = Date.now() - lastSaveRef.current
+    if (elapsed >= 1000) {
+      save()
+      return
+    }
+    const timer = setTimeout(save, 1000 - elapsed)
     return () => clearTimeout(timer)
   }, [conversationHistory])
 
@@ -417,10 +430,52 @@ function ResponsePlanner() {
           }
         })
         .catch(() => {})
-    }, 3000)
+    }, 1000)
     pollingRef.current = interval
     return () => clearInterval(interval)
   }, [restoredSession, token])
+
+  useEffect(() => {
+    if (!restoredSession || !sessionIdRef.current) return
+    const sid = sessionIdRef.current
+    fetch(apiJobStatusUrl(sid), {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return
+        if (data.done && !data.running) {
+          return fetch(API_AGENTS_SESSIONS_ACTIVE_URL, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((freshData) => {
+              if (!freshData?.session) return
+              const s = freshData.session
+              const history = s.conversation_history || []
+              setConversationHistory(history)
+              setPendingProposal(s.pending_proposal || null)
+              setContextUsage(s.context_usage || null)
+              const ui = s.ui_state || {}
+              setRunning(!!ui.running)
+              setExecutingTool(ui.executingTool || null)
+              setDtStatus(ui.dtStatus || null)
+              if (s.status === 'active' && history.length > 0) {
+                const last = history[history.length - 1]
+                if (last.type === 'tool_result') {
+                  isSourceTabRef.current = true
+                  if (pollingRef.current) {
+                    clearInterval(pollingRef.current)
+                    pollingRef.current = null
+                  }
+                  callStep(history)
+                }
+              }
+            })
+        }
+      })
+      .catch(() => {})
+  }, [restoredSession])
 
   const scrollToBottom = () => {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
@@ -431,6 +486,13 @@ function ResponsePlanner() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
+    }
+    const sid = sessionIdRef.current
+    if (sid) {
+      fetch(apiJobCancelUrl(sid), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => {})
     }
     fetch(API_DT_PYTHON_STOP_URL, {
       method: 'POST',
@@ -454,7 +516,6 @@ function ResponsePlanner() {
         .filter(Boolean)
       return [...cleaned, { role: 'system', type: 'error', message: 'Planning stopped by user.' }]
     })
-    const sid = sessionIdRef.current
     if (sid) {
       fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
         method: 'PUT',
@@ -507,6 +568,7 @@ function ResponsePlanner() {
         },
         signal: controller.signal,
         body: JSON.stringify({
+          session_id: sessionIdRef.current,
           system_description: systemDescription,
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
@@ -532,21 +594,17 @@ function ResponsePlanner() {
         return
       }
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
+      let errorOccurred = false
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()
-        for (const line of lines) {
-          if (!line.trim()) continue
-          const event = JSON.parse(line)
+      await pollJobEvents({
+        jobId: job_id,
+        token,
+        signal: controller.signal,
+        onEvent: (event) => {
+          if (errorOccurred) return
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             streamingEntry.text = accumulated
@@ -595,10 +653,12 @@ function ResponsePlanner() {
               const base = prev.filter((e) => e !== streamingEntry)
               return [...base, { role: 'system', type: 'error', message: msg }]
             })
-            return
+            errorOccurred = true
           }
         }
-      }
+      })
+
+      if (errorOccurred) return
 
       setDtStatus(null)
       if (finalEntry) {
@@ -768,6 +828,7 @@ function ResponsePlanner() {
       setConversationHistory((prev) => [...prev, approvalEntry, streamEntry])
       try {
         const extraBody = {
+          session_id: sessionIdRef.current,
           system_description: systemDescription,
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
@@ -910,6 +971,7 @@ function ResponsePlanner() {
         },
         signal: controller.signal,
         body: JSON.stringify({
+          session_id: sessionIdRef.current,
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
           incident_id: selectedIncidentId

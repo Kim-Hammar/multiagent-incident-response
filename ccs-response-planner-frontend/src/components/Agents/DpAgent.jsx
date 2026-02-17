@@ -17,6 +17,7 @@ import DpSolveResult from './DpSolveResult.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { pollJobEvents } from './shared/pollJobEvents.js'
 
 /**
  * DpAgent component — drives the DP agent loop with
@@ -169,7 +170,6 @@ function DpAgent() {
     try {
       const res = await fetch(API_AGENTS_DP_STEP_URL, {
         method: 'POST',
-        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -209,21 +209,15 @@ function DpAgent() {
         return
       }
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()
-        for (const line of lines) {
-          if (!line.trim()) continue
-          const event = JSON.parse(line)
+      await pollJobEvents({
+        jobId: job_id,
+        token,
+        signal: controller.signal,
+        onEvent: (event) => {
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             setConversationHistory([
@@ -274,10 +268,9 @@ function DpAgent() {
               ...compactionEntries,
               { role: 'system', type: 'error', message: msg }
             ])
-            return
           }
         }
-      }
+      })
 
       if (finalEntry) {
         const entries = []
@@ -370,7 +363,6 @@ function DpAgent() {
       try {
         const res = await fetch(API_AGENTS_DP_TOOL_URL, {
           method: 'POST',
-          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
@@ -394,38 +386,28 @@ function DpAgent() {
           return
         }
 
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
+        const { job_id } = await res.json()
         const progressEvents = []
         let resultEvent = null
         let doneEvent = null
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop()
-          for (const line of lines) {
-            if (!line.trim()) continue
-            try {
-              const event = JSON.parse(line)
-              if (event.type === 'progress') {
-                progressEvents.push(event)
-                setSolverData((prev) => [...prev, event])
-              } else if (event.type === 'result') {
-                resultEvent = event
-              } else if (event.type === 'done' || event.type === 'timeout') {
-                doneEvent = event
-              } else if (event.type === 'error') {
-                setAlert({ type: 'danger', message: event.message || 'Solving error' })
-              }
-            } catch {
-              /* skip non-JSON lines */
+        await pollJobEvents({
+          jobId: job_id,
+          token,
+          signal: controller.signal,
+          onEvent: (event) => {
+            if (event.type === 'progress') {
+              progressEvents.push(event)
+              setSolverData((prev) => [...prev, event])
+            } else if (event.type === 'result') {
+              resultEvent = event
+            } else if (event.type === 'done' || event.type === 'timeout') {
+              doneEvent = event
+            } else if (event.type === 'error') {
+              setAlert({ type: 'danger', message: event.message || 'Solving error' })
             }
           }
-        }
+        })
 
         setSolverStartTime(null)
         const runId = ++runIdCounterRef.current

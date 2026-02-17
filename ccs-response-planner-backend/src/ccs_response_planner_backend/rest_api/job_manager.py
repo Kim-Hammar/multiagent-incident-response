@@ -1,0 +1,222 @@
+"""
+Thread-safe singleton for running agent generators in background threads.
+
+Jobs accumulate events in memory so they can be polled by the frontend
+even after a tab close/reopen.
+"""
+import logging
+import threading
+import uuid
+from typing import Any, Callable, Generator, Optional
+
+logger = logging.getLogger(__name__)
+
+
+class _Job:
+    """
+    Internal state for a single background job.
+    """
+
+    def __init__(self) -> None:
+        self.events: list[dict[str, Any]] = []
+        self.done: bool = False
+        self.error: Optional[str] = None
+        self.cancelled: bool = False
+        self.lock: threading.Lock = threading.Lock()
+
+
+class JobManager:
+    """
+    Thread-safe singleton that runs generator functions in
+    background daemon threads, accumulating their yielded events.
+    """
+
+    _instance: Optional["JobManager"] = None
+    _init_lock: threading.Lock = threading.Lock()
+
+    def __new__(cls) -> "JobManager":
+        """
+        Return the singleton instance, creating it if needed.
+
+        :return: the singleton JobManager instance
+        """
+        if cls._instance is None:
+            with cls._init_lock:
+                if cls._instance is None:
+                    inst = super().__new__(cls)
+                    inst._jobs: dict[str, _Job] = {}
+                    inst._lock = threading.Lock()
+                    cls._instance = inst
+        return cls._instance
+
+    def start_job(
+        self,
+        job_id: str,
+        generator_fn: Callable[[], Generator[
+            dict[str, Any], None, None
+        ]],
+        on_complete: Optional[Callable[
+            [list[dict[str, Any]]], None
+        ]] = None,
+    ) -> str:
+        """
+        Start a background job running a generator function.
+
+        If a job with the same ID exists and is done, it is replaced.
+        If a job with the same ID is still running, it is cancelled
+        first.
+
+        :param job_id: unique key for this job
+        :param generator_fn: callable returning a generator of events
+        :param on_complete: optional callback invoked with all events
+                            when the generator finishes
+        :return: the job_id
+        """
+        with self._lock:
+            existing = self._jobs.get(job_id)
+            if existing is not None:
+                if not existing.done:
+                    existing.cancelled = True
+            job = _Job()
+            self._jobs[job_id] = job
+
+        def _run() -> None:
+            try:
+                gen = generator_fn()
+                for event in gen:
+                    if job.cancelled:
+                        logger.info(
+                            "Job %s cancelled", job_id,
+                        )
+                        break
+                    with job.lock:
+                        job.events.append(event)
+            except Exception as exc:
+                logger.error(
+                    "Job %s error: %s",
+                    job_id, exc, exc_info=True,
+                )
+                with job.lock:
+                    job.error = str(exc)
+            finally:
+                job.done = True
+                if on_complete is not None:
+                    try:
+                        with job.lock:
+                            events_copy = list(job.events)
+                        on_complete(events_copy)
+                    except Exception:
+                        logger.error(
+                            "Job %s on_complete error",
+                            job_id, exc_info=True,
+                        )
+
+        t = threading.Thread(
+            target=_run, daemon=True,
+            name=f"job-{job_id}",
+        )
+        t.start()
+        return job_id
+
+    def get_events(
+        self,
+        job_id: str,
+        after: int = 0,
+    ) -> dict[str, Any]:
+        """
+        Return events accumulated since index ``after``.
+
+        :param job_id: the job key
+        :param after: index to start returning events from
+        :return: dict with events, done, error, next_index
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+        if job is None:
+            return {
+                "events": [],
+                "done": True,
+                "error": "Job not found",
+                "next_index": 0,
+            }
+        with job.lock:
+            new_events = job.events[after:]
+            next_index = after + len(new_events)
+            return {
+                "events": new_events,
+                "done": job.done,
+                "error": job.error,
+                "next_index": next_index,
+            }
+
+    def cancel_job(self, job_id: str) -> bool:
+        """
+        Set the cancelled flag on a running job.
+
+        :param job_id: the job key
+        :return: True if the job was found and cancelled
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+        if job is None:
+            return False
+        job.cancelled = True
+        return True
+
+    def is_running(self, job_id: str) -> bool:
+        """
+        Check whether a job exists and has not finished.
+
+        :param job_id: the job key
+        :return: True if the job is still running
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+        if job is None:
+            return False
+        return not job.done
+
+    def get_status(
+        self, job_id: str,
+    ) -> dict[str, Any]:
+        """
+        Return a summary of the job's current state.
+
+        :param job_id: the job key
+        :return: dict with running, done, event_count
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+        if job is None:
+            return {
+                "running": False,
+                "done": True,
+                "event_count": 0,
+            }
+        with job.lock:
+            return {
+                "running": not job.done,
+                "done": job.done,
+                "event_count": len(job.events),
+            }
+
+    def cleanup(self, job_id: str) -> None:
+        """
+        Remove a completed job from memory.
+
+        :param job_id: the job key
+        """
+        with self._lock:
+            self._jobs.pop(job_id, None)
+
+    @staticmethod
+    def generate_job_id() -> str:
+        """
+        Generate a unique job ID.
+
+        :return: a UUID4 string
+        """
+        return str(uuid.uuid4())
+
+
+job_manager = JobManager()

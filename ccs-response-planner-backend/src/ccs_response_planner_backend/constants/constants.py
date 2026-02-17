@@ -136,6 +136,15 @@ class API:
     AGENTS_SESSION_ROUTE = (
         "/api/agents/sessions/<int:session_id>"
     )
+    AGENTS_JOB_EVENTS_ROUTE = (
+        "/api/agents/jobs/<job_id>/events"
+    )
+    AGENTS_JOB_CANCEL_ROUTE = (
+        "/api/agents/jobs/<job_id>/cancel"
+    )
+    AGENTS_JOB_STATUS_ROUTE = (
+        "/api/agents/jobs/<job_id>/status"
+    )
     EXAMPLES_RESOURCE = "examples"
     EXAMPLES_ROUTE = "/api/examples"
     DIGITAL_TWIN_CONFIGS_ROUTE = "/api/digital-twin/configs"

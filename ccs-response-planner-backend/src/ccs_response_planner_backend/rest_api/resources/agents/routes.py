@@ -3,9 +3,14 @@ Routes and sub-resources for the /agents resource.
 """
 import json
 import logging
+import uuid
 from typing import Any, Generator
 
 from flask import Blueprint, Response, g, jsonify, request
+
+from ccs_response_planner_backend.rest_api.job_manager import (
+    job_manager,
+)
 
 from ccs_response_planner_backend.agents.report_agent.agent import (
     ReportAgent,
@@ -293,13 +298,237 @@ def _install_policy_in_sandbox(
     )
 
 
+def _save_step_result(
+    session_id: int,
+    username: str,
+    events: list[dict[str, Any]],
+) -> None:
+    """
+    Auto-save orchestrator step results to the session.
+
+    Called when a background job finishes. Builds
+    conversation history entries from accumulated events
+    and persists them to PostgreSQL.
+
+    :param session_id: the planning session id
+    :param username: the session owner
+    :param events: list of events from the job
+    """
+    try:
+        accumulated_text = ""
+        final_entry: dict[str, Any] | None = None
+        context_usage: dict[str, Any] | None = None
+        pending_proposal: Any = None
+
+        for ev in events:
+            ev_type = ev.get("type", "")
+            if ev_type in ("text", "thinking"):
+                accumulated_text += ev.get(
+                    "text", "",
+                )
+            elif ev_type == "tool_proposal":
+                final_entry = ev
+                pending_proposal = ev
+            elif ev_type in (
+                "orchestrator_agent_report",
+                "assessment", "code_report",
+                "validation_report", "report",
+                "review_report", "planner_report",
+                "report_manager_report",
+                "orchestrator_report",
+                "plan_manager_report",
+                "report_review",
+            ):
+                final_entry = ev
+            elif ev_type == "context_usage":
+                context_usage = ev
+            elif ev_type == "error":
+                final_entry = ev
+
+        session = (
+            DatabaseFacade.get_active_planning_session(
+                username,
+            )
+        )
+        if not session or session["id"] != session_id:
+            return
+
+        history = list(
+            session.get("conversation_history") or []
+        )
+        # Remove any leftover streaming entry
+        history = [
+            e for e in history
+            if e.get("type") != "streaming"
+        ]
+
+        if accumulated_text:
+            history.append({
+                "role": "model",
+                "type": "reasoning",
+                "text": accumulated_text,
+            })
+        if final_entry:
+            history.append({
+                "role": "model",
+                **final_entry,
+            })
+
+        update_kwargs: dict[str, Any] = {
+            "conversation_history": history,
+            "ui_state": {
+                "running": False,
+                "executingTool": None,
+            },
+        }
+        if context_usage:
+            update_kwargs["context_usage"] = (
+                context_usage
+            )
+        if pending_proposal:
+            update_kwargs["pending_proposal"] = (
+                pending_proposal
+            )
+        else:
+            update_kwargs["pending_proposal"] = False
+
+        DatabaseFacade.update_planning_session(
+            session_id, username, **update_kwargs,
+        )
+    except Exception:
+        logger.error(
+            "Failed to auto-save step result for "
+            "session %s", session_id, exc_info=True,
+        )
+
+
+def _save_tool_result(
+    session_id: int,
+    username: str,
+    events: list[dict[str, Any]],
+    tool_name: str,
+) -> None:
+    """
+    Auto-save tool execution results to the session.
+
+    Called when a background tool job finishes.
+
+    :param session_id: the planning session id
+    :param username: the session owner
+    :param events: list of events from the job
+    :param tool_name: name of the tool that was executed
+    """
+    try:
+        done_event: dict[str, Any] | None = None
+        for ev in events:
+            if ev.get("type") == "done":
+                done_event = ev
+
+        session = (
+            DatabaseFacade.get_active_planning_session(
+                username,
+            )
+        )
+        if not session or session["id"] != session_id:
+            return
+
+        history = list(
+            session.get("conversation_history") or []
+        )
+
+        if done_event:
+            result = done_event.get("result", {})
+            if not result:
+                result = {
+                    k: done_event.get(k)
+                    for k in (
+                        "container", "command",
+                        "exit_code", "output",
+                    )
+                    if done_event.get(k) is not None
+                }
+            history.append({
+                "role": "tool",
+                "type": "tool_result",
+                "tool_name": tool_name,
+                "result": result,
+            })
+
+        DatabaseFacade.update_planning_session(
+            session_id, username,
+            conversation_history=history,
+            pending_proposal=False,
+            ui_state={
+                "running": False,
+                "executingTool": None,
+            },
+        )
+    except Exception:
+        logger.error(
+            "Failed to auto-save tool result for "
+            "session %s", session_id, exc_info=True,
+        )
+
+
+@agents_bp.route(
+    "/jobs/<job_id>/events", methods=["GET"],
+)
+@token_required
+def job_events(
+    job_id: str,
+) -> tuple[Response, int]:
+    """
+    Poll for events from a background job.
+
+    :param job_id: the job identifier
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    after = request.args.get("after", 0, type=int)
+    data = job_manager.get_events(job_id, after=after)
+    return jsonify(data), 200
+
+
+@agents_bp.route(
+    "/jobs/<job_id>/cancel", methods=["POST"],
+)
+@token_required
+def job_cancel(
+    job_id: str,
+) -> tuple[Response, int]:
+    """
+    Cancel a running background job.
+
+    :param job_id: the job identifier
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    job_manager.cancel_job(job_id)
+    return jsonify({"success": True}), 200
+
+
+@agents_bp.route(
+    "/jobs/<job_id>/status", methods=["GET"],
+)
+@token_required
+def job_status(
+    job_id: str,
+) -> tuple[Response, int]:
+    """
+    Get the status of a background job.
+
+    :param job_id: the job identifier
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    data = job_manager.get_status(job_id)
+    return jsonify(data), 200
+
+
 @agents_bp.route("/report/step", methods=["POST"])
 @token_required
-def agents_report_step() -> Response | tuple[Response, int]:
+def agents_report_step() -> tuple[Response, int]:
     """
-    Advance the ReportAgent loop by one step (NDJSON stream).
+    Start a ReportAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get("system_description", "")
@@ -317,26 +546,37 @@ def agents_report_step() -> Response | tuple[Response, int]:
                 "is required"
             ),
         }), 400
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the ReportAgent step in background.
 
-        :return: a generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = ReportAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
                 operator_feedback=operator_feedback,
@@ -344,20 +584,16 @@ def agents_report_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
-                ),
-            ):
-                yield json.dumps(event) + "\n"
+                compaction_model=compaction_model,
+                compaction_threshold=compaction_threshold,
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(generate(), mimetype="application/x-ndjson")
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/report/prompt", methods=["POST"])
@@ -399,14 +635,14 @@ def agents_report_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/report/tool", methods=["POST"])
 @token_required
-def agents_report_tool() -> Response | tuple[Response, int]:
+def agents_report_tool() -> tuple[Response, int]:
     """
     Execute an approved tool call for the ReportAgent.
 
-    For ``dt_exec``, streams NDJSON output events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -418,26 +654,29 @@ def agents_report_tool() -> Response | tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in INFO_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(uuid.uuid4())
 
-            :return: a generator of newline-delimited JSON strings
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = ReportAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
-                    "type": "error", "message": str(e),
-                }) + "\n"
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
 
-        return Response(
-            generate(), mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in TOOL_DISPATCH:
         return jsonify({
@@ -453,11 +692,11 @@ def agents_report_tool() -> Response | tuple[Response, int]:
 
 @agents_bp.route("/pentest/step", methods=["POST"])
 @token_required
-def agents_pentest_step() -> Response | tuple[Response, int]:
+def agents_pentest_step() -> tuple[Response, int]:
     """
-    Advance the PenetrationTestAgent loop by one step (NDJSON stream).
+    Start a PenetrationTestAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get("system_description", "")
@@ -470,40 +709,47 @@ def agents_pentest_step() -> Response | tuple[Response, int]:
         return jsonify({
             "error": "system_description is required",
         }), 400
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the PenetrationTestAgent step in background.
 
-        :return: a generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             agent = PenetrationTestAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 conversation_history=conversation_history,
                 images=images,
                 model_name=model_name,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
-                ),
-            ):
-                yield json.dumps(event) + "\n"
+                compaction_model=compaction_model,
+                compaction_threshold=compaction_threshold,
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(generate(), mimetype="application/x-ndjson")
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/pentest/prompt", methods=["POST"])
@@ -525,14 +771,14 @@ def agents_pentest_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/pentest/tool", methods=["POST"])
 @token_required
-def agents_pentest_tool() -> Response | tuple[Response, int]:
+def agents_pentest_tool() -> tuple[Response, int]:
     """
-    Execute an approved tool call for the PenetrationTestAgent.
+    Execute an approved tool call for PenetrationTestAgent.
 
-    For ``pentest_exec``, streams NDJSON output events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -544,26 +790,29 @@ def agents_pentest_tool() -> Response | tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in PENTEST_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(uuid.uuid4())
 
-            :return: a generator of newline-delimited JSON strings
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = PenetrationTestAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
-                    "type": "error", "message": str(e),
-                }) + "\n"
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
 
-        return Response(
-            generate(), mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in PENTEST_TOOL_DISPATCH:
         return jsonify({
@@ -579,11 +828,11 @@ def agents_pentest_tool() -> Response | tuple[Response, int]:
 
 @agents_bp.route("/validation/step", methods=["POST"])
 @token_required
-def agents_validation_step() -> Response | tuple[Response, int]:
+def agents_validation_step() -> tuple[Response, int]:
     """
-    Advance the ValidationAgent loop by one step (NDJSON stream).
+    Start a ValidationAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get("system_description", "")
@@ -622,20 +871,34 @@ def agents_validation_step() -> Response | tuple[Response, int]:
             ],
             indent=2,
         )
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the ValidationAgent step in background.
 
-        :return: a generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
 
             has_policy = False
-            if not conversation_history and planner_report_id:
+            if (
+                not conversation_history
+                and planner_report_id
+            ):
                 try:
                     policy_bytes = (
                         DatabaseFacade.get_policy_data(
@@ -643,68 +906,69 @@ def agents_validation_step() -> Response | tuple[Response, int]:
                         )
                     )
                     if policy_bytes:
-                        yield json.dumps({
+                        yield {
                             "type": "dt_progress",
                             "message": (
                                 "Loading RL policy "
                                 "into sandbox..."
                             ),
-                        }) + "\n"
+                        }
                         _install_policy_in_sandbox(
                             policy_bytes,
                             code_report or {},
                         )
                         has_policy = True
-                        yield json.dumps({
+                        yield {
                             "type": "policy_loaded",
                             "message": "Policy loaded",
-                        }) + "\n"
+                        }
                 except Exception as e:
                     logger.warning(
                         "Failed to load policy: %s",
                         e, exc_info=True,
                     )
-                    yield json.dumps({
+                    yield {
                         "type": "error",
                         "message": (
-                            f"Failed to load policy: {e}"
+                            "Failed to load policy: "
+                            f"{e}"
                         ),
-                    }) + "\n"
+                    }
 
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = ValidationAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
                 response_plan=response_plan,
                 specification=specification,
                 planner_report=planner_report or {},
                 code_report=code_report or {},
-                conversation_history=conversation_history,
+                conversation_history=(
+                    conversation_history
+                ),
                 images=images,
                 model_name=model_name,
                 has_policy=has_policy,
                 dt_config=dt_config,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
                 ),
-            ):
-                yield json.dumps(event) + "\n"
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(generate(), mimetype="application/x-ndjson")
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/validation/prompt", methods=["POST"])
@@ -778,14 +1042,14 @@ def agents_validation_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/validation/tool", methods=["POST"])
 @token_required
-def agents_validation_tool() -> Response | tuple[Response, int]:
+def agents_validation_tool() -> tuple[Response, int]:
     """
-    Execute an approved tool call for the ValidationAgent.
+    Execute an approved tool call for ValidationAgent.
 
-    For ``dt_exec``, streams NDJSON output events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -797,26 +1061,29 @@ def agents_validation_tool() -> Response | tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in VALIDATION_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(uuid.uuid4())
 
-            :return: a generator of newline-delimited JSON strings
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = ValidationAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
-                    "type": "error", "message": str(e),
-                }) + "\n"
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
 
-        return Response(
-            generate(), mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in VALIDATION_TOOL_DISPATCH:
         return jsonify({
@@ -832,11 +1099,11 @@ def agents_validation_tool() -> Response | tuple[Response, int]:
 
 @agents_bp.route("/code/step", methods=["POST"])
 @token_required
-def agents_code_step() -> Response | tuple[Response, int]:
+def agents_code_step() -> tuple[Response, int]:
     """
-    Advance the CodeAgent loop by one step (NDJSON stream).
+    Start a CodeAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get("system_description", "")
@@ -862,26 +1129,37 @@ def agents_code_step() -> Response | tuple[Response, int]:
             ],
             indent=2,
         )
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the CodeAgent step in background.
 
-        :return: a generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = CodeAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
                 specification=specification,
@@ -890,20 +1168,16 @@ def agents_code_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
-                ),
-            ):
-                yield json.dumps(event) + "\n"
+                compaction_model=compaction_model,
+                compaction_threshold=compaction_threshold,
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(generate(), mimetype="application/x-ndjson")
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/code/prompt", methods=["POST"])
@@ -948,14 +1222,14 @@ def agents_code_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/code/tool", methods=["POST"])
 @token_required
-def agents_code_tool() -> Response | tuple[Response, int]:
+def agents_code_tool() -> tuple[Response, int]:
     """
     Execute an approved tool call for the CodeAgent.
 
-    For ``dt_exec``, streams NDJSON output events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -967,26 +1241,29 @@ def agents_code_tool() -> Response | tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in CODE_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(uuid.uuid4())
 
-            :return: a generator of newline-delimited JSON strings
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = CodeAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
-                    "type": "error", "message": str(e),
-                }) + "\n"
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
 
-        return Response(
-            generate(), mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in CODE_TOOL_DISPATCH:
         return jsonify({
@@ -1002,11 +1279,11 @@ def agents_code_tool() -> Response | tuple[Response, int]:
 
 @agents_bp.route("/code-review/step", methods=["POST"])
 @token_required
-def agents_code_review_step() -> Response | tuple[Response, int]:
+def agents_code_review_step() -> tuple[Response, int]:
     """
-    Advance the CodeReviewerAgent loop by one step (NDJSON stream).
+    Start a CodeReviewerAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get("system_description", "")
@@ -1037,26 +1314,37 @@ def agents_code_review_step() -> Response | tuple[Response, int]:
             ],
             indent=2,
         )
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the CodeReviewerAgent step in background.
 
-        :return: a generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = CodeReviewerAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
                 specification=specification,
@@ -1066,20 +1354,16 @@ def agents_code_review_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
-                ),
-            ):
-                yield json.dumps(event) + "\n"
+                compaction_model=compaction_model,
+                compaction_threshold=compaction_threshold,
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(generate(), mimetype="application/x-ndjson")
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/code-review/prompt", methods=["POST"])
@@ -1135,14 +1419,14 @@ def agents_code_review_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/code-review/tool", methods=["POST"])
 @token_required
-def agents_code_review_tool() -> Response | tuple[Response, int]:
+def agents_code_review_tool() -> tuple[Response, int]:
     """
-    Execute an approved tool call for the CodeReviewerAgent.
+    Execute an approved tool call for CodeReviewerAgent.
 
-    For ``dt_exec``, streams NDJSON output events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -1154,26 +1438,29 @@ def agents_code_review_tool() -> Response | tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in CODE_REVIEW_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(uuid.uuid4())
 
-            :return: a generator of newline-delimited JSON strings
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = CodeReviewerAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
-                    "type": "error", "message": str(e),
-                }) + "\n"
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
 
-        return Response(
-            generate(), mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in CODE_REVIEW_TOOL_DISPATCH:
         return jsonify({
@@ -1192,12 +1479,12 @@ def agents_code_review_tool() -> Response | tuple[Response, int]:
 )
 @token_required
 def agents_report_review_step() -> (
-    Response | tuple[Response, int]
+    tuple[Response, int]
 ):
     """
-    Advance the ReportReviewerAgent loop by one step (NDJSON).
+    Start a ReportReviewerAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or (JSON, status)
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get(
@@ -1230,26 +1517,37 @@ def agents_report_review_step() -> (
                     "incident_report must be valid JSON"
                 ),
             }), 400
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the ReportReviewerAgent step in background.
 
-        :return: generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
             agent = ReportReviewerAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=(
                     system_description
                 ),
@@ -1264,23 +1562,19 @@ def agents_report_review_step() -> (
                 images=images,
                 model_name=model_name,
                 dt_config=dt_config,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
                 ),
-            ):
-                yield json.dumps(event) + "\n"
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error",
                 "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(
-        generate(), mimetype="application/x-ndjson",
-    )
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route(
@@ -1343,15 +1637,15 @@ def agents_report_review_prompt() -> (
 )
 @token_required
 def agents_report_review_tool() -> (
-    Response | tuple[Response, int]
+    tuple[Response, int]
 ):
     """
     Execute an approved tool call for ReportReviewerAgent.
 
-    For ``dt_exec``, streams NDJSON output events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -1367,30 +1661,33 @@ def agents_report_review_tool() -> (
         tool_args["incident_id"] = incident_id
 
     if tool_name in REPORT_REVIEW_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(
+            uuid.uuid4()
+        )
 
-            :return: generator of newline-delimited JSON
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = ReportReviewerAgent()
-                for event in (
+                yield from (
                     agent.execute_tool_stream(
                         tool_name, tool_args,
                     )
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
+                yield {
                     "type": "error",
                     "message": str(e),
-                }) + "\n"
+                }
 
-        return Response(
-            generate(),
-            mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in REPORT_REVIEW_TOOL_DISPATCH:
         return jsonify({
@@ -1411,12 +1708,12 @@ def agents_report_review_tool() -> (
 )
 @token_required
 def agents_report_manager_step() -> (
-    Response | tuple[Response, int]
+    tuple[Response, int]
 ):
     """
-    Advance the ReportManagerAgent loop by one step (NDJSON).
+    Start a ReportManagerAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or (JSON, status)
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get(
@@ -1441,22 +1738,33 @@ def agents_report_manager_step() -> (
                 "security_alerts is required"
             ),
         }), 400
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the ReportManagerAgent step in background.
 
-        :return: generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             agent = ReportManagerAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
                 operator_feedback=operator_feedback,
@@ -1466,23 +1774,19 @@ def agents_report_manager_step() -> (
                 images=images,
                 model_name=model_name,
                 max_iterations=max_iterations,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
                 ),
-            ):
-                yield json.dumps(event) + "\n"
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error",
                 "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(
-        generate(), mimetype="application/x-ndjson",
-    )
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route(
@@ -1629,33 +1933,34 @@ def agents_report_manager_tool() -> (
                 last_assessment
             )
 
-        def generate() -> (
-            Generator[str, None, None]
-        ):
-            """
-            Yield NDJSON lines from streaming tool.
+        job_id = body.get("job_id") or str(
+            uuid.uuid4()
+        )
 
-            :return: generator of newline-delimited JSON
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = ReportManagerAgent()
-                for event in (
+                yield from (
                     agent.execute_tool_stream(
                         tool_name, tool_args,
                         context=context,
                     )
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
+                yield {
                     "type": "error",
                     "message": str(e),
-                }) + "\n"
+                }
 
-        return Response(
-            generate(),
-            mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in REPORT_MANAGER_TOOL_DISPATCH:
         return jsonify({
@@ -1674,12 +1979,12 @@ def agents_report_manager_tool() -> (
 @agents_bp.route("/code-manager/step", methods=["POST"])
 @token_required
 def agents_code_manager_step() -> (
-    Response | tuple[Response, int]
+    tuple[Response, int]
 ):
     """
-    Advance the CodeManagerAgent loop by one step (NDJSON).
+    Start a CodeManagerAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or (JSON, status)
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get(
@@ -1710,46 +2015,55 @@ def agents_code_manager_step() -> (
             ],
             indent=2,
         )
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the CodeManagerAgent step in background.
 
-        :return: generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             agent = CodeManagerAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
                 specification=specification,
                 operator_feedback=operator_feedback,
-                conversation_history=conversation_history,
+                conversation_history=(
+                    conversation_history
+                ),
                 images=images,
                 model_name=model_name,
                 max_iterations=max_iterations,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
                 ),
-            ):
-                yield json.dumps(event) + "\n"
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(
-        generate(), mimetype="application/x-ndjson",
-    )
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/code-manager/prompt", methods=["POST"])
@@ -1864,29 +2178,32 @@ def agents_code_manager_tool() -> (
                     break
             context["last_code_report"] = last_code_report
 
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(
+            uuid.uuid4()
+        )
 
-            :return: generator of newline-delimited JSON
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = CodeManagerAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
                     context=context,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
+                yield {
                     "type": "error",
                     "message": str(e),
-                }) + "\n"
+                }
 
-        return Response(
-            generate(),
-            mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in CODE_MANAGER_TOOL_DISPATCH:
         return jsonify({
@@ -1902,11 +2219,11 @@ def agents_code_manager_tool() -> (
 
 @agents_bp.route("/rl/step", methods=["POST"])
 @token_required
-def agents_rl_step() -> Response | tuple[Response, int]:
+def agents_rl_step() -> tuple[Response, int]:
     """
-    Advance the RlAgent loop by one step (NDJSON stream).
+    Start an RlAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get("system_description", "")
@@ -1938,12 +2255,24 @@ def agents_rl_step() -> Response | tuple[Response, int]:
             ],
             indent=2,
         )
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the RlAgent step in background.
 
-        :return: a generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
@@ -1953,31 +2282,32 @@ def agents_rl_step() -> Response | tuple[Response, int]:
                 if env_code:
                     try:
                         _write_env_to_sandbox(env_code)
-                        yield json.dumps({
+                        yield {
                             "type": "dt_progress",
                             "message": (
                                 "Env code written to "
                                 "sandbox"
                             ),
-                        }) + "\n"
+                        }
                     except Exception as e:
                         logger.warning(
-                            "Failed to pre-write env: %s",
-                            e, exc_info=True,
+                            "Failed to pre-write env: "
+                            "%s", e, exc_info=True,
                         )
-                        yield json.dumps({
+                        yield {
                             "type": "error",
                             "message": (
-                                "Failed to write env code "
-                                f"to sandbox: {e}"
+                                "Failed to write env "
+                                "code to sandbox: "
+                                f"{e}"
                             ),
-                        }) + "\n"
+                        }
                         return
             agent = RlAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
                 specification=specification,
@@ -1987,20 +2317,16 @@ def agents_rl_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 time_limit_minutes=time_limit_minutes,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
-                ),
-            ):
-                yield json.dumps(event) + "\n"
+                compaction_model=compaction_model,
+                compaction_threshold=compaction_threshold,
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(generate(), mimetype="application/x-ndjson")
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/rl/prompt", methods=["POST"])
@@ -2051,14 +2377,14 @@ def agents_rl_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/rl/tool", methods=["POST"])
 @token_required
-def agents_rl_tool() -> Response | tuple[Response, int]:
+def agents_rl_tool() -> tuple[Response, int]:
     """
     Execute an approved tool call for the RlAgent.
 
-    For ``rl_train``, streams NDJSON progress events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -2067,26 +2393,29 @@ def agents_rl_tool() -> Response | tuple[Response, int]:
         return jsonify({"error": "tool_name is required"}), 400
 
     if tool_name in RL_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(uuid.uuid4())
 
-            :return: a generator of newline-delimited JSON strings
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = RlAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
-                    "type": "error", "message": str(e),
-                }) + "\n"
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
 
-        return Response(
-            generate(), mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in RL_TOOL_DISPATCH:
         return jsonify({
@@ -2103,12 +2432,12 @@ def agents_rl_tool() -> Response | tuple[Response, int]:
 @agents_bp.route("/plan-manager/step", methods=["POST"])
 @token_required
 def agents_plan_manager_step() -> (
-    Response | tuple[Response, int]
+    tuple[Response, int]
 ):
     """
-    Advance the PlanManagerAgent loop by one step (NDJSON).
+    Start a PlanManagerAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or (JSON, status)
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get(
@@ -2139,22 +2468,33 @@ def agents_plan_manager_step() -> (
             ],
             indent=2,
         )
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the PlanManagerAgent step in background.
 
-        :return: generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             agent = PlanManagerAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
                 specification=specification,
@@ -2165,22 +2505,18 @@ def agents_plan_manager_step() -> (
                 images=images,
                 model_name=model_name,
                 max_iterations=max_iterations,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
                 ),
-            ):
-                yield json.dumps(event) + "\n"
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(
-        generate(), mimetype="application/x-ndjson",
-    )
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route(
@@ -2341,29 +2677,32 @@ def agents_plan_manager_tool() -> (
                 )
                 break
 
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(
+            uuid.uuid4()
+        )
 
-            :return: generator of newline-delimited JSON
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = PlanManagerAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
                     context=context,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
+                yield {
                     "type": "error",
                     "message": str(e),
-                }) + "\n"
+                }
 
-        return Response(
-            generate(),
-            mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in PLAN_MANAGER_TOOL_DISPATCH:
         return jsonify({
@@ -2384,12 +2723,12 @@ def agents_plan_manager_tool() -> (
 )
 @token_required
 def agents_orchestrator_step() -> (
-    Response | tuple[Response, int]
+    tuple[Response, int]
 ):
     """
-    Advance the OrchestratorAgent loop by one step (NDJSON).
+    Start an OrchestratorAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or (JSON, status)
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get(
@@ -2404,6 +2743,8 @@ def agents_orchestrator_step() -> (
     )
     images = body.get("images", [])
     model_name = body.get("model_name") or None
+    session_id = body.get("session_id")
+    username = g.username
     if not isinstance(images, list):
         images = []
     if not system_description and not security_alerts:
@@ -2413,22 +2754,50 @@ def agents_orchestrator_step() -> (
                 "security_alerts is required"
             ),
         }), 400
+    job_id = (
+        str(session_id) if session_id
+        else str(uuid.uuid4())
+    )
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
         """
-        Yield NDJSON lines from the agent stream.
+        Auto-save step results to the planning session.
 
-        :return: generator of newline-delimited JSON strings
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
+
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
+        """
+        Run the OrchestratorAgent step in background.
+
+        :return: a generator of event dicts
         """
         try:
             if not conversation_history:
-                for ev in _redeploy_dt():
-                    yield json.dumps(ev) + "\n"
+                yield from _redeploy_dt()
             agent = OrchestratorAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
                 operator_feedback=operator_feedback,
@@ -2437,23 +2806,21 @@ def agents_orchestrator_step() -> (
                 ),
                 images=images,
                 model_name=model_name,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
                 ),
-            ):
-                yield json.dumps(event) + "\n"
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error",
                 "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(
-        generate(), mimetype="application/x-ndjson",
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
     )
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route(
@@ -2619,33 +2986,55 @@ def agents_orchestrator_tool() -> (
                     break
             context["assessment"] = assessment
 
-        def generate() -> (
-            Generator[str, None, None]
-        ):
-            """
-            Yield NDJSON lines from streaming tool.
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
 
-            :return: generator of newline-delimited JSON
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
+
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = OrchestratorAgent()
-                for event in (
+                yield from (
                     agent.execute_tool_stream(
                         tool_name, tool_args,
                         context=context,
                     )
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
+                yield {
                     "type": "error",
                     "message": str(e),
-                }) + "\n"
+                }
 
-        return Response(
-            generate(),
-            mimetype="application/x-ndjson",
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
         )
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in ORCHESTRATOR_TOOL_DISPATCH:
         return jsonify({
@@ -2663,11 +3052,11 @@ def agents_orchestrator_tool() -> (
 
 @agents_bp.route("/dp/step", methods=["POST"])
 @token_required
-def agents_dp_step() -> Response | tuple[Response, int]:
+def agents_dp_step() -> tuple[Response, int]:
     """
-    Advance the DpAgent loop by one step (NDJSON stream).
+    Start a DpAgent step as a background job.
 
-    :return: an NDJSON streaming Response, or a (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     system_description = body.get("system_description", "")
@@ -2699,19 +3088,31 @@ def agents_dp_step() -> Response | tuple[Response, int]:
             ],
             indent=2,
         )
+    job_id = body.get("job_id") or str(uuid.uuid4())
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
 
-    def generate() -> Generator[str, None, None]:
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
         """
-        Yield NDJSON lines from the agent stream.
+        Run the DpAgent step in background.
 
-        :return: a generator of newline-delimited JSON strings
+        :return: a generator of event dicts
         """
         try:
             agent = DpAgent()
-            agent._last_prompt_tokens = body.get(
-                "last_prompt_tokens", 0,
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
             )
-            for event in agent.step_stream(
+            yield from agent.step_stream(
                 system_description=system_description,
                 incident_report=incident_report,
                 specification=specification,
@@ -2721,20 +3122,16 @@ def agents_dp_step() -> Response | tuple[Response, int]:
                 images=images,
                 model_name=model_name,
                 time_limit_minutes=time_limit_minutes,
-                compaction_model=body.get(
-                    "compaction_model",
-                ) or None,
-                compaction_threshold=body.get(
-                    "compaction_threshold", 0.8,
-                ),
-            ):
-                yield json.dumps(event) + "\n"
+                compaction_model=compaction_model,
+                compaction_threshold=compaction_threshold,
+            )
         except Exception as e:
-            yield json.dumps({
+            yield {
                 "type": "error", "message": str(e),
-            }) + "\n"
+            }
 
-    return Response(generate(), mimetype="application/x-ndjson")
+    job_manager.start_job(job_id, run)
+    return jsonify({"job_id": job_id}), 202
 
 
 @agents_bp.route("/dp/prompt", methods=["POST"])
@@ -2785,14 +3182,14 @@ def agents_dp_prompt() -> tuple[Response, int]:
 
 @agents_bp.route("/dp/tool", methods=["POST"])
 @token_required
-def agents_dp_tool() -> Response | tuple[Response, int]:
+def agents_dp_tool() -> tuple[Response, int]:
     """
     Execute an approved tool call for the DpAgent.
 
-    For ``dp_solve``, streams NDJSON progress events.
-    For other tools, returns a single JSON response.
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
 
-    :return: a streaming Response or (JSON, status) tuple
+    :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
@@ -2801,26 +3198,29 @@ def agents_dp_tool() -> Response | tuple[Response, int]:
         return jsonify({"error": "tool_name is required"}), 400
 
     if tool_name in DP_STREAMING_DISPATCH:
-        def generate() -> Generator[str, None, None]:
-            """
-            Yield NDJSON lines from the streaming tool.
+        job_id = body.get("job_id") or str(uuid.uuid4())
 
-            :return: a generator of newline-delimited JSON strings
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
             """
             try:
                 agent = DpAgent()
-                for event in agent.execute_tool_stream(
+                yield from agent.execute_tool_stream(
                     tool_name, tool_args,
-                ):
-                    yield json.dumps(event) + "\n"
+                )
             except Exception as e:
-                yield json.dumps({
-                    "type": "error", "message": str(e),
-                }) + "\n"
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
 
-        return Response(
-            generate(), mimetype="application/x-ndjson",
-        )
+        job_manager.start_job(job_id, run)
+        return jsonify({"job_id": job_id}), 202
 
     if tool_name not in DP_TOOL_DISPATCH:
         return jsonify({

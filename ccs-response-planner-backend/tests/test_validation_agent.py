@@ -1,20 +1,44 @@
 """Tests for the /api/agents/validation endpoints."""
 import json
+import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 from flask.testing import FlaskClient
 
 
-def _parse_ndjson(data: bytes) -> list[dict[str, Any]]:
+def _get_job_events(
+    client: FlaskClient,
+    resp,
+    auth_headers: dict[str, str],
+    max_wait: float = 2.0,
+) -> list[dict[str, Any]]:
     """
-    Parse newline-delimited JSON bytes into a list of dicts.
+    Poll a background job until done and return collected events.
 
-    :param data: raw NDJSON response bytes
-    :return: a list of parsed event dicts
+    :param client: the Flask test client
+    :param resp: the initial 202 response containing job_id
+    :param auth_headers: authorization headers
+    :param max_wait: maximum seconds to wait
+    :return: a list of event dicts
     """
-    lines = data.decode("utf-8").strip().split("\n")
-    return [json.loads(line) for line in lines if line.strip()]
+    assert resp.status_code == 202
+    data = resp.get_json()
+    job_id = data["job_id"]
+    deadline = time.monotonic() + max_wait
+    while time.monotonic() < deadline:
+        events_resp = client.get(
+            f"/api/agents/jobs/{job_id}/events?after=0",
+            headers=auth_headers,
+        )
+        assert events_resp.status_code == 200
+        events_data = events_resp.get_json()
+        if events_data["done"]:
+            return events_data["events"]
+        time.sleep(0.05)
+    raise TimeoutError(
+        f"Job {job_id} did not complete in {max_wait}s",
+    )
 
 
 def test_validation_step_401_without_token(
@@ -94,9 +118,7 @@ def test_validation_step_streams_events(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[1]["type"] == "tool_proposal"
@@ -133,7 +155,7 @@ def test_validation_tool_executes_dt_exec(
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/validation/tool streams dt_exec via NDJSON.
+    POST /api/agents/validation/tool runs dt_exec as background job.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool_stream.return_value = iter([
@@ -158,9 +180,7 @@ def test_validation_tool_executes_dt_exec(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "done"
     assert events[-1]["exit_code"] == 0
 
@@ -206,7 +226,7 @@ def test_validation_step_accepts_planner_report_id(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 202
     mock_db.get_policy_data.assert_called_once_with(42)
 
 

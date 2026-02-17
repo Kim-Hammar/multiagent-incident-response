@@ -1,5 +1,6 @@
 """Tests for the /api/agents endpoints."""
 import json
+import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -25,6 +26,40 @@ def _parse_ndjson(data: bytes) -> list[dict[str, Any]]:
     """
     lines = data.decode("utf-8").strip().split("\n")
     return [json.loads(line) for line in lines if line.strip()]
+
+
+def _get_job_events(
+    client: FlaskClient,
+    resp,
+    auth_headers: dict[str, str],
+    max_wait: float = 2.0,
+) -> list[dict[str, Any]]:
+    """
+    Poll a background job until done, then return its events.
+
+    :param client: Flask test client
+    :param resp: response from the POST that started the job
+    :param auth_headers: authorization headers
+    :param max_wait: maximum seconds to wait
+    :return: list of event dicts from the job
+    """
+    assert resp.status_code == 202
+    data = resp.get_json()
+    job_id = data["job_id"]
+    deadline = time.monotonic() + max_wait
+    while time.monotonic() < deadline:
+        events_resp = client.get(
+            f"/api/agents/jobs/{job_id}/events?after=0",
+            headers=auth_headers,
+        )
+        assert events_resp.status_code == 200
+        events_data = events_resp.get_json()
+        if events_data["done"]:
+            return events_data["events"]
+        time.sleep(0.05)
+    raise TimeoutError(
+        f"Job {job_id} did not complete in {max_wait}s",
+    )
 
 
 def test_step_returns_401_without_token(
@@ -96,9 +131,7 @@ def test_step_streams_tool_proposal(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[0]["delta"] == "I will search"
@@ -150,9 +183,7 @@ def test_step_streams_assessment(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[1]["type"] == "assessment"
@@ -194,9 +225,7 @@ def test_step_streams_error_on_failure(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 1
     assert events[0]["type"] == "error"
     assert "agent failed" in events[0]["message"]
@@ -417,7 +446,7 @@ def test_tool_injects_incident_id_for_dt_exec(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
+    _get_job_events(client, resp, auth_headers)
     call_args = mock_agent.execute_tool_stream.call_args
     assert call_args[0][1]["incident_id"] == 7
 
@@ -520,7 +549,7 @@ def test_pentest_tool_injects_incident_id(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
+    _get_job_events(client, resp, auth_headers)
     call_args = mock_agent.execute_tool_stream.call_args
     assert call_args[0][1]["incident_id"] == 3
 
@@ -561,9 +590,7 @@ def test_info_tool_dt_exec_streams_ndjson(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert any(e["type"] == "output_chunk" for e in events)
     assert events[-1]["type"] == "done"
     assert events[-1]["exit_code"] == 0
@@ -604,9 +631,7 @@ def test_validation_tool_dt_exec_streams_ndjson(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "done"
 
 
@@ -645,9 +670,7 @@ def test_code_tool_dt_exec_streams_ndjson(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "done"
 
 
@@ -686,9 +709,7 @@ def test_code_review_tool_dt_exec_streams_ndjson(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "done"
 
 
@@ -763,9 +784,7 @@ def test_code_manager_step_streams_tool_proposal(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[1]["type"] == "tool_proposal"
@@ -817,8 +836,7 @@ def test_code_manager_step_streams_orchestrator_report(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "orchestrator_report"
     assert events[-1]["orchestrator_report"][
         "final_verdict"
@@ -899,9 +917,7 @@ def test_code_manager_tool_streams_run_code_agent(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert any(
         e["type"] == "output_chunk" for e in events
     )
@@ -1020,9 +1036,7 @@ def test_plan_manager_step_streams_tool_proposal(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[1]["type"] == "tool_proposal"
@@ -1075,8 +1089,7 @@ def test_plan_manager_step_streams_report(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "plan_manager_report"
     assert events[-1]["plan_manager_report"][
         "final_verdict"
@@ -1160,9 +1173,7 @@ def test_plan_manager_tool_streams_run_code_manager(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert any(
         e["type"] == "output_chunk" for e in events
     )
@@ -1281,9 +1292,7 @@ def test_report_manager_step_streams_tool_proposal(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[1]["type"] == "tool_proposal"
@@ -1335,8 +1344,7 @@ def test_report_manager_step_streams_report(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "report_manager_report"
     assert events[-1]["report_manager_report"][
         "final_verdict"
@@ -1417,9 +1425,7 @@ def test_report_manager_tool_streams_run_report_agent(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert any(
         e["type"] == "output_chunk" for e in events
     )
@@ -1541,9 +1547,7 @@ def test_report_review_step_streams_tool_proposal(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert len(events) == 2
     assert events[0]["type"] == "text"
     assert events[1]["type"] == "tool_proposal"
@@ -1597,8 +1601,7 @@ def test_report_review_step_streams_report_review(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "report_review"
     assert events[-1]["report_review"][
         "overall_verdict"
@@ -1675,9 +1678,7 @@ def test_report_review_tool_dt_exec_streams_ndjson(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "done"
 
 
@@ -1802,8 +1803,7 @@ def test_orchestrator_step_streams_report(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert events[-1]["type"] == "orchestrator_agent_report"
     assert events[-1]["orchestrator_agent_report"][
         "final_verdict"
@@ -1853,9 +1853,7 @@ def test_orchestrator_tool_streams_run_report_manager(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.content_type == "application/x-ndjson"
-    events = _parse_ndjson(resp.data)
+    events = _get_job_events(client, resp, auth_headers)
     assert any(
         e["type"] == "output_chunk" for e in events
     )

@@ -17,6 +17,7 @@ import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { pollJobEvents } from './shared/pollJobEvents.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 import { AssessmentBody, IncidentReviewBody as ReviewBody } from './shared/ReportBodies.jsx'
 
@@ -255,7 +256,6 @@ function ReportManagerAgent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        signal: controller.signal,
         body: JSON.stringify({
           system_description: systemDescription,
           security_alerts: securityAlerts,
@@ -285,21 +285,15 @@ function ReportManagerAgent() {
         return
       }
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()
-        for (const line of lines) {
-          if (!line.trim()) continue
-          const event = JSON.parse(line)
+      await pollJobEvents({
+        jobId: job_id,
+        token,
+        signal: controller.signal,
+        onEvent: (event) => {
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             setConversationHistory([
@@ -352,10 +346,9 @@ function ReportManagerAgent() {
               ...compactionEntries,
               { role: 'system', type: 'error', message: msg }
             ])
-            return
           }
         }
-      }
+      })
 
       setDtStatus(null)
       if (finalEntry) {
