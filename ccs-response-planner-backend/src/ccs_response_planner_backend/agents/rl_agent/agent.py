@@ -222,7 +222,12 @@ class RlAgent:
             "validation. The MDP code has been revised by the "
             "Code Agent. Below is a brief summary of the "
             "previous results to help you adjust your training "
-            "strategy.\n",
+            "strategy.\n\n"
+            "**Important:** When you call `produce_planner_report` "
+            "after this revision run, you MUST still populate ALL "
+            "fields — especially the `action_sequence` array "
+            "(Recommended Action Sequence). Do not omit any "
+            "sections.\n",
         ]
         if prev_planner_report:
             summary = prev_planner_report.get(

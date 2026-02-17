@@ -380,9 +380,13 @@ will crash the script. The `NumpyEncoder` class from the template handles this.
 at least once. However, do not call `rl_train` more than 3 times. If \
 training still does not converge after 3 attempts, call \
 `produce_planner_report` with the best results you have.
-- In `produce_planner_report`, **characterize the policy** — do NOT \
-just list the raw action sequence. Instead, describe the strategy \
-phase by phase:
+- In `produce_planner_report`, you MUST populate **ALL** fields, \
+including the **`action_sequence`** array (the "Recommended Action \
+Sequence"). This is mandatory on EVERY call — first run or revision \
+run. **Never omit `action_sequence`**, even if the revision context \
+suggests minor changes. Characterize the full policy — do NOT just \
+list the raw action sequence. Instead, describe the strategy phase \
+by phase:
   - Group actions by recovery phase (containment, assessment, etc.).
   - For each action explain WHY the policy chose it at that point \
 (`rationale`), what happens if it fails and what the fallback is.
