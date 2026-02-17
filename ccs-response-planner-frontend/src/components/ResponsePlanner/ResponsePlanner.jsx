@@ -26,8 +26,6 @@ import SubAgentsTab from './SubAgentsTab.jsx'
 import '../Agents/Agents.css'
 import './ResponsePlanner.css'
 
-const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
-
 /**
  * Helper to push a nested_event into the correct level of the subEvents tree.
  */
@@ -1144,20 +1142,8 @@ function ResponsePlanner() {
               <p className="ia-assessment-body mb-0">{r.report_manager_report.executive_summary}</p>
             </div>
           )}
-          {r.report_manager_report?.final_verdict && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Verdict</div>
-              <span
-                className={`badge badge-${VERDICT_STYLES[r.report_manager_report.final_verdict] || 'secondary'}`}
-                style={{ fontSize: '12px', padding: '5px 8px' }}
-              >
-                {r.report_manager_report.final_verdict.replace(/_/g, ' ')}
-              </span>
-            </div>
-          )}
           {r.assessment && (
-            <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
-              <div className="ia-assessment-label">Incident Report</div>
+            <div style={{ marginTop: '10px' }}>
               <AssessmentBody
                 report={
                   r.attack_path_image
