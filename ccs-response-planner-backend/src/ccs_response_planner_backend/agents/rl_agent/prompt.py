@@ -272,7 +272,7 @@ Use these defaults unless you have a specific reason to change them:
 - **Learning rate:** 3e-4
 - **n_steps:** 2048 (larger rollout buffers give smoother training)
 - **batch_size:** 128 (moderate — very large batches can hurt learning)
-- **total_timesteps:** 250000 (enough for convergence on typical incident \
+- **total_timesteps:** 350000 (enough for convergence on typical incident \
 response MDPs)
 - **net_arch:** [64, 64] (two hidden layers of 64 units — sufficient for \
 the typical MDP sizes in incident response; larger networks rarely help \
