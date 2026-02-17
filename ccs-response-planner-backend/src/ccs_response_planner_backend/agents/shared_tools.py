@@ -89,7 +89,7 @@ def kill_all_active_execs() -> int:
 
 
 _VALID_DT_CONTAINERS = [
-    "i1_attacker", "i1_gateway", "i1_firewall", "i1_ids",
+    "i1_attacker", "i1_gateway", "i1_firewall", "i1_log_collector",
     "i1_server_1", "i1_server_2", "i1_server_3",
     "i1_server_4", "i1_server_5", "i1_server_6",
     "i2_attacker",

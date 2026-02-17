@@ -7,7 +7,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 cp "${DIR}/incident_1/test_fixtures/samba_exploit.py" \
    "${DIR}/incident_1/gateway/samba_exploit.py"
 
-for img in gateway firewall ids server_1 server_2 server_3 server_4 server_5 server_6; do
+for img in gateway firewall log_collector server_1 server_2 server_3 server_4 server_5 server_6; do
     tag="ccs-dt-i1-${img//_/}:latest"
     echo ">>> Building ${tag}"
     docker build -t "${tag}" "${DIR}/incident_1/${img}"

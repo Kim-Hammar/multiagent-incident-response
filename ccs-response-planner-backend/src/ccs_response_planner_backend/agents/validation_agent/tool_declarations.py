@@ -15,7 +15,7 @@ DT_EXEC_DECL = genai_types.FunctionDeclaration(
         "actions, inspect processes, check "
         "connectivity, and verify service state. "
         "Valid container names: i1_gateway, "
-        "i1_firewall, i1_ids, "
+        "i1_firewall, i1_log_collector, "
         "i1_server_1\u2013i1_server_6 (Incident 1) or "
         "i2_server_1\u2013i2_server_6 (Incident 2)."
     ),

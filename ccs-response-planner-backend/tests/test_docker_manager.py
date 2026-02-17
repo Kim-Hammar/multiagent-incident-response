@@ -264,7 +264,7 @@ class TestDeploy:
         from docker.errors import NotFound
         client.containers.get.side_effect = NotFound("not found")
         container = MagicMock()
-        container.name = "ccs_dt_i1_ids"
+        container.name = "ccs_dt_i1_log_collector"
         container.status = "running"
         client.containers.create.return_value = container
 
@@ -276,8 +276,8 @@ class TestDeploy:
                  "gateway": "10.0.3.100"},
             ],
             hosts=[{
-                "id": "i1_ids",
-                "docker_image": "ccs-dt-i1-ids:latest",
+                "id": "i1_log_collector",
+                "docker_image": "ccs-dt-i1-logcollector:latest",
                 "ip_addresses": {
                     "zone1": "10.0.2.252",
                     "zone2": "10.0.3.252",

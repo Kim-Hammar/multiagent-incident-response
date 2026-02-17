@@ -10,7 +10,7 @@ def format_container_list(config: dict[str, Any]) -> str:
     Build a comma-separated list of non-attacker container IDs.
 
     :param config: the digital twin configuration dict
-    :return: e.g. ``"i1_gateway, i1_firewall, i1_ids, ..."``
+    :return: e.g. ``"i1_gateway, i1_firewall, i1_log_collector, ..."``
     """
     hosts = config.get("hosts", [])
     ids = [

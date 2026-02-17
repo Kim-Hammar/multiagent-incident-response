@@ -155,7 +155,7 @@ TOOL_DECLARATIONS = [
             "container. Use this to inspect processes, "
             "network connections, logs, services, and "
             "file systems on DT hosts. Valid container "
-            "names: i1_gateway, i1_firewall, i1_ids, "
+            "names: i1_gateway, i1_firewall, i1_log_collector, "
             "i1_server_1–i1_server_6 (Incident 1) or "
             "i2_server_1–i2_server_6 (Incident 2)."
         ),

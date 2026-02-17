@@ -313,10 +313,10 @@ class DIGITAL_TWIN:
                 "sysctls": {"net.ipv4.ip_forward": "1"},
             },
             {
-                "id": "i1_ids",
+                "id": "i1_log_collector",
                 "name": "Log Collector",
                 "description": "rsyslog, tcpdump",
-                "docker_image": "ccs-dt-i1-ids:latest",
+                "docker_image": "ccs-dt-i1-logcollector:latest",
                 "ip_addresses": {
                     "perimeter": "10.0.1.252",
                     "zone1": "10.0.2.252",
@@ -485,9 +485,9 @@ class DIGITAL_TWIN:
         "links": [
             {"source": "i1_attacker", "target": "i1_gateway"},
             {"source": "i1_gateway", "target": "i1_firewall"},
-            {"source": "i1_firewall", "target": "i1_ids"},
-            {"source": "i1_ids", "target": "i1_server_2"},
-            {"source": "i1_ids", "target": "i1_server_3"},
+            {"source": "i1_firewall", "target": "i1_log_collector"},
+            {"source": "i1_log_collector", "target": "i1_server_2"},
+            {"source": "i1_log_collector", "target": "i1_server_3"},
             {"source": "i1_server_1", "target": "i1_server_2"},
             {"source": "i1_server_1", "target": "i1_server_4"},
             {"source": "i1_server_1", "target": "i1_server_6"},
@@ -558,7 +558,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "i1_ids",
+                "host": "i1_log_collector",
                 "command": "ping -c 1 -W 2 10.0.2.2",
                 "description": (
                     "Server 2 reachable from Log Collector"
@@ -566,7 +566,7 @@ class DIGITAL_TWIN:
                 ),
             },
             {
-                "host": "i1_ids",
+                "host": "i1_log_collector",
                 "command": "ping -c 1 -W 2 10.0.3.3",
                 "description": (
                     "Server 3 reachable from Log Collector"

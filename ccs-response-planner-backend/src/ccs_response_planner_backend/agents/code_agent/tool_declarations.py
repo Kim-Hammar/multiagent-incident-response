@@ -59,7 +59,7 @@ DT_EXEC_DECL = genai_types.FunctionDeclaration(
         "container. Use this to test whether a "
         "specific incident response command works "
         "on a given host. Valid container names: "
-        "i1_gateway, i1_firewall, i1_ids, "
+        "i1_gateway, i1_firewall, i1_log_collector, "
         "i1_server_1–i1_server_6 (Incident 1) or "
         "i2_server_1–i2_server_6 (Incident 2)."
     ),

@@ -70,6 +70,7 @@ def test_get_example_by_id_returns_data(
             "incident_report": "report",
             "response_plan": "plan",
         }
+        mock.get_config_id_by_incident.return_value = None
         response = client.get(
             "/api/examples/1", headers=auth_headers
         )
@@ -107,6 +108,7 @@ def test_get_example_by_id_includes_images_when_present(
             "incident_report": "",
             "response_plan": "",
         }
+        mock.get_config_id_by_incident.return_value = None
         data = client.get(
             "/api/examples/1", headers=auth_headers
         ).get_json()

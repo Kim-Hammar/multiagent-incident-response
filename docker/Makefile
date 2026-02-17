@@ -37,7 +37,7 @@ dt-build: ## Build all digital twin images
 	bash digital_twin/build.sh
 
 dt-clean: ## Remove all digital twin images
-	docker rmi ccs-dt-i1-gateway ccs-dt-i1-firewall ccs-dt-i1-ids \
+	docker rmi ccs-dt-i1-gateway ccs-dt-i1-firewall ccs-dt-i1-logcollector \
 	    ccs-dt-i1-server1 ccs-dt-i1-server2 ccs-dt-i1-server3 \
 	    ccs-dt-i1-server4 ccs-dt-i1-server5 ccs-dt-i1-server6 \
 	    ccs-dt-i2-server1 ccs-dt-i2-server2 ccs-dt-i2-server3 \

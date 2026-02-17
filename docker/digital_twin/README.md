@@ -38,7 +38,7 @@ A **mid-size SaaS company** infrastructure: web frontend, customer-facing API, d
 | `ccs-dt-attacker` | Attacker (10.0.1.10) | debian:bookworm-slim | nmap, hydra, smbclient, impacket | — |
 | `ccs-dt-i1-gateway` | Gateway (10.0.1.254) | ubuntu:22.04 | Snort IDS, pentest tools | — |
 | `ccs-dt-i1-firewall` | Firewall (10.0.1.253) | ubuntu:22.04 | iptables, IP forwarding | — |
-| `ccs-dt-i1-ids` | IDS (10.0.1.252) | ubuntu:22.04 | rsyslog, tcpdump | — |
+| `ccs-dt-i1-logcollector` | Log Collector (10.0.1.252) | ubuntu:22.04 | rsyslog, tcpdump | — |
 | `ccs-dt-i1-server1` | Server 1 (10.0.2.1) | debian:bullseye-slim | Nginx, PHP-FPM, dnsmasq | SQL injection |
 | `ccs-dt-i1-server2` | Server 2 (10.0.2.2) | debian:bullseye-slim | vsftpd, cron backups | — |
 | `ccs-dt-i1-server3` | Server 3 (10.0.3.3) | ubuntu:20.04 | OpenSSH, cron CI/CD | Weak SSH password |

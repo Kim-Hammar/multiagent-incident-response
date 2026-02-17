@@ -43,10 +43,10 @@ def _spec_commands_for_incident(
                 "specification_commands",
             )
             if cmds:
-                return cmds
-    return DIGITAL_TWIN.DEFAULT_CONFIG.get(
+                return list(cmds)
+    return list(DIGITAL_TWIN.DEFAULT_CONFIG.get(
         "specification_commands", [],
-    )
+    ))
 
 
 @example_bp.route("", methods=["GET"])

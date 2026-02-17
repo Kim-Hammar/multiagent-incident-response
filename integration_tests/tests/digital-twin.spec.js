@@ -195,8 +195,8 @@ CEOF'`
     const pairs = [
       ['i1_gateway', '10.0.1.253'],
       ['i1_firewall', '10.0.1.252'],
-      ['i1_ids', '10.0.2.2'],
-      ['i1_ids', '10.0.3.3'],
+      ['i1_log_collector', '10.0.2.2'],
+      ['i1_log_collector', '10.0.3.3'],
       ['i1_server_1', '10.0.2.2'],
       ['i1_server_1', '10.0.3.4'],
       ['i1_server_1', '10.0.4.6'],
