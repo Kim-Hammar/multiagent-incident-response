@@ -706,10 +706,7 @@ def run_code_manager_stream(
                 "CodeManager did not complete within "
                 "the step limit."
             ),
-            "iterations": 0,
-            "final_verdict": "major_issues",
             "code_report_summary": "",
-            "review_report_summary": "",
         }
 
     try:

@@ -25,15 +25,8 @@ import { CodeReportBody, ReviewReportBody } from './shared/ReportBodies.jsx'
  */
 function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
   const report = entry.orchestrator_report || {}
-  const verdictClass =
-    report.final_verdict === 'pass'
-      ? 'badge-success'
-      : report.final_verdict === 'needs_revision'
-        ? 'badge-warning'
-        : 'badge-danger'
 
   const codeReport = entry.final_code_report || report.final_code_report || null
-  const reviewReport = entry.final_review_report || report.final_review_report || null
 
   return (
     <div className="card ia-entry ia-result-entry">
@@ -41,12 +34,6 @@ function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
           <i className="fa fa-flag-checkered" aria-hidden="true" />
           <span className="ia-result-label">Code Manager Report</span>
-          {report.final_verdict && (
-            <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
-          )}
-          {report.iterations != null && (
-            <span className="badge badge-info ml-2">{report.iterations} iteration(s)</span>
-          )}
           <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
         </div>
         {isExpanded && (
@@ -63,22 +50,10 @@ function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
                 <p>{report.code_report_summary}</p>
               </div>
             )}
-            {report.review_report_summary && (
-              <div className="mb-3">
-                <strong>Review Report Summary:</strong>
-                <p>{report.review_report_summary}</p>
-              </div>
-            )}
             {codeReport && (
               <div className="mb-3" style={{ whiteSpace: 'normal' }}>
                 <strong>Final Code Report</strong>
                 <CodeReportBody report={codeReport} />
-              </div>
-            )}
-            {reviewReport && (
-              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-                <strong>Final Review Report</strong>
-                <ReviewReportBody report={reviewReport} />
               </div>
             )}
           </div>
@@ -228,18 +203,14 @@ function CodeManagerAgent() {
 
   const extractFinalReports = (history) => {
     let codeReport = null
-    let reviewReport = null
     for (let i = history.length - 1; i >= 0; i--) {
       const h = history[i]
       if (!codeReport && h.type === 'tool_result' && h.tool_name === 'run_code_agent') {
         codeReport = h.result?.code_report || null
       }
-      if (!reviewReport && h.type === 'tool_result' && h.tool_name === 'run_code_reviewer_agent') {
-        reviewReport = h.result?.review_report || null
-      }
-      if (codeReport && reviewReport) break
+      if (codeReport) break
     }
-    return { codeReport, reviewReport }
+    return { codeReport }
   }
 
   const callStep = async (history) => {
@@ -374,13 +345,11 @@ function CodeManagerAgent() {
           setPendingProposal(finalEntry)
         }
         if (finalEntry.type === 'orchestrator_report') {
-          const { codeReport, reviewReport } = extractFinalReports(history)
+          const { codeReport } = extractFinalReports(history)
           finalEntry.final_code_report = codeReport
-          finalEntry.final_review_report = reviewReport
           saveReport({
             ...finalEntry.orchestrator_report,
-            final_code_report: codeReport,
-            final_review_report: reviewReport
+            final_code_report: codeReport
           })
         }
       } else if (accumulated) {
@@ -390,15 +359,11 @@ function CodeManagerAgent() {
         } catch {
           report = {
             executive_summary: accumulated,
-            iterations: 0,
-            final_verdict: 'unknown',
-            code_report_summary: '',
-            review_report_summary: ''
+            code_report_summary: ''
           }
         }
-        const { codeReport, reviewReport } = extractFinalReports(history)
+        const { codeReport } = extractFinalReports(history)
         report.final_code_report = codeReport
-        report.final_review_report = reviewReport
         setConversationHistory([
           ...history,
           ...compactionEntries,
@@ -406,8 +371,7 @@ function CodeManagerAgent() {
             role: 'model',
             type: 'orchestrator_report',
             orchestrator_report: report,
-            final_code_report: codeReport,
-            final_review_report: reviewReport
+            final_code_report: codeReport
           }
         ])
         saveReport(report)

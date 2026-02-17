@@ -71,7 +71,7 @@ function CodeReportBody({ report: r }) {
       )}
       {r.executive_summary && (
         <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Executive Summary</div>
+          <div className="ia-assessment-label">Code Agent Summary</div>
           <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
         </div>
       )}

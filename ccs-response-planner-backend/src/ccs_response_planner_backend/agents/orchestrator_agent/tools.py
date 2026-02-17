@@ -375,10 +375,7 @@ def run_report_manager_stream(
                 "ReportManager did not complete within "
                 "the step limit."
             ),
-            "iterations": 0,
-            "final_verdict": "major_issues",
             "report_summary": "",
-            "review_summary": "",
         }
 
     if not assessment:

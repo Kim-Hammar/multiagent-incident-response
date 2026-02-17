@@ -587,10 +587,7 @@ class ReportManagerAgent:
                 "type": "report_manager_report",
                 "report_manager_report": {
                     "executive_summary": text,
-                    "iterations": 0,
-                    "final_verdict": "unknown",
                     "report_summary": "",
-                    "review_summary": "",
                 },
             }
 

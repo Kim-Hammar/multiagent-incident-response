@@ -544,10 +544,7 @@ class CodeManagerAgent:
                 "type": "orchestrator_report",
                 "orchestrator_report": {
                     "executive_summary": text,
-                    "iterations": 0,
-                    "final_verdict": "unknown",
                     "code_report_summary": "",
-                    "review_report_summary": "",
                 },
             }
 

@@ -82,47 +82,25 @@ PRODUCE_ORCHESTRATOR_REPORT_DECL = genai_types.FunctionDeclaration(
             "executive_summary": {
                 "type": "string",
                 "description": (
-                    "High-level summary of the "
+                    "Brief summary of the "
                     "orchestration process and "
-                    "outcome."
-                ),
-            },
-            "iterations": {
-                "type": "integer",
-                "description": (
-                    "Number of generate-review "
-                    "iterations performed."
-                ),
-            },
-            "final_verdict": {
-                "type": "string",
-                "description": (
-                    "Final verdict: pass, "
-                    "needs_revision, or "
-                    "major_issues."
+                    "outcome (include how many "
+                    "generate-review iterations "
+                    "were performed)."
                 ),
             },
             "code_report_summary": {
                 "type": "string",
                 "description": (
                     "Summary of the final code "
-                    "generation report."
-                ),
-            },
-            "review_report_summary": {
-                "type": "string",
-                "description": (
-                    "Summary of the final review "
-                    "report findings."
+                    "generation report and the "
+                    "MDP environment."
                 ),
             },
         },
         "required": [
             "executive_summary",
-            "iterations",
-            "final_verdict",
             "code_report_summary",
-            "review_report_summary",
         ],
     },
 )

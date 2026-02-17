@@ -30,8 +30,7 @@ import {
   CodeReportBody,
   ValidationReportBody,
   PlannerReportInline,
-  PlanManagerReportBody,
-  VERDICT_STYLES
+  PlanManagerReportBody
 } from './shared/ReportBodies.jsx'
 
 /**
@@ -898,17 +897,6 @@ function OrchestratorAgent() {
             <div className="ia-assessment-section">
               <div className="ia-assessment-label">Report Manager Summary</div>
               <p className="ia-assessment-body mb-0">{r.report_manager_report.executive_summary}</p>
-            </div>
-          )}
-          {r.report_manager_report?.final_verdict && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Verdict</div>
-              <span
-                className={`badge badge-${VERDICT_STYLES[r.report_manager_report.final_verdict] || 'secondary'}`}
-                style={{ fontSize: '12px', padding: '5px 8px' }}
-              >
-                {r.report_manager_report.final_verdict.replace(/_/g, ' ')}
-              </span>
             </div>
           )}
           {r.assessment && (

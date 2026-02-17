@@ -83,24 +83,11 @@ PRODUCE_REPORT_MANAGER_REPORT_DECL = (
                 "executive_summary": {
                     "type": "string",
                     "description": (
-                        "High-level summary of the "
+                        "Brief summary of the "
                         "orchestration process and "
-                        "outcome."
-                    ),
-                },
-                "iterations": {
-                    "type": "integer",
-                    "description": (
-                        "Number of generate-review "
-                        "iterations performed."
-                    ),
-                },
-                "final_verdict": {
-                    "type": "string",
-                    "description": (
-                        "Final verdict: pass, "
-                        "needs_revision, or "
-                        "major_issues."
+                        "outcome (include how many "
+                        "generate-review iterations "
+                        "were performed)."
                     ),
                 },
                 "report_summary": {
@@ -110,20 +97,10 @@ PRODUCE_REPORT_MANAGER_REPORT_DECL = (
                         "incident assessment report."
                     ),
                 },
-                "review_summary": {
-                    "type": "string",
-                    "description": (
-                        "Summary of the final review "
-                        "report findings."
-                    ),
-                },
             },
             "required": [
                 "executive_summary",
-                "iterations",
-                "final_verdict",
                 "report_summary",
-                "review_summary",
             ],
         },
     )

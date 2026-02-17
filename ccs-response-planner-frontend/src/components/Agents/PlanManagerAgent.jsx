@@ -24,8 +24,6 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
-const VERDICT_STYLES = { pass: 'success', needs_revision: 'warning', major_issues: 'danger' }
-
 /**
  * Helper to push a nested_event into the correct level of the subEvents tree.
  */
@@ -841,17 +839,6 @@ function PlanManagerAgent() {
             <div className="ia-assessment-section">
               <div className="ia-assessment-label">Code Manager Summary</div>
               <p className="ia-assessment-body mb-0">{r.orchestrator_report.executive_summary}</p>
-            </div>
-          )}
-          {r.orchestrator_report?.final_verdict && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Verdict</div>
-              <span
-                className={`badge badge-${VERDICT_STYLES[r.orchestrator_report.final_verdict] || 'secondary'}`}
-                style={{ fontSize: '12px', padding: '5px 8px' }}
-              >
-                {r.orchestrator_report.final_verdict.replace(/_/g, ' ')}
-              </span>
             </div>
           )}
         </div>

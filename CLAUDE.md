@@ -95,6 +95,10 @@ The Response Planner supports session persistence via the `planning_sessions` ta
 
 - **Alert auto-dismiss:** All alert/notification banners in the frontend must auto-dismiss after 3 seconds using a `useEffect` with `setTimeout`. Users can still manually dismiss them before the timer fires.
 
+### Testing Workflow
+
+- **Do not run tests automatically after every code change.** Only run tests (pytest, vitest) when explicitly asked by the user. Linting (flake8, eslint, prettier) is fine to run for verification.
+
 ### Code Style
 
 - **Backend:** flake8 (120 char lines), mypy strict mode, pytest for tests

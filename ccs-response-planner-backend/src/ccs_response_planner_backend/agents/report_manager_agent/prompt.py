@@ -101,9 +101,9 @@ pass it the feedback.
 `produce_report_manager_report` with the best results so far \
 regardless.
 
-4. **Report**: Call `produce_report_manager_report` with a summary \
-of the orchestration process, the number of iterations, the final \
-verdict, and summaries of the report and review.
+4. **Report**: Call `produce_report_manager_report` with a brief \
+summary of the orchestration process (including how many iterations \
+were performed) and a summary of the final incident assessment.
 
 ## Available Tools
 

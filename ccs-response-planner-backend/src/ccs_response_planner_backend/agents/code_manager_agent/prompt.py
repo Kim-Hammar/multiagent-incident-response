@@ -193,9 +193,9 @@ actions), go back to step 1 with the review feedback.
 `produce_orchestrator_report` with the best results so far \
 regardless.
 
-4. **Report**: Call `produce_orchestrator_report` with a summary \
-of the orchestration process, the number of iterations, the final \
-verdict, and summaries of the code and review reports.
+4. **Report**: Call `produce_orchestrator_report` with a brief \
+summary of the orchestration process (including how many iterations \
+were performed) and a summary of the final code report.
 
 ## Available Tools
 

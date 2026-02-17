@@ -24,15 +24,8 @@ import { AssessmentBody, IncidentReviewBody as ReviewBody } from './shared/Repor
 
 function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
   const report = entry.report_manager_report || {}
-  const verdictClass =
-    report.final_verdict === 'pass'
-      ? 'badge-success'
-      : report.final_verdict === 'needs_revision'
-        ? 'badge-warning'
-        : 'badge-danger'
 
   const assessment = entry.final_assessment || report.final_assessment || null
-  const reviewReport = entry.final_review_report || report.final_review_report || null
 
   return (
     <div className="card ia-entry ia-result-entry">
@@ -40,12 +33,6 @@ function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
           <i className="fa fa-flag-checkered" aria-hidden="true" />
           <span className="ia-result-label">Report Manager Report</span>
-          {report.final_verdict && (
-            <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
-          )}
-          {report.iterations != null && (
-            <span className="badge badge-info ml-2">{report.iterations} iteration(s)</span>
-          )}
           <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
         </div>
         {isExpanded && (
@@ -62,22 +49,10 @@ function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
                 <p>{report.report_summary}</p>
               </div>
             )}
-            {report.review_summary && (
-              <div className="mb-3">
-                <strong>Review Summary:</strong>
-                <p>{report.review_summary}</p>
-              </div>
-            )}
             {assessment && (
               <div className="mb-3" style={{ whiteSpace: 'normal' }}>
                 <strong>Final Assessment</strong>
                 <AssessmentBody report={assessment} />
-              </div>
-            )}
-            {reviewReport && (
-              <div className="mb-3" style={{ whiteSpace: 'normal' }}>
-                <strong>Final Review Report</strong>
-                <ReviewBody report={reviewReport} />
               </div>
             )}
           </div>
@@ -413,10 +388,7 @@ function ReportManagerAgent() {
         } catch {
           report = {
             executive_summary: accumulated,
-            iterations: 0,
-            final_verdict: 'unknown',
-            report_summary: '',
-            review_summary: ''
+            report_summary: ''
           }
         }
         const { assessment, reviewReport } = extractFinalReports(history)
