@@ -405,8 +405,12 @@ function ReportAgent() {
           tool_name: proposal.tool_name,
           result
         }
-        const updated = [...conversationHistory, approvalEntry, resultEntry]
-        setConversationHistory(updated)
+        let updated
+        setConversationHistory((prev) => {
+          const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
+          updated = [...stripped, approvalEntry, resultEntry]
+          return updated
+        })
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
@@ -461,8 +465,12 @@ function ReportAgent() {
         tool_name: proposal.tool_name,
         result: resultForHistory
       }
-      const updated = [...conversationHistory, approvalEntry, resultEntry]
-      setConversationHistory(updated)
+      let updated
+      setConversationHistory((prev) => {
+        const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
+        updated = [...stripped, approvalEntry, resultEntry]
+        return updated
+      })
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {

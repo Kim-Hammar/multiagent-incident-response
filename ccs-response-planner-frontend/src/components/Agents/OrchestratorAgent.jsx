@@ -16,7 +16,9 @@ import {
   API_AGENTS_VALIDATION_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
-  API_DT_PYTHON_STOP_URL
+  API_DT_PYTHON_STOP_URL,
+  API_AGENTS_JOBS_URL,
+  apiJobCancelUrl
 } from '../Common/constants'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
@@ -248,6 +250,64 @@ function OrchestratorAgent() {
   const [livenessStatus, setLivenessStatus] = useState('alive')
   const [heartbeatStatus, setHeartbeatStatus] = useState('')
   const managerStartTimeRef = useRef(null)
+  const [jobs, setJobs] = useState([])
+
+  const fetchJobs = async () => {
+    try {
+      const res = await fetch(API_AGENTS_JOBS_URL, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setJobs(data)
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const cancelJob = async (jobId) => {
+    try {
+      await fetch(apiJobCancelUrl(jobId), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchJobs()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const removeJob = async (jobId) => {
+    try {
+      await fetch(`${API_AGENTS_JOBS_URL}/${jobId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      await fetchJobs()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const removeAllDoneJobs = async () => {
+    const done = jobs.filter((j) => j.done)
+    for (const j of done) {
+      try {
+        await fetch(`${API_AGENTS_JOBS_URL}/${j.job_id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      } catch {
+        /* ignore */
+      }
+    }
+    await fetchJobs()
+  }
+
+  useEffect(() => {
+    if (activeTab === 'jobs') fetchJobs()
+  }, [activeTab])
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -985,6 +1045,15 @@ function OrchestratorAgent() {
             History{reportHistory.length > 0 && ` (${reportHistory.length})`}
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'jobs' ? ' active' : ''}`}
+            onClick={() => setActiveTab('jobs')}
+          >
+            Jobs
+          </button>
+        </li>
       </ul>
 
       {activeTab === 'config' && (
@@ -1271,6 +1340,104 @@ function OrchestratorAgent() {
           token={token}
           logout={logout}
         />
+      )}
+
+      {activeTab === 'jobs' && (
+        <div style={{ marginTop: '16px' }}>
+          <div className="d-flex mb-2" style={{ gap: '8px' }}>
+            <button className="btn btn-sm btn-outline-secondary" onClick={fetchJobs}>
+              <i className="fa fa-refresh" /> Refresh
+            </button>
+            {jobs.some((j) => j.done) && (
+              <button className="btn btn-sm btn-outline-danger" onClick={removeAllDoneJobs}>
+                Remove all done
+              </button>
+            )}
+          </div>
+          {jobs.length === 0 ? (
+            <p className="text-muted">No jobs tracked.</p>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-sm table-bordered" style={{ fontSize: '13px' }}>
+                <thead>
+                  <tr>
+                    <th>Job ID</th>
+                    <th>Status</th>
+                    <th>Events</th>
+                    <th>Started</th>
+                    <th>Last Activity</th>
+                    <th>Status Text</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map((j) => {
+                    const badge = j.error
+                      ? 'badge-danger'
+                      : j.cancelled
+                        ? 'badge-warning'
+                        : j.done
+                          ? 'badge-success'
+                          : 'badge-primary'
+                    const label = j.error
+                      ? 'error'
+                      : j.cancelled
+                        ? 'cancelled'
+                        : j.done
+                          ? 'done'
+                          : 'running'
+                    const ago = (ms) => {
+                      const s = Math.round((Date.now() - ms) / 1000)
+                      if (s < 60) return `${s}s ago`
+                      if (s < 3600) return `${Math.round(s / 60)}m ago`
+                      return `${Math.round(s / 3600)}h ago`
+                    }
+                    return (
+                      <tr key={j.job_id}>
+                        <td>
+                          <code>{j.job_id.slice(0, 8)}</code>
+                        </td>
+                        <td>
+                          <span className={`badge ${badge}`}>{label}</span>
+                        </td>
+                        <td>{j.event_count}</td>
+                        <td>{ago(j.start_time)}</td>
+                        <td>{ago(j.last_event_time)}</td>
+                        <td
+                          style={{
+                            maxWidth: '250px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {j.last_status}
+                        </td>
+                        <td>
+                          {!j.done && !j.cancelled && (
+                            <button
+                              className="btn btn-xs btn-outline-warning mr-1"
+                              onClick={() => cancelJob(j.job_id)}
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          {j.done && (
+                            <button
+                              className="btn btn-xs btn-outline-danger"
+                              onClick={() => removeJob(j.job_id)}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

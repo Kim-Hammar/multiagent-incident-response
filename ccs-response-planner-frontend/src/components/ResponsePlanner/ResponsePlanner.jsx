@@ -225,6 +225,9 @@ function ResponsePlanner() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const lastHeartbeatRef = useRef(Date.now())
+  const [livenessStatus, setLivenessStatus] = useState('alive')
+  const [heartbeatStatus, setHeartbeatStatus] = useState('')
   const isSourceTabRef = useRef(false)
   const pollingRef = useRef(null)
   const lastSaveRef = useRef(0)
@@ -389,13 +392,25 @@ function ResponsePlanner() {
             }
           }
         }
+        // Clean stale in-flight entries — no live job exists after reload
+        history = history
+          .map((e) => {
+            if (e.type === 'streaming') {
+              return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+            }
+            if (e.type === 'tool_streaming' && !e.stopped) {
+              return { ...e, stopped: true }
+            }
+            return e
+          })
+          .filter(Boolean)
         setConversationHistory(history)
         setPendingProposal(proposal)
         setContextUsage(session.context_usage || null)
-        const ui = session.ui_state || {}
-        setRunning(!!ui.running)
-        setExecutingTool(ui.executingTool || null)
-        setDtStatus(ui.dtStatus || null)
+        // Never restore running/executingTool — jobs are in-memory only
+        setRunning(false)
+        setExecutingTool(null)
+        setDtStatus(null)
         setActiveTab('planning')
         setRestoredSession(true)
       })
@@ -416,7 +431,15 @@ function ResponsePlanner() {
         .then((data) => {
           if (!data?.session) return
           const s = data.session
-          setConversationHistory(s.conversation_history || [])
+          const rawHistory = (s.conversation_history || [])
+            .map((e) => {
+              if (e.type === 'streaming')
+                return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+              if (e.type === 'tool_streaming' && !e.stopped) return { ...e, stopped: true }
+              return e
+            })
+            .filter(Boolean)
+          setConversationHistory(rawHistory)
           setPendingProposal(s.pending_proposal || null)
           setContextUsage(s.context_usage || null)
           const ui = s.ui_state || {}
@@ -452,7 +475,14 @@ function ResponsePlanner() {
             .then((freshData) => {
               if (!freshData?.session) return
               const s = freshData.session
-              const history = s.conversation_history || []
+              const history = (s.conversation_history || [])
+                .map((e) => {
+                  if (e.type === 'streaming')
+                    return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+                  if (e.type === 'tool_streaming' && !e.stopped) return { ...e, stopped: true }
+                  return e
+                })
+                .filter(Boolean)
               setConversationHistory(history)
               setPendingProposal(s.pending_proposal || null)
               setContextUsage(s.context_usage || null)
@@ -599,11 +629,20 @@ function ResponsePlanner() {
       let finalEntry = null
       let errorOccurred = false
 
+      setLivenessStatus('alive')
+      lastHeartbeatRef.current = Date.now()
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
+        onHeartbeat: (status) => {
+          lastHeartbeatRef.current = Date.now()
+          setHeartbeatStatus(status)
+        },
+        onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
+          lastHeartbeatRef.current = Date.now()
+          setLivenessStatus('alive')
           if (errorOccurred) return
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
@@ -1388,6 +1427,9 @@ function ResponsePlanner() {
             onViewPrompt={getPromptText}
             dtStatus={dtStatus}
             modelName={orchestratorModel}
+            livenessStatus={livenessStatus}
+            lastHeartbeatTime={lastHeartbeatRef.current}
+            heartbeatStatus={heartbeatStatus}
           />
         )}
 

@@ -308,6 +308,38 @@ class JobManager:
                 "event_count": len(job.events),
             }
 
+    def list_jobs(self) -> list[dict[str, Any]]:
+        """
+        Return a summary of every tracked job.
+
+        :return: list of dicts with job_id, done, cancelled, error,
+                 event_count, start_time, last_event_time, last_status
+        """
+        result: list[dict[str, Any]] = []
+        with self._lock:
+            job_ids = list(self._jobs.keys())
+        for jid in job_ids:
+            with self._lock:
+                job = self._jobs.get(jid)
+            if job is None:
+                continue
+            with job.lock:
+                result.append({
+                    "job_id": jid,
+                    "done": job.done,
+                    "cancelled": job.cancelled,
+                    "error": job.error,
+                    "event_count": len(job.events),
+                    "start_time": int(
+                        job.start_time * 1000,
+                    ),
+                    "last_event_time": int(
+                        job.last_event_time * 1000,
+                    ),
+                    "last_status": job.last_status,
+                })
+        return result
+
     def cleanup(self, job_id: str) -> None:
         """
         Remove a completed job from memory.

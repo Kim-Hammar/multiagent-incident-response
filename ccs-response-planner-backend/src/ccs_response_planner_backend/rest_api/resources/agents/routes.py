@@ -484,6 +484,34 @@ def _save_tool_result(
         )
 
 
+@agents_bp.route("/jobs", methods=["GET"])
+@token_required
+def list_jobs() -> tuple[Response, int]:
+    """
+    List all tracked background jobs with summary info.
+
+    :return: a tuple of (JSON array response, HTTP status code)
+    """
+    return jsonify(job_manager.list_jobs()), 200
+
+
+@agents_bp.route(
+    "/jobs/<job_id>", methods=["DELETE"],
+)
+@token_required
+def delete_job(
+    job_id: str,
+) -> tuple[Response, int]:
+    """
+    Remove a job from memory.
+
+    :param job_id: the job identifier
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    job_manager.cleanup(job_id)
+    return jsonify({"success": True}), 200
+
+
 @agents_bp.route(
     "/jobs/<job_id>/events", methods=["GET"],
 )
