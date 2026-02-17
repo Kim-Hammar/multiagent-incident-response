@@ -15,6 +15,7 @@ const API_BASE = '/api/agents/jobs'
  * @param {string} opts.token - Auth bearer token
  * @param {AbortSignal} [opts.signal] - Optional AbortController signal
  * @param {(event: Object) => void} opts.onEvent - Called for each new event
+ * @param {(elapsedMs: number) => void} [opts.onStale] - Called when no real events for 60s
  * @param {number} [opts.pollInterval=300] - Milliseconds between polls
  * @param {number} [opts.maxDuration=1200000] - Max polling duration in ms (default 20 min)
  * @returns {Promise<void>}
@@ -24,6 +25,7 @@ export async function pollJobEvents({
   token,
   signal,
   onEvent,
+  onStale,
   pollInterval = 300,
   maxDuration = 20 * 60 * 1000
 }) {
@@ -31,6 +33,8 @@ export async function pollJobEvents({
   let retries = 0
   const MAX_RETRIES = 3
   const startTime = Date.now()
+  let lastRealEventTime = Date.now()
+  let staleNotified = false
 
   while (true) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -64,10 +68,22 @@ export async function pollJobEvents({
       retries = 0
 
       for (const event of events) {
+        if (event.type === 'heartbeat') {
+          lastRealEventTime = Date.now()
+          staleNotified = false
+          continue
+        }
+        lastRealEventTime = Date.now()
+        staleNotified = false
         onEvent(event)
       }
 
       nextIndex = next_index
+
+      if (onStale && !staleNotified && Date.now() - lastRealEventTime > 60000) {
+        staleNotified = true
+        onStale(Date.now() - lastRealEventTime)
+      }
 
       if (done) {
         if (error) throw new Error(error)

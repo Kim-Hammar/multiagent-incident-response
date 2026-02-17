@@ -52,6 +52,8 @@ function ReportAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const lastHeartbeatRef = useRef(Date.now())
+  const [livenessStatus, setLivenessStatus] = useState('alive')
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -209,11 +211,16 @@ function ReportAgent() {
       let accumulated = ''
       let finalEntry = null
 
+      setLivenessStatus('alive')
+      lastHeartbeatRef.current = Date.now()
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
+        onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
+          lastHeartbeatRef.current = Date.now()
+          setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             setConversationHistory([
@@ -745,6 +752,8 @@ function ReportAgent() {
           onViewPrompt={getPromptText}
           modelName={selectedModel}
           dtStatus={dtStatus}
+          livenessStatus={livenessStatus}
+          lastHeartbeatTime={lastHeartbeatRef.current}
         />
       )}
 

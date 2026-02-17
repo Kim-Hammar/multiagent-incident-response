@@ -234,9 +234,9 @@ function OrchestratorAgent() {
   const [validationAgentModel, setValidationAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
-  const [reportManagerIterations, setReportManagerIterations] = useState(2)
-  const [planManagerIterations, setPlanManagerIterations] = useState(2)
-  const [codeManagerIterations, setCodeManagerIterations] = useState(2)
+  const [reportManagerIterations, setReportManagerIterations] = useState(1)
+  const [planManagerIterations, setPlanManagerIterations] = useState(1)
+  const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -244,6 +244,8 @@ function OrchestratorAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const lastHeartbeatRef = useRef(Date.now())
+  const [livenessStatus, setLivenessStatus] = useState('alive')
   const managerStartTimeRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
@@ -403,11 +405,16 @@ function OrchestratorAgent() {
       let accumulated = ''
       let finalEntry = null
 
+      setLivenessStatus('alive')
+      lastHeartbeatRef.current = Date.now()
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
+        onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
+          lastHeartbeatRef.current = Date.now()
+          setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             streamingEntry.text = accumulated
@@ -1235,6 +1242,8 @@ function OrchestratorAgent() {
           onViewPrompt={getPromptText}
           dtStatus={dtStatus}
           modelName={orchestratorModel}
+          livenessStatus={livenessStatus}
+          lastHeartbeatTime={lastHeartbeatRef.current}
         />
       )}
 

@@ -89,7 +89,7 @@ function CodeManagerAgent() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(2)
+  const [maxIterations, setMaxIterations] = useState(1)
   const [managerModel, setManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
@@ -101,6 +101,8 @@ function CodeManagerAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const lastHeartbeatRef = useRef(Date.now())
+  const [livenessStatus, setLivenessStatus] = useState('alive')
   const managerStartTimeRef = useRef(null)
 
   const handlePaste = (event) => {
@@ -262,11 +264,16 @@ function CodeManagerAgent() {
       let accumulated = ''
       let finalEntry = null
 
+      setLivenessStatus('alive')
+      lastHeartbeatRef.current = Date.now()
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
+        onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
+          lastHeartbeatRef.current = Date.now()
+          setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             setConversationHistory([
@@ -991,6 +998,8 @@ function CodeManagerAgent() {
           onViewPrompt={getPromptText}
           dtStatus={dtStatus}
           modelName={managerModel}
+          livenessStatus={livenessStatus}
+          lastHeartbeatTime={lastHeartbeatRef.current}
         />
       )}
 

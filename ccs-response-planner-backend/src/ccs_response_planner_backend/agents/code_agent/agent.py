@@ -11,6 +11,9 @@ from typing import Any, Generator
 from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
+from ccs_response_planner_backend.agents.stream_timeout import (
+    iter_with_idle_timeout,
+)
 from ccs_response_planner_backend.agents.anthropic_adapter import (
     ANTHROPIC_CONTEXT_LIMIT,
     is_anthropic_model,
@@ -265,11 +268,12 @@ class CodeAgent:
         all_parts: list[Any] = []
         usage_metadata = None
 
-        for chunk in client.models.generate_content_stream(
+        _raw_stream = client.models.generate_content_stream(
             model=effective_model,
             contents=contents,
             config=config,
-        ):
+        )
+        for chunk in iter_with_idle_timeout(_raw_stream):
             if chunk.usage_metadata:
                 usage_metadata = chunk.usage_metadata
             if not chunk.candidates:

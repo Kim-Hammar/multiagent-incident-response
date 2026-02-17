@@ -165,7 +165,7 @@ function PlanManagerAgent() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(2)
+  const [maxIterations, setMaxIterations] = useState(1)
   const [managerModel, setManagerModel] = useState('')
   const [codeManagerModel, setCodeManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
@@ -174,7 +174,7 @@ function PlanManagerAgent() {
   const [validationAgentModel, setValidationAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
-  const [codeManagerIterations, setCodeManagerIterations] = useState(2)
+  const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -182,6 +182,8 @@ function PlanManagerAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const lastHeartbeatRef = useRef(Date.now())
+  const [livenessStatus, setLivenessStatus] = useState('alive')
   const managerStartTimeRef = useRef(null)
 
   const handlePaste = (event) => {
@@ -331,11 +333,16 @@ function PlanManagerAgent() {
       let accumulated = ''
       let finalEntry = null
 
+      setLivenessStatus('alive')
+      lastHeartbeatRef.current = Date.now()
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
+        onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
+          lastHeartbeatRef.current = Date.now()
+          setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             setConversationHistory([
@@ -1168,6 +1175,8 @@ function PlanManagerAgent() {
           onViewPrompt={getPromptText}
           dtStatus={dtStatus}
           modelName={managerModel}
+          livenessStatus={livenessStatus}
+          lastHeartbeatTime={lastHeartbeatRef.current}
         />
       )}
 

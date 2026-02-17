@@ -81,6 +81,7 @@ export async function executeStreamingTool({
     token,
     signal,
     onEvent: (event) => {
+      if (event.type === 'heartbeat') return
       if (event.type === 'output_chunk') {
         onChunk(event.text)
       } else if (event.type === 'sub_event' && onSubEvent) {

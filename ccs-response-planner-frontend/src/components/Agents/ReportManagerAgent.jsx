@@ -91,7 +91,7 @@ function ReportManagerAgent() {
   const [contextUsage, setContextUsage] = useState(null)
   const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
-  const [maxIterations, setMaxIterations] = useState(2)
+  const [maxIterations, setMaxIterations] = useState(1)
   const [managerModel, setManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
@@ -103,6 +103,8 @@ function ReportManagerAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
+  const lastHeartbeatRef = useRef(Date.now())
+  const [livenessStatus, setLivenessStatus] = useState('alive')
   const managerStartTimeRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
@@ -289,11 +291,16 @@ function ReportManagerAgent() {
       let accumulated = ''
       let finalEntry = null
 
+      setLivenessStatus('alive')
+      lastHeartbeatRef.current = Date.now()
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
+        onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
+          lastHeartbeatRef.current = Date.now()
+          setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             setConversationHistory([
@@ -1037,6 +1044,8 @@ function ReportManagerAgent() {
           onViewPrompt={getPromptText}
           dtStatus={dtStatus}
           modelName={managerModel}
+          livenessStatus={livenessStatus}
+          lastHeartbeatTime={lastHeartbeatRef.current}
         />
       )}
 

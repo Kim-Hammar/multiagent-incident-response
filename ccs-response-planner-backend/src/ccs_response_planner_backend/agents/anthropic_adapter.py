@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Generator
 
 import anthropic
+import httpx
 
 from ccs_response_planner_backend.agents.context_utils import (
     compact_tool_result,
@@ -359,7 +360,13 @@ def stream_step(
     :return: a generator of event dicts
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(
+        api_key=api_key,
+        timeout=httpx.Timeout(
+            connect=30.0, read=300.0,
+            write=30.0, pool=30.0,
+        ),
+    )
 
     tools = convert_tool_declarations(tool_declarations)
     user_content = list(initial_user_parts)

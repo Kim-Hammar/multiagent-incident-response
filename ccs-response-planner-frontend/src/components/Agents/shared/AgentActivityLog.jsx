@@ -894,7 +894,9 @@ function AgentActivityLog({
   streamingTraceRef,
   renderFinalReport,
   renderExecutingTool,
-  renderToolResult
+  renderToolResult,
+  livenessStatus,
+  lastHeartbeatTime
 }) {
   const [promptModalText, setPromptModalText] = useState(null)
   const [promptModalImages, setPromptModalImages] = useState([])
@@ -916,14 +918,25 @@ function AgentActivityLog({
       <div className="ia-log">
         {conversationHistory.map((entry, index) => {
           if (entry.type === 'streaming') {
+            const isStale = livenessStatus === 'stale'
+            const staleElapsed =
+              isStale && lastHeartbeatTime
+                ? Math.round((Date.now() - lastHeartbeatTime) / 1000)
+                : null
             return (
               <div key={index} className="card ia-entry ia-streaming-entry">
                 <div className="card-body">
                   <div className="ia-thinking-header">
+                    <span className={`ia-liveness-dot ${isStale ? 'stale' : 'alive'}`} />
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
-                    <span className="ia-thinking-title">Agent is thinking...</span>
+                    <span className="ia-thinking-title">
+                      {isStale ? 'Agent may be unresponsive...' : 'Agent is thinking...'}
+                    </span>
+                    {staleElapsed !== null && (
+                      <span className="ia-heartbeat-info">Last signal: {staleElapsed}s ago</span>
+                    )}
                     <ElapsedTimer />
                   </div>
                   {entry.text && (

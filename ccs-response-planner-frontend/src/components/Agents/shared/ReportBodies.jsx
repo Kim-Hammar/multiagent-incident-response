@@ -423,6 +423,15 @@ function AssessmentBody({ report: a }) {
 
 /* ── Incident review body (from ReportReviewerAgent results) ── */
 
+/**
+ * Strip trailing JSON structure that sometimes leaks into LLM field values
+ * via function calling (e.g. "None. Validated.}],executive_summary:").
+ */
+function cleanField(val) {
+  if (typeof val !== 'string') return val == null ? '' : String(val)
+  return val.replace(/}\][,\s]*[a-z_]\w*\s*:[\s\S]*$/i, '').trim() || val
+}
+
 function IncidentReviewBody({ report: r }) {
   const findings = r.findings || []
   const missingElements = r.missing_elements || []
@@ -462,14 +471,14 @@ function IncidentReviewBody({ report: r }) {
             <tbody>
               {findings.map((f, i) => (
                 <tr key={i}>
-                  <td>{f.category}</td>
+                  <td>{cleanField(f.category)}</td>
                   <td>
                     <span className={`badge badge-${SEVERITY_STYLES[f.severity] || 'secondary'}`}>
                       {f.severity}
                     </span>
                   </td>
-                  <td>{f.description}</td>
-                  <td>{f.recommendation}</td>
+                  <td>{cleanField(f.description)}</td>
+                  <td>{cleanField(f.recommendation)}</td>
                 </tr>
               ))}
             </tbody>
@@ -492,11 +501,11 @@ function IncidentReviewBody({ report: r }) {
               {missingElements.map((m, i) => (
                 <tr key={i}>
                   <td>
-                    <strong>{m.element}</strong>
+                    <strong>{cleanField(m.element)}</strong>
                   </td>
-                  <td>{m.description}</td>
-                  <td>{m.importance}</td>
-                  <td>{m.recommendation}</td>
+                  <td>{cleanField(m.description)}</td>
+                  <td>{cleanField(m.importance)}</td>
+                  <td>{cleanField(m.recommendation)}</td>
                 </tr>
               ))}
             </tbody>
@@ -518,10 +527,10 @@ function IncidentReviewBody({ report: r }) {
             <tbody>
               {evidenceGaps.map((g, i) => (
                 <tr key={i}>
-                  <td>{g.claim}</td>
-                  <td>{g.section}</td>
-                  <td>{g.issue}</td>
-                  <td>{g.suggestion}</td>
+                  <td>{cleanField(g.claim)}</td>
+                  <td>{cleanField(g.section)}</td>
+                  <td>{cleanField(g.issue)}</td>
+                  <td>{cleanField(g.suggestion)}</td>
                 </tr>
               ))}
             </tbody>

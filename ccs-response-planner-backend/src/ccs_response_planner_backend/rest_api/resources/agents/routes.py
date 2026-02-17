@@ -1427,6 +1427,7 @@ def agents_code_review_prompt() -> tuple[Response, int]:
         dt_container_list=format_container_list(
             dt_config,
         ),
+        review_iteration_note="",
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -2385,6 +2386,7 @@ def agents_rl_prompt() -> tuple[Response, int]:
         ) or "N/A",
         code_report_formatted=formatted_report,
         time_limit_minutes=time_limit,
+        revision_context="",
     )
     return jsonify({"prompt": prompt}), 200
 

@@ -6,6 +6,7 @@ even after a tab close/reopen.
 """
 import logging
 import threading
+import time
 import uuid
 from typing import Any, Callable, Generator, Optional
 
@@ -23,6 +24,8 @@ class _Job:
         self.error: Optional[str] = None
         self.cancelled: bool = False
         self.lock: threading.Lock = threading.Lock()
+        self.last_event_time: float = time.time()
+        self.start_time: float = time.time()
 
 
 class JobManager:
@@ -60,6 +63,7 @@ class JobManager:
         on_complete: Optional[Callable[
             [list[dict[str, Any]]], None
         ]] = None,
+        max_duration: float = 900.0,
     ) -> str:
         """
         Start a background job running a generator function.
@@ -68,10 +72,16 @@ class JobManager:
         If a job with the same ID is still running, it is cancelled
         first.
 
+        A heartbeat daemon thread runs alongside the job thread,
+        injecting ``heartbeat`` events every 10 s when idle and
+        enforcing the *max_duration* timeout.
+
         :param job_id: unique key for this job
         :param generator_fn: callable returning a generator of events
         :param on_complete: optional callback invoked with all events
                             when the generator finishes
+        :param max_duration: maximum wall-clock seconds before the
+                             job is auto-cancelled (default 15 min)
         :return: the job_id
         """
         with self._lock:
@@ -93,6 +103,7 @@ class JobManager:
                         break
                     with job.lock:
                         job.events.append(event)
+                        job.last_event_time = time.time()
             except Exception as exc:
                 logger.error(
                     "Job %s error: %s",
@@ -113,11 +124,53 @@ class JobManager:
                             job_id, exc_info=True,
                         )
 
+        def _heartbeat() -> None:
+            while not job.done and not job.cancelled:
+                time.sleep(10)
+                if job.done or job.cancelled:
+                    break
+                elapsed = time.time() - job.start_time
+                if elapsed > max_duration:
+                    logger.warning(
+                        "Job %s timed out after %.0fs",
+                        job_id, elapsed,
+                    )
+                    job.cancelled = True
+                    with job.lock:
+                        job.events.append({
+                            "type": "error",
+                            "message": (
+                                "Job timed out after "
+                                f"{int(elapsed)}s"
+                            ),
+                        })
+                        job.error = (
+                            f"Job timed out after "
+                            f"{int(elapsed)}s"
+                        )
+                    break
+                idle = time.time() - job.last_event_time
+                if idle >= 10:
+                    with job.lock:
+                        job.events.append({
+                            "type": "heartbeat",
+                            "timestamp": int(
+                                time.time() * 1000,
+                            ),
+                        })
+
         t = threading.Thread(
             target=_run, daemon=True,
             name=f"job-{job_id}",
         )
         t.start()
+
+        hb = threading.Thread(
+            target=_heartbeat, daemon=True,
+            name=f"heartbeat-{job_id}",
+        )
+        hb.start()
+
         return job_id
 
     def get_events(
@@ -130,7 +183,8 @@ class JobManager:
 
         :param job_id: the job key
         :param after: index to start returning events from
-        :return: dict with events, done, error, next_index
+        :return: dict with events, done, error, next_index,
+                 last_event_time
         """
         with self._lock:
             job = self._jobs.get(job_id)
@@ -140,6 +194,7 @@ class JobManager:
                 "done": True,
                 "error": "Job not found",
                 "next_index": 0,
+                "last_event_time": 0,
             }
         with job.lock:
             new_events = job.events[after:]
@@ -149,6 +204,9 @@ class JobManager:
                 "done": job.done,
                 "error": job.error,
                 "next_index": next_index,
+                "last_event_time": int(
+                    job.last_event_time * 1000,
+                ),
             }
 
     def cancel_job(self, job_id: str) -> bool:
