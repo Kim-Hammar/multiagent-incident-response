@@ -89,6 +89,20 @@ PRODUCE_ORCHESTRATOR_REPORT_DECL = genai_types.FunctionDeclaration(
                     "were performed)."
                 ),
             },
+            "iterations": {
+                "type": "integer",
+                "description": (
+                    "Number of generate-review "
+                    "iterations performed."
+                ),
+            },
+            "final_verdict": {
+                "type": "string",
+                "description": (
+                    "Overall verdict: pass, "
+                    "fail, or partial."
+                ),
+            },
             "code_report_summary": {
                 "type": "string",
                 "description": (
@@ -97,10 +111,20 @@ PRODUCE_ORCHESTRATOR_REPORT_DECL = genai_types.FunctionDeclaration(
                     "MDP environment."
                 ),
             },
+            "review_report_summary": {
+                "type": "string",
+                "description": (
+                    "Summary of the final code "
+                    "review findings."
+                ),
+            },
         },
         "required": [
             "executive_summary",
+            "iterations",
+            "final_verdict",
             "code_report_summary",
+            "review_report_summary",
         ],
     },
 )

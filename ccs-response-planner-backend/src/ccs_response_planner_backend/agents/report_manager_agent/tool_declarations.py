@@ -90,6 +90,20 @@ PRODUCE_REPORT_MANAGER_REPORT_DECL = (
                         "were performed)."
                     ),
                 },
+                "iterations": {
+                    "type": "integer",
+                    "description": (
+                        "Number of generate-review "
+                        "iterations performed."
+                    ),
+                },
+                "final_verdict": {
+                    "type": "string",
+                    "description": (
+                        "Overall verdict: pass, "
+                        "fail, or partial."
+                    ),
+                },
                 "report_summary": {
                     "type": "string",
                     "description": (
@@ -97,10 +111,20 @@ PRODUCE_REPORT_MANAGER_REPORT_DECL = (
                         "incident assessment report."
                     ),
                 },
+                "review_summary": {
+                    "type": "string",
+                    "description": (
+                        "Summary of the final "
+                        "review findings."
+                    ),
+                },
             },
             "required": [
                 "executive_summary",
+                "iterations",
+                "final_verdict",
                 "report_summary",
+                "review_summary",
             ],
         },
     )

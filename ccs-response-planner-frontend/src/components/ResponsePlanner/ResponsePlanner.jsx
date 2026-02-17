@@ -15,7 +15,12 @@ import AgentPlanningTab from '../Agents/shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from '../Agents/shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from '../Agents/shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from '../Agents/shared/streamingToolExec.js'
-import { AssessmentBody, PlanManagerReportBody } from '../Agents/shared/ReportBodies.jsx'
+import {
+  AssessmentBody,
+  CodeReportBody,
+  PlannerReportInline,
+  PlanManagerReportBody
+} from '../Agents/shared/ReportBodies.jsx'
 import ConfigTab from './ConfigTab.jsx'
 import SubAgentsTab from './SubAgentsTab.jsx'
 import '../Agents/Agents.css'
@@ -80,49 +85,69 @@ function handleNestedSubEvent(subEvents, innerEvent) {
 }
 
 /**
+ * Extract sub-agent data from conversation history and merge into the report.
+ */
+function enrichOrchestratorReport(report, history) {
+  const rmResult =
+    [...history]
+      .reverse()
+      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_report_manager')?.result || {}
+  const pmResult =
+    [...history]
+      .reverse()
+      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_plan_manager')?.result || {}
+  const assessment = rmResult.assessment ? { ...rmResult.assessment } : {}
+  if (rmResult.attack_path_image) {
+    assessment.attack_path_image = rmResult.attack_path_image
+  }
+  return {
+    ...report,
+    assessment,
+    code_report: pmResult.code_report || {},
+    planner_report: pmResult.planner_report || {},
+    validation_report: pmResult.validation_report || {},
+    response_plan: pmResult.response_plan || ''
+  }
+}
+
+/**
  * Render an orchestrator agent report entry.
  */
 function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) {
   const report = entry.orchestrator_agent_report || {}
-  const verdictClass =
-    report.final_verdict === 'pass'
-      ? 'badge-success'
-      : report.final_verdict === 'needs_revision'
-        ? 'badge-warning'
-        : 'badge-danger'
 
   return (
     <div className="card ia-entry ia-result-entry">
       <div className="card-body">
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
           <i className="fa fa-flag-checkered" aria-hidden="true" />
-          <span className="ia-result-label">Orchestrator Agent Report</span>
-          {report.final_verdict && (
-            <span className={`badge ${verdictClass} ml-2`}>{report.final_verdict}</span>
-          )}
-          {report.iterations != null && (
-            <span className="badge badge-info ml-2">{report.iterations} iteration(s)</span>
-          )}
+          <span className="ia-result-label">Final Response Plan</span>
           <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
         </div>
         {isExpanded && (
-          <div style={{ whiteSpace: 'pre-wrap', marginTop: '10px' }}>
+          <div style={{ marginTop: '10px' }}>
             {report.executive_summary && (
-              <div className="mb-3">
-                <strong>Summary:</strong>
-                <p>{report.executive_summary}</p>
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Summary</div>
+                <p className="ia-assessment-body mb-0">{report.executive_summary}</p>
               </div>
             )}
-            {report.assessment_summary && (
-              <div className="mb-3">
-                <strong>Assessment Summary:</strong>
-                <p>{report.assessment_summary}</p>
+            {report.assessment && Object.keys(report.assessment).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Incident Report</div>
+                <AssessmentBody report={report.assessment} />
               </div>
             )}
-            {report.response_plan_summary && (
-              <div className="mb-3">
-                <strong>Response Plan Summary:</strong>
-                <p>{report.response_plan_summary}</p>
+            {report.code_report && Object.keys(report.code_report).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Code Report</div>
+                <CodeReportBody report={report.code_report} />
+              </div>
+            )}
+            {report.planner_report && Object.keys(report.planner_report).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Response Plan</div>
+                <PlannerReportInline report={report.planner_report} />
               </div>
             )}
           </div>
@@ -590,6 +615,10 @@ function ResponsePlanner() {
           setPendingProposal(finalEntry)
         }
         if (finalEntry.type === 'orchestrator_agent_report') {
+          finalEntry.orchestrator_agent_report = enrichOrchestratorReport(
+            finalEntry.orchestrator_agent_report,
+            history
+          )
           saveReport(finalEntry.orchestrator_agent_report)
         }
       } else if (accumulated) {
@@ -598,13 +627,10 @@ function ResponsePlanner() {
           report = JSON.parse(accumulated)
         } catch {
           report = {
-            executive_summary: accumulated,
-            iterations: 0,
-            final_verdict: 'unknown',
-            assessment_summary: '',
-            response_plan_summary: ''
+            executive_summary: accumulated
           }
         }
+        report = enrichOrchestratorReport(report, history)
         setConversationHistory((prev) => {
           const base = prev.filter((e) => e !== streamingEntry)
           return [
