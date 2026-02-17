@@ -34,7 +34,7 @@ def query_policy(state: list[float]) -> dict[str, Any]:
     """
     script = (
         "import json, sys, importlib.util, numpy as np\n"
-        "from stable_baselines3 import PPO\n"
+        "from sb3_contrib import MaskablePPO\n"
         "spec = importlib.util.spec_from_file_location("
         "'_env', '/workspace/_env.py')\n"
         "mod = importlib.util.module_from_spec(spec)\n"
@@ -48,7 +48,7 @@ def query_policy(state: list[float]) -> dict[str, Any]:
         "        EnvClass = obj\n"
         "        break\n"
         "env = EnvClass()\n"
-        "model = PPO.load('/workspace/_policy', env=env)\n"
+        "model = MaskablePPO.load('/workspace/_policy', env=env)\n"
         "state_arr = np.array(STATE_VEC, dtype=np.float32)\n"
         "action, _ = model.predict(state_arr, "
         "deterministic=False)\n"

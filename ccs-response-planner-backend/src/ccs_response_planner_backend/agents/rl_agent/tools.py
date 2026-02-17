@@ -148,7 +148,7 @@ def _extract_policy_zip(
         )
         return None
 
-    algo = algorithm.strip() or "PPO"
+    algo = algorithm.strip() or "MaskablePPO"
     usage_script = (
         '"""'
         "\nUsage script for the learned RL policy.\n"
@@ -156,7 +156,7 @@ def _extract_policy_zip(
         "demonstrates\nhow to query it for the optimal "
         "action given an observation.\n"
         '"""\n'
-        f"from stable_baselines3 import {algo}\n\n"
+        f"from sb3_contrib import {algo}\n\n"
         "# ── Load the trained model "
         "─────────────────────────────\n"
         f'model = {algo}.load("policy")\n\n'
