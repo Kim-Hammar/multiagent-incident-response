@@ -7,41 +7,23 @@ const STRIP_KEYS = new Set([
 ])
 
 /**
- * Recursively walk a subEvents tree and replace base64 image data with
- * small placeholders so persisted JSONB doesn't bloat.
- */
-function stripNestedImages(events) {
-  if (!Array.isArray(events)) return events
-  return events.map((evt) => {
-    const copy = { ...evt }
-    if (copy._promptImages) copy._promptImages = []
-    if (copy.result) {
-      const r = { ...copy.result }
-      if (r.image) r.image = '[image stripped]'
-      if (r.attack_path_image) r.attack_path_image = '[image stripped]'
-      copy.result = r
-    }
-    if (copy.subEvents) {
-      copy.subEvents = stripNestedImages(copy.subEvents)
-    }
-    return copy
-  })
-}
-
-/**
  * Clean conversation history before persisting.
- * Removes transient streaming / tool_streaming entries, strips internal API
- * fields, and replaces nested base64 images with placeholders.
+ * Removes transient streaming entries and strips internal API fields.
+ * Keeps tool_streaming entries (with subEvents and images) so the full
+ * sub-agent activity tree is available in the History tab.
  */
 export function cleanConversationHistory(history) {
   return history
-    .filter((entry) => entry.type !== 'streaming' && entry.type !== 'tool_streaming')
+    .filter((entry) => entry.type !== 'streaming')
     .map((entry) => {
       const cleaned = {}
       for (const [key, value] of Object.entries(entry)) {
         if (!STRIP_KEYS.has(key)) {
-          cleaned[key] = key === 'subEvents' ? stripNestedImages(value) : value
+          cleaned[key] = value
         }
+      }
+      if (entry.type === 'tool_streaming') {
+        cleaned.stopped = true
       }
       return cleaned
     })
