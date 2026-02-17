@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import useTabWithHash from '../../hooks/useTabWithHash.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
@@ -25,7 +26,7 @@ import { pollJobEvents } from './shared/pollJobEvents.js'
  */
 function DpAgent() {
   const { token, logout } = useAuth()
-  const [activeTab, setActiveTab] = useState('config')
+  const [activeTab, setActiveTab] = useTabWithHash('config')
   const [systemDescription, setSystemDescription] = useState('')
   const [incidentReport, setIncidentReport] = useState('')
   const [specification, setSpecification] = useState('')

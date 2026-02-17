@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import useTabWithHash from '../../hooks/useTabWithHash.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_DIGITAL_TWIN_URL,
@@ -20,7 +21,7 @@ function DigitalTwin() {
   const [links, setLinks] = useState([])
   const [specificationCommands, setSpecificationCommands] = useState([])
   const [alert, setAlert] = useState(null)
-  const [activeTab, setActiveTab] = useState('config')
+  const [activeTab, setActiveTab] = useTabWithHash('config')
   const [savedConfigs, setSavedConfigs] = useState([])
   const [selectedConfigId, setSelectedConfigId] = useState('')
 

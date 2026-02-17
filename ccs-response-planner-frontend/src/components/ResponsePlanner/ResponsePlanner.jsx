@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import useTabWithHash from '../../hooks/useTabWithHash.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
@@ -165,7 +166,7 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
  */
 function ResponsePlanner() {
   const { token, logout } = useAuth()
-  const [activeTab, setActiveTab] = useState('config')
+  const [activeTab, setActiveTab] = useTabWithHash('config')
   const [systemDescription, setSystemDescription] = useState('')
   const [securityAlerts, setSecurityAlerts] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
@@ -470,7 +471,7 @@ function ResponsePlanner() {
         setRunning(false)
         setExecutingTool(null)
         setDtStatus(null)
-        setActiveTab('planning')
+        if (!window.location.hash) setActiveTab('planning')
         setRestoredSession(true)
       })
       .catch(() => {
@@ -647,6 +648,7 @@ function ResponsePlanner() {
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
+    let errorOccurred = false
     setConversationHistory((prev) => [...prev, streamingEntry])
     try {
       const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
@@ -686,7 +688,6 @@ function ResponsePlanner() {
       const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
-      let errorOccurred = false
 
       setLivenessStatus('alive')
       lastHeartbeatRef.current = Date.now()
@@ -813,6 +814,7 @@ function ResponsePlanner() {
       }
     } catch (err) {
       if (err.name === 'AbortError') return
+      if (errorOccurred) return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory((prev) => {
         const base = prev.filter((e) => e !== streamingEntry)
@@ -820,10 +822,27 @@ function ResponsePlanner() {
       })
     } finally {
       setRunning(false)
+      setConversationHistory((prev) => {
+        const hasStreaming = prev.some((e) => e.type === 'streaming')
+        if (!hasStreaming) return prev
+        return prev
+          .map((e) =>
+            e.type === 'streaming'
+              ? e.text
+                ? { ...e, type: 'reasoning', role: 'model' }
+                : null
+              : e
+          )
+          .filter(Boolean)
+      })
     }
   }
 
   const handleRun = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
     if (pollingRef.current) {
       clearInterval(pollingRef.current)
       pollingRef.current = null
@@ -1594,7 +1613,8 @@ function ResponsePlanner() {
                           <td>
                             {!j.done && !j.cancelled && (
                               <button
-                                className="btn btn-xs btn-outline-warning mr-1"
+                                className="btn btn-outline-danger mr-1"
+                                style={{ fontSize: '11px', padding: '1px 6px' }}
                                 onClick={() => cancelJob(j.job_id)}
                               >
                                 Cancel
