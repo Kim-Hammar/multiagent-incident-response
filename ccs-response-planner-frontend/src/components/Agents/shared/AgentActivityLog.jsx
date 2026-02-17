@@ -12,8 +12,7 @@ import {
   AssessmentBody,
   IncidentReviewBody,
   ValidationReportBody,
-  PlanManagerReportBody,
-  VERDICT_STYLES
+  PlanManagerReportBody
 } from './ReportBodies.jsx'
 import RlAgentReport from '../RlAgentReport.jsx'
 
@@ -93,8 +92,15 @@ function renderOrchestratorArgs(toolName, args) {
           </CollapsibleSection>
         )}
         {args.previous_code && (
-          <CollapsibleSection label="Previous Code" icon="fa-code">
-            <pre className="ia-arg-code">{args.previous_code}</pre>
+          <CollapsibleSection
+            label={`Previous Code (${args.previous_code.split('\n').length} lines)`}
+            icon="fa-code"
+          >
+            <pre className="ia-arg-code">
+              {args.previous_code.split('\n').slice(0, 30).join('\n')}
+              {args.previous_code.split('\n').length > 30 &&
+                `\n\n… ${args.previous_code.split('\n').length - 30} more lines (scroll to view)`}
+            </pre>
           </CollapsibleSection>
         )}
       </div>
@@ -516,40 +522,6 @@ function renderSubAgentReport(toolName, result) {
           <div className="ia-assessment-section">
             <div className="ia-assessment-label">Code Manager Summary</div>
             <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
-          </div>
-        )}
-        <div className="ia-assessment-section">
-          {r.final_verdict && (
-            <span
-              className={`badge badge-${VERDICT_STYLES[r.final_verdict] || 'secondary'}`}
-              style={{ fontSize: '12px', padding: '5px 8px', marginRight: '8px' }}
-            >
-              {r.final_verdict.replace(/_/g, ' ')}
-            </span>
-          )}
-          {r.iterations != null && (
-            <span
-              className="badge badge-secondary"
-              style={{ fontSize: '12px', padding: '5px 8px' }}
-            >
-              {r.iterations} iteration{r.iterations !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        {r.review_report_summary && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Reviewer Feedback</div>
-            <div className="ia-assessment-body mb-0">
-              <ReactMarkdown>{r.review_report_summary}</ReactMarkdown>
-            </div>
-          </div>
-        )}
-        {r.code_report_summary && (
-          <div className="ia-assessment-section">
-            <div className="ia-assessment-label">Code Agent Summary</div>
-            <div className="ia-assessment-body mb-0">
-              <ReactMarkdown>{r.code_report_summary}</ReactMarkdown>
-            </div>
           </div>
         )}
         {result.code_report && (
