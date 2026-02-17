@@ -410,6 +410,7 @@ function ResponsePlanner() {
         setSecurityAlerts(inputs.securityAlerts || '')
         setOperatorFeedback(inputs.operatorFeedback || '')
         setSpecification(inputs.specification || '')
+        setSpecificationCommands(inputs.specificationCommands || [])
         setSystemDescriptionImages(inputs.systemDescriptionImages || [])
         setSecurityAlertsImages(inputs.securityAlertsImages || [])
         setSelectedIncidentId(inputs.selectedIncidentId || null)
@@ -1087,6 +1088,7 @@ function ResponsePlanner() {
             securityAlerts,
             operatorFeedback,
             specification,
+            specificationCommands,
             systemDescriptionImages,
             securityAlertsImages,
             selectedIncidentId
