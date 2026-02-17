@@ -349,11 +349,20 @@ info)`. The `info` dict should include `"recovery_state"` and \
 `"specification_state"` sub-dicts for interpretability.
 3. `reset(seed=None, options=None)` — Reset the environment to the \
 initial state. Return `(state, info)`.
-4. `set_state(state)` — Set the environment state to the given array.
+4. `set_state(state)` — Set the environment state to the given \
+array. Implementation: `self.state = np.array(state, \
+dtype=np.float64)`. Do NOT recompute or snap values — the \
+verifier reads `env.state` after calling `set_state` and expects \
+the values to match exactly.
 
 ### Code Requirements
 
 - Subclass `gymnasium.Env`
+- **`self.state` attribute:** The environment must maintain a \
+`self.state` numpy array that always holds the current state. \
+Initialize it in `__init__` (and `reset`), update it in `step`, \
+and assign it directly in `set_state`. The verification script \
+reads `env.state` to inspect the current state.
 - Do not include comments in the generated code
 - The generated code must be a single self-contained Python module
 - Use numpy arrays for state representation
