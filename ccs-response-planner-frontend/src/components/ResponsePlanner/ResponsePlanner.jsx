@@ -15,7 +15,7 @@ import AgentPlanningTab from '../Agents/shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from '../Agents/shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from '../Agents/shared/conversationUtils.js'
 import { STREAMING_TOOLS, executeStreamingTool } from '../Agents/shared/streamingToolExec.js'
-import { AssessmentBody } from '../Agents/shared/ReportBodies.jsx'
+import { AssessmentBody, PlanManagerReportBody } from '../Agents/shared/ReportBodies.jsx'
 import ConfigTab from './ConfigTab.jsx'
 import SubAgentsTab from './SubAgentsTab.jsx'
 import '../Agents/Agents.css'
@@ -1137,47 +1137,7 @@ function ResponsePlanner() {
       )
     }
     if (entry.tool_name === 'run_plan_manager' && entry.result) {
-      const r = entry.result
-      return (
-        <div style={{ marginTop: '10px' }}>
-          {r.plan_manager_report?.executive_summary && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Plan Manager Summary</div>
-              <p className="ia-assessment-body mb-0">{r.plan_manager_report.executive_summary}</p>
-            </div>
-          )}
-          {r.plan_manager_report?.final_verdict && (
-            <div className="ia-assessment-section">
-              <div className="ia-assessment-label">Verdict</div>
-              <span
-                className={`badge badge-${VERDICT_STYLES[r.plan_manager_report.final_verdict] || 'secondary'}`}
-                style={{ fontSize: '12px', padding: '5px 8px' }}
-              >
-                {r.plan_manager_report.final_verdict.replace(/_/g, ' ')}
-              </span>
-            </div>
-          )}
-          {r.response_plan && (
-            <div className="ia-assessment-section" style={{ marginTop: '10px' }}>
-              <div className="ia-assessment-label">Response Plan</div>
-              <pre
-                style={{
-                  background: '#f5f5f5',
-                  padding: '12px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  maxHeight: '300px',
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
-                }}
-              >
-                {r.response_plan}
-              </pre>
-            </div>
-          )}
-        </div>
-      )
+      return <PlanManagerReportBody result={entry.result} />
     }
     return null
   }
