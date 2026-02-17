@@ -148,7 +148,7 @@ class ProgressCallback(BaseCallback):
 #    interface that MaskablePPO expects during collect_rollouts().
 MAX_EPISODE_STEPS = 200
 def mask_fn(env):
-    return env.get_action_mask()
+    return env.unwrapped.get_action_mask()
 env = ActionMasker(TimeLimit(EnvClass(), max_episode_steps=MAX_EPISODE_STEPS), mask_fn)
 model = MaskablePPO("MlpPolicy", env, verbose=0, n_steps=2048,
                     batch_size=128, learning_rate=3e-4,
