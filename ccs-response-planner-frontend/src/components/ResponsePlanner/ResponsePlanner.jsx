@@ -261,7 +261,7 @@ function ResponsePlanner() {
   }, [token])
 
   useEffect(() => {
-    if (autopilot && pendingProposal) {
+    if (autopilot && pendingProposal && isSourceTabRef.current) {
       handleApprove()
     }
   }, [autopilot, pendingProposal])

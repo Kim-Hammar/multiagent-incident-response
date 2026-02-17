@@ -362,17 +362,25 @@ def _save_step_result(
             if e.get("type") != "streaming"
         ]
 
-        if accumulated_text:
-            history.append({
-                "role": "model",
-                "type": "reasoning",
-                "text": accumulated_text,
-            })
-        if final_entry:
-            history.append({
-                "role": "model",
-                **final_entry,
-            })
+        last_type = (
+            history[-1].get("type") if history else None
+        )
+        if final_entry and last_type == final_entry.get(
+            "type"
+        ):
+            pass  # Source tab already saved this
+        else:
+            if accumulated_text:
+                history.append({
+                    "role": "model",
+                    "type": "reasoning",
+                    "text": accumulated_text,
+                })
+            if final_entry:
+                history.append({
+                    "role": "model",
+                    **final_entry,
+                })
 
         update_kwargs: dict[str, Any] = {
             "conversation_history": history,
@@ -437,22 +445,28 @@ def _save_tool_result(
         )
 
         if done_event:
-            result = done_event.get("result", {})
-            if not result:
-                result = {
-                    k: done_event.get(k)
-                    for k in (
-                        "container", "command",
-                        "exit_code", "output",
-                    )
-                    if done_event.get(k) is not None
-                }
-            history.append({
-                "role": "tool",
-                "type": "tool_result",
-                "tool_name": tool_name,
-                "result": result,
-            })
+            last = history[-1] if history else {}
+            already_saved = (
+                last.get("type") == "tool_result"
+                and last.get("tool_name") == tool_name
+            )
+            if not already_saved:
+                result = done_event.get("result", {})
+                if not result:
+                    result = {
+                        k: done_event.get(k)
+                        for k in (
+                            "container", "command",
+                            "exit_code", "output",
+                        )
+                        if done_event.get(k) is not None
+                    }
+                history.append({
+                    "role": "tool",
+                    "type": "tool_result",
+                    "tool_name": tool_name,
+                    "result": result,
+                })
 
         DatabaseFacade.update_planning_session(
             session_id, username,

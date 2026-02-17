@@ -100,7 +100,7 @@ class JobManager:
                     job.error = str(exc)
             finally:
                 job.done = True
-                if on_complete is not None:
+                if on_complete is not None and not job.cancelled:
                     try:
                         with job.lock:
                             events_copy = list(job.events)

@@ -96,11 +96,7 @@ function renderOrchestratorArgs(toolName, args) {
             label={`Previous Code (${args.previous_code.split('\n').length} lines)`}
             icon="fa-code"
           >
-            <pre className="ia-arg-code">
-              {args.previous_code.split('\n').slice(0, 30).join('\n')}
-              {args.previous_code.split('\n').length > 30 &&
-                `\n\n… ${args.previous_code.split('\n').length - 30} more lines (scroll to view)`}
-            </pre>
+            <pre className="ia-arg-code">{args.previous_code}</pre>
           </CollapsibleSection>
         )}
       </div>
