@@ -14,6 +14,7 @@ function stripNestedImages(events) {
   if (!Array.isArray(events)) return events
   return events.map((evt) => {
     const copy = { ...evt }
+    if (copy._promptImages) copy._promptImages = []
     if (copy.result) {
       const r = { ...copy.result }
       if (r.image) r.image = '[image stripped]'

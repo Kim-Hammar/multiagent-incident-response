@@ -1056,7 +1056,7 @@ function ResponsePlanner() {
           agent_type: 'orchestrator',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(stripForBackend(conversationHistory)),
+          conversation_history: cleanConversationHistory(conversationHistory),
           model_name: orchestratorModel || undefined
         })
       })
