@@ -6,6 +6,7 @@
  */
 
 const API_BASE = '/api/agents/jobs'
+const STALE_THRESHOLD = 30000
 
 /**
  * Poll a background job for events until it completes.
@@ -15,7 +16,8 @@ const API_BASE = '/api/agents/jobs'
  * @param {string} opts.token - Auth bearer token
  * @param {AbortSignal} [opts.signal] - Optional AbortController signal
  * @param {(event: Object) => void} opts.onEvent - Called for each new event
- * @param {(elapsedMs: number) => void} [opts.onStale] - Called when no real events for 60s
+ * @param {(status: string) => void} [opts.onHeartbeat] - Called with status string on each heartbeat
+ * @param {(elapsedMs: number) => void} [opts.onStale] - Called when no real events for 30s
  * @param {number} [opts.pollInterval=300] - Milliseconds between polls
  * @param {number} [opts.maxDuration=1200000] - Max polling duration in ms (default 20 min)
  * @returns {Promise<void>}
@@ -25,13 +27,14 @@ export async function pollJobEvents({
   token,
   signal,
   onEvent,
+  onHeartbeat,
   onStale,
   pollInterval = 300,
   maxDuration = 20 * 60 * 1000
 }) {
   let nextIndex = 0
   let retries = 0
-  const MAX_RETRIES = 3
+  const MAX_RETRIES = 5
   const startTime = Date.now()
   let lastRealEventTime = Date.now()
   let staleNotified = false
@@ -47,8 +50,8 @@ export async function pollJobEvents({
 
     try {
       const fetchSignal = signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
-        : AbortSignal.timeout(30000)
+        ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
+        : AbortSignal.timeout(10000)
 
       const res = await fetch(`${API_BASE}/${jobId}/events?after=${nextIndex}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -71,6 +74,7 @@ export async function pollJobEvents({
         if (event.type === 'heartbeat') {
           lastRealEventTime = Date.now()
           staleNotified = false
+          if (onHeartbeat && event.status) onHeartbeat(event.status)
           continue
         }
         lastRealEventTime = Date.now()
@@ -80,22 +84,23 @@ export async function pollJobEvents({
 
       nextIndex = next_index
 
-      if (onStale && !staleNotified && Date.now() - lastRealEventTime > 60000) {
-        staleNotified = true
-        onStale(Date.now() - lastRealEventTime)
-      }
-
       if (done) {
         if (error) throw new Error(error)
         return
       }
     } catch (err) {
       if (err.name === 'AbortError' && signal?.aborted) throw err
-      if (err.name === 'TimeoutError' && retries < MAX_RETRIES) {
+      if ((err.name === 'TimeoutError' || err.name === 'TypeError') && retries < MAX_RETRIES) {
         retries++
-        continue
+      } else {
+        throw err
       }
-      throw err
+    }
+
+    // Stale check runs every iteration — even after failed fetches
+    if (onStale && !staleNotified && Date.now() - lastRealEventTime > STALE_THRESHOLD) {
+      staleNotified = true
+      onStale(Date.now() - lastRealEventTime)
     }
 
     await new Promise((resolve) => setTimeout(resolve, pollInterval))

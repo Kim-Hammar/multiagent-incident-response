@@ -49,6 +49,7 @@ function PenetrationTestAgent() {
   const abortControllerRef = useRef(null)
   const lastHeartbeatRef = useRef(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
+  const [heartbeatStatus, setHeartbeatStatus] = useState('')
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -200,6 +201,10 @@ function PenetrationTestAgent() {
         jobId: job_id,
         token,
         signal: controller.signal,
+        onHeartbeat: (status) => {
+          lastHeartbeatRef.current = Date.now()
+          setHeartbeatStatus(status)
+        },
         onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
           lastHeartbeatRef.current = Date.now()
@@ -699,6 +704,7 @@ function PenetrationTestAgent() {
           modelName={selectedModel}
           livenessStatus={livenessStatus}
           lastHeartbeatTime={lastHeartbeatRef.current}
+          heartbeatStatus={heartbeatStatus}
         />
       )}
 

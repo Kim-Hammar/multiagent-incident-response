@@ -592,10 +592,16 @@ function SubAgentLog({
   modelName,
   onViewPrompt,
   onViewContext,
-  contextUsage
+  contextUsage,
+  livenessStatus,
+  heartbeatStatus,
+  lastHeartbeatTime
 }) {
   const [expanded, setExpanded] = useState({})
   const toggle = (i) => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))
+  const statusText = heartbeatStatus || (livenessStatus === 'stale' ? 'No signal' : 'Connected')
+  const timeStr = lastHeartbeatTime ? new Date(lastHeartbeatTime).toLocaleTimeString() : ''
+  const dotTooltip = timeStr ? `${statusText} (${timeStr})` : statusText
 
   if (!subEvents || subEvents.length === 0) return null
 
@@ -640,6 +646,10 @@ function SubAgentLog({
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
                 {isLast && (
                   <>
+                    <span
+                      className={`ia-liveness-dot ${livenessStatus === 'stale' ? 'stale' : 'alive'}`}
+                      title={dotTooltip}
+                    />
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
@@ -665,6 +675,10 @@ function SubAgentLog({
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
                 {isLast && (
                   <>
+                    <span
+                      className={`ia-liveness-dot ${livenessStatus === 'stale' ? 'stale' : 'alive'}`}
+                      title={dotTooltip}
+                    />
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
@@ -692,6 +706,10 @@ function SubAgentLog({
               <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
                 {isLast && (
                   <>
+                    <span
+                      className={`ia-liveness-dot ${livenessStatus === 'stale' ? 'stale' : 'alive'}`}
+                      title={dotTooltip}
+                    />
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
@@ -755,6 +773,9 @@ function SubAgentLog({
                       onViewPrompt={onViewPrompt}
                       onViewContext={onViewContext}
                       contextUsage={ev._contextUsage}
+                      livenessStatus={livenessStatus}
+                      heartbeatStatus={heartbeatStatus}
+                      lastHeartbeatTime={lastHeartbeatTime}
                     />
                   )}
                 </>
@@ -896,7 +917,8 @@ function AgentActivityLog({
   renderExecutingTool,
   renderToolResult,
   livenessStatus,
-  lastHeartbeatTime
+  lastHeartbeatTime,
+  heartbeatStatus
 }) {
   const [promptModalText, setPromptModalText] = useState(null)
   const [promptModalImages, setPromptModalImages] = useState([])
@@ -923,11 +945,19 @@ function AgentActivityLog({
               isStale && lastHeartbeatTime
                 ? Math.round((Date.now() - lastHeartbeatTime) / 1000)
                 : null
+            const statusText = heartbeatStatus || (isStale ? 'No signal' : 'Connected')
+            const timeStr = lastHeartbeatTime
+              ? new Date(lastHeartbeatTime).toLocaleTimeString()
+              : ''
+            const dotTooltip = timeStr ? `${statusText} (${timeStr})` : statusText
             return (
               <div key={index} className="card ia-entry ia-streaming-entry">
                 <div className="card-body">
                   <div className="ia-thinking-header">
-                    <span className={`ia-liveness-dot ${isStale ? 'stale' : 'alive'}`} />
+                    <span
+                      className={`ia-liveness-dot ${isStale ? 'stale' : 'alive'}`}
+                      title={dotTooltip}
+                    />
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
@@ -1044,6 +1074,12 @@ function AgentActivityLog({
             const hasSubEvents = entry.subEvents && entry.subEvents.length > 0
             const isOpen = !!expandedEntries[index]
             const agentLabel = toolLabel(entry.tool_name)
+            const tsStatusText =
+              heartbeatStatus || (livenessStatus === 'stale' ? 'No signal' : 'Connected')
+            const tsTimeStr = lastHeartbeatTime
+              ? new Date(lastHeartbeatTime).toLocaleTimeString()
+              : ''
+            const tsDotTooltip = tsTimeStr ? `${tsStatusText} (${tsTimeStr})` : tsStatusText
             return (
               <div
                 key={index}
@@ -1059,6 +1095,10 @@ function AgentActivityLog({
                       <span className="badge badge-secondary">Completed</span>
                     ) : (
                       <>
+                        <span
+                          className={`ia-liveness-dot ${livenessStatus === 'stale' ? 'stale' : 'alive'}`}
+                          title={tsDotTooltip}
+                        />
                         <div className="spinner-border spinner-border-sm" role="status">
                           <span className="sr-only">Loading...</span>
                         </div>
@@ -1121,6 +1161,9 @@ function AgentActivityLog({
                           }}
                           onViewContext={(history) => setContextModalHistory(history)}
                           contextUsage={entry.contextUsage}
+                          livenessStatus={livenessStatus}
+                          heartbeatStatus={heartbeatStatus}
+                          lastHeartbeatTime={lastHeartbeatTime}
                         />
                       ) : (
                         entry.output && (

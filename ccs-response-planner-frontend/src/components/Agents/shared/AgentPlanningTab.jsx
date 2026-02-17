@@ -29,7 +29,8 @@ function AgentPlanningTab({
   dtStatus,
   modelName,
   livenessStatus,
-  lastHeartbeatTime
+  lastHeartbeatTime,
+  heartbeatStatus
 }) {
   const isAgentBusy = running || !!executingTool
   const [promptText, setPromptText] = useState('')
@@ -157,6 +158,7 @@ function AgentPlanningTab({
         renderToolResult={renderToolResult}
         livenessStatus={livenessStatus}
         lastHeartbeatTime={lastHeartbeatTime}
+        heartbeatStatus={heartbeatStatus}
       />
       <PromptModal
         show={showPrompt}

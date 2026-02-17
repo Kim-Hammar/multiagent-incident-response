@@ -26,6 +26,50 @@ class _Job:
         self.lock: threading.Lock = threading.Lock()
         self.last_event_time: float = time.time()
         self.start_time: float = time.time()
+        self.last_status: str = "Starting..."
+
+
+_STATUS_MAP: dict[str, str] = {
+    "thinking": "Model is reasoning",
+    "text": "Model is generating text",
+    "tool_proposal": "Preparing tool call",
+    "tool_result": "Processing tool result",
+    "context_compaction": "Compacting context",
+    "dt_progress": "Deploying digital twin",
+    "output_chunk": "Executing command",
+    "sub_event": "Running sub-agent",
+    "assessment": "Producing report",
+    "report": "Producing report",
+    "validation_report": "Producing report",
+    "code_report": "Producing report",
+    "review_report": "Producing report",
+    "planner_report": "Producing report",
+}
+
+
+def _status_from_event(event: dict[str, Any]) -> str | None:
+    """
+    Derive a short human-readable status from an event dict.
+
+    Returns ``None`` when the event type should not update the
+    status (e.g. ``context_usage``).
+
+    :param event: a job event dict
+    :return: a status string or None
+    """
+    etype = event.get("type", "")
+    label = _STATUS_MAP.get(etype)
+    if label is None:
+        return None
+    if etype == "tool_proposal":
+        name = event.get("tool_name", "")
+        if name:
+            return f"Preparing tool call: {name}"
+    if etype == "dt_progress":
+        msg = event.get("message", "")
+        if msg:
+            return msg
+    return label
 
 
 class JobManager:
@@ -104,6 +148,9 @@ class JobManager:
                     with job.lock:
                         job.events.append(event)
                         job.last_event_time = time.time()
+                        status = _status_from_event(event)
+                        if status is not None:
+                            job.last_status = status
             except Exception as exc:
                 logger.error(
                     "Job %s error: %s",
@@ -157,6 +204,7 @@ class JobManager:
                             "timestamp": int(
                                 time.time() * 1000,
                             ),
+                            "status": job.last_status,
                         })
 
         t = threading.Thread(

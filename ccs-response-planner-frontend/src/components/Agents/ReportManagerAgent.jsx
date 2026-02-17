@@ -105,6 +105,7 @@ function ReportManagerAgent() {
   const abortControllerRef = useRef(null)
   const lastHeartbeatRef = useRef(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
+  const [heartbeatStatus, setHeartbeatStatus] = useState('')
   const managerStartTimeRef = useRef(null)
 
   const handlePaste = (setImages) => (event) => {
@@ -297,6 +298,10 @@ function ReportManagerAgent() {
         jobId: job_id,
         token,
         signal: controller.signal,
+        onHeartbeat: (status) => {
+          lastHeartbeatRef.current = Date.now()
+          setHeartbeatStatus(status)
+        },
         onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
           lastHeartbeatRef.current = Date.now()
@@ -1046,6 +1051,7 @@ function ReportManagerAgent() {
           modelName={managerModel}
           livenessStatus={livenessStatus}
           lastHeartbeatTime={lastHeartbeatRef.current}
+          heartbeatStatus={heartbeatStatus}
         />
       )}
 
