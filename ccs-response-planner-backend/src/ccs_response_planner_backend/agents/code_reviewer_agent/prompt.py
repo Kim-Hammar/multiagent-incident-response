@@ -125,6 +125,11 @@ specification side effects of actions accurately captured? Check that:
 - Each specification command has a corresponding state dimension
 - Actions that could break specifications properly reduce those dimensions
 - The initial state correctly reflects which specs are satisfied/broken
+- **No attacker-connectivity specs:** specifications that test \
+reachability FROM the attacker's IP must NOT be included as MDP \
+specification dimensions. Such specs force the agent to unblock the \
+attacker during restoration, leaving the system vulnerable. Only \
+legitimate service requirements belong in the specification state.
 
 ### 5. Action Prerequisites
 Are ordering constraints between actions properly modeled? For example:
@@ -138,9 +143,14 @@ Verify that it is always feasible to reach the terminal state where \
 all per-host recovery flags are 1.0 and all specifications are \
 satisfied. Check that every per-host flag has at least one action \
 (or sequence of actions) that can drive it to 1.0, and that every \
-action which can break a specification has a corresponding action \
-that can restore it. Flag any dead ends where stochastic outcomes \
-could leave the agent stuck.
+action which can break a specification has a corresponding \
+restoration action that fixes the spec **without regressing earlier \
+recovery phases** (e.g. a surgical allow rule for legitimate traffic, \
+not removal of the containment block). Flag any dead ends where \
+stochastic outcomes could leave the agent stuck. In particular, \
+check that no restoration action undoes containment — if it does, \
+the agent enters a cycle where it must re-contain to satisfy \
+recovery flags, re-breaking specs, and can never terminate.
 
 ### 7. Reward Function
 Is the phase-weighted reward function implemented correctly? The reward \

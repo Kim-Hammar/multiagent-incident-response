@@ -114,16 +114,27 @@ preservation, eviction, and hardening flags (no known action needed).
 
 **Specification dimensions** (one float per specification command, \
 each in [0, 1]):
-Each specification command describes a service-level requirement \
-(e.g. "Server 2 FTP reachable from Server 1", "Server 6 PostgreSQL \
-running"). For each specification command, include a state dimension \
-that represents the probability / confidence that this specification \
-is currently satisfied. Initially all specifications should be 1.0 \
-(services are operational before the response begins, unless the \
-incident already broke them — reason about this based on the \
-incident report). Actions may inadvertently break specifications \
+Each specification command describes a **legitimate** service-level \
+requirement (e.g. "Server 2 FTP reachable from Server 1", "Server 6 \
+PostgreSQL running"). For each specification command, include a state \
+dimension that represents the probability / confidence that this \
+specification is currently satisfied. Initially all specifications \
+should be 1.0 (services are operational before the response begins, \
+unless the incident already broke them — reason about this based on \
+the incident report). Actions may inadvertently break specifications \
 (e.g. blocking network traffic to contain the attack may also \
 block a legitimate service).
+
+**CRITICAL — attacker connectivity is NOT a specification.** \
+Specifications must only describe legitimate service requirements \
+between legitimate hosts/clients. Never include specifications that \
+test connectivity FROM the attacker (e.g. "Attacker can reach \
+Server 2") — such specs would force the agent to unblock the attacker \
+during restoration, leaving the system vulnerable. If a specification \
+command provided in the input tests reachability from the attacker's \
+IP, **exclude it** from the MDP's specification dimensions. Only \
+include specs that the system should satisfy in its secure, \
+post-recovery state.
 
 **Restoration** is NOT a per-host flag. It equals the fraction of \
 specifications currently passing: `restoration = mean(spec_dims)`. \
@@ -177,11 +188,14 @@ this with a greedy agent (10 seeds, 300 steps). To pass this test: \
 (a) every recovery flag must have at least one action that can \
 advance it toward 1.0; (b) every action that can break a \
 specification (e.g. dropping a route during containment) must have \
-a corresponding action that can restore it; (c) stochastic failure \
-outcomes must not create dead ends — if a failed action lowers a \
-dimension, the same or another action must be able to recover from \
-that failure; (d) success probabilities should be high enough \
-(>= 0.5) that the greedy agent can make progress within 300 steps.
+a corresponding restoration action that fixes the spec **without \
+regressing earlier recovery phases** — e.g. a surgical allow rule \
+for legitimate traffic, not removal of the containment block; \
+(c) stochastic failure outcomes must not create dead ends — if a \
+failed action lowers a dimension, the same or another action must \
+be able to recover from that failure; (d) success probabilities \
+should be high enough (>= 0.5) that the greedy agent can make \
+progress within 300 steps.
 7. **Measurable progress — avoid no-op loops** — Every non-passive \
 action must produce a visible state change when its prerequisites \
 are met and the relevant recovery dimension is below 1.0. \
@@ -237,7 +251,15 @@ tightened during hardening, re-add a DNS entry. Note: restoration \
 progress is **computed automatically** as `mean(spec_dims)` — you \
 do NOT need dedicated "restart service" actions for restoration. \
 Instead, include actions that reverse the side-effects of earlier \
-phases so that specs pass again.
+phases so that specs pass again. **Restoration actions must be \
+surgical — they must NOT undo containment or other earlier recovery \
+phases.** For example, if containment blocked the attacker's IP and \
+this also broke a legitimate service route, the restoration action \
+should add a specific allow rule for the legitimate traffic rather \
+than removing the containment block. If a restoration action would \
+reset a containment/eviction/hardening flag to 0.0, the episode \
+can never terminate — design restoration to preserve earlier \
+progress.
 
 Every action in the MDP must correspond to a **real, executable \
 action** on the target system. The `commands` field must contain \

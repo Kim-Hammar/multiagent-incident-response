@@ -19,7 +19,6 @@ const STALE_THRESHOLD = 30000
  * @param {(status: string) => void} [opts.onHeartbeat] - Called with status string on each heartbeat
  * @param {(elapsedMs: number) => void} [opts.onStale] - Called when no real events for 30s
  * @param {number} [opts.pollInterval=300] - Milliseconds between polls
- * @param {number} [opts.maxDuration=18000000] - Max polling duration in ms (default 5 hours)
  * @returns {Promise<void>}
  */
 export async function pollJobEvents({
@@ -29,24 +28,16 @@ export async function pollJobEvents({
   onEvent,
   onHeartbeat,
   onStale,
-  pollInterval = 300,
-  maxDuration = 5 * 60 * 60 * 1000
+  pollInterval = 300
 }) {
   let nextIndex = 0
   let retries = 0
   const MAX_RETRIES = 5
-  const startTime = Date.now()
   let lastRealEventTime = Date.now()
   let staleNotified = false
 
   while (true) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-
-    if (Date.now() - startTime > maxDuration) {
-      throw new Error(
-        'Job polling timed out — the operation took too long. Check the History tab for results.'
-      )
-    }
 
     try {
       const fetchSignal = signal

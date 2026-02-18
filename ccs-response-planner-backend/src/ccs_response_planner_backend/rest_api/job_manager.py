@@ -107,7 +107,6 @@ class JobManager:
         on_complete: Optional[Callable[
             [list[dict[str, Any]]], None
         ]] = None,
-        max_duration: float = 2400.0,
     ) -> str:
         """
         Start a background job running a generator function.
@@ -117,15 +116,12 @@ class JobManager:
         first.
 
         A heartbeat daemon thread runs alongside the job thread,
-        injecting ``heartbeat`` events every 10 s when idle and
-        enforcing the *max_duration* timeout.
+        injecting ``heartbeat`` events every 10 s when idle.
 
         :param job_id: unique key for this job
         :param generator_fn: callable returning a generator of events
         :param on_complete: optional callback invoked with all events
                             when the generator finishes
-        :param max_duration: maximum wall-clock seconds before the
-                             job is auto-cancelled (default 40 min)
         :return: the job_id
         """
         with self._lock:
@@ -177,26 +173,6 @@ class JobManager:
         def _heartbeat() -> None:
             while not job.done and not job.cancelled:
                 time.sleep(10)
-                elapsed = time.time() - job.start_time
-                if elapsed > max_duration:
-                    logger.warning(
-                        "Job %s timed out after %.0fs",
-                        job_id, elapsed,
-                    )
-                    job.cancelled = True
-                    with job.lock:
-                        job.events.append({
-                            "type": "error",
-                            "message": (
-                                "Job timed out after "
-                                f"{int(elapsed)}s"
-                            ),
-                        })
-                        job.error = (
-                            f"Job timed out after "
-                            f"{int(elapsed)}s"
-                        )
-                    break
                 idle = time.time() - job.last_event_time
                 if idle >= 10:
                     with job.lock:
