@@ -34,6 +34,8 @@ make tests    # Run backend and frontend tests inside the container
 make lint     # Run all linters inside the container
 make format   # Run Prettier formatter inside the container
 make rebuild  # Full rebuild (remove volumes, rebuild images, start)
+make dt-build # Build all digital twin images
+make dt-clean # Remove all digital twin images
 make help     # Show all available targets
 ```
 

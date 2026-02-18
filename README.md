@@ -46,6 +46,12 @@ The `.env` file contains the following settings:
 | `ADMIN_USERNAME`    | Application admin login username   | `admin`                          |
 | `ADMIN_PASSWORD`    | Application admin login password   | `CHANGE_ME_TO_A_STRONG_PASSWORD` |
 | `GEMINI_API_KEY`    | Google Gemini API key              | `CHANGE_ME_TO_YOUR_GEMINI_API_KEY` |
+| `ANTHROPIC_API_KEY` | Anthropic API key                  | `CHANGE_ME_TO_YOUR_ANTHROPIC_API_KEY` |
+| `TAVILY_API_KEY`    | Tavily web search API key          | `CHANGE_ME_TO_YOUR_TAVILY_API_KEY` |
+| `NVD_API_KEY`       | NIST NVD API key                   | `CHANGE_ME_TO_YOUR_NVD_API_KEY` |
+| `VIRUSTOTAL_API_KEY`| VirusTotal API key                 | `CHANGE_ME_TO_YOUR_VIRUSTOTAL_API_KEY` |
+| `ABUSEIPDB_API_KEY` | AbuseIPDB API key                  | `CHANGE_ME_TO_YOUR_ABUSEIPDB_API_KEY` |
+| `OTX_API_KEY`       | AlienVault OTX API key             | `CHANGE_ME_TO_YOUR_OTX_API_KEY` |
 
 The admin credentials are used to seed the initial login account on first startup. Make sure to set strong passwords before deploying.
 
@@ -91,7 +97,7 @@ cd ccs-response-planner-frontend
 python server/server.py
 ```
 
-The server starts at http://localhost:8888. It serves the React app at `/` and exposes API endpoints at `/api/health` and `/api/plan`.
+The server starts at http://localhost:8888. It serves the React app at `/` and exposes REST API endpoints under `/api`.
 
 ## Development
 
