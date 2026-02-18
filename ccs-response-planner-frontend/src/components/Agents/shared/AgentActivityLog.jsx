@@ -967,7 +967,7 @@ function AgentActivityLog({
                     {staleElapsed !== null && (
                       <span className="ia-heartbeat-info">Last signal: {staleElapsed}s ago</span>
                     )}
-                    <ElapsedTimer />
+                    <ElapsedTimer startTime={entry._startTime} />
                   </div>
                   {entry.text && (
                     <div className="ia-streaming-trace" ref={streamingTraceRef}>

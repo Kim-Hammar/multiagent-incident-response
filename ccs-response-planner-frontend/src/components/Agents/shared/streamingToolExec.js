@@ -85,6 +85,7 @@ export async function executeStreamingTool({
       if (event.type === 'output_chunk') {
         onChunk(event.text)
       } else if (event.type === 'sub_event' && onSubEvent) {
+        if (event.ts) event.event._ts = event.ts
         onSubEvent(event.event)
       } else if (event.type === 'done') {
         doneEvent = event

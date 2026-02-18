@@ -68,7 +68,7 @@ def _status_from_event(event: dict[str, Any]) -> str | None:
     if etype == "dt_progress":
         msg = event.get("message", "")
         if msg:
-            return msg
+            return str(msg)
     return label
 
 
@@ -146,6 +146,9 @@ class JobManager:
                         )
                         break
                     with job.lock:
+                        event.setdefault(
+                            "ts", int(time.time() * 1000),
+                        )
                         job.events.append(event)
                         job.last_event_time = time.time()
                         status = _status_from_event(event)
@@ -174,8 +177,6 @@ class JobManager:
         def _heartbeat() -> None:
             while not job.done and not job.cancelled:
                 time.sleep(10)
-                if job.done or job.cancelled:
-                    break
                 elapsed = time.time() - job.start_time
                 if elapsed > max_duration:
                     logger.warning(

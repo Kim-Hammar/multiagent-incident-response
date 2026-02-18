@@ -34,7 +34,8 @@ import './ResponsePlanner.css'
 /**
  * Helper to push a nested_event into the correct level of the subEvents tree.
  */
-function handleNestedSubEvent(subEvents, innerEvent) {
+function handleNestedSubEvent(subEvents, innerEvent, ts) {
+  const now = ts || Date.now()
   if (innerEvent.type === 'context_usage') {
     const lastToolCall = [...subEvents]
       .reverse()
@@ -47,14 +48,14 @@ function handleNestedSubEvent(subEvents, innerEvent) {
     if (last && last.type === 'reasoning') {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'reasoning', text: innerEvent.text, _startTime: Date.now() })
+      subEvents.push({ type: 'reasoning', text: innerEvent.text, _startTime: now })
     }
   } else if (innerEvent.type === 'text_delta') {
     const last = subEvents[subEvents.length - 1]
     if (last && last.type === 'text') {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'text', text: innerEvent.text, _startTime: Date.now() })
+      subEvents.push({ type: 'text', text: innerEvent.text, _startTime: now })
     }
   } else if (innerEvent.type === 'nested_event') {
     const lastToolCall = [...subEvents]
@@ -68,7 +69,7 @@ function handleNestedSubEvent(subEvents, innerEvent) {
         lastToolCall._contextUsage = innerEvent.event
       } else {
         if (!lastToolCall.subEvents) lastToolCall.subEvents = []
-        handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
+        handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event, now)
       }
     }
   } else if (innerEvent.type === 'tool_result') {
@@ -82,7 +83,7 @@ function handleNestedSubEvent(subEvents, innerEvent) {
       subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || []
     })
   } else {
-    if (!innerEvent._startTime) innerEvent._startTime = Date.now()
+    if (!innerEvent._startTime) innerEvent._startTime = now
     subEvents.push(innerEvent)
   }
 }
@@ -458,6 +459,9 @@ function ResponsePlanner() {
         let history = session.conversation_history || []
         let proposal = session.pending_proposal || null
         if (jobRunning) {
+          // Save the original _startTime before stripping active entries
+          const activeStream = history.find((e) => e.type === 'tool_streaming' && !e.stopped)
+          const originalStartTime = activeStream?._startTime || null
           // Strip streaming entries — polling will rebuild them from scratch
           history = history.filter(
             (e) => e.type !== 'streaming' && !(e.type === 'tool_streaming' && !e.stopped)
@@ -478,7 +482,7 @@ function ResponsePlanner() {
           const toolName = uiState.executingTool
           if (toolName && STREAMING_TOOLS.has(toolName)) {
             setExecutingTool(toolName)
-            resumeToolJob(String(session.id), toolName)
+            resumeToolJob(String(session.id), toolName, originalStartTime)
           } else {
             callStep(history, String(session.id))
           }
@@ -732,7 +736,7 @@ function ResponsePlanner() {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
-    const streamingEntry = { role: 'model', type: 'streaming', text: '' }
+    const streamingEntry = { role: 'model', type: 'streaming', text: '', _startTime: Date.now() }
     let errorOccurred = false
     setConversationHistory((prev) => [...prev, streamingEntry])
     try {
@@ -793,6 +797,10 @@ function ResponsePlanner() {
           lastHeartbeatRef.current = Date.now()
           setLivenessStatus('alive')
           if (errorOccurred) return
+          if (event.ts && !streamingEntry._tsAdjusted) {
+            streamingEntry._startTime = event.ts
+            streamingEntry._tsAdjusted = true
+          }
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             streamingEntry.text = accumulated
@@ -928,7 +936,7 @@ function ResponsePlanner() {
   }
   callStepRef.current = callStep
 
-  const resumeToolJob = async (jobId, toolName) => {
+  const resumeToolJob = async (jobId, toolName, originalStartTime = null) => {
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamEntry = {
@@ -936,7 +944,7 @@ function ResponsePlanner() {
       tool_name: toolName,
       output: '',
       subEvents: [],
-      _startTime: Date.now()
+      _startTime: originalStartTime || Date.now()
     }
     setConversationHistory((prev) => [...prev, streamEntry])
     try {
@@ -971,6 +979,7 @@ function ResponsePlanner() {
               setConversationHistory((prev) => [...prev])
               return
             }
+            const evTs = event.ts || Date.now()
             if (inner.type === 'thinking_delta') {
               const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
               if (last && last.type === 'reasoning') {
@@ -979,7 +988,7 @@ function ResponsePlanner() {
                 streamEntry.subEvents.push({
                   type: 'reasoning',
                   text: inner.text,
-                  _startTime: Date.now()
+                  _startTime: evTs
                 })
               }
             } else if (inner.type === 'text_delta') {
@@ -990,7 +999,7 @@ function ResponsePlanner() {
                 streamEntry.subEvents.push({
                   type: 'text',
                   text: inner.text,
-                  _startTime: Date.now()
+                  _startTime: evTs
                 })
               }
             } else if (inner.type === 'nested_event') {
@@ -1005,7 +1014,7 @@ function ResponsePlanner() {
                   lastToolCall._contextUsage = inner.event
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
-                  handleNestedSubEvent(lastToolCall.subEvents, inner.event)
+                  handleNestedSubEvent(lastToolCall.subEvents, inner.event, evTs)
                 }
               }
             } else if (inner.type === 'tool_result') {
@@ -1020,7 +1029,7 @@ function ResponsePlanner() {
                 subEvents: inner.subEvents || []
               })
             } else {
-              if (!inner._startTime) inner._startTime = Date.now()
+              if (!inner._startTime) inner._startTime = evTs
               streamEntry.subEvents.push(inner)
             }
             setConversationHistory((prev) => [...prev])
@@ -1225,6 +1234,7 @@ function ResponsePlanner() {
               setConversationHistory((prev) => [...prev])
               return
             }
+            const evTs = event._ts || Date.now()
             if (event.type === 'thinking_delta') {
               const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
               if (last && last.type === 'reasoning') {
@@ -1233,7 +1243,7 @@ function ResponsePlanner() {
                 streamEntry.subEvents.push({
                   type: 'reasoning',
                   text: event.text,
-                  _startTime: Date.now()
+                  _startTime: evTs
                 })
               }
             } else if (event.type === 'text_delta') {
@@ -1244,7 +1254,7 @@ function ResponsePlanner() {
                 streamEntry.subEvents.push({
                   type: 'text',
                   text: event.text,
-                  _startTime: Date.now()
+                  _startTime: evTs
                 })
               }
             } else if (event.type === 'nested_event') {
@@ -1259,7 +1269,7 @@ function ResponsePlanner() {
                   lastToolCall._contextUsage = event.event
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
-                  handleNestedSubEvent(lastToolCall.subEvents, event.event)
+                  handleNestedSubEvent(lastToolCall.subEvents, event.event, evTs)
                 }
               }
             } else if (event.type === 'tool_result') {
@@ -1274,7 +1284,7 @@ function ResponsePlanner() {
                 subEvents: event.subEvents || []
               })
             } else {
-              if (!event._startTime) event._startTime = Date.now()
+              if (!event._startTime) event._startTime = evTs
               streamEntry.subEvents.push(event)
             }
             setConversationHistory((prev) => [...prev])
