@@ -31,6 +31,18 @@ MAX_INNER_STEPS = 50
 
 _OUTPUT_LIMIT = 2000
 
+_FINAL_REPORT_TYPES = {
+    "assessment", "report_review", "code_report",
+    "review_report", "planner_report",
+    "validation_report", "orchestrator_report",
+    "report_manager_report", "plan_manager_report",
+}
+
+_INTERNAL_KEYS = {
+    "_model_parts", "_anthropic_content",
+    "_tool_use_id", "_vendor",
+}
+
 
 def _truncate_result(
     result: dict[str, Any],
@@ -124,6 +136,7 @@ def run_report_manager_stream(
         }
 
         pending_tool = None
+        step_reasoning = ""
         for event in agent.step_stream(**step_kwargs):
             etype = event.get("type")
 
@@ -144,6 +157,9 @@ def run_report_manager_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "text":
                 yield {
                     "type": "sub_event",
@@ -152,6 +168,9 @@ def run_report_manager_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "report_manager_report":
                 report_manager_report = event.get(
                     "report_manager_report", {},
@@ -193,6 +212,13 @@ def run_report_manager_stream(
                 }
             elif etype == "tool_proposal":
                 pending_tool = event
+
+        if step_reasoning:
+            conversation_history.append({
+                "role": "model",
+                "type": "reasoning",
+                "text": step_reasoning,
+            })
 
         if report_manager_report:
             break
@@ -400,6 +426,12 @@ def run_report_manager_stream(
         saved_assessment["attack_path_image"] = (
             attack_path_img
         )
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conversation_history
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
     try:
         DatabaseFacade.save_agent_report(
             agent_type="report_manager",
@@ -410,7 +442,7 @@ def run_report_manager_stream(
             username=context.get(
                 "username", "system",
             ),
-            conversation_history=conversation_history,
+            conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning(
@@ -558,6 +590,7 @@ def run_plan_manager_stream(
         }
 
         pending_tool = None
+        step_reasoning = ""
         for event in agent.step_stream(**step_kwargs):
             etype = event.get("type")
 
@@ -578,6 +611,9 @@ def run_plan_manager_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "text":
                 yield {
                     "type": "sub_event",
@@ -586,6 +622,9 @@ def run_plan_manager_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "plan_manager_report":
                 plan_manager_report = event.get(
                     "plan_manager_report", {},
@@ -627,6 +666,13 @@ def run_plan_manager_stream(
                 }
             elif etype == "tool_proposal":
                 pending_tool = event
+
+        if step_reasoning:
+            conversation_history.append({
+                "role": "model",
+                "type": "reasoning",
+                "text": step_reasoning,
+            })
 
         if plan_manager_report:
             break
@@ -880,6 +926,12 @@ def run_plan_manager_stream(
                 ).get("validation_report", {})
                 break
 
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conversation_history
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
     try:
         DatabaseFacade.save_agent_report(
             agent_type="plan_manager",
@@ -887,7 +939,7 @@ def run_plan_manager_stream(
             username=context.get(
                 "username", "system",
             ),
-            conversation_history=conversation_history,
+            conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning(

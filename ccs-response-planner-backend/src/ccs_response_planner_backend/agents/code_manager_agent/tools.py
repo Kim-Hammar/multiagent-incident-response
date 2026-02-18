@@ -20,6 +20,18 @@ MAX_INNER_STEPS = 50
 
 _OUTPUT_LIMIT = 2000
 
+_FINAL_REPORT_TYPES = {
+    "assessment", "report_review", "code_report",
+    "review_report", "planner_report",
+    "validation_report", "orchestrator_report",
+    "report_manager_report", "plan_manager_report",
+}
+
+_INTERNAL_KEYS = {
+    "_model_parts", "_anthropic_content",
+    "_tool_use_id", "_vendor",
+}
+
 
 def run_code_agent_stream(
     context: dict[str, Any],
@@ -65,6 +77,7 @@ def run_code_agent_stream(
             "text": f"[CodeAgent] Step {step_num + 1}...\n",
         }
 
+        step_reasoning = ""
         for event in agent.step_stream(
             system_description=context.get(
                 "system_description", "",
@@ -106,6 +119,9 @@ def run_code_agent_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "text":
                 yield {
                     "type": "sub_event",
@@ -114,8 +130,18 @@ def run_code_agent_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "code_report":
                 code_report = event.get("code_report", {})
+                if step_reasoning:
+                    conversation_history.append({
+                        "role": "model",
+                        "type": "reasoning",
+                        "text": step_reasoning,
+                    })
+                    step_reasoning = ""
                 conversation_history.append({
                     "role": "model",
                     "type": "code_report",
@@ -173,6 +199,13 @@ def run_code_agent_stream(
                         f"{tool_name}...\n"
                     ),
                 }
+                if step_reasoning:
+                    conversation_history.append({
+                        "role": "model",
+                        "type": "reasoning",
+                        "text": step_reasoning,
+                    })
+                    step_reasoning = ""
                 conversation_history.append({
                     "role": "model",
                     "type": "tool_proposal",
@@ -257,12 +290,18 @@ def run_code_agent_stream(
             "verification_checks": [],
         }
 
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conversation_history
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
     try:
         DatabaseFacade.save_agent_report(
             agent_type="code",
             report=code_report,
             username=context.get("username", "system"),
-            conversation_history=conversation_history,
+            conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning("Failed to save code report: %s", e)
@@ -345,6 +384,7 @@ def run_code_reviewer_agent_stream(
             ),
         }
 
+        step_reasoning = ""
         for event in agent.step_stream(
             system_description=context.get(
                 "system_description", "",
@@ -387,6 +427,9 @@ def run_code_reviewer_agent_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "text":
                 yield {
                     "type": "sub_event",
@@ -395,10 +438,20 @@ def run_code_reviewer_agent_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "review_report":
                 review_report = event.get(
                     "review_report", {},
                 )
+                if step_reasoning:
+                    conversation_history.append({
+                        "role": "model",
+                        "type": "reasoning",
+                        "text": step_reasoning,
+                    })
+                    step_reasoning = ""
                 conversation_history.append({
                     "role": "model",
                     "type": "review_report",
@@ -457,6 +510,13 @@ def run_code_reviewer_agent_stream(
                         f"tool: {tool_name}...\n"
                     ),
                 }
+                if step_reasoning:
+                    conversation_history.append({
+                        "role": "model",
+                        "type": "reasoning",
+                        "text": step_reasoning,
+                    })
+                    step_reasoning = ""
                 conversation_history.append({
                     "role": "model",
                     "type": "tool_proposal",
@@ -541,12 +601,18 @@ def run_code_reviewer_agent_stream(
             "overall_verdict": "major_issues",
         }
 
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conversation_history
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
     try:
         DatabaseFacade.save_agent_report(
             agent_type="code_review",
             report=review_report,
             username=context.get("username", "system"),
-            conversation_history=conversation_history,
+            conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning(

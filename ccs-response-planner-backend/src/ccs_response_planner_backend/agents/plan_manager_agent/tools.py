@@ -37,6 +37,18 @@ MAX_INNER_STEPS = 50
 
 _OUTPUT_LIMIT = 2000
 
+_FINAL_REPORT_TYPES = {
+    "assessment", "report_review", "code_report",
+    "review_report", "planner_report",
+    "validation_report", "orchestrator_report",
+    "report_manager_report", "plan_manager_report",
+}
+
+_INTERNAL_KEYS = {
+    "_model_parts", "_anthropic_content",
+    "_tool_use_id", "_vendor",
+}
+
 
 def _truncate_result(
     result: dict[str, Any],
@@ -118,6 +130,7 @@ def _run_sub_agent_loop(
         }
 
         pending_tool = None
+        step_reasoning = ""
         for event in agent.step_stream(**step_kwargs):
             etype = event.get("type")
 
@@ -138,6 +151,9 @@ def _run_sub_agent_loop(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "text":
                 yield {
                     "type": "sub_event",
@@ -146,6 +162,9 @@ def _run_sub_agent_loop(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == report_event_type:
                 report_key = report_event_type
                 final_report = event.get(
@@ -193,6 +212,13 @@ def _run_sub_agent_loop(
                 }
             elif etype == "tool_proposal":
                 pending_tool = event
+
+        if step_reasoning:
+            conversation_history.append({
+                "role": "model",
+                "type": "reasoning",
+                "text": step_reasoning,
+            })
 
         if final_report is not None:
             break
@@ -455,6 +481,7 @@ def run_code_manager_stream(
         }
 
         pending_tool = None
+        step_reasoning = ""
         for event in agent.step_stream(**step_kwargs):
             etype = event.get("type")
 
@@ -475,6 +502,9 @@ def run_code_manager_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "text":
                 yield {
                     "type": "sub_event",
@@ -483,6 +513,9 @@ def run_code_manager_stream(
                         "text": event.get("delta", ""),
                     },
                 }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
             elif etype == "orchestrator_report":
                 orchestrator_report = event.get(
                     "orchestrator_report", {},
@@ -524,6 +557,13 @@ def run_code_manager_stream(
                 }
             elif etype == "tool_proposal":
                 pending_tool = event
+
+        if step_reasoning:
+            conversation_history.append({
+                "role": "model",
+                "type": "reasoning",
+                "text": step_reasoning,
+            })
 
         if orchestrator_report:
             break
@@ -709,6 +749,12 @@ def run_code_manager_stream(
             "code_report_summary": "",
         }
 
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conversation_history
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
     try:
         DatabaseFacade.save_agent_report(
             agent_type="code_manager",
@@ -717,7 +763,7 @@ def run_code_manager_stream(
                 "final_code_report": code_report,
             },
             username=context.get("username", "system"),
-            conversation_history=conversation_history,
+            conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning(
@@ -848,12 +894,18 @@ def run_rl_agent_stream(
             "response_plan": "",
         }
 
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conv
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
     try:
         DatabaseFacade.save_agent_report(
             agent_type="rl",
             report=planner_report,
             username=context.get("username", "system"),
-            conversation_history=conv,
+            conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning(
@@ -987,12 +1039,18 @@ def run_validation_agent_stream(
             "overall_verdict": "major_issues",
         }
 
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conv
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
     try:
         DatabaseFacade.save_agent_report(
             agent_type="validation",
             report=validation_report,
             username=context.get("username", "system"),
-            conversation_history=conv,
+            conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning(
