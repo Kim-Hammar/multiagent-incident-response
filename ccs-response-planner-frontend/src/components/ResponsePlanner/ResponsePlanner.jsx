@@ -914,10 +914,11 @@ function ResponsePlanner() {
       if (err.name === 'AbortError') return
       if (errorOccurred) return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
-      setConversationHistory((prev) => {
-        const base = prev.filter((e) => e !== streamingEntry)
-        return [...base, { role: 'system', type: 'error', message: err.message }]
-      })
+      errorOccurred = true
+      setConversationHistory((prev) => [
+        ...prev,
+        { role: 'system', type: 'error', message: err.message }
+      ])
     } finally {
       setRunning(false)
       setConversationHistory((prev) => {

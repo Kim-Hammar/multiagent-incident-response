@@ -107,7 +107,7 @@ class JobManager:
         on_complete: Optional[Callable[
             [list[dict[str, Any]]], None
         ]] = None,
-        max_duration: float = 2500.0,
+        max_duration: float = 2400.0,
     ) -> str:
         """
         Start a background job running a generator function.
@@ -125,7 +125,7 @@ class JobManager:
         :param on_complete: optional callback invoked with all events
                             when the generator finishes
         :param max_duration: maximum wall-clock seconds before the
-                             job is auto-cancelled (default 15 min)
+                             job is auto-cancelled (default 40 min)
         :return: the job_id
         """
         with self._lock:

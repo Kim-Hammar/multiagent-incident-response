@@ -49,7 +49,8 @@ export async function executeStreamingTool({
   extraBody,
   resumeJobId,
   onHeartbeat,
-  onStale
+  onStale,
+  maxDuration
 }) {
   let job_id = resumeJobId
   if (!job_id) {
@@ -88,6 +89,7 @@ export async function executeStreamingTool({
     signal,
     onHeartbeat,
     onStale,
+    maxDuration,
     onEvent: (event) => {
       if (event.type === 'heartbeat') return
       if (event.type === 'output_chunk') {

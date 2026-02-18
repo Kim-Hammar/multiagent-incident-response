@@ -19,7 +19,7 @@ const STALE_THRESHOLD = 30000
  * @param {(status: string) => void} [opts.onHeartbeat] - Called with status string on each heartbeat
  * @param {(elapsedMs: number) => void} [opts.onStale] - Called when no real events for 30s
  * @param {number} [opts.pollInterval=300] - Milliseconds between polls
- * @param {number} [opts.maxDuration=1200000] - Max polling duration in ms (default 20 min)
+ * @param {number} [opts.maxDuration=18000000] - Max polling duration in ms (default 5 hours)
  * @returns {Promise<void>}
  */
 export async function pollJobEvents({
@@ -30,7 +30,7 @@ export async function pollJobEvents({
   onHeartbeat,
   onStale,
   pollInterval = 300,
-  maxDuration = 20 * 60 * 1000
+  maxDuration = 5 * 60 * 60 * 1000
 }) {
   let nextIndex = 0
   let retries = 0

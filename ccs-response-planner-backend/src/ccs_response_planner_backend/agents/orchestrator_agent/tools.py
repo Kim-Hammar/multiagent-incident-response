@@ -389,14 +389,23 @@ def run_report_manager_stream(
                 assessment = result.get(
                     "assessment", {},
                 )
+                if not attack_path_img:
+                    attack_path_img = result.get(
+                        "attack_path_image",
+                    )
                 break
 
+    saved_assessment = dict(assessment) if assessment else {}
+    if attack_path_img:
+        saved_assessment["attack_path_image"] = (
+            attack_path_img
+        )
     try:
         DatabaseFacade.save_agent_report(
             agent_type="report_manager",
             report={
                 **report_manager_report,
-                "final_assessment": assessment,
+                "final_assessment": saved_assessment,
             },
             username=context.get(
                 "username", "system",
