@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import useTabWithHash from '../../hooks/useTabWithHash.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
@@ -459,7 +459,9 @@ function ResponsePlanner() {
         let proposal = session.pending_proposal || null
         if (jobRunning) {
           // Strip streaming entries — polling will rebuild them from scratch
-          history = history.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
+          history = history.filter(
+            (e) => e.type !== 'streaming' && !(e.type === 'tool_streaming' && !e.stopped)
+          )
           setContextUsage(session.context_usage || null)
           setConversationHistory(history)
           setPendingProposal(null)
@@ -1417,6 +1419,13 @@ function ResponsePlanner() {
     setSelectedIncidentId(null)
   }
 
+  const handleClearLog = () => {
+    setConversationHistory([])
+    setPendingProposal(null)
+    setContextUsage(null)
+    setExpandedEntries({})
+  }
+
   const getPromptText = async () => {
     const res = await fetch(API_AGENTS_ORCHESTRATOR_PROMPT_URL, {
       method: 'POST',
@@ -1736,6 +1745,7 @@ function ResponsePlanner() {
             renderFinalReport={renderFinalReport}
             renderToolResult={renderToolResult}
             onStop={handleStop}
+            onClear={handleClearLog}
             onViewPrompt={getPromptText}
             dtStatus={dtStatus}
             modelName={orchestratorModel}
@@ -1819,44 +1829,70 @@ function ResponsePlanner() {
                         return `${Math.round(s / 3600)}h ago`
                       }
                       return (
-                        <tr key={j.job_id}>
-                          <td>
-                            <code>{j.job_id.slice(0, 8)}</code>
-                          </td>
-                          <td>
-                            <span className={`badge ${badge}`}>{label}</span>
-                          </td>
-                          <td>{j.event_count}</td>
-                          <td>{ago(j.start_time)}</td>
-                          <td>{ago(j.last_event_time)}</td>
-                          <td
-                            style={{
-                              maxWidth: '250px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}
-                          >
-                            {j.last_status}
-                          </td>
-                          <td>
-                            {!j.done && !j.cancelled && (
-                              <button
-                                className="btn btn-sm btn-outline-danger ia-btn mr-1"
-                                onClick={() => cancelJob(j.job_id)}
+                        <Fragment key={j.job_id}>
+                          <tr>
+                            <td>
+                              <code>{j.job_id.slice(0, 8)}</code>
+                            </td>
+                            <td>
+                              <span className={`badge ${badge}`}>{label}</span>
+                            </td>
+                            <td>{j.event_count}</td>
+                            <td>{ago(j.start_time)}</td>
+                            <td>{ago(j.last_event_time)}</td>
+                            <td
+                              style={{
+                                maxWidth: '250px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              {j.last_status}
+                            </td>
+                            <td>
+                              {!j.done && !j.cancelled && (
+                                <button
+                                  className="btn btn-sm btn-outline-danger ia-btn mr-1"
+                                  onClick={() => cancelJob(j.job_id)}
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                              {j.done && (
+                                <button
+                                  className="btn btn-sm btn-outline-danger ia-btn"
+                                  onClick={() => removeJob(j.job_id)}
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                          {j.error && (
+                            <tr>
+                              <td
+                                colSpan={7}
+                                style={{
+                                  backgroundColor: '#fff0f0',
+                                  borderTop: 'none',
+                                  padding: '4px 12px 8px',
+                                  fontSize: '0.85em'
+                                }}
                               >
-                                Cancel
-                              </button>
-                            )}
-                            {j.done && (
-                              <button
-                                className="btn btn-sm btn-outline-danger ia-btn"
-                                onClick={() => removeJob(j.job_id)}
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </td>
-                        </tr>
+                                <i className="fa fa-exclamation-triangle text-danger" />{' '}
+                                <span
+                                  style={{
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word'
+                                  }}
+                                >
+                                  {j.error}
+                                </span>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       )
                     })}
                   </tbody>
