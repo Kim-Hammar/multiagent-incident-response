@@ -391,10 +391,12 @@ function ResponsePlanner() {
 
   useEffect(() => {
     if (restoredSession) return
+    let aborted = false
     fetch(API_AGENTS_SESSIONS_ACTIVE_URL, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then((res) => {
+        if (aborted) return null
         if (res.status === 401) {
           logout()
           return null
@@ -402,6 +404,7 @@ function ResponsePlanner() {
         return res.ok ? res.json() : null
       })
       .then(async (data) => {
+        if (aborted) return
         if (!data || !data.session) {
           setRestoredSession(true)
           return
@@ -524,8 +527,11 @@ function ResponsePlanner() {
         }
       })
       .catch(() => {
-        setRestoredSession(true)
+        if (!aborted) setRestoredSession(true)
       })
+    return () => {
+      aborted = true
+    }
   }, [token, restoredSession, logout])
 
   useEffect(() => {
