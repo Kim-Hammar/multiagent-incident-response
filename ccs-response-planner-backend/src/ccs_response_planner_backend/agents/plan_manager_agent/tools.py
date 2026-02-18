@@ -50,6 +50,68 @@ _INTERNAL_KEYS = {
 }
 
 
+_SKIP_TYPES = {"prompt", "context_usage", "nested_event"}
+
+
+def _process_collected_events(
+    collected: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Process raw streaming sub-events into a compact format
+    for DB persistence and history display.
+
+    Accumulates thinking_delta/text_delta into reasoning/text,
+    filters prompts/context_usage/nested_events, recursively
+    processes subEvents on tool_results, strips internal keys.
+
+    :param collected: raw events from streaming tool execution
+    :return: processed events for history storage
+    """
+    result: list[dict[str, Any]] = []
+    for ev in collected:
+        ev_type = ev.get("type")
+        if ev_type in _SKIP_TYPES:
+            continue
+        if ev_type == "thinking_delta":
+            text = ev.get("text", "")
+            if (
+                result
+                and result[-1].get("type") == "reasoning"
+            ):
+                result[-1]["text"] += text
+            else:
+                result.append(
+                    {"type": "reasoning", "text": text}
+                )
+            continue
+        if ev_type == "text_delta":
+            text = ev.get("text", "")
+            if (
+                result
+                and result[-1].get("type") == "text"
+            ):
+                result[-1]["text"] += text
+            else:
+                result.append(
+                    {"type": "text", "text": text}
+                )
+            continue
+        cleaned: dict[str, Any] = {
+            k: v for k, v in ev.items()
+            if k not in _INTERNAL_KEYS
+        }
+        if ev_type == "tool_result" and cleaned.get(
+            "subEvents"
+        ):
+            cleaned["subEvents"] = (
+                _process_collected_events(
+                    cleaned["subEvents"]
+                )
+            )
+        result.append(cleaned)
+    return result
+
+
 def _truncate_result(
     result: dict[str, Any],
 ) -> dict[str, Any]:
@@ -345,12 +407,22 @@ def _run_sub_agent_loop(
                         "subEvents": collected,
                     },
                 }
-                conversation_history.append({
+                processed_sub = (
+                    _process_collected_events(collected)
+                )
+                tool_hist_entry: dict[str, Any] = {
                     "role": "tool",
                     "type": "tool_result",
                     "tool_name": tool_name,
                     "result": tool_result,
-                })
+                }
+                if processed_sub:
+                    tool_hist_entry["subEvents"] = (
+                        processed_sub
+                    )
+                conversation_history.append(
+                    tool_hist_entry
+                )
             else:
                 try:
                     result_obj = agent.execute_tool(
@@ -702,12 +774,22 @@ def run_code_manager_stream(
                         "subEvents": collected,
                     },
                 }
-                conversation_history.append({
+                processed_sub = (
+                    _process_collected_events(collected)
+                )
+                tool_hist_entry: dict[str, Any] = {
                     "role": "tool",
                     "type": "tool_result",
                     "tool_name": tool_name,
                     "result": tool_result,
-                })
+                }
+                if processed_sub:
+                    tool_hist_entry["subEvents"] = (
+                        processed_sub
+                    )
+                conversation_history.append(
+                    tool_hist_entry
+                )
             else:
                 try:
                     result_obj = agent.execute_tool(
