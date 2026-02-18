@@ -25,6 +25,7 @@ function AgentPlanningTab({
   renderExecutingTool,
   renderToolResult,
   onStop,
+  onClear,
   onViewPrompt,
   dtStatus,
   modelName,
@@ -136,6 +137,11 @@ function AgentPlanningTab({
           {isAgentBusy && onStop && (
             <button type="button" className="btn btn-outline-danger btn-sm" onClick={onStop}>
               <i className="fa fa-stop-circle" aria-hidden="true" /> Stop
+            </button>
+          )}
+          {!isAgentBusy && conversationHistory.length > 0 && onClear && (
+            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onClear}>
+              <i className="fa fa-eraser" aria-hidden="true" /> Clear
             </button>
           )}
         </div>

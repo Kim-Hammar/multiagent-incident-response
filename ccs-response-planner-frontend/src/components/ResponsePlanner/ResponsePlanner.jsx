@@ -233,6 +233,7 @@ function ResponsePlanner() {
   const isSourceTabRef = useRef(false)
   const pollingRef = useRef(null)
   const lastSaveRef = useRef(0)
+  const callStepRef = useRef(null)
   const [jobs, setJobs] = useState([])
 
   const fetchJobs = async () => {
@@ -923,6 +924,7 @@ function ResponsePlanner() {
       })
     }
   }
+  callStepRef.current = callStep
 
   const resumeToolJob = async (jobId, toolName) => {
     const controller = new AbortController()
@@ -1047,7 +1049,7 @@ function ResponsePlanner() {
       }
       setConversationHistory((prev) => [...prev, resultEntry])
       setExecutingTool(null)
-      await callStep(conversationHistoryRef.current)
+      await callStepRef.current(conversationHistoryRef.current)
     } catch (err) {
       if (err.name === 'AbortError') return
       if (err.status === 401) {
