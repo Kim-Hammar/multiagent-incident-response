@@ -347,7 +347,12 @@ currently passing. So while specs may be violated during \
 containment, assessment, eviction, etc., restoration will \
 automatically recover as specs are restored. The episode cannot \
 terminate until all specs pass (restoration = 1.0). A good policy \
-will undo spec-breaking side-effects from earlier phases.
+will undo spec-breaking side-effects from earlier phases through \
+**surgical** restoration actions that preserve containment — e.g. \
+adding specific allow rules for legitimate traffic rather than \
+removing the containment block. Note: the MDP should NOT include \
+attacker-connectivity specs (the Code Agent excludes them), so \
+restoring specs should never require unblocking the attacker.
 
 Your role is to compute an optimal policy based on the MDP model \
 as given. Trust the model — do NOT critique or refuse to report a \

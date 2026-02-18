@@ -43,9 +43,13 @@ for analysis.
 are removed.
       - `is_system_hardened`: Vulnerabilities exploited are patched, \
 configurations tightened.
-      - `are_services_restored`: ALL specification commands pass again. \
-Specs may be temporarily violated during recovery, but restoration \
-is only complete when every specification is satisfied.
+      - `are_services_restored`: ALL **legitimate** specification \
+commands pass again. Specs may be temporarily violated during \
+recovery, but restoration is only complete when every legitimate \
+specification is satisfied. **Exception:** specs that test \
+connectivity FROM the attacker (e.g. "Attacker can reach Server 2") \
+should be expected to fail after containment — do NOT count these \
+against restoration.
    c. After applying the action, check the **service state** by running the \
 specification commands listed above. Each specification command tests a \
 specific connectivity or service requirement. A command passes if it exits \
@@ -65,7 +69,12 @@ Then call `produce_validation_report` with the complete per-action results."""
 
 QUERY_POLICY_TOOL_DOC = """\
 - **query_policy**: Pass the current state vector (recovery phases + spec \
-states) and receive the RL policy\u2019s recommended action with commands."""
+states) and receive the RL policy\u2019s recommended action with commands. \
+The policy uses **action masking**: the environment\u2019s `get_action_mask()` \
+marks actions whose effect is already complete (relevant state dimension \
+>= 1.0) or whose prerequisites are unmet as invalid, so the policy will \
+never recommend them. This means the policy naturally skips already-completed \
+recovery steps — this is expected behavior, not an error."""
 
 SYSTEM_PROMPT_TEMPLATE = """\
 You are an expert cyber-security incident response operator. You are part of a larger autonomous incident response \
@@ -198,10 +207,16 @@ disk images have been collected and saved before any destructive cleanup.
 accounts, and persistent mechanisms have been removed from all affected hosts.
 - **is_system_hardened**: Set to true when the exploited vulnerabilities have \
 been patched, weak credentials changed, and security configurations tightened.
-- **are_services_restored**: Set to true ONLY when ALL specification \
-commands pass again. Specifications may be temporarily violated during \
-earlier phases (e.g. isolating a host breaks connectivity), but \
-restoration is only complete when every specification is satisfied.
+- **are_services_restored**: Set to true ONLY when ALL **legitimate** \
+specification commands pass again. Specifications may be temporarily \
+violated during earlier phases (e.g. isolating a host breaks \
+connectivity), but restoration is only complete when every legitimate \
+specification is satisfied. **Exception:** specifications that test \
+connectivity FROM the attacker's IP (e.g. "Attacker can reach \
+Server 2") should be EXPECTED to fail after containment — this is \
+correct and desired. Do NOT count attacker-connectivity spec \
+failures against restoration. A properly contained attacker should \
+remain blocked in the post-recovery state.
 
 ## Cost Computation
 
