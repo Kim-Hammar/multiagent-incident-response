@@ -17,6 +17,8 @@ import RewardChart from './RewardChart.jsx'
 import RlTrainResult from './RlTrainResult.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import JobsTab from './shared/JobsTab.jsx'
+import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 
@@ -35,7 +37,6 @@ function RlAgent() {
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(10)
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [incidentReportImages, setIncidentReportImages] = useState([])
-  const [conversationHistory, setConversationHistory] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -65,9 +66,72 @@ function RlAgent() {
   const trainingRunsRef = useRef({})
   const runIdCounterRef = useRef(0)
   const abortControllerRef = useRef(null)
-  const lastHeartbeatRef = useRef(Date.now())
+  const [lastHeartbeatTime, setLastHeartbeatTime] = useState(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
   const [heartbeatStatus, setHeartbeatStatus] = useState('')
+
+  const {
+    conversationHistory,
+    setConversationHistory,
+    conversationHistoryRef,
+    sessionIdRef,
+    isSourceTabRef,
+    jobs,
+    fetchJobs,
+    cancelJob,
+    removeJob,
+    removeAllDoneJobs,
+    createSession,
+    clearSession,
+    cancelRunningJob,
+    markSessionCancelled,
+    setPendingProposalRef,
+    setContextUsageRef,
+    setUiStateRef,
+    pollingRef
+  } = useAgentSession({
+    agentType: 'rl',
+    token,
+    logout,
+    activeTab,
+    onRestore: (session) => {
+      const inputs = session.incident_inputs || {}
+      setSystemDescription(inputs.systemDescription || '')
+      setIncidentReport(inputs.incidentReport || '')
+      setSpecification(inputs.specification || '')
+      setOperatorFeedback(inputs.operatorFeedback || '')
+      setCodeReport(inputs.codeReport || '')
+      setTimeLimitMinutes(inputs.timeLimitMinutes || 10)
+      setSystemDescriptionImages(inputs.systemDescriptionImages || [])
+      setIncidentReportImages(inputs.incidentReportImages || [])
+      setSelectedIncidentId(inputs.selectedIncidentId || null)
+      const config = session.agent_config || {}
+      setSelectedModel(config.selectedModel || '')
+      setCompactionModel(config.compactionModel || '')
+      setCompactionThreshold(config.compactionThreshold || 80)
+      setAutopilot(config.autopilot ?? true)
+      setContextUsage(session.context_usage || null)
+      setPendingProposal(session.pending_proposal || null)
+      if (!window.location.hash) setActiveTab('planning')
+    },
+    onResumeJob: (jobId, session) => {
+      setContextUsage(session.context_usage || null)
+      setPendingProposal(null)
+      if (!window.location.hash) setActiveTab('planning')
+      setRunning(true)
+      callStep(conversationHistoryRef.current, jobId)
+    }
+  })
+
+  useEffect(() => {
+    setPendingProposalRef(pendingProposal)
+  }, [pendingProposal])
+  useEffect(() => {
+    setContextUsageRef(contextUsage)
+  }, [contextUsage])
+  useEffect(() => {
+    setUiStateRef({ running, executingTool })
+  }, [running, executingTool])
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -102,7 +166,7 @@ function RlAgent() {
   }, [token])
 
   useEffect(() => {
-    if (autopilot && pendingProposal) {
+    if (autopilot && pendingProposal && isSourceTabRef.current) {
       handleApprove()
     }
   }, [autopilot, pendingProposal])
@@ -143,6 +207,8 @@ function RlAgent() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    cancelRunningJob()
+    markSessionCancelled()
     fetch(API_DT_PYTHON_STOP_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
@@ -170,72 +236,81 @@ function RlAgent() {
     })
   }
 
-  const callStep = async (history) => {
+  const callStep = async (history, resumeJobId) => {
     setRunning(true)
+    isSourceTabRef.current = true
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     const compactionEntries = []
     setConversationHistory([...history, streamingEntry])
     const controller = new AbortController()
     abortControllerRef.current = controller
     try {
-      const res = await fetch(API_AGENTS_RL_STEP_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
-          operator_feedback: operatorFeedback,
-          code_report: codeReport,
-          conversation_history: history.map((e) =>
-            e._runId != null
-              ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== '_runId'))
-              : e
-          ),
-          images: [...systemDescriptionImages, ...incidentReportImages],
-          model_name: selectedModel || undefined,
-          last_prompt_tokens: contextUsage?.prompt_tokens || 0,
-          compaction_model: compactionModel || undefined,
-          compaction_threshold: compactionThreshold / 100,
-          time_limit_minutes: timeLimitMinutes
+      let job_id = resumeJobId
+      if (!job_id) {
+        const res = await fetch(API_AGENTS_RL_STEP_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            system_description: systemDescription,
+            incident_report: incidentReport,
+            specification: specification,
+            operator_feedback: operatorFeedback,
+            code_report: codeReport,
+            conversation_history: history.map((e) =>
+              e._runId != null
+                ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== '_runId'))
+                : e
+            ),
+            images: [...systemDescriptionImages, ...incidentReportImages],
+            model_name: selectedModel || undefined,
+            last_prompt_tokens: contextUsage?.prompt_tokens || 0,
+            compaction_model: compactionModel || undefined,
+            compaction_threshold: compactionThreshold / 100,
+            time_limit_minutes: timeLimitMinutes,
+            session_id: sessionIdRef.current
+          })
         })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+        if (res.status === 401) {
+          logout()
+          return
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          const msg = data.error || `Agent step failed (HTTP ${res.status})`
+          setAlert({ type: 'danger', message: msg })
+          setConversationHistory([
+            ...history,
+            ...compactionEntries,
+            { role: 'system', type: 'error', message: msg }
+          ])
+          return
+        }
+        const resp = await res.json()
+        job_id = resp.job_id
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        const msg = data.error || `Agent step failed (HTTP ${res.status})`
-        setAlert({ type: 'danger', message: msg })
-        setConversationHistory([
-          ...history,
-          ...compactionEntries,
-          { role: 'system', type: 'error', message: msg }
-        ])
-        return
-      }
-
-      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
 
       setLivenessStatus('alive')
-      lastHeartbeatRef.current = Date.now()
+      setLastHeartbeatTime(Date.now())
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
         onHeartbeat: (status) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setHeartbeatStatus(status)
         },
         onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
@@ -304,7 +379,7 @@ function RlAgent() {
           setPendingProposal(finalEntry)
         }
         if (finalEntry.type === 'planner_report') {
-          saveReport(finalEntry.planner_report)
+          saveReport(finalEntry.planner_report, updated)
         }
       } else if (accumulated) {
         let report
@@ -322,12 +397,13 @@ function RlAgent() {
             risks: []
           }
         }
-        setConversationHistory([
+        const fallbackHistory = [
           ...history,
           ...compactionEntries,
           { role: 'model', type: 'planner_report', planner_report: report }
-        ])
-        saveReport(report)
+        ]
+        setConversationHistory(fallbackHistory)
+        saveReport(report, fallbackHistory)
       } else {
         setConversationHistory([
           ...history,
@@ -361,13 +437,32 @@ function RlAgent() {
     }
   }
 
-  const handleRun = () => {
+  const handleRun = async () => {
     setPendingProposal(null)
     setConversationHistory([])
     setExpandedEntries({})
     setContextUsage(null)
     setTrainingData([])
     setActiveTab('planning')
+    await createSession(
+      {
+        systemDescription,
+        incidentReport,
+        specification,
+        operatorFeedback,
+        codeReport,
+        timeLimitMinutes,
+        systemDescriptionImages,
+        incidentReportImages,
+        selectedIncidentId
+      },
+      {
+        selectedModel,
+        compactionModel,
+        compactionThreshold,
+        autopilot
+      }
+    )
     callStep([])
   }
 
@@ -403,7 +498,8 @@ function RlAgent() {
           },
           body: JSON.stringify({
             tool_name: proposal.tool_name,
-            tool_args: proposal.tool_args
+            tool_args: proposal.tool_args,
+            session_id: sessionIdRef.current
           })
         })
         if (res.status === 401) {
@@ -496,7 +592,8 @@ function RlAgent() {
           },
           body: JSON.stringify({
             tool_name: proposal.tool_name,
-            tool_args: proposal.tool_args
+            tool_args: proposal.tool_args,
+            session_id: sessionIdRef.current
           })
         })
         if (res.status === 401) {
@@ -616,6 +713,7 @@ function RlAgent() {
     trainingRunsRef.current = {}
     runIdCounterRef.current = 0
     setSelectedIncidentId(null)
+    clearSession()
   }
 
   const getPromptText = async () => {
@@ -658,7 +756,7 @@ function RlAgent() {
     }
   }
 
-  const saveReport = async (report) => {
+  const saveReport = async (report, historyToSave) => {
     try {
       await fetch(API_AGENTS_REPORTS_URL, {
         method: 'POST',
@@ -670,7 +768,7 @@ function RlAgent() {
           agent_type: 'rl',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory),
+          conversation_history: cleanConversationHistory(historyToSave),
           model_name: selectedModel || undefined
         })
       })
@@ -806,6 +904,15 @@ function RlAgent() {
             History{reportHistory.length > 0 && ` (${reportHistory.length})`}
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'jobs' ? ' active' : ''}`}
+            onClick={() => setActiveTab('jobs')}
+          >
+            Jobs
+          </button>
+        </li>
       </ul>
 
       {activeTab === 'config' && (
@@ -897,7 +1004,7 @@ function RlAgent() {
           onViewPrompt={getPromptText}
           modelName={selectedModel}
           livenessStatus={livenessStatus}
-          lastHeartbeatTime={lastHeartbeatRef.current}
+          lastHeartbeatTime={lastHeartbeatTime}
           heartbeatStatus={heartbeatStatus}
         />
       )}
@@ -919,6 +1026,16 @@ function RlAgent() {
           renderFinalReport={renderFinalReport}
           token={token}
           logout={logout}
+        />
+      )}
+
+      {activeTab === 'jobs' && (
+        <JobsTab
+          jobs={jobs}
+          fetchJobs={fetchJobs}
+          cancelJob={cancelJob}
+          removeJob={removeJob}
+          removeAllDoneJobs={removeAllDoneJobs}
         />
       )}
     </div>

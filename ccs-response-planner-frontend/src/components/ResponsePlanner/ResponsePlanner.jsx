@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useTabWithHash from '../../hooks/useTabWithHash.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
@@ -26,6 +26,7 @@ import {
   PlannerReportInline,
   PlanManagerReportBody
 } from '../Agents/shared/ReportBodies.jsx'
+import JobsTab from '../Agents/shared/JobsTab.jsx'
 import ConfigTab from './ConfigTab.jsx'
 import SubAgentsTab from './SubAgentsTab.jsx'
 import '../Agents/Agents.css'
@@ -228,7 +229,7 @@ function ResponsePlanner() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
-  const lastHeartbeatRef = useRef(Date.now())
+  const [lastHeartbeatTime, setLastHeartbeatTime] = useState(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
   const [heartbeatStatus, setHeartbeatStatus] = useState('')
   const isSourceTabRef = useRef(false)
@@ -783,18 +784,18 @@ function ResponsePlanner() {
       let finalEntry = null
 
       setLivenessStatus('alive')
-      lastHeartbeatRef.current = Date.now()
+      setLastHeartbeatTime(Date.now())
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
         onHeartbeat: (status) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setHeartbeatStatus(status)
         },
         onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
           if (errorOccurred) return
           if (event.ts && !streamingEntry._tsAdjusted) {
@@ -950,18 +951,18 @@ function ResponsePlanner() {
     try {
       let doneEvent = null
       setLivenessStatus('alive')
-      lastHeartbeatRef.current = Date.now()
+      setLastHeartbeatTime(Date.now())
       await pollJobEvents({
         jobId,
         token,
         signal: controller.signal,
         onHeartbeat: (status) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setHeartbeatStatus(status)
         },
         onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
           if (event.type === 'output_chunk') {
             streamEntry.output += event.text
@@ -1070,6 +1071,18 @@ function ResponsePlanner() {
       setAlert({ type: 'danger', message: `Tool resume error: ${err.message}` })
       setExecutingTool(null)
       setRunning(false)
+      setLivenessStatus('error')
+      setConversationHistory((prev) =>
+        prev
+          .map((e) => {
+            if (e.type === 'streaming')
+              return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+            if (e.type === 'tool_streaming') return { ...e, stopped: true }
+            return e
+          })
+          .filter(Boolean)
+          .concat([{ role: 'system', type: 'error', message: err.message }])
+      )
     }
   }
 
@@ -1289,7 +1302,13 @@ function ResponsePlanner() {
             }
             setConversationHistory((prev) => [...prev])
           },
-          extraBody
+          extraBody,
+          onHeartbeat: (status) => {
+            setLastHeartbeatTime(Date.now())
+            setHeartbeatStatus(status)
+            setLivenessStatus('alive')
+          },
+          onStale: () => setLivenessStatus('stale')
         })
         streamEntry.stopped = true
         const resultEntry = {
@@ -1312,6 +1331,19 @@ function ResponsePlanner() {
         }
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
         setExecutingTool(null)
+        setRunning(false)
+        setLivenessStatus('error')
+        setConversationHistory((prev) =>
+          prev
+            .map((e) => {
+              if (e.type === 'streaming')
+                return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+              if (e.type === 'tool_streaming') return { ...e, stopped: true }
+              return e
+            })
+            .filter(Boolean)
+            .concat([{ role: 'system', type: 'error', message: err.message }])
+        )
       }
       return
     }
@@ -1760,7 +1792,7 @@ function ResponsePlanner() {
             dtStatus={dtStatus}
             modelName={orchestratorModel}
             livenessStatus={livenessStatus}
-            lastHeartbeatTime={lastHeartbeatRef.current}
+            lastHeartbeatTime={lastHeartbeatTime}
             heartbeatStatus={heartbeatStatus}
           />
         )}
@@ -1786,130 +1818,13 @@ function ResponsePlanner() {
         )}
 
         {activeTab === 'jobs' && (
-          <div style={{ marginTop: '16px' }}>
-            <div className="d-flex mb-2" style={{ gap: '8px' }}>
-              <button className="btn btn-sm btn-outline-secondary ia-btn" onClick={fetchJobs}>
-                <i className="fa fa-refresh" /> Refresh
-              </button>
-              {jobs.some((j) => j.done) && (
-                <button
-                  className="btn btn-sm btn-outline-danger ia-btn"
-                  onClick={removeAllDoneJobs}
-                >
-                  Remove all done
-                </button>
-              )}
-            </div>
-            {jobs.length === 0 ? (
-              <p className="text-muted">No jobs tracked.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-sm table-bordered" style={{ fontSize: '13px' }}>
-                  <thead>
-                    <tr>
-                      <th>Job ID</th>
-                      <th>Status</th>
-                      <th>Events</th>
-                      <th>Started</th>
-                      <th>Last Activity</th>
-                      <th>Status Text</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jobs.map((j) => {
-                      const badge = j.error
-                        ? 'badge-danger'
-                        : j.cancelled
-                          ? 'badge-warning'
-                          : j.done
-                            ? 'badge-success'
-                            : 'badge-primary'
-                      const label = j.error
-                        ? 'error'
-                        : j.cancelled
-                          ? 'cancelled'
-                          : j.done
-                            ? 'done'
-                            : 'running'
-                      const ago = (ms) => {
-                        const s = Math.round((Date.now() - ms) / 1000)
-                        if (s < 60) return `${s}s ago`
-                        if (s < 3600) return `${Math.round(s / 60)}m ago`
-                        return `${Math.round(s / 3600)}h ago`
-                      }
-                      return (
-                        <Fragment key={j.job_id}>
-                          <tr>
-                            <td>
-                              <code>{j.job_id.slice(0, 8)}</code>
-                            </td>
-                            <td>
-                              <span className={`badge ${badge}`}>{label}</span>
-                            </td>
-                            <td>{j.event_count}</td>
-                            <td>{ago(j.start_time)}</td>
-                            <td>{ago(j.last_event_time)}</td>
-                            <td
-                              style={{
-                                maxWidth: '250px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}
-                            >
-                              {j.last_status}
-                            </td>
-                            <td>
-                              {!j.done && !j.cancelled && (
-                                <button
-                                  className="btn btn-sm btn-outline-danger ia-btn mr-1"
-                                  onClick={() => cancelJob(j.job_id)}
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                              {j.done && (
-                                <button
-                                  className="btn btn-sm btn-outline-danger ia-btn"
-                                  onClick={() => removeJob(j.job_id)}
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                          {j.error && (
-                            <tr>
-                              <td
-                                colSpan={7}
-                                style={{
-                                  backgroundColor: '#fff0f0',
-                                  borderTop: 'none',
-                                  padding: '4px 12px 8px',
-                                  fontSize: '0.85em'
-                                }}
-                              >
-                                <i className="fa fa-exclamation-triangle text-danger" />{' '}
-                                <span
-                                  style={{
-                                    fontFamily: 'monospace',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word'
-                                  }}
-                                >
-                                  {j.error}
-                                </span>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <JobsTab
+            jobs={jobs}
+            fetchJobs={fetchJobs}
+            cancelJob={cancelJob}
+            removeJob={removeJob}
+            removeAllDoneJobs={removeAllDoneJobs}
+          />
         )}
       </div>
     </div>

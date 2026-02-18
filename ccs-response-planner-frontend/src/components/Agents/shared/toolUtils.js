@@ -10,10 +10,8 @@ export const TOOL_LABELS = {
     label: 'Python script to execute in the digital twin sandbox',
     icon: 'fa-code'
   },
-  pentest_exec: { label: 'Attacker Terminal', icon: 'fa-terminal' },
   python_exec: { label: 'Python Sandbox', icon: 'fa-code' },
   rl_train: { label: 'RL Training', icon: 'fa-line-chart' },
-  dp_solve: { label: 'DP Value Iteration', icon: 'fa-line-chart' },
   gym_verify: { label: 'Gymnasium Verify', icon: 'fa-check-circle' },
   query_policy: { label: 'Query RL Policy', icon: 'fa-brain' },
   run_code_agent: { label: 'Code Agent', icon: 'fa-cogs' },
@@ -57,16 +55,9 @@ export function formatToolArgs(toolName, args) {
       ]
     case 'dt_python_exec':
       return [['Code', args.code || '', true]]
-    case 'pentest_exec':
-      return [['Command', args.command || '']]
     case 'python_exec':
       return [['Code', args.code || '', true]]
     case 'rl_train':
-      return [
-        ['Code', args.code || '', true],
-        ['Time limit', `${args.time_limit_minutes || 10} min`]
-      ]
-    case 'dp_solve':
       return [
         ['Code', args.code || '', true],
         ['Time limit', `${args.time_limit_minutes || 10} min`]

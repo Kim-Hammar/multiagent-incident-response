@@ -231,6 +231,86 @@ def test_step_streams_error_on_failure(
     assert "agent failed" in events[0]["message"]
 
 
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._redeploy_dt",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportAgent",
+)
+def test_step_uses_session_id_as_job_id(
+    mock_agent_cls: MagicMock,
+    _mock_redeploy: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report/step with session_id uses it as job_id.
+    """
+    mock_agent = MagicMock()
+    mock_agent.step_stream.return_value = iter([
+        {"type": "text", "delta": "hello"},
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report/step",
+        data=json.dumps({
+            "system_description": "test",
+            "security_alerts": "alerts",
+            "session_id": 99,
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 202
+    data = resp.get_json()
+    assert data["job_id"] == "99"
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.ReportAgent",
+)
+def test_tool_uses_session_id_as_job_id(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/report/tool with session_id uses it
+    as job_id for streaming tools.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_server_1",
+            "command": "whoami",
+            "exit_code": 0,
+            "output": "root",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/report/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_server_1",
+                "command": "whoami",
+            },
+            "session_id": 77,
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 202
+    data = resp.get_json()
+    assert data["job_id"] == "77"
+
+
 def test_tool_returns_401_without_token(
     client: FlaskClient,
 ) -> None:
@@ -516,42 +596,6 @@ def test_tool_injects_incident_id_for_generate_attack_image(
     assert resp.status_code == 200
     call_args = mock_agent.execute_tool.call_args
     assert call_args[0][1]["incident_id"] == 5
-
-
-@patch(
-    "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.PenetrationTestAgent",
-)
-def test_pentest_tool_injects_incident_id(
-    mock_agent_cls: MagicMock,
-    client: FlaskClient,
-    auth_headers: dict[str, str],
-) -> None:
-    """
-    POST /api/agents/pentest/tool with pentest_exec injects incident_id.
-    """
-    mock_agent = MagicMock()
-    mock_agent.execute_tool_stream.return_value = iter([
-        {"type": "done", "container": "attacker",
-         "command": "nmap -sV 10.0.1.1",
-         "exit_code": 0, "output": "scan results"},
-    ])
-    mock_agent_cls.return_value = mock_agent
-    resp = client.post(
-        "/api/agents/pentest/tool",
-        data=json.dumps({
-            "tool_name": "pentest_exec",
-            "tool_args": {
-                "command": "nmap -sV 10.0.1.1",
-            },
-            "incident_id": 3,
-        }),
-        content_type="application/json",
-        headers=auth_headers,
-    )
-    _get_job_events(client, resp, auth_headers)
-    call_args = mock_agent.execute_tool_stream.call_args
-    assert call_args[0][1]["incident_id"] == 3
 
 
 @patch(

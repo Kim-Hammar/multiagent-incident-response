@@ -107,7 +107,7 @@ class JobManager:
         on_complete: Optional[Callable[
             [list[dict[str, Any]]], None
         ]] = None,
-        max_duration: float = 900.0,
+        max_duration: float = 2500.0,
     ) -> str:
         """
         Start a background job running a generator function.

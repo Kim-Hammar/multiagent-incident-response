@@ -1,5 +1,5 @@
 /**
- * Shared helper for dt_exec / pentest_exec tool execution
+ * Shared helper for dt_exec tool execution
  * and sub-agent streaming tools (run_code_agent, run_code_reviewer_agent).
  *
  * Uses background job polling instead of NDJSON streaming.
@@ -9,7 +9,6 @@ import { pollJobEvents } from './pollJobEvents.js'
 
 export const STREAMING_TOOLS = new Set([
   'dt_exec',
-  'pentest_exec',
   'run_code_agent',
   'run_code_reviewer_agent',
   'run_code_manager',
@@ -47,32 +46,39 @@ export async function executeStreamingTool({
   signal,
   onChunk,
   onSubEvent,
-  extraBody
+  extraBody,
+  resumeJobId,
+  onHeartbeat,
+  onStale
 }) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      tool_name: toolName,
-      tool_args: toolArgs,
-      incident_id: incidentId,
-      ...extraBody
-    }),
-    signal
-  })
+  let job_id = resumeJobId
+  if (!job_id) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        tool_name: toolName,
+        tool_args: toolArgs,
+        incident_id: incidentId,
+        ...extraBody
+      }),
+      signal
+    })
 
-  if (res.status === 401) {
-    throw Object.assign(new Error('Unauthorized'), { status: 401 })
-  }
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}))
-    throw new Error(errData.error || `Tool execution failed (HTTP ${res.status})`)
-  }
+    if (res.status === 401) {
+      throw Object.assign(new Error('Unauthorized'), { status: 401 })
+    }
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || `Tool execution failed (HTTP ${res.status})`)
+    }
 
-  const { job_id } = await res.json()
+    const resp = await res.json()
+    job_id = resp.job_id
+  }
 
   let doneEvent = null
 
@@ -80,6 +86,8 @@ export async function executeStreamingTool({
     jobId: job_id,
     token,
     signal,
+    onHeartbeat,
+    onStale,
     onEvent: (event) => {
       if (event.type === 'heartbeat') return
       if (event.type === 'output_chunk') {

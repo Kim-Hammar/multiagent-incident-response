@@ -62,9 +62,6 @@ class API:
     AGENTS_REPORT_STEP_ROUTE = "/api/agents/report/step"
     AGENTS_REPORT_TOOL_ROUTE = "/api/agents/report/tool"
     AGENTS_REPORT_PROMPT_ROUTE = "/api/agents/report/prompt"
-    AGENTS_PENTEST_STEP_ROUTE = "/api/agents/pentest/step"
-    AGENTS_PENTEST_TOOL_ROUTE = "/api/agents/pentest/tool"
-    AGENTS_PENTEST_PROMPT_ROUTE = "/api/agents/pentest/prompt"
     AGENTS_VALIDATION_STEP_ROUTE = "/api/agents/validation/step"
     AGENTS_VALIDATION_TOOL_ROUTE = "/api/agents/validation/tool"
     AGENTS_VALIDATION_PROMPT_ROUTE = "/api/agents/validation/prompt"
@@ -124,9 +121,6 @@ class API:
     AGENTS_ORCHESTRATOR_PROMPT_ROUTE = (
         "/api/agents/orchestrator/prompt"
     )
-    AGENTS_DP_STEP_ROUTE = "/api/agents/dp/step"
-    AGENTS_DP_TOOL_ROUTE = "/api/agents/dp/tool"
-    AGENTS_DP_PROMPT_ROUTE = "/api/agents/dp/prompt"
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
     AGENTS_SESSIONS_ACTIVE_ROUTE = (

@@ -24,6 +24,7 @@ import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import JobsTab from './shared/JobsTab.jsx'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
@@ -34,7 +35,6 @@ import {
   PlannerReportInline,
   PlanManagerReportBody
 } from './shared/ReportBodies.jsx'
-
 /**
  * Extract rich sub-agent data from conversation history and merge it into
  * the orchestrator report so the final view has full details.
@@ -206,13 +206,6 @@ function OrchestratorAgent() {
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
-  const [conversationHistory, rawSetConversationHistory] = useState([])
-  const conversationHistoryRef = useRef([])
-  const setConversationHistory = (value) => {
-    const next = typeof value === 'function' ? value(conversationHistoryRef.current) : value
-    conversationHistoryRef.current = next
-    rawSetConversationHistory(next)
-  }
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -245,10 +238,117 @@ function OrchestratorAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
-  const lastHeartbeatRef = useRef(Date.now())
+  const [lastHeartbeatTime, setLastHeartbeatTime] = useState(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
   const [heartbeatStatus, setHeartbeatStatus] = useState('')
   const managerStartTimeRef = useRef(null)
+
+  const {
+    conversationHistory,
+    setConversationHistory,
+    conversationHistoryRef,
+    sessionIdRef,
+    isSourceTabRef,
+    jobs,
+    fetchJobs,
+    cancelJob,
+    removeJob,
+    removeAllDoneJobs,
+    cancelRunningJob,
+    createSession,
+    clearSession,
+    markSessionCancelled,
+    setPendingProposalRef,
+    setContextUsageRef,
+    setUiStateRef,
+    pollingRef
+  } = useAgentSession({
+    agentType: 'orchestrator',
+    token,
+    logout,
+    activeTab,
+    incidentInputs: {
+      systemDescription,
+      securityAlerts,
+      operatorFeedback,
+      systemDescriptionImages,
+      securityAlertsImages
+    },
+    agentConfig: {
+      orchestratorModel,
+      reportManagerModel,
+      reportAgentModel,
+      reportReviewerModel,
+      planManagerModel,
+      codeManagerModel,
+      codeAgentModel,
+      codeReviewerModel,
+      rlAgentModel,
+      validationAgentModel,
+      compactionModel,
+      compactionThreshold,
+      reportManagerIterations,
+      planManagerIterations,
+      codeManagerIterations,
+      rlTimeLimitMinutes,
+      autopilot
+    },
+    onRestore: (session) => {
+      if (session.incident_inputs) {
+        const inp = session.incident_inputs
+        if (inp.systemDescription != null) setSystemDescription(inp.systemDescription)
+        if (inp.securityAlerts != null) setSecurityAlerts(inp.securityAlerts)
+        if (inp.operatorFeedback != null) setOperatorFeedback(inp.operatorFeedback)
+        if (inp.systemDescriptionImages) setSystemDescriptionImages(inp.systemDescriptionImages)
+        if (inp.securityAlertsImages) setSecurityAlertsImages(inp.securityAlertsImages)
+      }
+      if (session.agent_config) {
+        const cfg = session.agent_config
+        if (cfg.orchestratorModel != null) setOrchestratorModel(cfg.orchestratorModel)
+        if (cfg.reportManagerModel != null) setReportManagerModel(cfg.reportManagerModel)
+        if (cfg.reportAgentModel != null) setReportAgentModel(cfg.reportAgentModel)
+        if (cfg.reportReviewerModel != null) setReportReviewerModel(cfg.reportReviewerModel)
+        if (cfg.planManagerModel != null) setPlanManagerModel(cfg.planManagerModel)
+        if (cfg.codeManagerModel != null) setCodeManagerModel(cfg.codeManagerModel)
+        if (cfg.codeAgentModel != null) setCodeAgentModel(cfg.codeAgentModel)
+        if (cfg.codeReviewerModel != null) setCodeReviewerModel(cfg.codeReviewerModel)
+        if (cfg.rlAgentModel != null) setRlAgentModel(cfg.rlAgentModel)
+        if (cfg.validationAgentModel != null) setValidationAgentModel(cfg.validationAgentModel)
+        if (cfg.compactionModel != null) setCompactionModel(cfg.compactionModel)
+        if (cfg.compactionThreshold != null) setCompactionThreshold(cfg.compactionThreshold)
+        if (cfg.reportManagerIterations != null)
+          setReportManagerIterations(cfg.reportManagerIterations)
+        if (cfg.planManagerIterations != null) setPlanManagerIterations(cfg.planManagerIterations)
+        if (cfg.codeManagerIterations != null) setCodeManagerIterations(cfg.codeManagerIterations)
+        if (cfg.rlTimeLimitMinutes != null) setRlTimeLimitMinutes(cfg.rlTimeLimitMinutes)
+        if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
+      }
+      if (session.pending_proposal) setPendingProposal(session.pending_proposal)
+      if (session.incident_id) setSelectedIncidentId(session.incident_id)
+    },
+    onResumeJob: (job) => {
+      setActiveTab('planning')
+      if (job.tool_name) {
+        resumeToolJob(
+          job.id,
+          job.tool_name,
+          job.started_at ? new Date(job.started_at).getTime() : Date.now()
+        )
+      } else {
+        callStep(conversationHistoryRef.current)
+      }
+    }
+  })
+
+  useEffect(() => {
+    setPendingProposalRef(pendingProposal)
+  }, [pendingProposal])
+  useEffect(() => {
+    setContextUsageRef(contextUsage)
+  }, [contextUsage])
+  useEffect(() => {
+    setUiStateRef({ running, executingTool, dtStatus })
+  }, [running, executingTool, dtStatus])
 
   const handlePaste = (setImages) => (event) => {
     const items = event.clipboardData?.items
@@ -282,7 +382,7 @@ function OrchestratorAgent() {
   }, [token])
 
   useEffect(() => {
-    if (autopilot && pendingProposal) {
+    if (autopilot && pendingProposal && isSourceTabRef.current) {
       handleApprove()
     }
   }, [autopilot, pendingProposal])
@@ -327,6 +427,8 @@ function OrchestratorAgent() {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
     }).catch(() => {})
+    cancelRunningJob()
+    markSessionCancelled()
     setRunning(false)
     setExecutingTool(null)
     setPendingProposal(null)
@@ -363,63 +465,72 @@ function OrchestratorAgent() {
       return entry
     })
 
-  const callStep = async (history) => {
+  const callStep = async (history, resumeJobId) => {
     setRunning(true)
+    isSourceTabRef.current = true
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     setConversationHistory((prev) => [...prev, streamingEntry])
+    let job_id = resumeJobId
     try {
-      const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          security_alerts: securityAlerts,
-          operator_feedback: operatorFeedback,
-          conversation_history: stripImagesFromHistory(history),
-          images: [...systemDescriptionImages, ...securityAlertsImages],
-          model_name: orchestratorModel || undefined,
-          last_prompt_tokens: contextUsage?.prompt_tokens || 0,
-          compaction_model: compactionModel || undefined,
-          compaction_threshold: compactionThreshold / 100
+      if (!job_id) {
+        const res = await fetch(API_AGENTS_ORCHESTRATOR_STEP_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            system_description: systemDescription,
+            security_alerts: securityAlerts,
+            operator_feedback: operatorFeedback,
+            conversation_history: stripImagesFromHistory(history),
+            images: [...systemDescriptionImages, ...securityAlertsImages],
+            model_name: orchestratorModel || undefined,
+            last_prompt_tokens: contextUsage?.prompt_tokens || 0,
+            compaction_model: compactionModel || undefined,
+            compaction_threshold: compactionThreshold / 100,
+            session_id: sessionIdRef.current
+          })
         })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+        if (res.status === 401) {
+          logout()
+          return
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          const msg = data.error || `Agent step failed (HTTP ${res.status})`
+          setAlert({ type: 'danger', message: msg })
+          setConversationHistory((prev) => {
+            const base = prev.filter((e) => e !== streamingEntry)
+            return [...base, { role: 'system', type: 'error', message: msg }]
+          })
+          return
+        }
+        const resp = await res.json()
+        job_id = resp.job_id
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        const msg = data.error || `Agent step failed (HTTP ${res.status})`
-        setAlert({ type: 'danger', message: msg })
-        setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry)
-          return [...base, { role: 'system', type: 'error', message: msg }]
-        })
-        return
-      }
-
-      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
 
       setLivenessStatus('alive')
-      lastHeartbeatRef.current = Date.now()
+      setLastHeartbeatTime(Date.now())
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
         onHeartbeat: (status) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setHeartbeatStatus(status)
         },
         onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
@@ -493,7 +604,7 @@ function OrchestratorAgent() {
             finalEntry.orchestrator_agent_report,
             history
           )
-          saveReport(finalEntry.orchestrator_agent_report)
+          saveReport(finalEntry.orchestrator_agent_report, conversationHistoryRef.current)
         }
       } else if (accumulated) {
         let report
@@ -519,7 +630,7 @@ function OrchestratorAgent() {
             }
           ]
         })
-        saveReport(report)
+        saveReport(report, conversationHistoryRef.current)
       } else {
         setConversationHistory((prev) => {
           const base = prev.filter((e) => e !== streamingEntry)
@@ -554,13 +665,14 @@ function OrchestratorAgent() {
     }
   }
 
-  const handleRun = () => {
+  const handleRun = async () => {
     setPendingProposal(null)
     setConversationHistory([])
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
     managerStartTimeRef.current = Date.now()
+    await createSession(selectedIncidentId)
     callStep([])
   }
 
@@ -609,7 +721,8 @@ function OrchestratorAgent() {
           code_manager_iterations: codeManagerIterations,
           rl_time_limit_minutes: rlTimeLimitMinutes,
           compaction_model: compactionModel || undefined,
-          compaction_threshold: compactionThreshold / 100
+          compaction_threshold: compactionThreshold / 100,
+          session_id: sessionIdRef.current
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -688,7 +801,13 @@ function OrchestratorAgent() {
             }
             setConversationHistory((prev) => [...prev])
           },
-          extraBody
+          extraBody,
+          onHeartbeat: (status) => {
+            setLastHeartbeatTime(Date.now())
+            setHeartbeatStatus(status)
+            setLivenessStatus('alive')
+          },
+          onStale: () => setLivenessStatus('stale')
         })
         streamEntry.stopped = true
         const resultEntry = {
@@ -708,6 +827,19 @@ function OrchestratorAgent() {
         }
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
         setExecutingTool(null)
+        setRunning(false)
+        setLivenessStatus('error')
+        setConversationHistory((prev) =>
+          prev
+            .map((e) => {
+              if (e.type === 'streaming')
+                return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+              if (e.type === 'tool_streaming') return { ...e, stopped: true }
+              return e
+            })
+            .filter(Boolean)
+            .concat([{ role: 'system', type: 'error', message: err.message }])
+        )
       }
       return
     }
@@ -723,7 +855,8 @@ function OrchestratorAgent() {
         body: JSON.stringify({
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
-          incident_id: selectedIncidentId
+          incident_id: selectedIncidentId,
+          session_id: sessionIdRef.current
         })
       })
       if (res.status === 401) {
@@ -800,6 +933,150 @@ function OrchestratorAgent() {
     setPendingProposal(null)
     setExpandedEntries({})
     setSelectedIncidentId(null)
+    clearSession()
+  }
+
+  const resumeToolJob = async (jobId, toolName, startTime) => {
+    const streamEntry = {
+      type: 'tool_streaming',
+      tool_name: toolName,
+      output: '',
+      subEvents: [],
+      _startTime: startTime || Date.now()
+    }
+    setConversationHistory((prev) => [...prev, streamEntry])
+    setExecutingTool(toolName)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    try {
+      const latestHistory = conversationHistoryRef.current
+      const extraBody = {
+        system_description: systemDescription,
+        security_alerts: securityAlerts,
+        operator_feedback: operatorFeedback,
+        images: [...systemDescriptionImages, ...securityAlertsImages],
+        conversation_history: latestHistory,
+        report_manager_model: reportManagerModel || undefined,
+        report_agent_model: reportAgentModel || undefined,
+        report_reviewer_model: reportReviewerModel || undefined,
+        plan_manager_model: planManagerModel || undefined,
+        code_manager_model: codeManagerModel || undefined,
+        code_agent_model: codeAgentModel || undefined,
+        code_reviewer_model: codeReviewerModel || undefined,
+        rl_agent_model: rlAgentModel || undefined,
+        validation_agent_model: validationAgentModel || undefined,
+        report_manager_iterations: reportManagerIterations,
+        plan_manager_iterations: planManagerIterations,
+        code_manager_iterations: codeManagerIterations,
+        rl_time_limit_minutes: rlTimeLimitMinutes,
+        compaction_model: compactionModel || undefined,
+        compaction_threshold: compactionThreshold / 100,
+        session_id: sessionIdRef.current
+      }
+      const { result } = await executeStreamingTool({
+        url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
+        toolName,
+        toolArgs: {},
+        incidentId: selectedIncidentId,
+        token,
+        signal: controller.signal,
+        resumeJobId: jobId,
+        onChunk: (text) => {
+          streamEntry.output += text
+          setConversationHistory((prev) => [...prev])
+        },
+        onSubEvent: (event) => {
+          if (event.type === 'context_usage') {
+            streamEntry.contextUsage = event
+            setConversationHistory((prev) => [...prev])
+            return
+          }
+          if (event.type === 'prompt') {
+            streamEntry.prompt = event.text
+            streamEntry.promptImages = event.images || []
+            setConversationHistory((prev) => [...prev])
+            return
+          }
+          if (event.type === 'thinking_delta') {
+            const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+            if (last && last.type === 'reasoning') {
+              last.text += event.text
+            } else {
+              streamEntry.subEvents.push({
+                type: 'reasoning',
+                text: event.text,
+                _startTime: Date.now()
+              })
+            }
+          } else if (event.type === 'text_delta') {
+            const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+            if (last && last.type === 'text') {
+              last.text += event.text
+            } else {
+              streamEntry.subEvents.push({
+                type: 'text',
+                text: event.text,
+                _startTime: Date.now()
+              })
+            }
+          } else if (event.type === 'nested_event') {
+            const lastToolCall = [...streamEntry.subEvents]
+              .reverse()
+              .find((e) => e.type === 'tool_call' && !e._completed)
+            if (lastToolCall) {
+              if (event.event.type === 'prompt') {
+                lastToolCall._prompt = event.event.text
+                lastToolCall._promptImages = event.event.images || []
+              } else if (event.event.type === 'context_usage') {
+                lastToolCall._contextUsage = event.event
+              } else {
+                if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                handleNestedSubEvent(lastToolCall.subEvents, event.event)
+              }
+            }
+          } else if (event.type === 'tool_result') {
+            const lastCall = [...streamEntry.subEvents]
+              .reverse()
+              .find((e) => e.type === 'tool_call')
+            if (lastCall) lastCall._completed = true
+            streamEntry.subEvents.push({
+              type: 'tool_result',
+              tool_name: event.tool_name,
+              result: event.result,
+              subEvents: event.subEvents || []
+            })
+          } else {
+            if (!event._startTime) event._startTime = Date.now()
+            streamEntry.subEvents.push(event)
+          }
+          setConversationHistory((prev) => [...prev])
+        },
+        extraBody,
+        onHeartbeat: (status) => {
+          setLastHeartbeatTime(Date.now())
+          setHeartbeatStatus(status)
+          setLivenessStatus('alive')
+        },
+        onStale: () => setLivenessStatus('stale')
+      })
+      const resultEntry = {
+        role: 'tool',
+        type: 'tool_result',
+        tool_name: toolName,
+        result
+      }
+      let updated
+      setConversationHistory((prev) => {
+        const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
+        updated = [...stripped, resultEntry]
+        return updated
+      })
+      setExecutingTool(null)
+      await callStep(updated)
+    } catch (err) {
+      if (err.name === 'AbortError') return
+      setExecutingTool(null)
+    }
   }
 
   const getPromptText = async () => {
@@ -839,7 +1116,7 @@ function OrchestratorAgent() {
     }
   }
 
-  const saveReport = async (report) => {
+  const saveReport = async (report, historyToSave) => {
     try {
       await fetch(API_AGENTS_REPORTS_URL, {
         method: 'POST',
@@ -851,7 +1128,7 @@ function OrchestratorAgent() {
           agent_type: 'orchestrator',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory),
+          conversation_history: cleanConversationHistory(historyToSave),
           model_name: orchestratorModel || undefined
         })
       })
@@ -984,6 +1261,15 @@ function OrchestratorAgent() {
             onClick={() => setActiveTab('history')}
           >
             History{reportHistory.length > 0 && ` (${reportHistory.length})`}
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'jobs' ? ' active' : ''}`}
+            onClick={() => setActiveTab('jobs')}
+          >
+            Jobs
           </button>
         </li>
       </ul>
@@ -1249,7 +1535,7 @@ function OrchestratorAgent() {
           dtStatus={dtStatus}
           modelName={orchestratorModel}
           livenessStatus={livenessStatus}
-          lastHeartbeatTime={lastHeartbeatRef.current}
+          lastHeartbeatTime={lastHeartbeatTime}
           heartbeatStatus={heartbeatStatus}
         />
       )}
@@ -1271,6 +1557,16 @@ function OrchestratorAgent() {
           renderToolResult={renderToolResult}
           token={token}
           logout={logout}
+        />
+      )}
+
+      {activeTab === 'jobs' && (
+        <JobsTab
+          jobs={jobs}
+          fetchJobs={fetchJobs}
+          cancelJob={cancelJob}
+          removeJob={removeJob}
+          removeAllDoneJobs={removeAllDoneJobs}
         />
       )}
     </div>

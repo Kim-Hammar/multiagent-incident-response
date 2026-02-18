@@ -46,9 +46,6 @@ export const AGENTS_RESOURCE = 'agents'
 export const API_AGENTS_REPORT_STEP_URL = '/api/agents/report/step'
 export const API_AGENTS_REPORT_TOOL_URL = '/api/agents/report/tool'
 export const API_AGENTS_REPORT_PROMPT_URL = '/api/agents/report/prompt'
-export const API_AGENTS_PENTEST_STEP_URL = '/api/agents/pentest/step'
-export const API_AGENTS_PENTEST_TOOL_URL = '/api/agents/pentest/tool'
-export const API_AGENTS_PENTEST_PROMPT_URL = '/api/agents/pentest/prompt'
 export const API_AGENTS_VALIDATION_STEP_URL = '/api/agents/validation/step'
 export const API_AGENTS_VALIDATION_TOOL_URL = '/api/agents/validation/tool'
 export const API_AGENTS_VALIDATION_PROMPT_URL = '/api/agents/validation/prompt'
@@ -76,9 +73,6 @@ export const API_AGENTS_REPORT_MANAGER_PROMPT_URL = '/api/agents/report-manager/
 export const API_AGENTS_ORCHESTRATOR_STEP_URL = '/api/agents/orchestrator/step'
 export const API_AGENTS_ORCHESTRATOR_TOOL_URL = '/api/agents/orchestrator/tool'
 export const API_AGENTS_ORCHESTRATOR_PROMPT_URL = '/api/agents/orchestrator/prompt'
-export const API_AGENTS_DP_STEP_URL = '/api/agents/dp/step'
-export const API_AGENTS_DP_TOOL_URL = '/api/agents/dp/tool'
-export const API_AGENTS_DP_PROMPT_URL = '/api/agents/dp/prompt'
 export const API_AGENTS_REPORTS_URL = '/api/agents/reports'
 export const API_AGENTS_SESSIONS_ACTIVE_URL = '/api/agents/sessions/active'
 export const API_AGENTS_SESSIONS_URL = '/api/agents/sessions'
@@ -94,3 +88,7 @@ export const apiDigitalTwinConfigStatusUrl = (id) => `/api/digital-twin/configs/
 export const apiDigitalTwinConfigValidateUrl = (id) => `/api/digital-twin/configs/${id}/validate`
 export const apiDigitalTwinConfigValidationResultsUrl = (id) =>
   `/api/digital-twin/configs/${id}/validation-results`
+export const apiSessionsActiveUrl = (agentType) =>
+  agentType
+    ? `${API_AGENTS_SESSIONS_ACTIVE_URL}?agent_type=${agentType}`
+    : API_AGENTS_SESSIONS_ACTIVE_URL

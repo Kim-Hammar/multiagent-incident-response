@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import ReportAgent from './ReportAgent.jsx'
-import PenetrationTestAgent from './PenetrationTestAgent.jsx'
 import ValidationAgent from './ValidationAgent.jsx'
 import CodeAgent from './CodeAgent.jsx'
 import CodeReviewerAgent from './CodeReviewerAgent.jsx'
@@ -9,7 +8,6 @@ import PlanManagerAgent from './PlanManagerAgent.jsx'
 import RlAgent from './RlAgent.jsx'
 import ReportReviewerAgent from './ReportReviewerAgent.jsx'
 import ReportManagerAgent from './ReportManagerAgent.jsx'
-import DpAgent from './DpAgent.jsx'
 import OrchestratorAgent from './OrchestratorAgent.jsx'
 import './Agents.css'
 
@@ -37,14 +35,12 @@ function Agents() {
           <option value="report">Report Agent</option>
           <option value="report-review">Report Reviewer Agent</option>
           <option value="report-manager">Report Manager Agent</option>
-          <option value="pentest">Penetration Test Agent</option>
           <option value="validation">Validation Agent</option>
           <option value="code">Code Agent</option>
           <option value="code-review">Code Reviewer Agent</option>
           <option value="code-manager">Code Manager Agent</option>
           <option value="plan-manager">Plan Manager Agent</option>
           <option value="rl">RL Agent</option>
-          <option value="dp">DP Agent</option>
         </select>
       </div>
 
@@ -52,14 +48,12 @@ function Agents() {
       {selectedAgent === 'report' && <ReportAgent />}
       {selectedAgent === 'report-review' && <ReportReviewerAgent />}
       {selectedAgent === 'report-manager' && <ReportManagerAgent />}
-      {selectedAgent === 'pentest' && <PenetrationTestAgent />}
       {selectedAgent === 'validation' && <ValidationAgent />}
       {selectedAgent === 'code' && <CodeAgent />}
       {selectedAgent === 'code-review' && <CodeReviewerAgent />}
       {selectedAgent === 'code-manager' && <CodeManagerAgent />}
       {selectedAgent === 'plan-manager' && <PlanManagerAgent />}
       {selectedAgent === 'rl' && <RlAgent />}
-      {selectedAgent === 'dp' && <DpAgent />}
     </div>
   )
 }

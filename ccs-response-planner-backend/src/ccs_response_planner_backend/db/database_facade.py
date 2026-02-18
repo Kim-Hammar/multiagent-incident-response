@@ -154,6 +154,17 @@ class DatabaseFacade:
                     ON {DB.PLANNING_SESSIONS_TABLE}
                         (username, status)
                 """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.PLANNING_SESSIONS_TABLE}
+                    ADD COLUMN IF NOT EXISTS
+                        agent_type VARCHAR(50)
+                """)
+                cur.execute(f"""
+                    CREATE INDEX IF NOT EXISTS
+                        idx_planning_sessions_agent_type
+                    ON {DB.PLANNING_SESSIONS_TABLE}
+                        (username, agent_type, status)
+                """)
             conn.commit()
 
     @staticmethod
@@ -346,7 +357,7 @@ class DatabaseFacade:
         """
         Insert a new agent report and return the created row.
 
-        :param agent_type: the type of agent (e.g. information, pentest, validation)
+        :param agent_type: the type of agent (e.g. information, validation)
         :param username: the username who created the report
         :param report: the report data (stored as JSONB)
         :param incident_id: optional FK to example_incidents
@@ -789,11 +800,85 @@ class DatabaseFacade:
     @staticmethod
     def get_active_planning_session(
         username: str,
+        agent_type: Optional[str] = None,
     ) -> Optional[dict[str, Any]]:
         """
         Get the active planning session for a user.
 
         :param username: the username to search for
+        :param agent_type: optional agent type filter
+        :return: a dict with session data or None
+        """
+        with psycopg.connect(
+            DatabaseFacade._connection_string(),
+        ) as conn:
+            with conn.cursor() as cur:
+                if agent_type is not None:
+                    cur.execute(
+                        f"SELECT id, username, status, "
+                        f"conversation_history, "
+                        f"pending_proposal, "
+                        f"incident_inputs, "
+                        f"agent_config, context_usage, "
+                        f"ui_state, "
+                        f"created_at, updated_at, "
+                        f"agent_type "
+                        f"FROM "
+                        f"{DB.PLANNING_SESSIONS_TABLE} "
+                        f"WHERE username = %s "
+                        f"AND status = 'active' "
+                        f"AND agent_type = %s "
+                        f"ORDER BY created_at DESC "
+                        f"LIMIT 1",
+                        (username, agent_type),
+                    )
+                else:
+                    cur.execute(
+                        f"SELECT id, username, status, "
+                        f"conversation_history, "
+                        f"pending_proposal, "
+                        f"incident_inputs, "
+                        f"agent_config, context_usage, "
+                        f"ui_state, "
+                        f"created_at, updated_at, "
+                        f"agent_type "
+                        f"FROM "
+                        f"{DB.PLANNING_SESSIONS_TABLE} "
+                        f"WHERE username = %s "
+                        f"AND status = 'active' "
+                        f"AND agent_type IS NULL "
+                        f"ORDER BY created_at DESC "
+                        f"LIMIT 1",
+                        (username,),
+                    )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return {
+                    "id": row[0],
+                    "username": row[1],
+                    "status": row[2],
+                    "conversation_history": row[3],
+                    "pending_proposal": row[4],
+                    "incident_inputs": row[5],
+                    "agent_config": row[6],
+                    "context_usage": row[7],
+                    "ui_state": row[8],
+                    "created_at": str(row[9]),
+                    "updated_at": str(row[10]),
+                    "agent_type": row[11],
+                }
+
+    @staticmethod
+    def get_planning_session(
+        session_id: int,
+        username: str,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get a specific planning session by id.
+
+        :param session_id: the session id
+        :param username: the username (ownership check)
         :return: a dict with session data or None
         """
         with psycopg.connect(
@@ -803,15 +888,17 @@ class DatabaseFacade:
                 cur.execute(
                     f"SELECT id, username, status, "
                     f"conversation_history, "
-                    f"pending_proposal, incident_inputs, "
+                    f"pending_proposal, "
+                    f"incident_inputs, "
                     f"agent_config, context_usage, "
                     f"ui_state, "
-                    f"created_at, updated_at "
-                    f"FROM {DB.PLANNING_SESSIONS_TABLE} "
-                    f"WHERE username = %s "
-                    f"AND status = 'active' "
-                    f"ORDER BY created_at DESC LIMIT 1",
-                    (username,),
+                    f"created_at, updated_at, "
+                    f"agent_type "
+                    f"FROM "
+                    f"{DB.PLANNING_SESSIONS_TABLE} "
+                    f"WHERE id = %s "
+                    f"AND username = %s",
+                    (session_id, username),
                 )
                 row = cur.fetchone()
                 if row is None:
@@ -828,6 +915,7 @@ class DatabaseFacade:
                     "ui_state": row[8],
                     "created_at": str(row[9]),
                     "updated_at": str(row[10]),
+                    "agent_type": row[11],
                 }
 
     @staticmethod
@@ -835,47 +923,68 @@ class DatabaseFacade:
         username: str,
         incident_inputs: dict[str, Any],
         agent_config: dict[str, Any],
+        agent_type: Optional[str] = None,
     ) -> dict[str, Any]:
         """
         Create a new planning session for a user.
 
-        Auto-cancels any existing active session for this user.
+        Auto-cancels any existing active session for this user
+        with the same agent_type.
 
         :param username: the username creating the session
         :param incident_inputs: incident description and images
         :param agent_config: model selections and configuration
+        :param agent_type: optional agent type tag
         :return: the created session dict
         """
         with psycopg.connect(
             DatabaseFacade._connection_string(),
         ) as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    f"UPDATE {DB.PLANNING_SESSIONS_TABLE} "
-                    f"SET status = 'cancelled', "
-                    f"updated_at = NOW() "
-                    f"WHERE username = %s "
-                    f"AND status = 'active'",
-                    (username,),
-                )
+                if agent_type is not None:
+                    cur.execute(
+                        f"UPDATE "
+                        f"{DB.PLANNING_SESSIONS_TABLE} "
+                        f"SET status = 'cancelled', "
+                        f"updated_at = NOW() "
+                        f"WHERE username = %s "
+                        f"AND status = 'active' "
+                        f"AND agent_type = %s",
+                        (username, agent_type),
+                    )
+                else:
+                    cur.execute(
+                        f"UPDATE "
+                        f"{DB.PLANNING_SESSIONS_TABLE} "
+                        f"SET status = 'cancelled', "
+                        f"updated_at = NOW() "
+                        f"WHERE username = %s "
+                        f"AND status = 'active' "
+                        f"AND agent_type IS NULL",
+                        (username,),
+                    )
                 cur.execute(
                     f"INSERT INTO "
                     f"{DB.PLANNING_SESSIONS_TABLE} "
                     f"(username, status, "
                     f"conversation_history, "
-                    f"incident_inputs, agent_config) "
+                    f"incident_inputs, agent_config, "
+                    f"agent_type) "
                     f"VALUES (%s, 'active', "
-                    f"'[]'::jsonb, %s, %s) "
+                    f"'[]'::jsonb, %s, %s, %s) "
                     f"RETURNING id, username, status, "
                     f"conversation_history, "
-                    f"pending_proposal, incident_inputs, "
+                    f"pending_proposal, "
+                    f"incident_inputs, "
                     f"agent_config, context_usage, "
                     f"ui_state, "
-                    f"created_at, updated_at",
+                    f"created_at, updated_at, "
+                    f"agent_type",
                     (
                         username,
                         json.dumps(incident_inputs),
                         json.dumps(agent_config),
+                        agent_type,
                     ),
                 )
                 row = cur.fetchone()
@@ -894,6 +1003,7 @@ class DatabaseFacade:
                 "ui_state": row[8],
                 "created_at": str(row[9]),
                 "updated_at": str(row[10]),
+                "agent_type": row[11],
             }
 
     @staticmethod

@@ -22,16 +22,6 @@ from ccs_response_planner_backend.agents.report_agent.tools import (
     STREAMING_TOOL_DISPATCH as INFO_STREAMING_DISPATCH,
     TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.agents.penetration_test_agent.agent import (
-    PenetrationTestAgent,
-)
-from ccs_response_planner_backend.agents.penetration_test_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as PENTEST_PROMPT_TEMPLATE,
-)
-from ccs_response_planner_backend.agents.penetration_test_agent.tools import (
-    STREAMING_TOOL_DISPATCH as PENTEST_STREAMING_DISPATCH,
-    TOOL_DISPATCH as PENTEST_TOOL_DISPATCH,
-)
 from ccs_response_planner_backend.agents.validation_agent.agent import (
     ValidationAgent,
 )
@@ -92,16 +82,6 @@ from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PLAN_MANAGER_STREAMING_DISPATCH,
     TOOL_DISPATCH as PLAN_MANAGER_TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.agents.dp_agent.agent import (
-    DpAgent,
-)
-from ccs_response_planner_backend.agents.dp_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as DP_PROMPT_TEMPLATE,
-)
-from ccs_response_planner_backend.agents.dp_agent.tools import (
-    STREAMING_TOOL_DISPATCH as DP_STREAMING_DISPATCH,
-    TOOL_DISPATCH as DP_TOOL_DISPATCH,
-)
 from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
     ReportReviewerAgent,
 )
@@ -148,7 +128,7 @@ from ccs_response_planner_backend.rest_api.util.auth import token_required
 
 logger = logging.getLogger(__name__)
 
-_DT_TOOLS = {"dt_exec", "pentest_exec", "generate_attack_image"}
+_DT_TOOLS = {"dt_exec", "generate_attack_image"}
 
 agents_bp = Blueprint(
     API.AGENTS_RESOURCE, __name__,
@@ -346,11 +326,11 @@ def _save_step_result(
                 final_entry = ev
 
         session = (
-            DatabaseFacade.get_active_planning_session(
-                username,
+            DatabaseFacade.get_planning_session(
+                session_id, username,
             )
         )
-        if not session or session["id"] != session_id:
+        if not session:
             return
 
         history = list(
@@ -433,11 +413,11 @@ def _save_tool_result(
                 done_event = ev
 
         session = (
-            DatabaseFacade.get_active_planning_session(
-                username,
+            DatabaseFacade.get_planning_session(
+                session_id, username,
             )
         )
-        if not session or session["id"] != session_id:
+        if not session:
             return
 
         history = list(
@@ -588,7 +568,12 @@ def agents_report_step() -> tuple[Response, int]:
                 "is required"
             ),
         }), 400
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -598,6 +583,20 @@ def agents_report_step() -> tuple[Response, int]:
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -634,7 +633,9 @@ def agents_report_step() -> tuple[Response, int]:
                 "type": "error", "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -696,7 +697,28 @@ def agents_report_tool() -> tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in INFO_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(uuid.uuid4())
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -717,7 +739,9 @@ def agents_report_tool() -> tuple[Response, int]:
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in TOOL_DISPATCH:
@@ -726,142 +750,6 @@ def agents_report_tool() -> tuple[Response, int]:
         }), 400
     try:
         agent = ReportAgent()
-        result = agent.execute_tool(tool_name, tool_args)
-        return jsonify(result), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@agents_bp.route("/pentest/step", methods=["POST"])
-@token_required
-def agents_pentest_step() -> tuple[Response, int]:
-    """
-    Start a PenetrationTestAgent step as a background job.
-
-    :return: a tuple of (JSON response, HTTP status code)
-    """
-    body = request.get_json(silent=True) or {}
-    system_description = body.get("system_description", "")
-    conversation_history = body.get("conversation_history", [])
-    images = body.get("images", [])
-    model_name = body.get("model_name") or None
-    if not isinstance(images, list):
-        images = []
-    if not system_description:
-        return jsonify({
-            "error": "system_description is required",
-        }), 400
-    job_id = body.get("job_id") or str(uuid.uuid4())
-    last_prompt_tokens = body.get(
-        "last_prompt_tokens", 0,
-    )
-    compaction_model = body.get(
-        "compaction_model",
-    ) or None
-    compaction_threshold = body.get(
-        "compaction_threshold", 0.8,
-    )
-
-    def run() -> Generator[
-        dict[str, Any], None, None
-    ]:
-        """
-        Run the PenetrationTestAgent step in background.
-
-        :return: a generator of event dicts
-        """
-        try:
-            if not conversation_history:
-                yield from _redeploy_dt()
-            agent = PenetrationTestAgent()
-            agent._last_prompt_tokens = (
-                last_prompt_tokens
-            )
-            yield from agent.step_stream(
-                system_description=system_description,
-                conversation_history=conversation_history,
-                images=images,
-                model_name=model_name,
-                compaction_model=compaction_model,
-                compaction_threshold=compaction_threshold,
-            )
-        except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
-
-    job_manager.start_job(job_id, run)
-    return jsonify({"job_id": job_id}), 202
-
-
-@agents_bp.route("/pentest/prompt", methods=["POST"])
-@token_required
-def agents_pentest_prompt() -> tuple[Response, int]:
-    """
-    Render the PenetrationTestAgent system prompt from the given context.
-
-    :return: a tuple of (JSON response, HTTP status code)
-    """
-    body = request.get_json(silent=True) or {}
-    prompt = PENTEST_PROMPT_TEMPLATE.format(
-        system_description=body.get(
-            "system_description", "",
-        ) or "N/A",
-    )
-    return jsonify({"prompt": prompt}), 200
-
-
-@agents_bp.route("/pentest/tool", methods=["POST"])
-@token_required
-def agents_pentest_tool() -> tuple[Response, int]:
-    """
-    Execute an approved tool call for PenetrationTestAgent.
-
-    Streaming tools run as background jobs; other tools
-    return a single JSON response.
-
-    :return: a tuple of (JSON response, HTTP status code)
-    """
-    body = request.get_json(silent=True) or {}
-    tool_name = body.get("tool_name", "")
-    tool_args = body.get("tool_args", {})
-    incident_id = body.get("incident_id")
-    if not tool_name:
-        return jsonify({"error": "tool_name is required"}), 400
-    if tool_name in _DT_TOOLS and incident_id is not None:
-        tool_args["incident_id"] = incident_id
-
-    if tool_name in PENTEST_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(uuid.uuid4())
-
-        def run() -> Generator[
-            dict[str, Any], None, None
-        ]:
-            """
-            Run the streaming tool in background.
-
-            :return: a generator of event dicts
-            """
-            try:
-                agent = PenetrationTestAgent()
-                yield from agent.execute_tool_stream(
-                    tool_name, tool_args,
-                )
-            except Exception as e:
-                yield {
-                    "type": "error",
-                    "message": str(e),
-                }
-
-        job_manager.start_job(job_id, run)
-        return jsonify({"job_id": job_id}), 202
-
-    if tool_name not in PENTEST_TOOL_DISPATCH:
-        return jsonify({
-            "error": f"Unknown tool: {tool_name}",
-        }), 400
-    try:
-        agent = PenetrationTestAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:
@@ -913,7 +801,12 @@ def agents_validation_step() -> tuple[Response, int]:
             ],
             indent=2,
         )
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -923,6 +816,20 @@ def agents_validation_step() -> tuple[Response, int]:
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -1009,7 +916,9 @@ def agents_validation_step() -> tuple[Response, int]:
                 "type": "error", "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -1103,7 +1012,28 @@ def agents_validation_tool() -> tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in VALIDATION_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(uuid.uuid4())
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -1124,7 +1054,9 @@ def agents_validation_tool() -> tuple[Response, int]:
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in VALIDATION_TOOL_DISPATCH:
@@ -1171,7 +1103,12 @@ def agents_code_step() -> tuple[Response, int]:
             ],
             indent=2,
         )
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -1181,6 +1118,20 @@ def agents_code_step() -> tuple[Response, int]:
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -1218,7 +1169,9 @@ def agents_code_step() -> tuple[Response, int]:
                 "type": "error", "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -1283,7 +1236,28 @@ def agents_code_tool() -> tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in CODE_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(uuid.uuid4())
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -1304,7 +1278,9 @@ def agents_code_tool() -> tuple[Response, int]:
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in CODE_TOOL_DISPATCH:
@@ -1356,7 +1332,12 @@ def agents_code_review_step() -> tuple[Response, int]:
             ],
             indent=2,
         )
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -1366,6 +1347,20 @@ def agents_code_review_step() -> tuple[Response, int]:
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -1404,7 +1399,9 @@ def agents_code_review_step() -> tuple[Response, int]:
                 "type": "error", "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -1481,7 +1478,28 @@ def agents_code_review_tool() -> tuple[Response, int]:
         tool_args["incident_id"] = incident_id
 
     if tool_name in CODE_REVIEW_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(uuid.uuid4())
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -1502,7 +1520,9 @@ def agents_code_review_tool() -> tuple[Response, int]:
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in CODE_REVIEW_TOOL_DISPATCH:
@@ -1560,7 +1580,12 @@ def agents_report_review_step() -> (
                     "incident_report must be valid JSON"
                 ),
             }), 400
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -1570,6 +1595,20 @@ def agents_report_review_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -1616,7 +1655,9 @@ def agents_report_review_step() -> (
                 "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -1704,9 +1745,28 @@ def agents_report_review_tool() -> (
         tool_args["incident_id"] = incident_id
 
     if tool_name in REPORT_REVIEW_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(
-            uuid.uuid4()
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
         )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -1729,7 +1789,9 @@ def agents_report_review_tool() -> (
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in REPORT_REVIEW_TOOL_DISPATCH:
@@ -1781,7 +1843,12 @@ def agents_report_manager_step() -> (
                 "security_alerts is required"
             ),
         }), 400
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -1791,6 +1858,20 @@ def agents_report_manager_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -1828,7 +1909,9 @@ def agents_report_manager_step() -> (
                 "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -1976,9 +2059,28 @@ def agents_report_manager_tool() -> (
                 last_assessment
             )
 
-        job_id = body.get("job_id") or str(
-            uuid.uuid4()
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
         )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -2002,7 +2104,9 @@ def agents_report_manager_tool() -> (
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in REPORT_MANAGER_TOOL_DISPATCH:
@@ -2058,7 +2162,12 @@ def agents_code_manager_step() -> (
             ],
             indent=2,
         )
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -2068,6 +2177,20 @@ def agents_code_manager_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -2105,7 +2228,9 @@ def agents_code_manager_step() -> (
                 "type": "error", "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -2221,9 +2346,28 @@ def agents_code_manager_tool() -> (
                     break
             context["last_code_report"] = last_code_report
 
-        job_id = body.get("job_id") or str(
-            uuid.uuid4()
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
         )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -2245,7 +2389,9 @@ def agents_code_manager_tool() -> (
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in CODE_MANAGER_TOOL_DISPATCH:
@@ -2298,7 +2444,12 @@ def agents_rl_step() -> tuple[Response, int]:
             ],
             indent=2,
         )
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -2308,6 +2459,20 @@ def agents_rl_step() -> tuple[Response, int]:
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -2368,7 +2533,9 @@ def agents_rl_step() -> tuple[Response, int]:
                 "type": "error", "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -2437,7 +2604,28 @@ def agents_rl_tool() -> tuple[Response, int]:
         return jsonify({"error": "tool_name is required"}), 400
 
     if tool_name in RL_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(uuid.uuid4())
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -2458,7 +2646,9 @@ def agents_rl_tool() -> tuple[Response, int]:
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in RL_TOOL_DISPATCH:
@@ -2512,7 +2702,12 @@ def agents_plan_manager_step() -> (
             ],
             indent=2,
         )
-    job_id = body.get("job_id") or str(uuid.uuid4())
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
     last_prompt_tokens = body.get(
         "last_prompt_tokens", 0,
     )
@@ -2522,6 +2717,20 @@ def agents_plan_manager_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
 
     def run() -> Generator[
         dict[str, Any], None, None
@@ -2559,7 +2768,9 @@ def agents_plan_manager_step() -> (
                 "type": "error", "message": str(e),
             }
 
-    job_manager.start_job(job_id, run)
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
     return jsonify({"job_id": job_id}), 202
 
 
@@ -2721,9 +2932,28 @@ def agents_plan_manager_tool() -> (
                 )
                 break
 
-        job_id = body.get("job_id") or str(
-            uuid.uuid4()
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
         )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
 
         def run() -> Generator[
             dict[str, Any], None, None
@@ -2745,7 +2975,9 @@ def agents_plan_manager_tool() -> (
                     "message": str(e),
                 }
 
-        job_manager.start_job(job_id, run)
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
         return jsonify({"job_id": job_id}), 202
 
     if tool_name not in PLAN_MANAGER_TOOL_DISPATCH:
@@ -3080,9 +3312,9 @@ def agents_orchestrator_tool() -> (
             rl_minutes = context.get(
                 "rl_time_limit_minutes", 5,
             )
-            max_dur = 900.0 + rl_minutes * 60
+            max_dur = 2500.0 + rl_minutes * 60
         else:
-            max_dur = 900.0
+            max_dur = 2500.0
 
         job_manager.start_job(
             job_id, run, on_complete=on_complete,
@@ -3099,190 +3331,6 @@ def agents_orchestrator_tool() -> (
         result = agent.execute_tool(
             tool_name, tool_args,
         )
-        return jsonify(result), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@agents_bp.route("/dp/step", methods=["POST"])
-@token_required
-def agents_dp_step() -> tuple[Response, int]:
-    """
-    Start a DpAgent step as a background job.
-
-    :return: a tuple of (JSON response, HTTP status code)
-    """
-    body = request.get_json(silent=True) or {}
-    system_description = body.get("system_description", "")
-    incident_report = body.get("incident_report", "")
-    specification = body.get("specification", "")
-    operator_feedback = body.get("operator_feedback", "")
-    code_report = body.get("code_report")
-    conversation_history = body.get("conversation_history", [])
-    images = body.get("images", [])
-    model_name = body.get("model_name") or None
-    time_limit_minutes = body.get("time_limit_minutes", 5)
-    if not isinstance(images, list):
-        images = []
-    if not code_report:
-        return jsonify({
-            "error": "code_report is required",
-        }), 400
-    if isinstance(code_report, str):
-        try:
-            code_report = json.loads(code_report)
-        except (json.JSONDecodeError, ValueError):
-            return jsonify({
-                "error": "code_report must be valid JSON",
-            }), 400
-    if not specification:
-        specification = json.dumps(
-            DIGITAL_TWIN.DEFAULT_CONFIG[
-                "specification_commands"
-            ],
-            indent=2,
-        )
-    job_id = body.get("job_id") or str(uuid.uuid4())
-    last_prompt_tokens = body.get(
-        "last_prompt_tokens", 0,
-    )
-    compaction_model = body.get(
-        "compaction_model",
-    ) or None
-    compaction_threshold = body.get(
-        "compaction_threshold", 0.8,
-    )
-
-    def run() -> Generator[
-        dict[str, Any], None, None
-    ]:
-        """
-        Run the DpAgent step in background.
-
-        :return: a generator of event dicts
-        """
-        try:
-            agent = DpAgent()
-            agent._last_prompt_tokens = (
-                last_prompt_tokens
-            )
-            yield from agent.step_stream(
-                system_description=system_description,
-                incident_report=incident_report,
-                specification=specification,
-                operator_feedback=operator_feedback,
-                code_report=code_report,
-                conversation_history=conversation_history,
-                images=images,
-                model_name=model_name,
-                time_limit_minutes=time_limit_minutes,
-                compaction_model=compaction_model,
-                compaction_threshold=compaction_threshold,
-            )
-        except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
-
-    job_manager.start_job(job_id, run)
-    return jsonify({"job_id": job_id}), 202
-
-
-@agents_bp.route("/dp/prompt", methods=["POST"])
-@token_required
-def agents_dp_prompt() -> tuple[Response, int]:
-    """
-    Render the DpAgent system prompt from the given context.
-
-    :return: a tuple of (JSON response, HTTP status code)
-    """
-    body = request.get_json(silent=True) or {}
-    specification = body.get("specification", "")
-    if not specification:
-        specification = json.dumps(
-            DIGITAL_TWIN.DEFAULT_CONFIG[
-                "specification_commands"
-            ],
-            indent=2,
-        )
-    code_report = body.get("code_report")
-    if isinstance(code_report, str):
-        try:
-            code_report = json.loads(code_report)
-        except (json.JSONDecodeError, ValueError):
-            code_report = {}
-    formatted_report = (
-        DpAgent._format_code_report(
-            code_report or {},
-        )
-    )
-    time_limit = body.get("time_limit_minutes", 5)
-    prompt = DP_PROMPT_TEMPLATE.format(
-        system_description=body.get(
-            "system_description", "",
-        ) or "N/A",
-        incident_report=body.get(
-            "incident_report", "",
-        ) or "N/A",
-        specification=specification or "N/A",
-        operator_feedback=body.get(
-            "operator_feedback", "",
-        ) or "N/A",
-        code_report_formatted=formatted_report,
-        time_limit_minutes=time_limit,
-    )
-    return jsonify({"prompt": prompt}), 200
-
-
-@agents_bp.route("/dp/tool", methods=["POST"])
-@token_required
-def agents_dp_tool() -> tuple[Response, int]:
-    """
-    Execute an approved tool call for the DpAgent.
-
-    Streaming tools run as background jobs; other tools
-    return a single JSON response.
-
-    :return: a tuple of (JSON response, HTTP status code)
-    """
-    body = request.get_json(silent=True) or {}
-    tool_name = body.get("tool_name", "")
-    tool_args = body.get("tool_args", {})
-    if not tool_name:
-        return jsonify({"error": "tool_name is required"}), 400
-
-    if tool_name in DP_STREAMING_DISPATCH:
-        job_id = body.get("job_id") or str(uuid.uuid4())
-
-        def run() -> Generator[
-            dict[str, Any], None, None
-        ]:
-            """
-            Run the streaming tool in background.
-
-            :return: a generator of event dicts
-            """
-            try:
-                agent = DpAgent()
-                yield from agent.execute_tool_stream(
-                    tool_name, tool_args,
-                )
-            except Exception as e:
-                yield {
-                    "type": "error",
-                    "message": str(e),
-                }
-
-        job_manager.start_job(job_id, run)
-        return jsonify({"job_id": job_id}), 202
-
-    if tool_name not in DP_TOOL_DISPATCH:
-        return jsonify({
-            "error": f"Unknown tool: {tool_name}",
-        }), 400
-    try:
-        agent = DpAgent()
-        result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -3400,9 +3448,11 @@ def get_active_session() -> tuple[Response, int]:
     :return: a tuple of (JSON response, HTTP status code)
     """
     try:
+        agent_type = request.args.get("agent_type")
         session = (
             DatabaseFacade.get_active_planning_session(
                 g.username,
+                agent_type=agent_type,
             )
         )
         if session is None:
@@ -3421,13 +3471,15 @@ def create_session() -> tuple[Response, int]:
     """
     Create a new planning session.
 
-    Auto-cancels any existing active session for the user.
+    Auto-cancels any existing active session for the user
+    with the same agent_type.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
     incident_inputs = body.get("incident_inputs", {})
     agent_config = body.get("agent_config", {})
+    agent_type = body.get("agent_type")
     if not incident_inputs:
         return jsonify({
             "error": "incident_inputs is required",
@@ -3439,6 +3491,7 @@ def create_session() -> tuple[Response, int]:
     try:
         session = DatabaseFacade.create_planning_session(
             g.username, incident_inputs, agent_config,
+            agent_type=agent_type,
         )
         return jsonify({"session": session}), 201
     except Exception as e:

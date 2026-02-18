@@ -41,7 +41,7 @@ def test_save_report_missing_report(client, auth_headers):
     """
     res = client.post(
         "/api/agents/reports",
-        data=json.dumps({"agent_type": "pentest"}),
+        data=json.dumps({"agent_type": "report"}),
         content_type="application/json",
         headers=auth_headers,
     )
@@ -62,10 +62,10 @@ def test_list_reports(client, auth_headers):
 
 def test_list_reports_with_filter(client, auth_headers):
     """
-    GET /api/agents/reports?agent_type=pentest returns 200.
+    GET /api/agents/reports?agent_type=report returns 200.
     """
     res = client.get(
-        "/api/agents/reports?agent_type=pentest",
+        "/api/agents/reports?agent_type=report",
         headers=auth_headers,
     )
     assert res.status_code == 200

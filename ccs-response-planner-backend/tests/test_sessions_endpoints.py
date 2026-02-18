@@ -84,6 +84,65 @@ class TestGetActiveSession:
         assert data["session"]["id"] == 1
         assert data["session"]["status"] == "active"
 
+    @patch(
+        "ccs_response_planner_backend.rest_api.resources"
+        ".agents.routes.DatabaseFacade",
+    )
+    def test_passes_agent_type_to_facade(
+        self, mock_db: MagicMock,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """
+        Verify that the agent_type query param is passed
+        to get_active_planning_session.
+        """
+        from tests.conftest import _mock_get_token
+        mock_db.get_session_token_by_token.side_effect = (
+            _mock_get_token
+        )
+        mock_db.get_active_planning_session.return_value = (
+            None
+        )
+        resp = client.get(
+            "/api/agents/sessions/active"
+            "?agent_type=report",
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+        mock_db.get_active_planning_session.assert_called_once_with(
+            "admin", agent_type="report",
+        )
+
+    @patch(
+        "ccs_response_planner_backend.rest_api.resources"
+        ".agents.routes.DatabaseFacade",
+    )
+    def test_passes_none_agent_type_when_omitted(
+        self, mock_db: MagicMock,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """
+        Verify that agent_type defaults to None when not
+        provided in query params.
+        """
+        from tests.conftest import _mock_get_token
+        mock_db.get_session_token_by_token.side_effect = (
+            _mock_get_token
+        )
+        mock_db.get_active_planning_session.return_value = (
+            None
+        )
+        resp = client.get(
+            "/api/agents/sessions/active",
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200
+        mock_db.get_active_planning_session.assert_called_once_with(
+            "admin", agent_type=None,
+        )
+
 
 class TestCreateSession:
     """Tests for POST /api/agents/sessions."""
@@ -185,6 +244,99 @@ class TestCreateSession:
         data = resp.get_json()
         assert data["session"]["id"] == 42
         mock_db.create_planning_session.assert_called_once()
+
+    @patch(
+        "ccs_response_planner_backend.rest_api.resources"
+        ".agents.routes.DatabaseFacade",
+    )
+    def test_passes_agent_type_to_facade(
+        self, mock_db: MagicMock,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """
+        Verify that agent_type in the body is passed to
+        create_planning_session.
+        """
+        from tests.conftest import _mock_get_token
+        mock_db.get_session_token_by_token.side_effect = (
+            _mock_get_token
+        )
+        mock_db.create_planning_session.return_value = {
+            "id": 43,
+            "username": "admin",
+            "status": "active",
+            "conversation_history": [],
+            "pending_proposal": None,
+            "incident_inputs": {"systemDescription": "x"},
+            "agent_config": {"model": "m"},
+            "context_usage": None,
+            "created_at": "2026-01-01",
+            "updated_at": "2026-01-01",
+            "agent_type": "report",
+        }
+        resp = client.post(
+            "/api/agents/sessions",
+            data=json.dumps({
+                "incident_inputs": {
+                    "systemDescription": "x",
+                },
+                "agent_config": {"model": "m"},
+                "agent_type": "report",
+            }),
+            content_type="application/json",
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201
+        call_kwargs = (
+            mock_db.create_planning_session.call_args
+        )
+        assert call_kwargs[1]["agent_type"] == "report"
+
+    @patch(
+        "ccs_response_planner_backend.rest_api.resources"
+        ".agents.routes.DatabaseFacade",
+    )
+    def test_agent_type_defaults_to_none(
+        self, mock_db: MagicMock,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """
+        Verify that agent_type defaults to None when not in body.
+        """
+        from tests.conftest import _mock_get_token
+        mock_db.get_session_token_by_token.side_effect = (
+            _mock_get_token
+        )
+        mock_db.create_planning_session.return_value = {
+            "id": 44,
+            "username": "admin",
+            "status": "active",
+            "conversation_history": [],
+            "pending_proposal": None,
+            "incident_inputs": {"systemDescription": "x"},
+            "agent_config": {"model": "m"},
+            "context_usage": None,
+            "created_at": "2026-01-01",
+            "updated_at": "2026-01-01",
+        }
+        resp = client.post(
+            "/api/agents/sessions",
+            data=json.dumps({
+                "incident_inputs": {
+                    "systemDescription": "x",
+                },
+                "agent_config": {"model": "m"},
+            }),
+            content_type="application/json",
+            headers=auth_headers,
+        )
+        assert resp.status_code == 201
+        call_kwargs = (
+            mock_db.create_planning_session.call_args
+        )
+        assert call_kwargs[1]["agent_type"] is None
 
 
 class TestUpdateSession:

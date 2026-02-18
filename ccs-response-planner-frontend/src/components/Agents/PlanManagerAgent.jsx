@@ -22,6 +22,8 @@ import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
+import JobsTab from './shared/JobsTab.jsx'
+import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
@@ -154,8 +156,6 @@ function PlanManagerAgent() {
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [incidentReportImages, setIncidentReportImages] = useState([])
-  const [conversationHistory, setConversationHistory] = useState([])
-  const conversationHistoryRef = useRef([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -183,10 +183,84 @@ function PlanManagerAgent() {
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
   const abortControllerRef = useRef(null)
-  const lastHeartbeatRef = useRef(Date.now())
+  const [lastHeartbeatTime, setLastHeartbeatTime] = useState(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
   const [heartbeatStatus, setHeartbeatStatus] = useState('')
   const managerStartTimeRef = useRef(null)
+
+  const {
+    conversationHistory,
+    setConversationHistory,
+    conversationHistoryRef,
+    sessionIdRef,
+    isSourceTabRef,
+    jobs,
+    fetchJobs,
+    cancelJob,
+    removeJob,
+    removeAllDoneJobs,
+    createSession,
+    clearSession,
+    cancelRunningJob,
+    markSessionCancelled,
+    setPendingProposalRef,
+    setContextUsageRef,
+    setUiStateRef,
+    pollingRef
+  } = useAgentSession({
+    agentType: 'plan_manager',
+    token,
+    logout,
+    activeTab,
+    onRestore: (session) => {
+      const inputs = session.incident_inputs || {}
+      setSystemDescription(inputs.systemDescription || '')
+      setIncidentReport(inputs.incidentReport || '')
+      setSpecification(inputs.specification || '')
+      setOperatorFeedback(inputs.operatorFeedback || '')
+      setSystemDescriptionImages(inputs.systemDescriptionImages || [])
+      setIncidentReportImages(inputs.incidentReportImages || [])
+      setSelectedIncidentId(inputs.selectedIncidentId || null)
+      const config = session.agent_config || {}
+      setManagerModel(config.managerModel || '')
+      setCodeManagerModel(config.codeManagerModel || '')
+      setCodeAgentModel(config.codeAgentModel || '')
+      setReviewerAgentModel(config.reviewerAgentModel || '')
+      setRlAgentModel(config.rlAgentModel || '')
+      setValidationAgentModel(config.validationAgentModel || '')
+      setCompactionModel(config.compactionModel || '')
+      setCompactionThreshold(config.compactionThreshold || 80)
+      setMaxIterations(config.maxIterations || 1)
+      setCodeManagerIterations(config.codeManagerIterations || 1)
+      setRlTimeLimitMinutes(config.rlTimeLimitMinutes || 10)
+      setAutopilot(config.autopilot ?? true)
+      setContextUsage(session.context_usage || null)
+      setPendingProposal(session.pending_proposal || null)
+      if (!window.location.hash) setActiveTab('planning')
+    },
+    onResumeJob: (jobId, session, toolName, originalStartTime) => {
+      setContextUsage(session.context_usage || null)
+      setPendingProposal(null)
+      if (!window.location.hash) setActiveTab('planning')
+      setRunning(true)
+      if (toolName && STREAMING_TOOLS.has(toolName)) {
+        setExecutingTool(toolName)
+        resumeToolJob(jobId, toolName, originalStartTime)
+      } else {
+        callStep(conversationHistoryRef.current, jobId)
+      }
+    }
+  })
+
+  useEffect(() => {
+    setPendingProposalRef(pendingProposal)
+  }, [pendingProposal])
+  useEffect(() => {
+    setContextUsageRef(contextUsage)
+  }, [contextUsage])
+  useEffect(() => {
+    setUiStateRef({ running, executingTool, dtStatus })
+  }, [running, executingTool, dtStatus])
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -220,10 +294,8 @@ function PlanManagerAgent() {
       .catch(() => {})
   }, [token])
 
-  conversationHistoryRef.current = conversationHistory
-
   useEffect(() => {
-    if (autopilot && pendingProposal) {
+    if (autopilot && pendingProposal && isSourceTabRef.current) {
       handleApprove()
     }
   }, [autopilot, pendingProposal])
@@ -264,6 +336,8 @@ function PlanManagerAgent() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    cancelRunningJob()
+    markSessionCancelled()
     fetch(API_DT_PYTHON_STOP_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
@@ -287,67 +361,76 @@ function PlanManagerAgent() {
     })
   }
 
-  const callStep = async (history) => {
+  const callStep = async (history, resumeJobId) => {
     setRunning(true)
+    isSourceTabRef.current = true
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     const compactionEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
-      const res = await fetch(API_AGENTS_PLAN_MANAGER_STEP_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          system_description: systemDescription,
-          incident_report: incidentReport,
-          specification: specification,
-          operator_feedback: operatorFeedback,
-          conversation_history: history,
-          images: [...systemDescriptionImages, ...incidentReportImages],
-          model_name: managerModel || undefined,
-          last_prompt_tokens: contextUsage?.prompt_tokens || 0,
-          compaction_model: compactionModel || undefined,
-          compaction_threshold: compactionThreshold / 100,
-          max_iterations: maxIterations
+      let job_id = resumeJobId
+      if (!job_id) {
+        const res = await fetch(API_AGENTS_PLAN_MANAGER_STEP_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            system_description: systemDescription,
+            incident_report: incidentReport,
+            specification: specification,
+            operator_feedback: operatorFeedback,
+            conversation_history: history,
+            images: [...systemDescriptionImages, ...incidentReportImages],
+            model_name: managerModel || undefined,
+            last_prompt_tokens: contextUsage?.prompt_tokens || 0,
+            compaction_model: compactionModel || undefined,
+            compaction_threshold: compactionThreshold / 100,
+            max_iterations: maxIterations,
+            session_id: sessionIdRef.current
+          })
         })
-      })
-      if (res.status === 401) {
-        logout()
-        return
+        if (res.status === 401) {
+          logout()
+          return
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          const msg = data.error || `Agent step failed (HTTP ${res.status})`
+          setAlert({ type: 'danger', message: msg })
+          setConversationHistory([
+            ...history,
+            ...compactionEntries,
+            { role: 'system', type: 'error', message: msg }
+          ])
+          return
+        }
+        const resp = await res.json()
+        job_id = resp.job_id
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        const msg = data.error || `Agent step failed (HTTP ${res.status})`
-        setAlert({ type: 'danger', message: msg })
-        setConversationHistory([
-          ...history,
-          ...compactionEntries,
-          { role: 'system', type: 'error', message: msg }
-        ])
-        return
-      }
-
-      const { job_id } = await res.json()
       let accumulated = ''
       let finalEntry = null
 
       setLivenessStatus('alive')
-      lastHeartbeatRef.current = Date.now()
+      setLastHeartbeatTime(Date.now())
       await pollJobEvents({
         jobId: job_id,
         token,
         signal: controller.signal,
         onHeartbeat: (status) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setHeartbeatStatus(status)
         },
         onStale: () => setLivenessStatus('stale'),
         onEvent: (event) => {
-          lastHeartbeatRef.current = Date.now()
+          setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
@@ -415,12 +498,11 @@ function PlanManagerAgent() {
         entries.push(finalEntry)
         const updated = [...history, ...compactionEntries, ...entries]
         setConversationHistory(updated)
-        conversationHistoryRef.current = updated
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
         if (finalEntry.type === 'plan_manager_report') {
-          saveReport(finalEntry.plan_manager_report)
+          saveReport(finalEntry.plan_manager_report, updated)
         }
       } else if (accumulated) {
         let report
@@ -436,7 +518,7 @@ function PlanManagerAgent() {
             validation_summary: ''
           }
         }
-        setConversationHistory([
+        const fallbackHistory = [
           ...history,
           ...compactionEntries,
           {
@@ -444,8 +526,9 @@ function PlanManagerAgent() {
             type: 'plan_manager_report',
             plan_manager_report: report
           }
-        ])
-        saveReport(report)
+        ]
+        setConversationHistory(fallbackHistory)
+        saveReport(report, fallbackHistory)
       } else {
         setConversationHistory([
           ...history,
@@ -479,14 +562,38 @@ function PlanManagerAgent() {
     }
   }
 
-  const handleRun = () => {
+  const handleRun = async () => {
     setPendingProposal(null)
     setConversationHistory([])
-    conversationHistoryRef.current = []
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
     managerStartTimeRef.current = Date.now()
+    await createSession(
+      {
+        systemDescription,
+        incidentReport,
+        specification,
+        operatorFeedback,
+        systemDescriptionImages,
+        incidentReportImages,
+        selectedIncidentId
+      },
+      {
+        managerModel,
+        codeManagerModel,
+        codeAgentModel,
+        reviewerAgentModel,
+        rlAgentModel,
+        validationAgentModel,
+        compactionModel,
+        compactionThreshold,
+        maxIterations,
+        codeManagerIterations,
+        rlTimeLimitMinutes,
+        autopilot
+      }
+    )
     callStep([])
   }
 
@@ -531,7 +638,8 @@ function PlanManagerAgent() {
           code_manager_iterations: codeManagerIterations,
           rl_time_limit_minutes: rlTimeLimitMinutes,
           compaction_model: compactionModel || undefined,
-          compaction_threshold: compactionThreshold / 100
+          compaction_threshold: compactionThreshold / 100,
+          session_id: sessionIdRef.current
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_PLAN_MANAGER_TOOL_URL,
@@ -540,6 +648,12 @@ function PlanManagerAgent() {
           incidentId: selectedIncidentId,
           token,
           signal: controller.signal,
+          onHeartbeat: (status) => {
+            setLastHeartbeatTime(Date.now())
+            setHeartbeatStatus(status)
+            setLivenessStatus('alive')
+          },
+          onStale: () => setLivenessStatus('stale'),
           onChunk: (text) => {
             streamEntry.output += text
             setConversationHistory([...base])
@@ -621,7 +735,6 @@ function PlanManagerAgent() {
         }
         const updated = [...base, resultEntry]
         setConversationHistory(updated)
-        conversationHistoryRef.current = updated
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
@@ -632,6 +745,19 @@ function PlanManagerAgent() {
         }
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
         setExecutingTool(null)
+        setRunning(false)
+        setLivenessStatus('error')
+        setConversationHistory((prev) =>
+          prev
+            .map((e) => {
+              if (e.type === 'streaming')
+                return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+              if (e.type === 'tool_streaming') return { ...e, stopped: true }
+              return e
+            })
+            .filter(Boolean)
+            .concat([{ role: 'system', type: 'error', message: err.message }])
+        )
       }
       return
     }
@@ -647,7 +773,8 @@ function PlanManagerAgent() {
         body: JSON.stringify({
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
-          incident_id: selectedIncidentId
+          incident_id: selectedIncidentId,
+          session_id: sessionIdRef.current
         })
       })
       if (res.status === 401) {
@@ -672,7 +799,6 @@ function PlanManagerAgent() {
       }
       const updated = [...conversationHistoryRef.current, approvalEntry, resultEntry]
       setConversationHistory(updated)
-      conversationHistoryRef.current = updated
       setExecutingTool(null)
       await callStep(updated)
     } catch (err) {
@@ -692,7 +818,6 @@ function PlanManagerAgent() {
     }
     const updated = [...conversationHistoryRef.current, denialEntry]
     setConversationHistory(updated)
-    conversationHistoryRef.current = updated
     setPendingProposal(null)
     await callStep(updated)
   }
@@ -742,6 +867,159 @@ function PlanManagerAgent() {
     setPendingProposal(null)
     setExpandedEntries({})
     setSelectedIncidentId(null)
+    clearSession()
+  }
+
+  const resumeToolJob = async (jobId, toolName, startTime) => {
+    const streamEntry = {
+      type: 'tool_streaming',
+      tool_name: toolName,
+      output: '',
+      subEvents: [],
+      _startTime: startTime || Date.now()
+    }
+    setConversationHistory((prev) => [...prev, streamEntry])
+    setExecutingTool(toolName)
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    try {
+      const latestHistory = conversationHistoryRef.current
+      const extraBody = {
+        system_description: systemDescription,
+        incident_report: incidentReport,
+        specification: specification,
+        operator_feedback: operatorFeedback,
+        images: [...systemDescriptionImages, ...incidentReportImages],
+        conversation_history: latestHistory,
+        code_manager_model: codeManagerModel || undefined,
+        code_agent_model: codeAgentModel || undefined,
+        reviewer_agent_model: reviewerAgentModel || undefined,
+        rl_agent_model: rlAgentModel || undefined,
+        validation_agent_model: validationAgentModel || undefined,
+        code_manager_iterations: codeManagerIterations,
+        rl_time_limit_minutes: rlTimeLimitMinutes,
+        compaction_model: compactionModel || undefined,
+        compaction_threshold: compactionThreshold / 100,
+        session_id: sessionIdRef.current
+      }
+      const { result } = await executeStreamingTool({
+        url: API_AGENTS_PLAN_MANAGER_TOOL_URL,
+        toolName,
+        toolArgs: {},
+        incidentId: selectedIncidentId,
+        token,
+        signal: controller.signal,
+        resumeJobId: jobId,
+        onHeartbeat: (status) => {
+          setLastHeartbeatTime(Date.now())
+          setHeartbeatStatus(status)
+          setLivenessStatus('alive')
+        },
+        onStale: () => setLivenessStatus('stale'),
+        onChunk: (text) => {
+          streamEntry.output += text
+          setConversationHistory((prev) => [...prev])
+        },
+        onSubEvent: (event) => {
+          if (event.type === 'context_usage') {
+            streamEntry.contextUsage = event
+            setConversationHistory((prev) => [...prev])
+            return
+          }
+          if (event.type === 'prompt') {
+            streamEntry.prompt = event.text
+            streamEntry.promptImages = event.images || []
+            setConversationHistory((prev) => [...prev])
+            return
+          }
+          if (event.type === 'thinking_delta') {
+            const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+            if (last && last.type === 'reasoning') {
+              last.text += event.text
+            } else {
+              streamEntry.subEvents.push({
+                type: 'reasoning',
+                text: event.text,
+                _startTime: Date.now()
+              })
+            }
+          } else if (event.type === 'text_delta') {
+            const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+            if (last && last.type === 'text') {
+              last.text += event.text
+            } else {
+              streamEntry.subEvents.push({
+                type: 'text',
+                text: event.text,
+                _startTime: Date.now()
+              })
+            }
+          } else if (event.type === 'nested_event') {
+            const lastToolCall = [...streamEntry.subEvents]
+              .reverse()
+              .find((e) => e.type === 'tool_call' && !e._completed)
+            if (lastToolCall) {
+              if (event.event.type === 'prompt') {
+                lastToolCall._prompt = event.event.text
+                lastToolCall._promptImages = event.event.images || []
+              } else if (event.event.type === 'context_usage') {
+                lastToolCall._contextUsage = event.event
+              } else {
+                if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                handleNestedSubEvent(lastToolCall.subEvents, event.event)
+              }
+            }
+          } else if (event.type === 'tool_result') {
+            const lastCall = [...streamEntry.subEvents]
+              .reverse()
+              .find((e) => e.type === 'tool_call')
+            if (lastCall) lastCall._completed = true
+            streamEntry.subEvents.push({
+              type: 'tool_result',
+              tool_name: event.tool_name,
+              result: event.result,
+              subEvents: event.subEvents || []
+            })
+          } else {
+            if (!event._startTime) event._startTime = Date.now()
+            streamEntry.subEvents.push(event)
+          }
+          setConversationHistory((prev) => [...prev])
+        },
+        extraBody
+      })
+      const resultEntry = {
+        role: 'tool',
+        type: 'tool_result',
+        tool_name: toolName,
+        result
+      }
+      let updated
+      setConversationHistory((prev) => {
+        const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
+        updated = [...stripped, resultEntry]
+        return updated
+      })
+      setExecutingTool(null)
+      await callStep(updated)
+    } catch (err) {
+      if (err.name === 'AbortError') return
+      setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+      setExecutingTool(null)
+      setRunning(false)
+      setLivenessStatus('error')
+      setConversationHistory((prev) =>
+        prev
+          .map((e) => {
+            if (e.type === 'streaming')
+              return e.text ? { ...e, type: 'reasoning', role: 'model' } : null
+            if (e.type === 'tool_streaming') return { ...e, stopped: true }
+            return e
+          })
+          .filter(Boolean)
+          .concat([{ role: 'system', type: 'error', message: err.message }])
+      )
+    }
   }
 
   const getPromptText = async () => {
@@ -783,7 +1061,7 @@ function PlanManagerAgent() {
     }
   }
 
-  const saveReport = async (report) => {
+  const saveReport = async (report, historyToSave) => {
     try {
       await fetch(API_AGENTS_REPORTS_URL, {
         method: 'POST',
@@ -795,7 +1073,7 @@ function PlanManagerAgent() {
           agent_type: 'plan_manager',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory),
+          conversation_history: cleanConversationHistory(historyToSave),
           model_name: managerModel || undefined
         })
       })
@@ -962,6 +1240,15 @@ function PlanManagerAgent() {
             onClick={() => setActiveTab('history')}
           >
             History{reportHistory.length > 0 && ` (${reportHistory.length})`}
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'jobs' ? ' active' : ''}`}
+            onClick={() => setActiveTab('jobs')}
+          >
+            Jobs
           </button>
         </li>
       </ul>
@@ -1182,7 +1469,7 @@ function PlanManagerAgent() {
           dtStatus={dtStatus}
           modelName={managerModel}
           livenessStatus={livenessStatus}
-          lastHeartbeatTime={lastHeartbeatRef.current}
+          lastHeartbeatTime={lastHeartbeatTime}
           heartbeatStatus={heartbeatStatus}
         />
       )}
@@ -1204,6 +1491,16 @@ function PlanManagerAgent() {
           renderToolResult={renderToolResult}
           token={token}
           logout={logout}
+        />
+      )}
+
+      {activeTab === 'jobs' && (
+        <JobsTab
+          jobs={jobs}
+          fetchJobs={fetchJobs}
+          cancelJob={cancelJob}
+          removeJob={removeJob}
+          removeAllDoneJobs={removeAllDoneJobs}
         />
       )}
     </div>

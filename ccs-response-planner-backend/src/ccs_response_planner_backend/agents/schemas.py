@@ -338,84 +338,6 @@ class OrchestratorAgentReport(BaseModel):
     response_plan_summary: str
 
 
-# ── Penetration Test Agent ─────────────────────────────────────
-
-
-class AttackPath(BaseModel):
-    """
-    An attack path discovered during penetration testing.
-    """
-
-    name: str
-    description: str
-    steps: list[str]
-    severity: str
-    compromised_assets: list[str]
-
-
-class VulnerabilityEntry(BaseModel):
-    """
-    A vulnerability found during penetration testing.
-    """
-
-    vulnerability: str
-    affected_asset: str
-    severity: str
-    remediation: str
-
-
-class PentestReport(BaseModel):
-    """
-    Report produced by the penetration_test_agent.
-    """
-
-    executive_summary: str
-    attack_paths: list[AttackPath]
-    vulnerabilities_found: list[VulnerabilityEntry]
-    compromised_servers: list[str]
-    recommendations: list[str]
-
-
-# ── DP Agent ───────────────────────────────────────────────────
-
-
-class DpActionStep(BaseModel):
-    """
-    A single step in the DP-derived action sequence.
-    """
-
-    step: int
-    action: str
-    description: str
-    commands: list[CommandEntry] = []
-    expected_effect: str
-
-
-class Contingency(BaseModel):
-    """
-    A fallback action if a primary action fails.
-    """
-
-    condition: str
-    alternative_action: str
-    rationale: str
-
-
-class DpPlannerReport(BaseModel):
-    """
-    Report produced by the dp_agent.
-    """
-
-    executive_summary: str
-    method: str
-    parameters: str
-    solving_summary: str
-    action_sequence: list[DpActionStep]
-    contingencies: list[Contingency]
-    expected_total_cost: float
-    risks: list[str]
-
-
 # ── Registry ───────────────────────────────────────────────────
 
 REPORT_MODELS: dict[str, type[BaseModel]] = {
@@ -426,8 +348,6 @@ REPORT_MODELS: dict[str, type[BaseModel]] = {
     "validation_agent": ValidationReport,
     "report_agent": InformationReport,
     "plan_manager_agent": PlanManagerReport,
-    "penetration_test_agent": PentestReport,
-    "dp_agent": DpPlannerReport,
     "report_reviewer_agent": ReportReviewReport,
     "report_manager_agent": ReportManagerReport,
     "orchestrator_agent": OrchestratorAgentReport,

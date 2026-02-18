@@ -744,24 +744,6 @@
   cursor: pointer;
 }
 
-/* Attack path cards (pentest report) */
-.ia-attack-path {
-  border: 1px solid #e9ecef;
-  background: #fafbfc;
-}
-
-.ia-attack-path .card-body {
-  font-size: 13px;
-}
-
-.ia-attack-path ol {
-  color: #495057;
-}
-
-.ia-attack-path ol li {
-  margin-bottom: 2px;
-}
-
 /* Model selector label + dropdown */
 .ia-model-label {
   font-size: 13px;
@@ -1110,6 +1092,24 @@
   border-radius: 50%;
   margin-right: 6px;
   flex-shrink: 0;
+  position: relative;
+  cursor: default;
+}
+
+.ia-liveness-dot[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 6px);
+  white-space: nowrap;
+  background: #333;
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .ia-liveness-dot.alive {
@@ -1119,6 +1119,10 @@
 .ia-liveness-dot.stale {
   background-color: #dc3545;
   animation: ia-pulse 1.5s ease-in-out infinite;
+}
+
+.ia-liveness-dot.error {
+  background-color: #dc3545;
 }
 
 @keyframes ia-pulse {

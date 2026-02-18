@@ -10,7 +10,7 @@ Python backend for the CCS Incident Response Planner. Provides a Flask REST API,
 The backend source lives under `src/ccs_response_planner_backend/`:
 
 - `rest_api/` — Flask app factory (`create_app`) with route blueprints for all API endpoints
-- `agents/` — Multi-agent orchestration system with 12 specialized agent types
+- `agents/` — Multi-agent orchestration system with 10 specialized agent types
 - `db/` — `DatabaseFacade` for PostgreSQL operations (users, tokens, sessions, reports, incidents)
 - `planner/` — Incident response planner core logic with plan generation
 - `docker_manager/` — Digital twin deployment and management (Docker container orchestration)
@@ -18,7 +18,7 @@ The backend source lives under `src/ccs_response_planner_backend/`:
 
 ## Agents
 
-The multi-agent system coordinates 12 specialized agents:
+The multi-agent system coordinates 10 specialized agents:
 
 | Agent | Role |
 |-------|------|
@@ -30,10 +30,8 @@ The multi-agent system coordinates 12 specialized agents:
 | `code` | Generates remediation code |
 | `code_manager` | Manages code generation workflow |
 | `code_reviewer` | Reviews generated code for quality and safety |
-| `penetration_test` | Conducts penetration testing against digital twin systems |
 | `validation` | Validates responses and system integrity |
 | `rl` | Reinforcement learning agent for policy optimization |
-| `dp` | Dynamic programming agent for planning under uncertainty |
 
 ## External Integrations
 

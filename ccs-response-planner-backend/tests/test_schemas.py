@@ -2,7 +2,7 @@
 Integration tests for Pydantic report schemas.
 
 Validates that Pydantic models, tool declarations, and fallback
-dicts stay consistent across all 10 agents.
+dicts stay consistent across all agents.
 """
 import pytest
 from pydantic import ValidationError
@@ -16,8 +16,6 @@ from ccs_response_planner_backend.agents.schemas import (
     ValidationReport,
     InformationReport,
     PlanManagerReport,
-    PentestReport,
-    DpPlannerReport,
     ReportReviewReport,
     ReportManagerReport,
     OrchestratorAgentReport,
@@ -37,9 +35,6 @@ from ccs_response_planner_backend.agents.code_manager_agent.tool_declarations im
 from ccs_response_planner_backend.agents.rl_agent.tool_declarations import (
     PRODUCE_PLANNER_REPORT_DECL as RL_REPORT_DECL,
 )
-from ccs_response_planner_backend.agents.dp_agent.tool_declarations import (
-    PRODUCE_PLANNER_REPORT_DECL as DP_REPORT_DECL,
-)
 from ccs_response_planner_backend.agents.validation_agent.tool_declarations import (  # noqa: E501
     PRODUCE_REPORT_DECL as VALIDATION_REPORT_DECL,
 )
@@ -51,9 +46,6 @@ from ccs_response_planner_backend.agents.report_agent.tool_declarations import (
 )
 from ccs_response_planner_backend.agents.report_reviewer_agent.tool_declarations import (  # noqa: E501
     PRODUCE_REPORT_REVIEW_DECL,
-)
-from ccs_response_planner_backend.agents.penetration_test_agent.tool_declarations import (  # noqa: E501
-    TOOL_DECLARATIONS as PENTEST_DECLARATIONS,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (  # noqa: E501
     PRODUCE_REPORT_MANAGER_REPORT_DECL,
@@ -79,9 +71,6 @@ def _find_decl(declarations, name):
 
 INFO_REPORT_DECL = _find_decl(
     INFO_DECLARATIONS, "produce_assessment",
-)
-PENTEST_REPORT_DECL = _find_decl(
-    PENTEST_DECLARATIONS, "produce_report",
 )
 
 
@@ -120,11 +109,9 @@ AGENT_DECL_MODEL = [
     ("code_reviewer_agent", PRODUCE_REVIEW_REPORT_DECL, ReviewReport),
     ("code_manager_agent", PRODUCE_ORCHESTRATOR_REPORT_DECL, OrchestratorReport),
     ("rl_agent", RL_REPORT_DECL, PlannerReport),
-    ("dp_agent", DP_REPORT_DECL, DpPlannerReport),
     ("validation_agent", VALIDATION_REPORT_DECL, ValidationReport),
     ("report_agent", INFO_REPORT_DECL, InformationReport),
     ("plan_manager_agent", PRODUCE_PLAN_MANAGER_REPORT_DECL, PlanManagerReport),
-    ("penetration_test_agent", PENTEST_REPORT_DECL, PentestReport),
     ("report_reviewer_agent", PRODUCE_REPORT_REVIEW_DECL, ReportReviewReport),
     ("report_manager_agent", PRODUCE_REPORT_MANAGER_REPORT_DECL, ReportManagerReport),
     ("orchestrator_agent", PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL, OrchestratorAgentReport),
@@ -166,16 +153,6 @@ FALLBACK_DICTS = {
         "expected_total_cost": 0,
         "risks": [],
     },
-    "dp_agent": {
-        "executive_summary": "fallback",
-        "method": "",
-        "parameters": "",
-        "solving_summary": "",
-        "action_sequence": [],
-        "contingencies": [],
-        "expected_total_cost": 0,
-        "risks": [],
-    },
     "validation_agent": {
         "executive_summary": "fallback",
         "action_results": [],
@@ -208,13 +185,6 @@ FALLBACK_DICTS = {
         "code_manager_summary": "",
         "rl_agent_summary": "",
         "validation_summary": "",
-    },
-    "penetration_test_agent": {
-        "executive_summary": "fallback",
-        "attack_paths": [],
-        "vulnerabilities_found": [],
-        "compromised_servers": [],
-        "recommendations": [],
     },
     "report_reviewer_agent": {
         "executive_summary": "fallback",
@@ -455,14 +425,16 @@ def test_empty_arrays_validate():
     """
     Reports with all-empty arrays should validate.
     """
-    report = PentestReport.model_validate({
+    report = PlannerReport.model_validate({
         "executive_summary": "No vulnerabilities found.",
-        "attack_paths": [],
-        "vulnerabilities_found": [],
-        "compromised_servers": [],
-        "recommendations": [],
+        "algorithm": "PPO",
+        "hyperparameters": "",
+        "training_summary": "",
+        "action_sequence": [],
+        "expected_total_cost": 0,
+        "risks": [],
     })
-    assert report.attack_paths == []
+    assert report.action_sequence == []
 
 
 def test_verification_check_detail_defaults_empty():
@@ -499,15 +471,15 @@ def test_missing_required_field_raises():
         })
 
 
-def test_registry_contains_all_twelve_agents():
+def test_registry_contains_all_ten_agents():
     """
-    REPORT_MODELS registry has exactly 12 entries.
+    REPORT_MODELS registry has exactly 10 entries.
     """
-    assert len(REPORT_MODELS) == 12
+    assert len(REPORT_MODELS) == 10
     expected = {
         "code_agent", "code_reviewer_agent", "code_manager_agent",
         "rl_agent", "validation_agent", "report_agent",
-        "plan_manager_agent", "penetration_test_agent", "dp_agent",
+        "plan_manager_agent",
         "report_reviewer_agent", "report_manager_agent",
         "orchestrator_agent",
     }

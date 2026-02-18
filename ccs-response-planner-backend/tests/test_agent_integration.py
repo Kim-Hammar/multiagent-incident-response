@@ -291,52 +291,6 @@ class TestReportAgentIntegration:
 @skip_no_docker
 @pytest.mark.slow
 @pytest.mark.docker
-class TestPenetrationTestAgentIntegration:
-    """Integration test for PenetrationTestAgent."""
-
-    def test_produces_report(self):
-        """
-        PenetrationTestAgent should execute commands on the DT
-        attacker container and produce a pentest report.
-        """
-        from ccs_response_planner_backend.agents.penetration_test_agent.agent import (  # noqa: E501
-            PenetrationTestAgent,
-        )
-        from ccs_response_planner_backend.agents.penetration_test_agent.tools import (  # noqa: E501
-            STREAMING_TOOL_DISPATCH,
-            TOOL_DISPATCH,
-        )
-
-        agent = PenetrationTestAgent()
-        events, report = run_agent_loop(
-            agent=agent,
-            step_kwargs={
-                "system_description": SYSTEM_DESC,
-                "model_name": MODEL,
-                "compaction_threshold": 0.0,
-            },
-            tool_dispatch=TOOL_DISPATCH,
-            streaming_dispatch=STREAMING_TOOL_DISPATCH,
-            report_event_type="report",
-        )
-        assert report is not None, (
-            "PenetrationTestAgent did not produce a report"
-        )
-        assert "report" in report
-        tool_calls = [
-            e for e in events
-            if e.get("type") == "tool_proposal"
-            and e.get("tool_name") == "pentest_exec"
-        ]
-        assert len(tool_calls) >= 1, (
-            "Expected at least 1 pentest_exec call"
-        )
-
-
-@skip_no_gemini
-@skip_no_docker
-@pytest.mark.slow
-@pytest.mark.docker
 class TestCodeAgentIntegration:
     """Integration test for CodeAgent (Gymnasium env generation)."""
 

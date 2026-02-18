@@ -58,16 +58,16 @@ The frontend source lives under `src/`:
 
 ## Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| React 18 | UI framework |
-| React Router v6 | Client-side routing |
-| react-markdown | Markdown rendering for LLM output |
-| xterm.js | Terminal emulator for penetration testing |
-| Vite | Build tool and dev server |
-| Vitest | Unit testing framework |
-| ESLint | Linting |
-| Prettier | Code formatting |
+| Package         | Purpose                                   |
+| --------------- | ----------------------------------------- |
+| React 18        | UI framework                              |
+| React Router v6 | Client-side routing                       |
+| react-markdown  | Markdown rendering for LLM output         |
+| xterm.js        | Terminal emulator for penetration testing |
+| Vite            | Build tool and dev server                 |
+| Vitest          | Unit testing framework                    |
+| ESLint          | Linting                                   |
+| Prettier        | Code formatting                           |
 
 ## Docker
 

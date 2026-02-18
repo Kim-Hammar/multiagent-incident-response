@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
-def test_create_tables_executes_twelve_statements(mock_psycopg: MagicMock) -> None:
+def test_create_tables_executes_sixteen_statements(mock_psycopg: MagicMock) -> None:
     """
-    Verify create_tables issues fourteen SQL statements (six CREATE TABLE,
-    one CREATE INDEX, six ALTER TABLE, and one UPDATE).
+    Verify create_tables issues sixteen SQL statements (six CREATE TABLE,
+    two CREATE INDEX, seven ALTER TABLE, and one UPDATE).
     """
     mock_conn = MagicMock()
     mock_cur = MagicMock()
@@ -18,7 +18,7 @@ def test_create_tables_executes_twelve_statements(mock_psycopg: MagicMock) -> No
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
 
-    assert mock_cur.execute.call_count == 14
+    assert mock_cur.execute.call_count == 16
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
@@ -229,5 +229,150 @@ def test_get_policy_data_returns_none(
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     result = DatabaseFacade.get_policy_data(999)
+
+    assert result is None
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_active_planning_session_with_agent_type(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_active_planning_session filters by agent_type
+    when provided.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(
+        return_value=mock_conn,
+    )
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_conn.cursor.return_value.__enter__ = MagicMock(
+        return_value=mock_cur,
+    )
+    mock_conn.cursor.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_cur.fetchone.return_value = (
+        1, "admin", "active", [], None,
+        {}, {}, None, None,
+        "2026-01-01", "2026-01-01", "report",
+    )
+
+    from ccs_response_planner_backend.db.database_facade import (
+        DatabaseFacade,
+    )
+    result = DatabaseFacade.get_active_planning_session(
+        "admin", agent_type="report",
+    )
+
+    assert result is not None
+    assert result["agent_type"] == "report"
+    sql = mock_cur.execute.call_args[0][0]
+    assert "agent_type = %s" in sql
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_active_planning_session_without_agent_type(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_active_planning_session filters by agent_type IS NULL
+    when agent_type is not provided.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(
+        return_value=mock_conn,
+    )
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_conn.cursor.return_value.__enter__ = MagicMock(
+        return_value=mock_cur,
+    )
+    mock_conn.cursor.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_cur.fetchone.return_value = None
+
+    from ccs_response_planner_backend.db.database_facade import (
+        DatabaseFacade,
+    )
+    result = DatabaseFacade.get_active_planning_session("admin")
+
+    assert result is None
+    sql = mock_cur.execute.call_args[0][0]
+    assert "agent_type IS NULL" in sql
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_planning_session_returns_dict(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_planning_session returns a dict when a row is found.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(
+        return_value=mock_conn,
+    )
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_conn.cursor.return_value.__enter__ = MagicMock(
+        return_value=mock_cur,
+    )
+    mock_conn.cursor.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_cur.fetchone.return_value = (
+        42, "admin", "active", [], None,
+        {}, {}, None, None,
+        "2026-01-01", "2026-01-01", "report",
+    )
+
+    from ccs_response_planner_backend.db.database_facade import (
+        DatabaseFacade,
+    )
+    result = DatabaseFacade.get_planning_session(42, "admin")
+
+    assert result is not None
+    assert result["id"] == 42
+    assert result["agent_type"] == "report"
+    sql = mock_cur.execute.call_args[0][0]
+    assert "WHERE id = %s" in sql
+
+
+@patch("ccs_response_planner_backend.db.database_facade.psycopg")
+def test_get_planning_session_returns_none(
+    mock_psycopg: MagicMock,
+) -> None:
+    """
+    Verify get_planning_session returns None when not found.
+    """
+    mock_conn = MagicMock()
+    mock_cur = MagicMock()
+    mock_psycopg.connect.return_value.__enter__ = MagicMock(
+        return_value=mock_conn,
+    )
+    mock_psycopg.connect.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_conn.cursor.return_value.__enter__ = MagicMock(
+        return_value=mock_cur,
+    )
+    mock_conn.cursor.return_value.__exit__ = MagicMock(
+        return_value=False,
+    )
+    mock_cur.fetchone.return_value = None
+
+    from ccs_response_planner_backend.db.database_facade import (
+        DatabaseFacade,
+    )
+    result = DatabaseFacade.get_planning_session(999, "admin")
 
     assert result is None
