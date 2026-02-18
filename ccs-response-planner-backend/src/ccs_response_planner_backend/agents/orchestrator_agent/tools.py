@@ -410,6 +410,7 @@ def run_report_manager_stream(
             username=context.get(
                 "username", "system",
             ),
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning(
@@ -886,6 +887,7 @@ def run_plan_manager_stream(
             username=context.get(
                 "username", "system",
             ),
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning(

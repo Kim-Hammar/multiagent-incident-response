@@ -287,6 +287,7 @@ def run_report_agent_stream(
             agent_type="report",
             report=assessment,
             username=context.get("username", "system"),
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning(
@@ -566,6 +567,7 @@ def run_report_reviewer_agent_stream(
             agent_type="report_reviewer",
             report=report_review,
             username=context.get("username", "system"),
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning(

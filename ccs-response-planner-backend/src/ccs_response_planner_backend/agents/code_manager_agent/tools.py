@@ -262,6 +262,7 @@ def run_code_agent_stream(
             agent_type="code",
             report=code_report,
             username=context.get("username", "system"),
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning("Failed to save code report: %s", e)
@@ -545,6 +546,7 @@ def run_code_reviewer_agent_stream(
             agent_type="code_review",
             report=review_report,
             username=context.get("username", "system"),
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning(
