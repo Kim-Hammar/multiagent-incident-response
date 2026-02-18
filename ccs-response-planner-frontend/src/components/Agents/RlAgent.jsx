@@ -555,6 +555,11 @@ function RlAgent() {
         }
         const toolResult = {
           progress_episodes: progressEvents.length,
+          progress_data: [...progressEvents],
+          training_meta: {
+            algorithm: proposal.tool_args.algorithm || '',
+            hyperparameters: proposal.tool_args.hyperparameters || ''
+          },
           result: resultEvent,
           done: doneEvent
         }
@@ -828,10 +833,10 @@ function RlAgent() {
       const run = entry._runId ? trainingRunsRef.current[entry._runId] : null
       return (
         <RlTrainResult
-          trainingData={run ? run.data : trainingData}
-          trainingMeta={run ? run.meta : trainingMeta}
+          trainingData={run ? run.data : entry.result?.progress_data || trainingData}
+          trainingMeta={run ? run.meta : entry.result?.training_meta || trainingMeta}
           result={entry.result}
-          policyData={policyData}
+          policyData={policyData || entry.result?.done?.policy_data}
         />
       )
     }
@@ -1024,6 +1029,7 @@ function RlAgent() {
             />
           )}
           renderFinalReport={renderFinalReport}
+          renderToolResult={renderToolResult}
           token={token}
           logout={logout}
         />

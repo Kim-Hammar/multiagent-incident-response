@@ -848,58 +848,65 @@ function PlannerReportInline({ report: r }) {
       {actions.length > 0 && (
         <div className="ia-assessment-section">
           <div className="ia-assessment-label">Action Sequence</div>
-          <table className="ia-ioc-table" style={{ tableLayout: 'fixed', width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ width: '4%' }}>Step</th>
-                <th style={{ width: '10%' }}>Phase</th>
-                <th style={{ width: '12%' }}>Action</th>
-                <th style={{ width: '30%' }}>Commands</th>
-                <th style={{ width: '22%' }}>Rationale</th>
-                <th style={{ width: '22%' }}>Spec Impact</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actions.map((a, i) => (
-                <tr key={i}>
-                  <td>{a.step}</td>
-                  <td>
-                    <span className="badge badge-secondary">{a.phase || '-'}</span>
-                  </td>
-                  <td>
-                    <strong>{a.action}</strong>
-                    {a.description && (
-                      <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
-                        {a.description}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    {a.commands && a.commands.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        {a.commands.map((c, j) => (
-                          <code
-                            key={j}
-                            style={{
-                              fontSize: '11px',
-                              wordBreak: 'break-all',
-                              whiteSpace: 'pre-wrap'
-                            }}
-                          >
-                            {c.container}: {c.command}
-                          </code>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ color: '#999' }}>-</span>
-                    )}
-                  </td>
-                  <td style={{ fontSize: '12px' }}>{a.rationale || a.expected_effect || '-'}</td>
-                  <td style={{ fontSize: '12px' }}>{a.spec_impact || '-'}</td>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="ia-ioc-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '4%' }}>Step</th>
+                  <th style={{ width: '10%' }}>Phase</th>
+                  <th style={{ width: '12%' }}>Action</th>
+                  <th style={{ width: '30%' }}>Commands</th>
+                  <th style={{ width: '22%' }}>Rationale</th>
+                  <th style={{ width: '22%' }}>Spec Impact</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {actions.map((a, i) => (
+                  <tr key={i}>
+                    <td>{a.step}</td>
+                    <td style={{ overflowWrap: 'break-word' }}>
+                      <span
+                        className="badge badge-secondary"
+                        style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                      >
+                        {a.phase || '-'}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{a.action}</strong>
+                      {a.description && (
+                        <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                          {a.description}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      {a.commands && a.commands.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          {a.commands.map((c, j) => (
+                            <code
+                              key={j}
+                              style={{
+                                fontSize: '11px',
+                                wordBreak: 'break-all',
+                                whiteSpace: 'pre-wrap'
+                              }}
+                            >
+                              {c.container}: {c.command}
+                            </code>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#999' }}>-</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: '12px' }}>{a.rationale || a.expected_effect || '-'}</td>
+                    <td style={{ fontSize: '12px' }}>{a.spec_impact || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {r.expected_total_cost !== undefined && (
