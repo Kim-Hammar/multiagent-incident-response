@@ -3075,8 +3075,18 @@ def agents_orchestrator_tool() -> (
                     "message": str(e),
                 }
 
+        rl_tools = {"run_rl_agent", "run_plan_manager"}
+        if tool_name in rl_tools:
+            rl_minutes = context.get(
+                "rl_time_limit_minutes", 5,
+            )
+            max_dur = 900.0 + rl_minutes * 60
+        else:
+            max_dur = 900.0
+
         job_manager.start_job(
             job_id, run, on_complete=on_complete,
+            max_duration=max_dur,
         )
         return jsonify({"job_id": job_id}), 202
 
