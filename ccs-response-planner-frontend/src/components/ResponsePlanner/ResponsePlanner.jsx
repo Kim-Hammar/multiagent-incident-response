@@ -1517,7 +1517,7 @@ function ResponsePlanner() {
           agent_type: 'orchestrator',
           report,
           incident_id: selectedIncidentId,
-          conversation_history: cleanConversationHistory(conversationHistory),
+          conversation_history: cleanConversationHistory(conversationHistoryRef.current),
           model_name: orchestratorModel || undefined
         })
       })
