@@ -610,6 +610,7 @@ function PlanManagerAgent() {
       role: 'user',
       type: 'tool_approval',
       tool_name: proposal.tool_name,
+      tool_args: proposal.tool_args,
       approved: true
     }
     setPendingProposal(null)
@@ -820,6 +821,7 @@ function PlanManagerAgent() {
       role: 'user',
       type: 'tool_approval',
       tool_name: pendingProposal.tool_name,
+      tool_args: pendingProposal.tool_args,
       approved: false
     }
     const updated = [...conversationHistoryRef.current, denialEntry]

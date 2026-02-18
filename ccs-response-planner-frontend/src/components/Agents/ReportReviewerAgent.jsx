@@ -473,6 +473,7 @@ function ReportReviewerAgent() {
       role: 'user',
       type: 'tool_approval',
       tool_name: proposal.tool_name,
+      tool_args: proposal.tool_args,
       approved: true
     }
     setPendingProposal(null)
@@ -513,7 +514,7 @@ function ReportReviewerAgent() {
         let updated
         setConversationHistory((prev) => {
           const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
-          updated = [...stripped, approvalEntry, resultEntry]
+          updated = [...stripped, resultEntry]
           return updated
         })
         setExecutingTool(null)
@@ -599,6 +600,7 @@ function ReportReviewerAgent() {
       role: 'user',
       type: 'tool_approval',
       tool_name: pendingProposal.tool_name,
+      tool_args: pendingProposal.tool_args,
       approved: false
     }
     const updated = [...conversationHistory, denialEntry]

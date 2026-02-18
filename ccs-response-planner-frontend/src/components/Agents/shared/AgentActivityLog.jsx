@@ -1203,15 +1203,41 @@ function AgentActivityLog({
           }
 
           if (entry.type === 'tool_approval') {
+            const isExpanded = expandedEntries[index]
+            const argPairs =
+              entry.tool_args && !ORCHESTRATOR_TOOLS.has(entry.tool_name)
+                ? formatToolArgs(entry.tool_name, entry.tool_args)
+                : null
             return (
               <div key={index} className="card ia-entry ia-approval-entry">
                 <div className="card-body">
-                  <div className="ia-entry-header">
+                  <div
+                    className="ia-entry-header"
+                    style={{ cursor: argPairs ? 'pointer' : 'default' }}
+                    onClick={argPairs ? () => toggleEntry(index) : undefined}
+                  >
                     <span className={`badge badge-${entry.approved ? 'success' : 'danger'}`}>
                       {entry.approved ? 'Approved' : 'Denied'}
                     </span>
                     <span className="ia-approval-tool">{toolLabel(entry.tool_name)}</span>
+                    {argPairs && (
+                      <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
+                    )}
                   </div>
+                  {isExpanded && argPairs && (
+                    <div className="ia-proposal-details">
+                      {argPairs.map(([label, value, isCode], i) => (
+                        <div key={i} className="ia-proposal-arg-row">
+                          <span className="ia-proposal-arg-label">{label}:</span>
+                          {isCode ? (
+                            <pre className="ia-arg-code">{value}</pre>
+                          ) : (
+                            <span className="ia-proposal-arg-value">{value}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )
