@@ -64,7 +64,10 @@ function RlAgentReport({ entry, index, isExpanded, toggleEntry, policyData }) {
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Recommended Action Sequence</div>
                 <div style={{ overflowX: 'auto' }}>
-                  <table className="ia-ioc-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                  <table
+                    className="ia-ioc-table"
+                    style={{ tableLayout: 'fixed', width: '100%', minWidth: '700px' }}
+                  >
                     <thead>
                       <tr>
                         <th style={{ width: '4%' }}>Step</th>

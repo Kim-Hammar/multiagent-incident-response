@@ -25,6 +25,7 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
 import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { PlanManagerReportBody } from './shared/ReportBodies.jsx'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 
@@ -85,6 +86,36 @@ function handleNestedSubEvent(subEvents, innerEvent) {
 }
 
 /**
+ * Enrich a plan_manager_report with sub-reports extracted from conversation history.
+ */
+function enrichReport(report, history) {
+  const enriched = { ...report }
+  for (let i = history.length - 1; i >= 0; i--) {
+    const e = history[i]
+    if (e.type !== 'tool_result' || !e.result) continue
+    if (e.tool_name === 'run_code_manager' && !enriched.code_report) {
+      if (e.result.code_report && Object.keys(e.result.code_report).length > 0) {
+        enriched.code_report = e.result.code_report
+      }
+    }
+    if (e.tool_name === 'run_rl_agent') {
+      if (!enriched.planner_report && e.result.planner_report) {
+        enriched.planner_report = e.result.planner_report
+      }
+      if (!enriched.response_plan && e.result.response_plan) {
+        enriched.response_plan = e.result.response_plan
+      }
+    }
+    if (e.tool_name === 'run_validation_agent' && !enriched.validation_report) {
+      if (e.result.validation_report && Object.keys(e.result.validation_report).length > 0) {
+        enriched.validation_report = e.result.validation_report
+      }
+    }
+  }
+  return enriched
+}
+
+/**
  * Render a plan manager report entry.
  */
 function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
@@ -111,32 +142,7 @@ function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
           <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
         </div>
         {isExpanded && (
-          <div style={{ whiteSpace: 'pre-wrap', marginTop: '10px' }}>
-            {report.executive_summary && (
-              <div className="mb-3">
-                <strong>Summary:</strong>
-                <p>{report.executive_summary}</p>
-              </div>
-            )}
-            {report.code_manager_summary && (
-              <div className="mb-3">
-                <strong>Code Manager Summary:</strong>
-                <p>{report.code_manager_summary}</p>
-              </div>
-            )}
-            {report.rl_agent_summary && (
-              <div className="mb-3">
-                <strong>RL Agent Summary:</strong>
-                <p>{report.rl_agent_summary}</p>
-              </div>
-            )}
-            {report.validation_summary && (
-              <div className="mb-3">
-                <strong>Validation Summary:</strong>
-                <p>{report.validation_summary}</p>
-              </div>
-            )}
-          </div>
+          <PlanManagerReportBody result={{ plan_manager_report: report, ...report }} />
         )}
       </div>
     </div>
@@ -502,7 +508,7 @@ function PlanManagerAgent() {
           setPendingProposal(finalEntry)
         }
         if (finalEntry.type === 'plan_manager_report') {
-          saveReport(finalEntry.plan_manager_report, updated)
+          saveReport(enrichReport(finalEntry.plan_manager_report, updated), updated)
         }
       } else if (accumulated) {
         let report
@@ -528,7 +534,7 @@ function PlanManagerAgent() {
           }
         ]
         setConversationHistory(fallbackHistory)
-        saveReport(report, fallbackHistory)
+        saveReport(enrichReport(report, fallbackHistory), fallbackHistory)
       } else {
         setConversationHistory([
           ...history,
