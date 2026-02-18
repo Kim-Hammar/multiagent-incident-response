@@ -88,44 +88,49 @@ function CodeAgentReport({ entry, index, isExpanded, toggleEntry }) {
             {r.actions && r.actions.length > 0 && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Actions</div>
-                <table className="ia-ioc-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Description</th>
-                      <th>Commands</th>
-                      <th>State Effect</th>
-                      <th>P(success)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {r.actions.map((a, i) => (
-                      <tr key={i}>
-                        <td>
-                          <strong>{a.name}</strong>
-                        </td>
-                        <td>{a.description}</td>
-                        <td>
-                          {a.commands && a.commands.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              {a.commands.map((c, j) => (
-                                <code key={j} style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
-                                  {c.container}: {c.command}
-                                </code>
-                              ))}
-                            </div>
-                          ) : (
-                            <span style={{ color: '#999' }}>-</span>
-                          )}
-                        </td>
-                        <td>
-                          <code>{a.state_effect}</code>
-                        </td>
-                        <td>{a.success_probability || '-'}</td>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="ia-ioc-table" style={{ tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '12%' }}>Name</th>
+                        <th style={{ width: '25%' }}>Description</th>
+                        <th style={{ width: '33%' }}>Commands</th>
+                        <th style={{ width: '20%' }}>State Effect</th>
+                        <th style={{ width: '10%' }}>P(success)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {r.actions.map((a, i) => (
+                        <tr key={i}>
+                          <td>
+                            <strong>{a.name}</strong>
+                          </td>
+                          <td>{a.description}</td>
+                          <td>
+                            {a.commands && a.commands.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {a.commands.map((c, j) => (
+                                  <code
+                                    key={j}
+                                    style={{ fontSize: '11px', wordBreak: 'break-all' }}
+                                  >
+                                    {c.container}: {c.command}
+                                  </code>
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#999' }}>-</span>
+                            )}
+                          </td>
+                          <td>
+                            <code style={{ wordBreak: 'break-all' }}>{a.state_effect}</code>
+                          </td>
+                          <td>{a.success_probability || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
