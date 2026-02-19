@@ -253,7 +253,7 @@ def run_code_agent_stream(
                     output = tool_result.get(
                         "output",
                         tool_result.get("error", ""),
-                    )
+                    ) or ""
                 sub_result = _truncate_result(
                     tool_result,
                 )
@@ -565,7 +565,7 @@ def run_code_reviewer_agent_stream(
                     output = tool_result.get(
                         "output",
                         tool_result.get("error", ""),
-                    )
+                    ) or ""
                 sub_result = _truncate_result(
                     tool_result,
                 )

@@ -454,7 +454,7 @@ def _run_sub_agent_loop(
                     output = tool_result.get(
                         "output",
                         tool_result.get("error", ""),
-                    )
+                    ) or ""
                 yield {
                     "type": "sub_event",
                     "event": {
