@@ -214,9 +214,15 @@ class CodeAgent:
             ):
                 yield ev
 
+        gym_verify_count = sum(
+            1 for e in conversation_history
+            if e.get("type") == "tool_result"
+            and e.get("tool_name") == "gym_verify"
+        )
         declarations = (
             ALL_DECLARATIONS
             if self._gym_verify_passed(conversation_history)
+            or gym_verify_count >= 3
             else ITERATING_DECLARATIONS
         )
 
