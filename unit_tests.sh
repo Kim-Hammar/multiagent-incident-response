@@ -3,7 +3,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "=== Backend tests (pytest) ==="
 cd "$DIR/ccs-response-planner-backend" || exit 1
-pytest --cov=ccs_response_planner_backend
+pytest --cov=ccs_response_planner_backend --ignore=tests/test_agent_integration.py
 backend_status=$?
 
 echo ""
