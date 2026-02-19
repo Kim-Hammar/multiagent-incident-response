@@ -355,13 +355,7 @@ function RlAgent() {
               { ...streamingEntry, text: accumulated }
             ])
           } else if (event.type === 'error') {
-            const msg = event.message || 'Agent stream error'
-            setAlert({ type: 'danger', message: msg })
-            setConversationHistory([
-              ...history,
-              ...compactionEntries,
-              { role: 'system', type: 'error', message: msg }
-            ])
+            throw new Error(event.message || 'Agent stream error')
           }
         }
       })

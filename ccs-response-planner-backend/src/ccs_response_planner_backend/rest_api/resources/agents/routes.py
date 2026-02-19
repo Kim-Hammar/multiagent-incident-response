@@ -1994,6 +1994,7 @@ def agents_report_manager_tool() -> (
                 "reviewer_agent_model",
             ),
             "username": g.username,
+            "incident_id": incident_id,
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
@@ -2317,6 +2318,7 @@ def agents_code_manager_tool() -> (
                 "reviewer_agent_model",
             ),
             "username": g.username,
+            "incident_id": incident_id,
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
@@ -2832,6 +2834,7 @@ def agents_plan_manager_tool() -> (
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
     tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({
             "error": "tool_name is required",
@@ -2853,6 +2856,7 @@ def agents_plan_manager_tool() -> (
             ),
             "images": body.get("images"),
             "username": g.username,
+            "incident_id": incident_id,
             "code_manager_model": body.get(
                 "code_manager_model",
             ),
@@ -3145,6 +3149,7 @@ def agents_orchestrator_tool() -> (
     body = request.get_json(silent=True) or {}
     tool_name = body.get("tool_name", "")
     tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
     if not tool_name:
         return jsonify({
             "error": "tool_name is required",
@@ -3163,6 +3168,7 @@ def agents_orchestrator_tool() -> (
             ),
             "images": body.get("images"),
             "username": g.username,
+            "incident_id": incident_id,
             "report_manager_model": body.get(
                 "report_manager_model",
             ),

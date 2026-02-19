@@ -845,6 +845,7 @@ def run_code_manager_stream(
                 "final_code_report": code_report,
             },
             username=context.get("username", "system"),
+            incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:
@@ -987,6 +988,7 @@ def run_rl_agent_stream(
             agent_type="rl",
             report=planner_report,
             username=context.get("username", "system"),
+            incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:
@@ -1132,6 +1134,7 @@ def run_validation_agent_stream(
             agent_type="validation",
             report=validation_report,
             username=context.get("username", "system"),
+            incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:

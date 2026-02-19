@@ -514,6 +514,7 @@ def run_report_manager_stream(
             username=context.get(
                 "username", "system",
             ),
+            incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:
@@ -1021,6 +1022,7 @@ def run_plan_manager_stream(
             username=context.get(
                 "username", "system",
             ),
+            incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:

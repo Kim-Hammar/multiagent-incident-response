@@ -542,3 +542,9 @@ def stream_step(
             "delta": "",
             "full_text": full_text,
         }
+    elif thinking_trace:
+        yield {
+            "type": "text",
+            "delta": "",
+            "full_text": thinking_trace,
+        }

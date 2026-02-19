@@ -301,6 +301,7 @@ def run_code_agent_stream(
             agent_type="code",
             report=code_report,
             username=context.get("username", "system"),
+            incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:
@@ -612,6 +613,7 @@ def run_code_reviewer_agent_stream(
             agent_type="code_review",
             report=review_report,
             username=context.get("username", "system"),
+            incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:

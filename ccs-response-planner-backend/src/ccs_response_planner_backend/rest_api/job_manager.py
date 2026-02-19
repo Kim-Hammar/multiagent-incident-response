@@ -30,6 +30,7 @@ class _Job:
 
 
 _STATUS_MAP: dict[str, str] = {
+    "system_prompt": "Initializing agent",
     "thinking": "Model is reasoning",
     "text": "Model is generating text",
     "tool_proposal": "Preparing tool call",
@@ -42,8 +43,9 @@ _STATUS_MAP: dict[str, str] = {
     "report": "Producing report",
     "validation_report": "Producing report",
     "code_report": "Producing report",
-    "review_report": "Producing report",
+    "report_review": "Producing report",
     "planner_report": "Producing report",
+    "error": "Error occurred",
 }
 
 
