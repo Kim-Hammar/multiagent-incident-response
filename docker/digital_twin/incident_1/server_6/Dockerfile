@@ -1,4 +1,5 @@
-FROM --platform=linux/amd64 debian:jessie
+ARG TARGETPLATFORM=linux/amd64
+FROM --platform=${TARGETPLATFORM} debian:jessie
 
 # Debian Jessie repos moved to archive; keys are expired
 RUN echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid && \
