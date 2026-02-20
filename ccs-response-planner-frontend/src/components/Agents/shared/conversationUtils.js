@@ -30,7 +30,7 @@ export function cleanConversationHistory(history) {
 }
 
 const BACKEND_STRIP_KEYS = new Set([
-  ...STRIP_KEYS,
+  '_runId',
   'subEvents',
   'prompt',
   'promptImages',

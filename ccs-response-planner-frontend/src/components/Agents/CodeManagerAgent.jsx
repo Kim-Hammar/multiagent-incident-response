@@ -1264,7 +1264,6 @@ function CodeManagerAgent() {
               toggleEntry={() => {}}
             />
           )}
-          renderFinalReport={renderFinalReport}
           renderToolResult={renderToolResult}
           token={token}
           logout={logout}
