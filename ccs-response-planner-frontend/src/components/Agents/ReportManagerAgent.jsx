@@ -312,6 +312,9 @@ function ReportManagerAgent() {
         )
         return { ...entry, result: rest }
       }
+      if (entry.type === 'tool_streaming') {
+        return { ...entry, subEvents: [], output: '' }
+      }
       return entry
     })
 
@@ -1331,7 +1334,6 @@ function ReportManagerAgent() {
               toggleEntry={() => {}}
             />
           )}
-          renderFinalReport={renderFinalReport}
           renderToolResult={renderToolResult}
           token={token}
           logout={logout}

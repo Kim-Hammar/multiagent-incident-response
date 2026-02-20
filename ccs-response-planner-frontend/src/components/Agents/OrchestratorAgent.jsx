@@ -463,6 +463,9 @@ function OrchestratorAgent() {
         )
         return { ...entry, result: rest }
       }
+      if (entry.type === 'tool_streaming') {
+        return { ...entry, subEvents: [], output: '' }
+      }
       return entry
     })
 

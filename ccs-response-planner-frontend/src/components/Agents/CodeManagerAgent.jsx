@@ -79,7 +79,6 @@ function CodeManagerAgent() {
   const [specification, setSpecification] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
-  const [incidentReportImages, setIncidentReportImages] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -138,7 +137,6 @@ function CodeManagerAgent() {
       setSpecification(inputs.specification || '')
       setOperatorFeedback(inputs.operatorFeedback || '')
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
-      setIncidentReportImages(inputs.incidentReportImages || [])
       setSelectedIncidentId(inputs.selectedIncidentId || null)
       const config = session.agent_config || {}
       setManagerModel(config.managerModel || '')
@@ -314,7 +312,7 @@ function CodeManagerAgent() {
             specification: specification,
             operator_feedback: operatorFeedback,
             conversation_history: stripForBackend(history),
-            images: [...systemDescriptionImages, ...incidentReportImages],
+            images: [...systemDescriptionImages],
             model_name: managerModel || undefined,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
             compaction_model: compactionModel || undefined,
@@ -503,7 +501,6 @@ function CodeManagerAgent() {
         specification,
         operatorFeedback,
         systemDescriptionImages,
-        incidentReportImages,
         selectedIncidentId
       },
       {
@@ -554,7 +551,7 @@ function CodeManagerAgent() {
           incident_report: incidentReport,
           specification: specification,
           operator_feedback: operatorFeedback,
-          images: [...systemDescriptionImages, ...incidentReportImages],
+          images: [...systemDescriptionImages],
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
           conversation_history: stripForBackend(latestHistory),
@@ -743,7 +740,6 @@ function CodeManagerAgent() {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
           const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
@@ -758,7 +754,6 @@ function CodeManagerAgent() {
     setSpecification('')
     setOperatorFeedback('')
     setSystemDescriptionImages([])
-    setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -787,7 +782,7 @@ function CodeManagerAgent() {
         incident_report: incidentReport,
         specification: specification,
         operator_feedback: operatorFeedback,
-        images: [...systemDescriptionImages, ...incidentReportImages],
+        images: [...systemDescriptionImages],
         code_agent_model: codeAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,
         conversation_history: stripForBackend(latestHistory),
@@ -915,7 +910,7 @@ function CodeManagerAgent() {
     const data = await res.json()
     return {
       text: data.prompt || '',
-      images: [...systemDescriptionImages, ...incidentReportImages]
+      images: [...systemDescriptionImages]
     }
   }
 
@@ -1114,11 +1109,6 @@ function CodeManagerAgent() {
               onChange={(e) => setIncidentReport(e.target.value)}
               disabled={isAgentBusy}
               placeholder="e.g., An SSH brute-force attack was detected on server 3, followed by SQL injection from server 6..."
-            />
-            <ImageThumbnails
-              images={incidentReportImages}
-              setImages={setIncidentReportImages}
-              disabled={isAgentBusy}
             />
           </div>
           <div className="ia-section">

@@ -17,8 +17,6 @@ function CodeReviewerConfigTab({
   setCodeReport,
   systemDescriptionImages,
   setSystemDescriptionImages,
-  incidentReportImages,
-  setIncidentReportImages,
   handlePaste,
   isAgentBusy,
   handleRun,
@@ -78,11 +76,6 @@ function CodeReviewerConfigTab({
           onChange={(e) => setIncidentReport(e.target.value)}
           disabled={isAgentBusy}
           placeholder="e.g., An SSH brute-force attack was detected on server 3..."
-        />
-        <ImageThumbnails
-          images={incidentReportImages}
-          setImages={setIncidentReportImages}
-          disabled={isAgentBusy}
         />
       </div>
       <div className="ia-section">

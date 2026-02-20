@@ -33,7 +33,6 @@ function CodeAgent() {
   const [specification, setSpecification] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
-  const [incidentReportImages, setIncidentReportImages] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -88,7 +87,6 @@ function CodeAgent() {
       setSpecification(inputs.specification || '')
       setOperatorFeedback(inputs.operatorFeedback || '')
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
-      setIncidentReportImages(inputs.incidentReportImages || [])
       setSelectedIncidentId(inputs.selectedIncidentId || null)
       const config = session.agent_config || {}
       setSelectedModel(config.selectedModel || '')
@@ -252,7 +250,7 @@ function CodeAgent() {
             specification: specification,
             operator_feedback: operatorFeedback,
             conversation_history: history,
-            images: [...systemDescriptionImages, ...incidentReportImages],
+            images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             compaction_model: compactionModel || undefined,
             compaction_threshold: compactionThreshold / 100,
@@ -427,7 +425,6 @@ function CodeAgent() {
         specification,
         operatorFeedback,
         systemDescriptionImages,
-        incidentReportImages,
         selectedIncidentId
       },
       {
@@ -608,7 +605,6 @@ function CodeAgent() {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
           const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
@@ -623,7 +619,6 @@ function CodeAgent() {
     setSpecification('')
     setOperatorFeedback('')
     setSystemDescriptionImages([])
-    setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -722,7 +717,7 @@ function CodeAgent() {
     const data = await res.json()
     return {
       text: data.prompt || '',
-      images: [...systemDescriptionImages, ...incidentReportImages]
+      images: [...systemDescriptionImages]
     }
   }
 
@@ -877,8 +872,6 @@ function CodeAgent() {
           setOperatorFeedback={setOperatorFeedback}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
-          incidentReportImages={incidentReportImages}
-          setIncidentReportImages={setIncidentReportImages}
           handlePaste={handlePaste}
           isAgentBusy={isAgentBusy}
           handleRun={handleRun}
@@ -963,7 +956,6 @@ function CodeAgent() {
               toggleEntry={() => {}}
             />
           )}
-          renderFinalReport={renderFinalReport}
           token={token}
           logout={logout}
         />
