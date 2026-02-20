@@ -35,7 +35,6 @@ function ReportReviewerAgent() {
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [securityAlertsImages, setSecurityAlertsImages] = useState([])
   const [operatorFeedbackImages, setOperatorFeedbackImages] = useState([])
-  const [incidentReportImages, setIncidentReportImages] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -92,7 +91,6 @@ function ReportReviewerAgent() {
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
       setSecurityAlertsImages(inputs.securityAlertsImages || [])
       setOperatorFeedbackImages(inputs.operatorFeedbackImages || [])
-      setIncidentReportImages(inputs.incidentReportImages || [])
       setSelectedIncidentId(inputs.selectedIncidentId || null)
       const config = session.agent_config || {}
       setSelectedModel(config.selectedModel || '')
@@ -266,8 +264,7 @@ function ReportReviewerAgent() {
             images: [
               ...systemDescriptionImages,
               ...securityAlertsImages,
-              ...operatorFeedbackImages,
-              ...incidentReportImages
+              ...operatorFeedbackImages
             ],
             model_name: selectedModel || undefined,
             compaction_model: compactionModel || undefined,
@@ -446,7 +443,6 @@ function ReportReviewerAgent() {
         systemDescriptionImages,
         securityAlertsImages,
         operatorFeedbackImages,
-        incidentReportImages,
         selectedIncidentId
       },
       {
@@ -629,9 +625,6 @@ function ReportReviewerAgent() {
         if (reports.length > 0) {
           const { attack_path_image, ...reportText } = reports[0].report || {}
           setIncidentReport(JSON.stringify(reportText, null, 2))
-          if (attack_path_image) {
-            setIncidentReportImages([attack_path_image])
-          }
         }
       }
     } catch (err) {
@@ -647,7 +640,6 @@ function ReportReviewerAgent() {
     setSystemDescriptionImages([])
     setSecurityAlertsImages([])
     setOperatorFeedbackImages([])
-    setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -757,8 +749,7 @@ function ReportReviewerAgent() {
       images: [
         ...systemDescriptionImages,
         ...securityAlertsImages,
-        ...operatorFeedbackImages,
-        ...incidentReportImages
+        ...operatorFeedbackImages
       ]
     }
   }
@@ -918,8 +909,6 @@ function ReportReviewerAgent() {
           setSecurityAlertsImages={setSecurityAlertsImages}
           operatorFeedbackImages={operatorFeedbackImages}
           setOperatorFeedbackImages={setOperatorFeedbackImages}
-          incidentReportImages={incidentReportImages}
-          setIncidentReportImages={setIncidentReportImages}
           handlePaste={handlePaste}
           isAgentBusy={isAgentBusy}
           handleRun={handleRun}

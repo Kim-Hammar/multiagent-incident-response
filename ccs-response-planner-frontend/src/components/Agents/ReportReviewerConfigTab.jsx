@@ -19,8 +19,6 @@ function ReportReviewerConfigTab({
   setSecurityAlertsImages,
   operatorFeedbackImages,
   setOperatorFeedbackImages,
-  incidentReportImages,
-  setIncidentReportImages,
   handlePaste,
   isAgentBusy,
   handleRun,
@@ -117,11 +115,6 @@ function ReportReviewerConfigTab({
           disabled={isAgentBusy}
           placeholder='{"incident_summary": "...", "attack_vector_analysis": "...", ...}'
           style={{ fontFamily: 'monospace', fontSize: '12px' }}
-        />
-        <ImageThumbnails
-          images={incidentReportImages}
-          setImages={setIncidentReportImages}
-          disabled={isAgentBusy}
         />
       </div>
       <button
