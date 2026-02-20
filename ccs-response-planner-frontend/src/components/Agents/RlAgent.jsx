@@ -19,7 +19,7 @@ import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
 import { useAgentSession } from './shared/useAgentSession.js'
-import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { cleanConversationHistory, stripForBackend } from './shared/conversationUtils.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 
 /**
@@ -36,7 +36,6 @@ function RlAgent() {
   const [codeReport, setCodeReport] = useState('')
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(10)
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
-  const [incidentReportImages, setIncidentReportImages] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
   const [pendingProposal, setPendingProposal] = useState(null)
@@ -103,7 +102,6 @@ function RlAgent() {
       setCodeReport(inputs.codeReport || '')
       setTimeLimitMinutes(inputs.timeLimitMinutes || 10)
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
-      setIncidentReportImages(inputs.incidentReportImages || [])
       setSelectedIncidentId(inputs.selectedIncidentId || null)
       const config = session.agent_config || {}
       setSelectedModel(config.selectedModel || '')
@@ -263,12 +261,12 @@ function RlAgent() {
             specification: specification,
             operator_feedback: operatorFeedback,
             code_report: codeReport,
-            conversation_history: history.map((e) =>
-              e._runId != null
-                ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== '_runId'))
+            conversation_history: stripForBackend(history).map((e) =>
+              e.type === 'tool_result' && e.tool_name === 'rl_train' && e.result?.progress_data
+                ? { ...e, result: { ...e.result, progress_data: undefined } }
                 : e
             ),
-            images: [...systemDescriptionImages, ...incidentReportImages],
+            images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
             compaction_model: compactionModel || undefined,
@@ -447,7 +445,6 @@ function RlAgent() {
         codeReport,
         timeLimitMinutes,
         systemDescriptionImages,
-        incidentReportImages,
         selectedIncidentId
       },
       {
@@ -685,7 +682,6 @@ function RlAgent() {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
           const { attack_path_image, ...reportText } = infoReports[0].report || {}
-          setIncidentReportImages(attack_path_image ? [attack_path_image] : [])
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
@@ -702,7 +698,6 @@ function RlAgent() {
     setCodeReport('')
     setTimeLimitMinutes(5)
     setSystemDescriptionImages([])
-    setIncidentReportImages([])
     setConversationHistory([])
     setPendingProposal(null)
     setExpandedEntries({})
@@ -740,7 +735,7 @@ function RlAgent() {
     const data = await res.json()
     return {
       text: data.prompt || '',
-      images: [...systemDescriptionImages, ...incidentReportImages]
+      images: [...systemDescriptionImages]
     }
   }
 
@@ -930,8 +925,6 @@ function RlAgent() {
           setCodeReport={setCodeReport}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
-          incidentReportImages={incidentReportImages}
-          setIncidentReportImages={setIncidentReportImages}
           handlePaste={handlePaste}
           isAgentBusy={isAgentBusy}
           handleRun={handleRun}
@@ -1024,7 +1017,6 @@ function RlAgent() {
               policyData={policyData}
             />
           )}
-          renderFinalReport={renderFinalReport}
           renderToolResult={renderToolResult}
           token={token}
           logout={logout}
