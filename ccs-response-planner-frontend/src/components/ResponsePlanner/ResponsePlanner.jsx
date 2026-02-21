@@ -236,6 +236,7 @@ function ResponsePlanner() {
   const isSourceTabRef = useRef(false)
   const pollingRef = useRef(null)
   const lastSaveRef = useRef(0)
+  const saveAbortRef = useRef(null)
   const callStepRef = useRef(null)
   const [jobs, setJobs] = useState(null)
 
@@ -366,6 +367,11 @@ function ResponsePlanner() {
 
     const save = () => {
       lastSaveRef.current = Date.now()
+      // Cancel any in-flight save so stale PUTs don't pile up
+      // and exhaust the browser's per-host connection limit.
+      if (saveAbortRef.current) saveAbortRef.current.abort()
+      const ac = new AbortController()
+      saveAbortRef.current = ac
       fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
         method: 'PUT',
         headers: {
@@ -377,8 +383,13 @@ function ResponsePlanner() {
           pending_proposal: pendingProposal,
           context_usage: contextUsage,
           ui_state: { running, executingTool, dtStatus }
-        })
-      }).catch(() => {})
+        }),
+        signal: ac.signal
+      }).catch((err) => {
+        if (err.name !== 'AbortError') {
+          console.warn('Session auto-save failed:', err.message)
+        }
+      })
     }
 
     const elapsed = Date.now() - lastSaveRef.current
