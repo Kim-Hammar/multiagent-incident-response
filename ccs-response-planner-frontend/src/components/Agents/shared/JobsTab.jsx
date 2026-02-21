@@ -7,6 +7,7 @@ import { Fragment, useState } from 'react'
 function JobsTab({ jobs, fetchJobs, cancelJob, removeJob, removeAllDoneJobs }) {
   const [refreshing, setRefreshing] = useState(false)
   const [removingDone, setRemovingDone] = useState(false)
+  const [removingOne, setRemovingOne] = useState({})
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -141,9 +142,28 @@ function JobsTab({ jobs, fetchJobs, cancelJob, removeJob, removeAllDoneJobs }) {
                         {j.done && (
                           <button
                             className="btn btn-sm btn-outline-danger ia-btn"
-                            onClick={() => removeJob(j.job_id)}
+                            disabled={removingOne[j.job_id]}
+                            onClick={async () => {
+                              setRemovingOne((prev) => ({ ...prev, [j.job_id]: true }))
+                              try {
+                                await Promise.resolve(removeJob(j.job_id))
+                              } finally {
+                                setRemovingOne((prev) => ({ ...prev, [j.job_id]: false }))
+                              }
+                            }}
                           >
-                            Remove
+                            {removingOne[j.job_id] ? (
+                              <>
+                                <span
+                                  className="spinner-border spinner-border-sm"
+                                  role="status"
+                                  style={{ width: '10px', height: '10px', marginRight: '4px' }}
+                                />
+                                Removing...
+                              </>
+                            ) : (
+                              'Remove'
+                            )}
                           </button>
                         )}
                       </td>
