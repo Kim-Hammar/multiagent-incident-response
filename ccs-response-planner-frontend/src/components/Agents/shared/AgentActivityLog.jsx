@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import ElapsedTimer from './ElapsedTimer.jsx'
 import PromptModal from './PromptModal.jsx'
@@ -45,69 +45,6 @@ const TOOL_LABELS = {
   produce_orchestrator_agent_report: 'orchestrator report',
   produce_report_manager_report: 'report manager report',
   produce_plan_manager_report: 'plan manager report'
-}
-
-/**
- * Walk the subEvents tree to find the deepest active streaming text.
- * Returns { text, label } or null if nothing is actively streaming.
- */
-function extractLatestStreamingText(subEvents) {
-  if (!subEvents || subEvents.length === 0) return null
-
-  for (let i = subEvents.length - 1; i >= 0; i--) {
-    const ev = subEvents[i]
-
-    // If the latest entry is an uncompleted tool_call with nested subEvents, recurse
-    if (ev.type === 'tool_call' && !ev._completed && ev.subEvents?.length > 0) {
-      const nested = extractLatestStreamingText(ev.subEvents)
-      if (nested) {
-        const agentName = toolLabel(ev.tool_name)
-        return {
-          text: nested.text,
-          label: `${agentName}: ${nested.label}`
-        }
-      }
-    }
-
-    if (ev.type === 'reasoning' && ev.text) {
-      return { text: ev.text, label: 'Agent thinking...' }
-    }
-    if (ev.type === 'text' && ev.text) {
-      return { text: ev.text, label: 'Agent writing...' }
-    }
-  }
-
-  return null
-}
-
-/**
- * Prominent streaming text preview shown inside tool_streaming cards.
- */
-function StreamingTextPreview({ subEvents, active }) {
-  const scrollRef = useRef(null)
-  const streaming = active ? extractLatestStreamingText(subEvents) : null
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [streaming?.text])
-
-  if (!streaming) return null
-
-  return (
-    <div className="ia-streaming-preview">
-      <div className="ia-streaming-preview-header">
-        <div className="spinner-border spinner-border-sm" role="status">
-          <span className="sr-only">Loading...</span>
-        </div>
-        <span>{streaming.label}</span>
-      </div>
-      <div className="ia-streaming-trace" ref={scrollRef}>
-        <ReactMarkdown>{streaming.text}</ReactMarkdown>
-      </div>
-    </div>
-  )
 }
 
 /**
@@ -1340,9 +1277,6 @@ function AgentActivityLog({
                           </button>
                         )}
                       </div>
-                      {!entry.stopped && hasSubEvents && (
-                        <StreamingTextPreview subEvents={entry.subEvents} active={!entry.stopped} />
-                      )}
                       {hasSubEvents ? (
                         <SubAgentLog
                           subEvents={entry.subEvents}
