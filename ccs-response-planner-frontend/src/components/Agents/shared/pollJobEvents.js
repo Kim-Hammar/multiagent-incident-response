@@ -7,7 +7,7 @@
 
 const API_BASE = '/api/agents/jobs'
 const STALE_THRESHOLD = 30000
-const EVENT_LIMIT = 20
+const EVENT_LIMIT = 5
 const FETCH_TIMEOUT = 10000
 
 /**
@@ -30,7 +30,7 @@ export async function pollJobEvents({
   onEvent,
   onHeartbeat,
   onStale,
-  pollInterval = 300
+  pollInterval = 100
 }) {
   let nextIndex = 0
   let retries = 0

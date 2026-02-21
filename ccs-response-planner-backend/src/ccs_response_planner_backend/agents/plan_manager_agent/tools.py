@@ -472,7 +472,6 @@ def _run_sub_agent_loop(
                         "type": "tool_result",
                         "tool_name": tool_name,
                         "result": sub_result,
-                        "subEvents": collected,
                     },
                 }
                 processed_sub = (
@@ -853,7 +852,6 @@ def run_code_manager_stream(
                         "type": "tool_result",
                         "tool_name": tool_name,
                         "result": sub_result,
-                        "subEvents": collected,
                     },
                 }
                 processed_sub = (

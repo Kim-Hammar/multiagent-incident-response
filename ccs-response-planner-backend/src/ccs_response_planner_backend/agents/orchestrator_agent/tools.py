@@ -484,7 +484,6 @@ def run_report_manager_stream(
                         "type": "tool_result",
                         "tool_name": tool_name,
                         "result": sub_result,
-                        "subEvents": collected,
                     },
                 }
                 processed_sub = (
@@ -988,7 +987,6 @@ def run_plan_manager_stream(
                         "type": "tool_result",
                         "tool_name": tool_name,
                         "result": sub_result,
-                        "subEvents": collected,
                     },
                 }
                 processed_sub = (

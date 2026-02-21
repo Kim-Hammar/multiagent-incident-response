@@ -905,6 +905,42 @@
   color: #dc3545;
 }
 
+/* Streaming text preview (inside tool_streaming cards) */
+.ia-streaming-preview {
+  margin-top: 10px;
+  border: 1px solid #b8d4f0;
+  border-radius: 4px;
+  background: #eef4fb;
+  overflow: hidden;
+}
+
+.ia-streaming-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #2c5282;
+  background: #dbe8f8;
+  border-bottom: 1px solid #b8d4f0;
+}
+
+.ia-streaming-preview-header .spinner-border-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  color: #2c5282;
+}
+
+.ia-streaming-preview .ia-streaming-trace {
+  margin-top: 0;
+  border: none;
+  border-radius: 0;
+  background: #eef4fb;
+  max-height: 250px;
+}
+
 /* Sub-agent nested activity log */
 .ia-sub-agent-log {
   margin-top: 12px;
