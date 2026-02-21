@@ -78,7 +78,8 @@ function ValidationAgent() {
     setPendingProposalRef,
     setContextUsageRef,
     setUiStateRef,
-    pollingRef
+    pollingRef,
+    restoredSession
   } = useAgentSession({
     agentType: 'validation',
     token,
@@ -864,6 +865,17 @@ function ValidationAgent() {
       toggleEntry={toggleEntry}
     />
   )
+
+  if (!restoredSession) {
+    return (
+      <div className="text-center" style={{ padding: '48px 0' }}>
+        <div className="spinner-border" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
+          <span className="sr-only">Loading...</span>
+        </div>
+        <p className="text-muted mt-3">Loading agent...</p>
+      </div>
+    )
+  }
 
   return (
     <div>

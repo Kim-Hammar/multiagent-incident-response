@@ -75,7 +75,8 @@ function CodeReviewerAgent() {
     setPendingProposalRef,
     setContextUsageRef,
     setUiStateRef,
-    pollingRef
+    pollingRef,
+    restoredSession
   } = useAgentSession({
     agentType: 'code_review',
     token,
@@ -792,7 +793,7 @@ function CodeReviewerAgent() {
 
   const deleteAllReports = async () => {
     try {
-      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code_reviewer`, {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code_review`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -821,6 +822,17 @@ function CodeReviewerAgent() {
       toggleEntry={toggleEntry}
     />
   )
+
+  if (!restoredSession) {
+    return (
+      <div className="text-center" style={{ padding: '48px 0' }}>
+        <div className="spinner-border" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
+          <span className="sr-only">Loading...</span>
+        </div>
+        <p className="text-muted mt-3">Loading agent...</p>
+      </div>
+    )
+  }
 
   return (
     <div>

@@ -24,6 +24,7 @@ function AgentHistoryTab({
   const [loadingHistory, setLoadingHistory] = useState({})
   const [processExpanded, setProcessExpanded] = useState({})
   const [deletingAll, setDeletingAll] = useState(false)
+  const [deletingOne, setDeletingOne] = useState({})
   const logEndRef = useRef(null)
 
   const fetchConversationHistory = async (reportId) => {
@@ -135,11 +136,9 @@ function AgentHistoryTab({
                     <i className="fa fa-tag" aria-hidden="true" /> {entry.incident_name}
                   </span>
                 )}
-                {entry.model_name && (
-                  <span style={{ color: '#6c757d', marginLeft: '8px' }}>
-                    <i className="fa fa-microchip" aria-hidden="true" /> {entry.model_name}
-                  </span>
-                )}
+                <span style={{ color: '#6c757d', marginLeft: '8px' }}>
+                  <i className="fa fa-microchip" aria-hidden="true" /> {entry.model_name || 'Default'}
+                </span>
               </span>
               <i
                 className={`fa fa-caret-${historyExpanded[entry.id] ? 'down' : 'right'}`}
@@ -184,9 +183,30 @@ function AgentHistoryTab({
                   type="button"
                   className="btn btn-outline-danger btn-sm"
                   style={{ fontSize: '11px', padding: '2px 10px' }}
-                  onClick={() => deleteReport(entry.id)}
+                  disabled={deletingOne[entry.id]}
+                  onClick={async () => {
+                    setDeletingOne((prev) => ({ ...prev, [entry.id]: true }))
+                    try {
+                      await Promise.resolve(deleteReport(entry.id))
+                    } finally {
+                      setDeletingOne((prev) => ({ ...prev, [entry.id]: false }))
+                    }
+                  }}
                 >
-                  <i className="fa fa-trash" aria-hidden="true" /> Delete
+                  {deletingOne[entry.id] ? (
+                    <>
+                      <span
+                        className="spinner-border spinner-border-sm"
+                        role="status"
+                        style={{ width: '10px', height: '10px', marginRight: '4px' }}
+                      />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa fa-trash" aria-hidden="true" /> Delete
+                    </>
+                  )}
                 </button>
               </div>
               {showProcess[entry.id] && loadedHistory[entry.id] && (

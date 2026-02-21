@@ -127,7 +127,8 @@ function ReportManagerAgent() {
     setPendingProposalRef,
     setContextUsageRef,
     setUiStateRef,
-    pollingRef
+    pollingRef,
+    restoredSession
   } = useAgentSession({
     agentType: 'report_manager',
     token,
@@ -1080,6 +1081,17 @@ function ReportManagerAgent() {
       )
     }
     return null
+  }
+
+  if (!restoredSession) {
+    return (
+      <div className="text-center" style={{ padding: '48px 0' }}>
+        <div className="spinner-border" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
+          <span className="sr-only">Loading...</span>
+        </div>
+        <p className="text-muted mt-3">Loading agent...</p>
+      </div>
+    )
   }
 
   return (

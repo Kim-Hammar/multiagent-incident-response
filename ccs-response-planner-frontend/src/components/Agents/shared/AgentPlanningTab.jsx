@@ -70,7 +70,7 @@ function AgentPlanningTab({
     )
   }
 
-  const showToolbar = isAgentBusy || onViewPrompt || modelName || conversationHistory.length > 0
+  const showToolbar = true
 
   return (
     <>
@@ -102,18 +102,16 @@ function AgentPlanningTab({
             gap: '8px'
           }}
         >
-          {modelName && (
-            <span
-              style={{
-                fontSize: '11px',
-                color: '#6c757d',
-                marginRight: 'auto'
-              }}
-            >
-              <i className="fa fa-microchip" aria-hidden="true" style={{ marginRight: '4px' }} />
-              LLM: {modelName}
-            </span>
-          )}
+          <span
+            style={{
+              fontSize: '11px',
+              color: '#6c757d',
+              marginRight: 'auto'
+            }}
+          >
+            <i className="fa fa-microchip" aria-hidden="true" style={{ marginRight: '4px' }} />
+            LLM: {modelName || 'Default'}
+          </span>
           {onViewPrompt && (
             <button
               type="button"
