@@ -76,7 +76,11 @@ export async function pollJobEvents({
       nextIndex = next_index
 
       if (done) {
-        if (error) throw new Error(error)
+        if (error) {
+          const err = new Error(error.message || String(error))
+          err.errorDetail = error
+          throw err
+        }
         return
       }
     } catch (err) {

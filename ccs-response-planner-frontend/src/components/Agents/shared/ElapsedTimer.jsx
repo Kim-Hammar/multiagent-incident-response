@@ -8,11 +8,14 @@ import { useState, useEffect } from 'react'
  */
 function ElapsedTimer({ startTime }) {
   const [seconds, setSeconds] = useState(() =>
-    startTime ? Math.floor((Date.now() - startTime) / 1000) : 0
+    startTime ? Math.max(0, Math.floor((Date.now() - startTime) / 1000)) : 0
   )
   useEffect(() => {
     const id = setInterval(
-      () => setSeconds(startTime ? Math.floor((Date.now() - startTime) / 1000) : (s) => s + 1),
+      () =>
+        setSeconds(
+          startTime ? Math.max(0, Math.floor((Date.now() - startTime) / 1000)) : (s) => s + 1
+        ),
       1000
     )
     return () => clearInterval(id)

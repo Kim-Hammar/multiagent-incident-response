@@ -278,6 +278,7 @@ function CodeAgent() {
         job_id = resp.job_id
       }
       let accumulated = ''
+      let toolInputAccumulated = ''
       let finalEntry = null
 
       setLivenessStatus('alive')
@@ -296,6 +297,21 @@ function CodeAgent() {
           setLivenessStatus('alive')
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
+            ])
+          } else if (event.type === 'tool_input_started') {
+            streamingEntry.generatingTool = event.tool_name
+            setConversationHistory([
+              ...history,
+              ...compactionEntries,
+              { ...streamingEntry, text: accumulated }
+            ])
+          } else if (event.type === 'tool_input_delta') {
+            toolInputAccumulated += event.delta
+            streamingEntry.toolInput = toolInputAccumulated
             setConversationHistory([
               ...history,
               ...compactionEntries,
@@ -393,7 +409,7 @@ function CodeAgent() {
       setConversationHistory([
         ...history,
         ...compactionEntries,
-        { role: 'system', type: 'error', message: err.message }
+        { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
       ])
     } finally {
       setRunning(false)
@@ -511,7 +527,9 @@ function CodeAgent() {
               return e
             })
             .filter(Boolean)
-            .concat([{ role: 'system', type: 'error', message: err.message }])
+            .concat([
+              { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
+            ])
         )
       }
       return
@@ -694,7 +712,9 @@ function CodeAgent() {
             return e
           })
           .filter(Boolean)
-          .concat([{ role: 'system', type: 'error', message: err.message }])
+          .concat([
+            { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
+          ])
       )
     }
   }

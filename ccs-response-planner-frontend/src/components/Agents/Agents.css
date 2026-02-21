@@ -570,6 +570,22 @@
   white-space: pre-wrap;
 }
 
+.ia-error-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #f5c6cb;
+  font-size: 11px;
+  color: #856404;
+}
+
+.ia-error-detail-item strong {
+  color: #721c24;
+  margin-right: 3px;
+}
+
 /* Structured assessment sections */
 .ia-assessment-section {
   margin-bottom: 14px;
@@ -1133,6 +1149,40 @@
   50% {
     opacity: 0.4;
   }
+}
+
+/* Collapsed reasoning section during tool input generation */
+.ia-collapsed-reasoning {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.ia-collapsed-reasoning summary {
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 12px;
+  color: #6c757d;
+  user-select: none;
+}
+
+.ia-collapsed-reasoning summary:hover {
+  color: #495057;
+}
+
+.ia-collapsed-reasoning .ia-streaming-trace {
+  margin-top: 4px;
+  max-height: 150px;
+}
+
+/* Partial tool input JSON display */
+.ia-tool-input-pre {
+  margin: 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  color: #495057;
 }
 
 .ia-heartbeat-info {

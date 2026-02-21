@@ -421,6 +421,10 @@ def stream_step(
                         "name": block.name,
                         "input_json": "",
                     })
+                    yield {
+                        "type": "tool_input_started",
+                        "tool_name": block.name,
+                    }
 
             elif event.type == "content_block_delta":
                 delta = event.delta
@@ -457,6 +461,10 @@ def stream_step(
                         tool_use_blocks[-1][
                             "input_json"
                         ] += delta.partial_json
+                    yield {
+                        "type": "tool_input_delta",
+                        "delta": delta.partial_json,
+                    }
 
             elif event.type == "message_delta":
                 usage = getattr(

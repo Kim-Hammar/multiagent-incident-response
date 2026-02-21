@@ -11,6 +11,19 @@ import psycopg
 from ccs_response_planner_backend.constants.constants import DB
 
 
+def _sanitize_json(data: Any) -> str:
+    """
+    Serialize data to JSON and strip null bytes.
+
+    PostgreSQL jsonb does not support \\u0000, so we remove
+    any null bytes from the serialized string.
+
+    :param data: the data to serialize
+    :return: a JSON string with null bytes removed
+    """
+    return json.dumps(data).replace("\\u0000", "").replace("\x00", "")
+
+
 class DatabaseFacade:
     """
     Static-method facade for PostgreSQL database operations.
@@ -309,7 +322,7 @@ class DatabaseFacade:
                     f"ON CONFLICT (name) DO UPDATE "
                     f"SET config = EXCLUDED.config, "
                     f"updated_at = NOW()",
-                    (json.dumps(config),),
+                    (_sanitize_json(config),),
                 )
             conn.commit()
 
@@ -368,7 +381,7 @@ class DatabaseFacade:
                  incident_id, incident_name, model_name
         """
         ch_json = (
-            json.dumps(conversation_history)
+            _sanitize_json(conversation_history)
             if conversation_history is not None else None
         )
         with psycopg.connect(DatabaseFacade._connection_string()) as conn:
@@ -381,7 +394,7 @@ class DatabaseFacade:
                     f"VALUES (%s, %s, %s, %s, %s, %s, %s) "
                     f"RETURNING id, agent_type, username, "
                     f"report, created_at, incident_id",
-                    (agent_type, username, json.dumps(report),
+                    (agent_type, username, _sanitize_json(report),
                      incident_id, ch_json, policy_data,
                      model_name),
                 )
@@ -607,7 +620,7 @@ class DatabaseFacade:
                         f"SET config = EXCLUDED.config",
                         (
                             name,
-                            json.dumps(dt_config),
+                            _sanitize_json(dt_config),
                             incident_id,
                         ),
                     )
@@ -768,7 +781,7 @@ class DatabaseFacade:
                     f"UPDATE {DB.DIGITAL_TWIN_CONFIGS_TABLE} "
                     f"SET validation_results = %s "
                     f"WHERE id = %s",
-                    (json.dumps(payload), config_id),
+                    (_sanitize_json(payload), config_id),
                 )
             conn.commit()
 
@@ -982,8 +995,8 @@ class DatabaseFacade:
                     f"agent_type",
                     (
                         username,
-                        json.dumps(incident_inputs),
-                        json.dumps(agent_config),
+                        _sanitize_json(incident_inputs),
+                        _sanitize_json(agent_config),
                         agent_type,
                     ),
                 )
@@ -1042,7 +1055,7 @@ class DatabaseFacade:
                         "conversation_history = %s"
                     )
                     params.append(
-                        json.dumps(conversation_history)
+                        _sanitize_json(conversation_history)
                     )
                 if pending_proposal is not None:
                     if pending_proposal is False:
@@ -1054,12 +1067,12 @@ class DatabaseFacade:
                             "pending_proposal = %s"
                         )
                         params.append(
-                            json.dumps(pending_proposal)
+                            _sanitize_json(pending_proposal)
                         )
                 if context_usage is not None:
                     updates.append("context_usage = %s")
                     params.append(
-                        json.dumps(context_usage)
+                        _sanitize_json(context_usage)
                     )
                 if status is not None:
                     updates.append("status = %s")
@@ -1067,7 +1080,7 @@ class DatabaseFacade:
                 if ui_state is not None:
                     updates.append("ui_state = %s")
                     params.append(
-                        json.dumps(ui_state)
+                        _sanitize_json(ui_state)
                     )
                 if not updates:
                     return False

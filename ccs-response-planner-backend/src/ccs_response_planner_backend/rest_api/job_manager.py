@@ -33,6 +33,8 @@ _STATUS_MAP: dict[str, str] = {
     "system_prompt": "Initializing agent",
     "thinking": "Model is reasoning",
     "text": "Model is generating text",
+    "tool_input_started": "Generating tool input",
+    "tool_input_delta": "Generating tool input",
     "tool_proposal": "Preparing tool call",
     "tool_result": "Processing tool result",
     "context_compaction": "Compacting context",
@@ -157,8 +159,17 @@ class JobManager:
                     "Job %s error: %s",
                     job_id, exc, exc_info=True,
                 )
+                elapsed = round(
+                    time.time() - job.start_time, 1,
+                )
+                exc_type = type(exc).__name__
                 with job.lock:
-                    job.error = str(exc)
+                    job.error = {
+                        "message": str(exc),
+                        "error_type": exc_type,
+                        "last_status": job.last_status,
+                        "elapsed_seconds": elapsed,
+                    }
             finally:
                 job.done = True
                 if on_complete is not None and not job.cancelled:
@@ -219,7 +230,12 @@ class JobManager:
             return {
                 "events": [],
                 "done": True,
-                "error": "Job not found",
+                "error": {
+                    "message": "Job not found",
+                    "error_type": "JobNotFound",
+                    "last_status": "",
+                    "elapsed_seconds": 0,
+                },
                 "next_index": 0,
                 "last_event_time": 0,
             }

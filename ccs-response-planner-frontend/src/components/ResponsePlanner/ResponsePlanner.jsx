@@ -787,6 +787,7 @@ function ResponsePlanner() {
         ;({ job_id } = await res.json())
       }
       let accumulated = ''
+      let toolInputAccumulated = ''
       let finalEntry = null
 
       setLivenessStatus('alive')
@@ -811,6 +812,13 @@ function ResponsePlanner() {
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             streamingEntry.text = accumulated
+            setConversationHistory((prev) => [...prev])
+          } else if (event.type === 'tool_input_started') {
+            streamingEntry.generatingTool = event.tool_name
+            setConversationHistory((prev) => [...prev])
+          } else if (event.type === 'tool_input_delta') {
+            toolInputAccumulated += event.delta
+            streamingEntry.toolInput = toolInputAccumulated
             setConversationHistory((prev) => [...prev])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
@@ -923,7 +931,7 @@ function ResponsePlanner() {
       errorOccurred = true
       setConversationHistory((prev) => [
         ...prev,
-        { role: 'system', type: 'error', message: err.message }
+        { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
       ])
     } finally {
       setRunning(false)
@@ -1088,7 +1096,9 @@ function ResponsePlanner() {
             return e
           })
           .filter(Boolean)
-          .concat([{ role: 'system', type: 'error', message: err.message }])
+          .concat([
+            { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
+          ])
       )
     }
   }
@@ -1350,7 +1360,9 @@ function ResponsePlanner() {
               return e
             })
             .filter(Boolean)
-            .concat([{ role: 'system', type: 'error', message: err.message }])
+            .concat([
+              { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
+            ])
         )
       }
       return

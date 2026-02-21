@@ -34,6 +34,19 @@ const ORCHESTRATOR_TOOLS = new Set([
   'produce_orchestrator_agent_report'
 ])
 
+const TOOL_LABELS = {
+  produce_assessment: 'assessment report',
+  produce_validation_report: 'validation report',
+  produce_code_report: 'code report',
+  produce_code_review: 'code review',
+  produce_plan: 'plan',
+  produce_rl_report: 'RL report',
+  produce_orchestrator_report: 'orchestrator report',
+  produce_orchestrator_agent_report: 'orchestrator report',
+  produce_report_manager_report: 'report manager report',
+  produce_plan_manager_report: 'plan manager report'
+}
+
 /**
  * A collapsible section with a clickable header.
  */
@@ -982,6 +995,16 @@ function AgentActivityLog({
               ? new Date(lastHeartbeatTime).toLocaleTimeString()
               : ''
             const dotTooltip = timeStr ? `${statusText} (${timeStr})` : statusText
+            const toolLabel = entry.generatingTool
+              ? TOOL_LABELS[entry.generatingTool] || entry.generatingTool
+              : null
+            const headerText = isError
+              ? 'Agent error'
+              : isStale
+                ? 'Agent may be unresponsive...'
+                : toolLabel
+                  ? `Generating ${toolLabel}...`
+                  : 'Agent is thinking...'
             return (
               <div key={index} className="card ia-entry ia-streaming-entry">
                 <div className="card-body">
@@ -993,22 +1016,31 @@ function AgentActivityLog({
                     <div className="spinner-border spinner-border-sm" role="status">
                       <span className="sr-only">Loading...</span>
                     </div>
-                    <span className="ia-thinking-title">
-                      {isError
-                        ? 'Agent error'
-                        : isStale
-                          ? 'Agent may be unresponsive...'
-                          : 'Agent is thinking...'}
-                    </span>
+                    <span className="ia-thinking-title">{headerText}</span>
                     {staleElapsed !== null && (
                       <span className="ia-heartbeat-info">Last signal: {staleElapsed}s ago</span>
                     )}
                     <ElapsedTimer startTime={entry._startTime} />
                   </div>
-                  {entry.text && (
+                  {entry.generatingTool && entry.text && (
+                    <details className="ia-collapsed-reasoning">
+                      <summary>Agent reasoning</summary>
+                      <div className="ia-streaming-trace">
+                        <ReactMarkdown>{entry.text}</ReactMarkdown>
+                      </div>
+                    </details>
+                  )}
+                  {entry.toolInput ? (
                     <div className="ia-streaming-trace" ref={streamingTraceRef}>
-                      <ReactMarkdown>{entry.text}</ReactMarkdown>
+                      <pre className="ia-tool-input-pre">{entry.toolInput}</pre>
                     </div>
+                  ) : (
+                    entry.text &&
+                    !entry.generatingTool && (
+                      <div className="ia-streaming-trace" ref={streamingTraceRef}>
+                        <ReactMarkdown>{entry.text}</ReactMarkdown>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -1326,14 +1358,41 @@ function AgentActivityLog({
           }
 
           if (entry.type === 'error') {
+            const d = entry.errorDetail
+            const errorType = d?.error_type || ''
+            const isTimeout = /timeout/i.test(errorType) || /timeout/i.test(entry.message)
+            const headerLabel = isTimeout
+              ? 'LLM call timed out'
+              : errorType
+                ? `Error: ${errorType}`
+                : 'Agent step failed'
             return (
               <div key={index} className="card ia-entry border-danger">
                 <div className="card-body">
                   <div className="ia-entry-header">
                     <span className="badge badge-danger">Error</span>
-                    <span className="ia-tool-name">Agent step failed</span>
+                    <span className="ia-tool-name">{headerLabel}</span>
                   </div>
                   <p className="ia-error-message mb-0">{entry.message}</p>
+                  {d && (
+                    <div className="ia-error-detail">
+                      {d.last_status && (
+                        <span className="ia-error-detail-item">
+                          <strong>Last status:</strong> {d.last_status}
+                        </span>
+                      )}
+                      {d.elapsed_seconds != null && (
+                        <span className="ia-error-detail-item">
+                          <strong>Elapsed:</strong> {d.elapsed_seconds}s
+                        </span>
+                      )}
+                      {d.error_type && (
+                        <span className="ia-error-detail-item">
+                          <strong>Type:</strong> {d.error_type}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )
