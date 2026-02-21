@@ -111,7 +111,8 @@ function handleNestedSubEvent(subEvents, innerEvent) {
       type: 'tool_result',
       tool_name: innerEvent.tool_name,
       result: innerEvent.result,
-      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || []
+      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+      _startTime: Date.now()
     })
   } else {
     if (!innerEvent._startTime) innerEvent._startTime = Date.now()
@@ -794,7 +795,8 @@ function OrchestratorAgent() {
                 type: 'tool_result',
                 tool_name: event.tool_name,
                 result: event.result,
-                subEvents: event.subEvents || []
+                subEvents: event.subEvents || [],
+                _startTime: Date.now()
               })
             } else {
               if (!event._startTime) event._startTime = Date.now()
@@ -1045,7 +1047,8 @@ function OrchestratorAgent() {
               type: 'tool_result',
               tool_name: event.tool_name,
               result: event.result,
-              subEvents: event.subEvents || []
+              subEvents: event.subEvents || [],
+              _startTime: Date.now()
             })
           } else {
             if (!event._startTime) event._startTime = Date.now()

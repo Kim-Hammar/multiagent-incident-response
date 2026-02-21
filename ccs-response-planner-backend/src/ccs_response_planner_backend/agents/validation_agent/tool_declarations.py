@@ -45,11 +45,13 @@ QUERY_POLICY_DECL = genai_types.FunctionDeclaration(
     description=(
         "Query the trained RL policy for the next "
         "action given the current state vector. "
-        "First 6 values are recovery phases "
-        "(containment, assessment, preservation, "
-        "eviction, hardening, restoration) each "
-        "0.0-1.0. Remaining values are specification "
-        "states (1.0 = passing, 0.0 = failing)."
+        "The state format is defined by the "
+        "environment in the Code Agent Report: "
+        "per-host recovery flags followed by "
+        "specification dimensions (NOT 6 aggregate "
+        "phases). Action masking is applied "
+        "internally. A dimension mismatch returns "
+        "an error with the expected size."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
@@ -58,7 +60,10 @@ QUERY_POLICY_DECL = genai_types.FunctionDeclaration(
                 "type": "array",
                 "items": {"type": "number"},
                 "description": (
-                    "Current state vector."
+                    "Current state vector as defined "
+                    "in the Code Agent Report "
+                    "(per-host recovery flags + "
+                    "specification dimensions)."
                 ),
             },
         },

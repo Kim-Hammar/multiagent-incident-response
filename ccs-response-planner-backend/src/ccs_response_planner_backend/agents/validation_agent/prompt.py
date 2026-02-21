@@ -7,22 +7,26 @@ Supports two modes:
 """
 
 POLICY_MODE_INSTRUCTIONS = """\
-1. Assess initial DT state: run specification commands via `dt_exec`, \
-evaluate the 6 recovery phases as floats 0.0\u20131.0 (initially all 0.0). \
-For each specification command: 1.0 if passing, 0.0 if failing.
-2. Construct the state vector: \
-[containment, assessment, preservation, eviction, hardening, restoration, \
-spec_1, spec_2, ...]. \
-The order of specification dimensions matches the specification commands \
-listed above, in order.
-3. Call `query_policy(state=[...])` \u2014 this returns the action the trained \
-RL policy recommends for the current state, including name, description, \
-and shell commands.
-4. Apply the recommended action\u2019s commands via `dt_exec`.
-5. Reassess state: re-run specification commands, re-evaluate recovery \
-phases, compute the step cost using the phase-weighted formula.
-6. Repeat steps 2\u20135 until all 6 recovery phases >= 0.9 or 30 actions \
-have been applied.
+1. Read the **Code Agent Report** to determine the exact state vector \
+format. The state consists of per-host recovery flags (e.g. \
+`fw_block_attacker`, `s1_assessed`, `s1_preserved`, ...) followed by \
+specification dimensions — NOT 6 aggregate phases. Note the index of \
+each dimension.
+2. Assess initial DT state: run specification commands via `dt_exec`. \
+Construct the state vector using the per-host recovery flags and \
+specification values as defined in the Code Agent Report \
+(initially all 0.0).
+3. Call `query_policy(state=[...])` — the tool validates dimensions, \
+sets the environment state, computes the action mask (so already-completed \
+actions are excluded), and returns the recommended action with name, \
+description, and shell commands. If you pass a wrong-sized vector, the \
+tool returns an error with the expected dimension count.
+4. Apply the recommended action's commands via `dt_exec`.
+5. Reassess state: re-run specification commands, update the relevant \
+per-host recovery flags, compute the step cost using the phase-weighted \
+formula.
+6. Repeat steps 2–5 until the policy returns no valid actions or 30 \
+actions have been applied.
 7. Call `produce_validation_report` with the complete per-action results."""
 
 SEQUENCE_MODE_INSTRUCTIONS = """\
@@ -68,13 +72,15 @@ costs. Compare this with the `expected_total_cost` from the RL Agent report. \
 Then call `produce_validation_report` with the complete per-action results."""
 
 QUERY_POLICY_TOOL_DOC = """\
-- **query_policy**: Pass the current state vector (recovery phases + spec \
-states) and receive the RL policy\u2019s recommended action with commands. \
-The policy uses **action masking**: the environment\u2019s `get_action_mask()` \
-marks actions whose effect is already complete (relevant state dimension \
->= 1.0) or whose prerequisites are unmet as invalid, so the policy will \
-never recommend them. This means the policy naturally skips already-completed \
-recovery steps — this is expected behavior, not an error."""
+- **query_policy**: Pass the current state vector (per-host recovery flags \
++ specification dimensions, as defined in the Code Agent Report) and \
+receive the RL policy's recommended action with commands. The tool handles \
+**action masking internally**: it sets the environment state, computes \
+`get_action_mask()`, and passes the mask to `model.predict()` — so \
+already-completed actions are automatically excluded. You do NOT need to \
+track completed actions yourself. The response includes the `action_mask`, \
+`valid_action_count`, and `total_action_count`. Dimension mismatches \
+return a clear error with the expected size."""
 
 SYSTEM_PROMPT_TEMPLATE = """\
 You are an expert cyber-security incident response operator. You are part of a larger autonomous incident response \
