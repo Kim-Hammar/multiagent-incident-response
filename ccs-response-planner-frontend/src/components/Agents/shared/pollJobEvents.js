@@ -66,19 +66,29 @@ export async function pollJobEvents({
       retries = 0
       gotFullBatch = events.length >= EVENT_LIMIT
 
+      // Advance cursor before processing so an onEvent error
+      // cannot leave us re-fetching the same batch forever.
+      nextIndex = next_index
+
       for (const event of events) {
-        if (event.type === 'heartbeat') {
+        try {
+          if (event.type === 'heartbeat') {
+            lastRealEventTime = Date.now()
+            staleNotified = false
+            if (onHeartbeat && event.status) onHeartbeat(event.status)
+            continue
+          }
           lastRealEventTime = Date.now()
           staleNotified = false
-          if (onHeartbeat && event.status) onHeartbeat(event.status)
-          continue
+          onEvent(event)
+        } catch (eventErr) {
+          // Always propagate abort so callers can cancel cleanly.
+          if (eventErr.name === 'AbortError') throw eventErr
+          // Log unexpected processing errors but keep polling —
+          // a frozen UI is worse than a skipped event.
+          console.error('[pollJobEvents] onEvent error (skipped):', eventErr)
         }
-        lastRealEventTime = Date.now()
-        staleNotified = false
-        onEvent(event)
       }
-
-      nextIndex = next_index
 
       if (done) {
         if (error) {

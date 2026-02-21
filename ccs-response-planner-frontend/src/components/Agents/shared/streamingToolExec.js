@@ -34,6 +34,7 @@ export const STREAMING_TOOLS = new Set([
  * @param {AbortSignal} opts.signal - AbortController signal
  * @param {(text: string) => void} opts.onChunk - Callback for each output chunk
  * @param {(event: Object) => void} [opts.onSubEvent] - Callback for sub-agent events
+ * @param {(event: Object) => void} [opts.onDtProgress] - Callback for DT progress events
  * @param {Object} [opts.extraBody] - Extra fields to include in the request body
  * @returns {Promise<{result: Object}>} The final done event as tool result
  */
@@ -46,6 +47,7 @@ export async function executeStreamingTool({
   signal,
   onChunk,
   onSubEvent,
+  onDtProgress,
   extraBody,
   resumeJobId,
   onHeartbeat,
@@ -90,6 +92,13 @@ export async function executeStreamingTool({
     onStale,
     onEvent: (event) => {
       if (event.type === 'heartbeat') return
+      if (
+        (event.type === 'dt_progress' || event.type === 'dt_progress_detail') &&
+        onDtProgress
+      ) {
+        onDtProgress(event)
+        return
+      }
       if (event.type === 'output_chunk') {
         onChunk(event.text)
       } else if (event.type === 'sub_event' && onSubEvent) {

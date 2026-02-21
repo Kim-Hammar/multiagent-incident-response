@@ -41,6 +41,7 @@ export function useAgentSession({
   const [restoredSession, setRestoredSession] = useState(false)
   const [jobs, setJobs] = useState(null)
   const lastSaveRef = useRef(0)
+  const saveAbortRef = useRef(null)
   const pollingRef = useRef(null)
   const pendingProposalRef = useRef(null)
   const contextUsageRef = useRef(null)
@@ -68,6 +69,11 @@ export function useAgentSession({
 
     const save = () => {
       lastSaveRef.current = Date.now()
+      // Cancel any in-flight save so stale PUTs don't pile up
+      // and exhaust the browser's per-host connection limit.
+      if (saveAbortRef.current) saveAbortRef.current.abort()
+      const ac = new AbortController()
+      saveAbortRef.current = ac
       fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
         method: 'PUT',
         headers: {
@@ -79,8 +85,13 @@ export function useAgentSession({
           pending_proposal: pendingProposalRef.current,
           context_usage: contextUsageRef.current,
           ui_state: uiStateRef.current
-        })
-      }).catch((err) => console.warn('Session auto-save failed:', err.message))
+        }),
+        signal: ac.signal
+      }).catch((err) => {
+        if (err.name !== 'AbortError') {
+          console.warn('Session auto-save failed:', err.message)
+        }
+      })
     }
 
     const elapsed = Date.now() - lastSaveRef.current

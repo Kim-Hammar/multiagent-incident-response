@@ -146,6 +146,7 @@ class JobManager:
         def _run() -> None:
             try:
                 gen = generator_fn()
+                _evt_count = 0
                 for event in gen:
                     if job.cancelled:
                         logger.info(
@@ -168,6 +169,12 @@ class JobManager:
                         status = _status_from_event(event)
                         if status is not None:
                             job.last_status = status
+                    # Periodically yield the GIL so Flask
+                    # request threads can serve poll requests
+                    # even during rapid event streaming.
+                    _evt_count += 1
+                    if _evt_count % 50 == 0:
+                        time.sleep(0)
             except Exception as exc:
                 logger.error(
                     "Job %s error: %s",

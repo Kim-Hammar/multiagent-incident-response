@@ -225,6 +225,7 @@ function ResponsePlanner() {
     sessionIdRef.current = value
   }
   const [restoredSession, setRestoredSession] = useState(false)
+  const restoredSessionRef = useRef(false)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
   const isNearBottomRef = useRef(true)
@@ -396,7 +397,7 @@ function ResponsePlanner() {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then((res) => {
-        if (aborted) return null
+        if (aborted || restoredSessionRef.current) return null
         if (res.status === 401) {
           logout()
           return null
@@ -404,8 +405,9 @@ function ResponsePlanner() {
         return res.ok ? res.json() : null
       })
       .then(async (data) => {
-        if (aborted) return
+        if (aborted || restoredSessionRef.current) return
         if (!data || !data.session) {
+          restoredSessionRef.current = true
           setRestoredSession(true)
           return
         }
@@ -476,6 +478,7 @@ function ResponsePlanner() {
           setConversationHistory(history)
           setPendingProposal(null)
           if (!window.location.hash) setActiveTab('planning')
+          restoredSessionRef.current = true
           setRestoredSession(true)
           // Claim this tab as the source and stop multi-tab polling
           isSourceTabRef.current = true
@@ -525,6 +528,7 @@ function ResponsePlanner() {
             setSystemDescriptionImages([])
             setSecurityAlertsImages([])
             setSelectedIncidentId(null)
+            restoredSessionRef.current = true
             setRestoredSession(true)
             return
           }
@@ -558,11 +562,15 @@ function ResponsePlanner() {
           setConversationHistory(history)
           setPendingProposal(proposal)
           if (!window.location.hash) setActiveTab('planning')
+          restoredSessionRef.current = true
           setRestoredSession(true)
         }
       })
       .catch(() => {
-        if (!aborted) setRestoredSession(true)
+        if (!aborted) {
+          restoredSessionRef.current = true
+          setRestoredSession(true)
+        }
       })
     return () => {
       aborted = true
@@ -774,6 +782,56 @@ function ResponsePlanner() {
         return entry
       })
 
+  const handleDtEvent = (event) => {
+    if (event.type === 'dt_progress') {
+      setDtStatus(event.message)
+      setConversationHistory((prev) => {
+        const updated = [...prev]
+        for (const e of updated) {
+          if (e.type === 'dt_redeploy' && !e.done) {
+            e.done = true
+          }
+        }
+        if (event.phase === 'ready') {
+          return [
+            ...updated,
+            {
+              role: 'system',
+              type: 'dt_redeploy',
+              phase: 'ready',
+              message: event.message,
+              done: true,
+              details: [],
+              _startTime: Date.now()
+            }
+          ]
+        }
+        return [
+          ...updated,
+          {
+            role: 'system',
+            type: 'dt_redeploy',
+            phase: event.phase,
+            message: event.message,
+            done: false,
+            details: [],
+            _startTime: Date.now()
+          }
+        ]
+      })
+    } else if (event.type === 'dt_progress_detail') {
+      setConversationHistory((prev) => {
+        const target = [...prev]
+          .reverse()
+          .find((e) => e.type === 'dt_redeploy' && e.phase === event.phase)
+        if (target) {
+          target.details = [...(target.details || []), event.message]
+        }
+        return [...prev]
+      })
+    }
+  }
+
   const callStep = async (history, resumeJobId = null) => {
     setRunning(true)
     const controller = new AbortController()
@@ -841,55 +899,8 @@ function ResponsePlanner() {
           setLivenessStatus('alive')
           if (errorOccurred) return
 
-          if (event.type === 'dt_progress') {
-            setDtStatus(event.message)
-            setConversationHistory((prev) => {
-              const updated = [...prev]
-              for (const e of updated) {
-                if (e.type === 'dt_redeploy' && !e.done) {
-                  e.done = true
-                }
-              }
-              if (event.phase === 'ready') {
-                return [
-                  ...updated,
-                  {
-                    role: 'system',
-                    type: 'dt_redeploy',
-                    phase: 'ready',
-                    message: event.message,
-                    done: true,
-                    details: [],
-                    _startTime: Date.now()
-                  }
-                ]
-              }
-              return [
-                ...updated,
-                {
-                  role: 'system',
-                  type: 'dt_redeploy',
-                  phase: event.phase,
-                  message: event.message,
-                  done: false,
-                  details: [],
-                  _startTime: Date.now()
-                }
-              ]
-            })
-            return
-          }
-
-          if (event.type === 'dt_progress_detail') {
-            setConversationHistory((prev) => {
-              const target = [...prev].reverse().find(
-                (e) => e.type === 'dt_redeploy' && e.phase === event.phase
-              )
-              if (target) {
-                target.details = [...(target.details || []), event.message]
-              }
-              return [...prev]
-            })
+          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            handleDtEvent(event)
             return
           }
 
@@ -1078,6 +1089,10 @@ function ResponsePlanner() {
         onEvent: (event) => {
           setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
+          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            handleDtEvent(event)
+            return
+          }
           if (event.type === 'output_chunk') {
             streamEntry.output += event.text
             setConversationHistory((prev) => [...prev])
@@ -1421,6 +1436,7 @@ function ResponsePlanner() {
             }
             setConversationHistory((prev) => [...prev])
           },
+          onDtProgress: handleDtEvent,
           extraBody,
           onHeartbeat: (status) => {
             setLastHeartbeatTime(Date.now())
@@ -1533,6 +1549,8 @@ function ResponsePlanner() {
   }
 
   const loadExample = async (incidentId) => {
+    restoredSessionRef.current = true
+    setRestoredSession(true)
     setSelectedIncidentId(incidentId)
     try {
       const res = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
