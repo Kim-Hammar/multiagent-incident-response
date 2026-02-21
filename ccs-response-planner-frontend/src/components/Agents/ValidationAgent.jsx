@@ -260,7 +260,7 @@ function ValidationAgent() {
             code_report: codeReport,
             planner_report: plannerReport,
             conversation_history: history,
-            images: [...systemDescriptionImages, ...incidentReportImages],
+            images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             compaction_model: compactionModel || undefined,
             compaction_threshold: compactionThreshold / 100,
@@ -441,6 +441,7 @@ function ValidationAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    setRunning(true)
     await createSession(
       {
         systemDescription,
@@ -781,7 +782,7 @@ function ValidationAgent() {
     const data = await res.json()
     return {
       text: data.prompt || '',
-      images: [...systemDescriptionImages, ...incidentReportImages]
+      images: [...systemDescriptionImages]
     }
   }
 

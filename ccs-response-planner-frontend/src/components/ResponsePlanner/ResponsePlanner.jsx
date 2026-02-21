@@ -1108,6 +1108,7 @@ function ResponsePlanner() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    setRunning(true)
     try {
       const res = await fetch(API_AGENTS_SESSIONS_URL, {
         method: 'POST',

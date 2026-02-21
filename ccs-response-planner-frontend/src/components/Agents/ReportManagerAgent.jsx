@@ -533,6 +533,7 @@ function ReportManagerAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    setRunning(true)
     managerStartTimeRef.current = Date.now()
     await createSession(
       {

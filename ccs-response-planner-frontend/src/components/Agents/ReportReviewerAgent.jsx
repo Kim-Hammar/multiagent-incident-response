@@ -434,6 +434,7 @@ function ReportReviewerAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    setRunning(true)
     await createSession(
       {
         systemDescription,
@@ -623,7 +624,8 @@ function ReportReviewerAgent() {
       if (reportsRes.ok) {
         const reports = await reportsRes.json()
         if (reports.length > 0) {
-          const { attack_path_image, ...reportText } = reports[0].report || {}
+          const reportText = { ...(reports[0].report || {}) }
+          delete reportText.attack_path_image
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }

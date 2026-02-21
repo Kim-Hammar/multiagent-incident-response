@@ -422,6 +422,7 @@ function CodeReviewerAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    setRunning(true)
     await createSession(
       {
         systemDescription,
@@ -622,7 +623,8 @@ function CodeReviewerAgent() {
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
-          const { attack_path_image, ...reportText } = infoReports[0].report || {}
+          const reportText = { ...(infoReports[0].report || {}) }
+          delete reportText.attack_path_image
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }

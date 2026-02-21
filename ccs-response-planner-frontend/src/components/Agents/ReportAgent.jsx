@@ -442,6 +442,7 @@ function ReportAgent() {
     setContextUsage(null)
     attackPathImageRef.current = null
     setActiveTab('planning')
+    setRunning(true)
     await createSession(
       {
         systemDescription,

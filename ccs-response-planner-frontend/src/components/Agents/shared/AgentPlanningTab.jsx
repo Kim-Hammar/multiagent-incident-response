@@ -74,7 +74,7 @@ function AgentPlanningTab({
 
   return (
     <>
-      {dtStatus && running && conversationHistory.length === 0 && (
+      {running && conversationHistory.length === 0 && (
         <div
           style={{
             marginTop: '16px',
@@ -87,7 +87,7 @@ function AgentPlanningTab({
           }}
         >
           <i className="fa fa-refresh fa-spin" style={{ marginRight: '8px' }} />
-          {dtStatus}
+          {dtStatus || 'Starting agent...'}
         </div>
       )}
       {showToolbar && (

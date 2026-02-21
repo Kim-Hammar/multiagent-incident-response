@@ -670,6 +670,7 @@ function OrchestratorAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    setRunning(true)
     managerStartTimeRef.current = Date.now()
     await createSession(selectedIncidentId)
     callStep([])

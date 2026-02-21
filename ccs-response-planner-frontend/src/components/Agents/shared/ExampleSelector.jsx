@@ -9,6 +9,7 @@ function ExampleSelector({ onLoad, disabled }) {
   const { token } = useAuth()
   const [examples, setExamples] = useState([])
   const [selectedId, setSelectedId] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     fetch(API_EXAMPLES_URL, {
@@ -19,13 +20,22 @@ function ExampleSelector({ onLoad, disabled }) {
       .catch(() => {})
   }, [token])
 
+  const handleLoad = async () => {
+    setLoading(true)
+    try {
+      await onLoad(selectedId)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <>
       <select
         className="form-control form-control-sm ia-model-select"
         value={selectedId}
         onChange={(e) => setSelectedId(e.target.value)}
-        disabled={disabled}
+        disabled={disabled || loading}
         style={{ width: '180px', display: 'inline-block', marginRight: '4px' }}
       >
         <option value="">Select an incident...</option>
@@ -38,10 +48,15 @@ function ExampleSelector({ onLoad, disabled }) {
       <button
         type="button"
         className="btn btn-outline-dark btn-sm ia-btn"
-        onClick={() => onLoad(selectedId)}
-        disabled={!selectedId || disabled}
+        onClick={handleLoad}
+        disabled={!selectedId || disabled || loading}
       >
-        <i className="fa fa-download" aria-hidden="true" /> Load example
+        {loading ? (
+          <i className="fa fa-spinner fa-spin" aria-hidden="true" />
+        ) : (
+          <i className="fa fa-download" aria-hidden="true" />
+        )}
+        {loading ? ' Loading...' : ' Load example'}
       </button>
     </>
   )

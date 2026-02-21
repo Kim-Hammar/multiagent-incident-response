@@ -566,6 +566,7 @@ function PlanManagerAgent() {
     setExpandedEntries({})
     setContextUsage(null)
     setActiveTab('planning')
+    setRunning(true)
     managerStartTimeRef.current = Date.now()
     await createSession(
       {
@@ -845,7 +846,8 @@ function PlanManagerAgent() {
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
-          const { attack_path_image, ...reportText } = infoReports[0].report || {}
+          const reportText = { ...(infoReports[0].report || {}) }
+          delete reportText.attack_path_image
           setIncidentReport(JSON.stringify(reportText, null, 2))
         }
       }
