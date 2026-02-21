@@ -956,6 +956,7 @@ function CodeReviewerAgent() {
 
       {activeTab === 'planning' && (
         <AgentPlanningTab
+          loading={!restoredSession}
           running={running}
           conversationHistory={conversationHistory}
           expandedEntries={expandedEntries}

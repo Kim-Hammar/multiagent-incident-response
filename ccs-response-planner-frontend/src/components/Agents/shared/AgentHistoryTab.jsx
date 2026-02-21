@@ -137,7 +137,8 @@ function AgentHistoryTab({
                   </span>
                 )}
                 <span style={{ color: '#6c757d', marginLeft: '8px' }}>
-                  <i className="fa fa-microchip" aria-hidden="true" /> {entry.model_name || 'Default'}
+                  <i className="fa fa-microchip" aria-hidden="true" />{' '}
+                  {entry.model_name || 'Default'}
                 </span>
               </span>
               <i

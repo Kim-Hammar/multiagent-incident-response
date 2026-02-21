@@ -8,6 +8,7 @@ import PromptModal from './PromptModal.jsx'
  * Shows a placeholder when no conversation exists and the agent isn't running.
  */
 function AgentPlanningTab({
+  loading,
   running,
   conversationHistory,
   expandedEntries,
@@ -63,6 +64,20 @@ function AgentPlanningTab({
   }
 
   if (conversationHistory.length === 0 && !running) {
+    if (loading) {
+      return (
+        <div className="text-center" style={{ padding: '48px 0' }}>
+          <div
+            className="spinner-border"
+            role="status"
+            style={{ width: '2.5rem', height: '2.5rem' }}
+          >
+            <span className="sr-only">Loading...</span>
+          </div>
+          <p className="text-muted mt-3">Loading planning process...</p>
+        </div>
+      )
+    }
     return (
       <p style={{ fontSize: '13px', color: '#6c757d', marginTop: '16px' }}>
         No activity yet. Configure and run the agent to see the planning process.

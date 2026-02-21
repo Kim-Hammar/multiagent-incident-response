@@ -1,5 +1,7 @@
 #!/bin/bash
 DIR="$(cd "$(dirname "$0")" && pwd)"
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 echo "=== Backend tests (pytest) ==="
 cd "$DIR/ccs-response-planner-backend" || exit 1

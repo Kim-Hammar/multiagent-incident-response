@@ -749,11 +749,7 @@ function ReportReviewerAgent() {
     const data = await res.json()
     return {
       text: data.prompt || '',
-      images: [
-        ...systemDescriptionImages,
-        ...securityAlertsImages,
-        ...operatorFeedbackImages
-      ]
+      images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages]
     }
   }
 
@@ -970,6 +966,7 @@ function ReportReviewerAgent() {
 
       {activeTab === 'planning' && (
         <AgentPlanningTab
+          loading={!restoredSession}
           running={running}
           conversationHistory={conversationHistory}
           expandedEntries={expandedEntries}
