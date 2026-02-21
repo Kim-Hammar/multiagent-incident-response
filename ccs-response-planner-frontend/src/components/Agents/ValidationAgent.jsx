@@ -1030,7 +1030,6 @@ function ValidationAgent() {
               toggleEntry={() => {}}
             />
           )}
-          renderFinalReport={renderFinalReport}
           token={token}
           logout={logout}
         />

@@ -327,16 +327,12 @@ function OrchestratorAgent() {
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
       if (session.incident_id) setSelectedIncidentId(session.incident_id)
     },
-    onResumeJob: (job) => {
+    onResumeJob: (sessionId, session, toolName, originalStartTime) => {
       setActiveTab('planning')
-      if (job.tool_name) {
-        resumeToolJob(
-          job.id,
-          job.tool_name,
-          job.started_at ? new Date(job.started_at).getTime() : Date.now()
-        )
+      if (toolName) {
+        resumeToolJob(sessionId, toolName, originalStartTime)
       } else {
-        callStep(conversationHistoryRef.current)
+        callStep(conversationHistoryRef.current, sessionId)
       }
     }
   })
@@ -478,7 +474,7 @@ function OrchestratorAgent() {
     }
     const controller = new AbortController()
     abortControllerRef.current = controller
-    const streamingEntry = { role: 'model', type: 'streaming', text: '' }
+    const streamingEntry = { role: 'model', type: 'streaming', text: '', _startTime: Date.now() }
     setConversationHistory((prev) => [...prev, streamingEntry])
     let job_id = resumeJobId
     try {
@@ -536,6 +532,10 @@ function OrchestratorAgent() {
         onEvent: (event) => {
           setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
+          if (event.ts && !streamingEntry._tsAdjusted) {
+            streamingEntry._startTime = event.ts
+            streamingEntry._tsAdjusted = true
+          }
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             streamingEntry.text = accumulated
