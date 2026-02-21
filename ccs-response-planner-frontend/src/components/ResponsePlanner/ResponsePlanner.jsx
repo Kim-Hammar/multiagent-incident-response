@@ -366,6 +366,7 @@ function ResponsePlanner() {
     if (!sid) return
 
     const save = () => {
+      if (!isSourceTabRef.current || !sessionIdRef.current) return
       lastSaveRef.current = Date.now()
       // Cancel any in-flight save so stale PUTs don't pile up
       // and exhaust the browser's per-host connection limit.
