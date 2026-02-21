@@ -39,7 +39,7 @@ export function useAgentSession({
   const sessionIdRef = useRef(null)
   const isSourceTabRef = useRef(false)
   const [restoredSession, setRestoredSession] = useState(false)
-  const [jobs, setJobs] = useState([])
+  const [jobs, setJobs] = useState(null)
   const lastSaveRef = useRef(0)
   const pollingRef = useRef(null)
   const pendingProposalRef = useRef(null)
@@ -318,7 +318,7 @@ export function useAgentSession({
   }
 
   const removeAllDoneJobs = async () => {
-    const done = jobs.filter((j) => j.done)
+    const done = (jobs || []).filter((j) => j.done)
     for (const j of done) {
       try {
         await fetch(`${API_AGENTS_JOBS_URL}/${j.job_id}`, {

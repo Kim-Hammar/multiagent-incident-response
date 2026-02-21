@@ -236,7 +236,7 @@ function ResponsePlanner() {
   const pollingRef = useRef(null)
   const lastSaveRef = useRef(0)
   const callStepRef = useRef(null)
-  const [jobs, setJobs] = useState([])
+  const [jobs, setJobs] = useState(null)
 
   const fetchJobs = async () => {
     try {
@@ -277,7 +277,7 @@ function ResponsePlanner() {
   }
 
   const removeAllDoneJobs = async () => {
-    const done = jobs.filter((j) => j.done)
+    const done = (jobs || []).filter((j) => j.done)
     for (const j of done) {
       try {
         await fetch(`${API_AGENTS_JOBS_URL}/${j.job_id}`, {

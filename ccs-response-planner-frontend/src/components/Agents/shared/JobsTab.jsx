@@ -56,7 +56,7 @@ function JobsTab({ jobs, fetchJobs, cancelJob, removeJob, removeAllDoneJobs }) {
             </>
           )}
         </button>
-        {jobs.some((j) => j.done) && (
+        {jobs?.some((j) => j.done) && (
           <button
             className="btn btn-sm btn-outline-danger ia-btn"
             onClick={handleRemoveAllDone}
@@ -77,7 +77,20 @@ function JobsTab({ jobs, fetchJobs, cancelJob, removeJob, removeAllDoneJobs }) {
           </button>
         )}
       </div>
-      {jobs.length === 0 ? (
+      {!jobs ? (
+        <div className="text-center" style={{ padding: '24px 0' }}>
+          <div
+            className="spinner-border"
+            role="status"
+            style={{ width: '1.5rem', height: '1.5rem' }}
+          >
+            <span className="sr-only">Loading...</span>
+          </div>
+          <p className="text-muted mt-2" style={{ fontSize: '13px' }}>
+            Loading jobs...
+          </p>
+        </div>
+      ) : jobs.length === 0 ? (
         <p className="text-muted">No jobs tracked.</p>
       ) : (
         <div className="table-responsive">
