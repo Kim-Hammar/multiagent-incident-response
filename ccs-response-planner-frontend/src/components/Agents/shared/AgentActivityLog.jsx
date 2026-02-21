@@ -1360,14 +1360,18 @@ function AgentActivityLog({
           if (entry.type === 'error') {
             const d = entry.errorDetail
             const errorType = d?.error_type || ''
-            const isTimeout =
-              /timeout|timed.out|idle.for/i.test(errorType) ||
-              /timeout|timed.out|idle.for/i.test(entry.message)
-            const headerLabel = isTimeout
+            const isLLMTimeout = errorType === 'AgentTimeoutError'
+            const isNetworkTimeout =
+              !isLLMTimeout &&
+              (/timeout|timed.out/i.test(errorType) ||
+                /timeout|timed.out/i.test(entry.message))
+            const headerLabel = isLLMTimeout
               ? 'LLM call timed out'
-              : errorType
-                ? `Error: ${errorType}`
-                : 'Agent step failed'
+              : isNetworkTimeout
+                ? 'Connection to server timed out'
+                : errorType
+                  ? `Error: ${errorType}`
+                  : 'Agent step failed'
             return (
               <div key={index} className="card ia-entry border-danger">
                 <div className="card-body">
@@ -1376,6 +1380,11 @@ function AgentActivityLog({
                     <span className="ia-tool-name">{headerLabel}</span>
                   </div>
                   <p className="ia-error-message mb-0">{entry.message}</p>
+                  {isNetworkTimeout && (
+                    <p className="text-muted mb-0" style={{ fontSize: '12px' }}>
+                      The server may still be processing. Try refreshing the page to reconnect.
+                    </p>
+                  )}
                   {d && (
                     <div className="ia-error-detail">
                       {d.agent_name && (

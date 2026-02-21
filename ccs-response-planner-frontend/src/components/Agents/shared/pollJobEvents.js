@@ -32,7 +32,7 @@ export async function pollJobEvents({
 }) {
   let nextIndex = 0
   let retries = 0
-  const MAX_RETRIES = 5
+  const MAX_RETRIES = 15
   let lastRealEventTime = Date.now()
   let staleNotified = false
 
@@ -41,8 +41,8 @@ export async function pollJobEvents({
 
     try {
       const fetchSignal = signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
-        : AbortSignal.timeout(10000)
+        ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
+        : AbortSignal.timeout(30000)
 
       const res = await fetch(`${API_BASE}/${jobId}/events?after=${nextIndex}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -88,6 +88,7 @@ export async function pollJobEvents({
       if ((err.name === 'TimeoutError' || err.name === 'TypeError') && retries < MAX_RETRIES) {
         retries++
       } else {
+        err._source = 'poll_network'
         throw err
       }
     }
