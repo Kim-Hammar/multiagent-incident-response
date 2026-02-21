@@ -1,10 +1,30 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 
 /**
  * Shared Jobs tab component — shows all background jobs with
  * cancel/remove controls.
  */
 function JobsTab({ jobs, fetchJobs, cancelJob, removeJob, removeAllDoneJobs }) {
+  const [refreshing, setRefreshing] = useState(false)
+  const [removingDone, setRemovingDone] = useState(false)
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.resolve(fetchJobs())
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const handleRemoveAllDone = async () => {
+    setRemovingDone(true)
+    try {
+      await Promise.resolve(removeAllDoneJobs())
+    } finally {
+      setRemovingDone(false)
+    }
+  }
   const ago = (ms) => {
     const s = Math.round((Date.now() - ms) / 1000)
     if (s < 60) return `${s}s ago`
@@ -15,12 +35,44 @@ function JobsTab({ jobs, fetchJobs, cancelJob, removeJob, removeAllDoneJobs }) {
   return (
     <div style={{ marginTop: '16px' }}>
       <div className="d-flex mb-2" style={{ gap: '8px' }}>
-        <button className="btn btn-sm btn-outline-secondary ia-btn" onClick={fetchJobs}>
-          <i className="fa fa-refresh" /> Refresh
+        <button
+          className="btn btn-sm btn-outline-secondary ia-btn"
+          onClick={handleRefresh}
+          disabled={refreshing}
+        >
+          {refreshing ? (
+            <>
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                style={{ width: '10px', height: '10px', marginRight: '4px' }}
+              />
+              Refreshing...
+            </>
+          ) : (
+            <>
+              <i className="fa fa-refresh" /> Refresh
+            </>
+          )}
         </button>
         {jobs.some((j) => j.done) && (
-          <button className="btn btn-sm btn-outline-danger ia-btn" onClick={removeAllDoneJobs}>
-            Remove all done
+          <button
+            className="btn btn-sm btn-outline-danger ia-btn"
+            onClick={handleRemoveAllDone}
+            disabled={removingDone}
+          >
+            {removingDone ? (
+              <>
+                <span
+                  className="spinner-border spinner-border-sm"
+                  role="status"
+                  style={{ width: '10px', height: '10px', marginRight: '4px' }}
+                />
+                Removing...
+              </>
+            ) : (
+              'Remove all done'
+            )}
           </button>
         )}
       </div>

@@ -23,6 +23,7 @@ function AgentHistoryTab({
   const [loadedHistory, setLoadedHistory] = useState({})
   const [loadingHistory, setLoadingHistory] = useState({})
   const [processExpanded, setProcessExpanded] = useState({})
+  const [deletingAll, setDeletingAll] = useState(false)
   const logEndRef = useRef(null)
 
   const fetchConversationHistory = async (reportId) => {
@@ -76,13 +77,32 @@ function AgentHistoryTab({
             type="button"
             className="btn btn-outline-danger btn-sm"
             style={{ fontSize: '11px', padding: '2px 10px' }}
-            onClick={() => {
+            disabled={deletingAll}
+            onClick={async () => {
               if (window.confirm('Delete all reports? This cannot be undone.')) {
-                deleteAllReports()
+                setDeletingAll(true)
+                try {
+                  await Promise.resolve(deleteAllReports())
+                } finally {
+                  setDeletingAll(false)
+                }
               }
             }}
           >
-            <i className="fa fa-trash" aria-hidden="true" /> Delete all
+            {deletingAll ? (
+              <>
+                <span
+                  className="spinner-border spinner-border-sm"
+                  role="status"
+                  style={{ width: '10px', height: '10px', marginRight: '4px' }}
+                />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <i className="fa fa-trash" aria-hidden="true" /> Delete all
+              </>
+            )}
           </button>
         </div>
       )}

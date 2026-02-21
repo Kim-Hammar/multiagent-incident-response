@@ -901,17 +901,12 @@ function SubAgentLog({
           const lastEv = subEvents[subEvents.length - 1]
           const lastShowsSpinner =
             lastEv &&
-            (lastEv.type === 'reasoning' ||
-              lastEv.type === 'text' ||
-              lastEv.type === 'tool_call')
+            (lastEv.type === 'reasoning' || lastEv.type === 'text' || lastEv.type === 'tool_call')
           if (lastShowsSpinner) return null
           return (
             <div className="ia-sub-entry ia-sub-reasoning">
               <div className="ia-sub-entry-header">
-                <span
-                  className={`ia-liveness-dot ${livenessStatus}`}
-                  data-tooltip={dotTooltip}
-                />
+                <span className={`ia-liveness-dot ${livenessStatus}`} data-tooltip={dotTooltip} />
                 <div className="spinner-border spinner-border-sm" role="status">
                   <span className="sr-only">Loading...</span>
                 </div>
