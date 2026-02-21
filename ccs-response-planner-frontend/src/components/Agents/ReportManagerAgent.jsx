@@ -107,8 +107,6 @@ function ReportManagerAgent() {
   const [lastHeartbeatTime, setLastHeartbeatTime] = useState(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
   const [heartbeatStatus, setHeartbeatStatus] = useState('')
-  const managerStartTimeRef = useRef(null)
-
   const {
     conversationHistory,
     setConversationHistory,
@@ -551,7 +549,6 @@ function ReportManagerAgent() {
     setContextUsage(null)
     setActiveTab('planning')
     setRunning(true)
-    managerStartTimeRef.current = Date.now()
     await createSession(
       {
         systemDescription,
@@ -599,7 +596,7 @@ function ReportManagerAgent() {
         output: '',
         subEvents: [],
         _modelName: subModel || undefined,
-        _startTime: managerStartTimeRef.current || Date.now()
+        _startTime: Date.now()
       }
       const latestHistory = conversationHistoryRef.current
       const base = [...latestHistory, approvalEntry, streamEntry]

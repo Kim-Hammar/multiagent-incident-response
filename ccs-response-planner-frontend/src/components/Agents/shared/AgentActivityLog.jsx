@@ -298,7 +298,7 @@ function renderOrchestratorArgs(toolName, args) {
                   typeof args.previous_assessment === 'string'
                     ? JSON.parse(args.previous_assessment)
                     : args.previous_assessment
-                if (parsed && typeof parsed === 'object' && parsed.incident_summary) {
+                if (parsed && typeof parsed === 'object') {
                   return <AssessmentBody report={parsed} />
                 }
               } catch {
@@ -916,7 +916,7 @@ function SubAgentLog({
           const lastShowsSpinner =
             lastEv &&
             (lastEv.type === 'reasoning' || lastEv.type === 'text' || lastEv.type === 'tool_call' ||
-              RL_STREAMING_TYPES.has(lastEv.type))
+              lastEv.type === 'tool_result' || RL_STREAMING_TYPES.has(lastEv.type))
           if (lastShowsSpinner) return null
           return (
             <div className="ia-sub-entry ia-sub-reasoning">
@@ -1294,14 +1294,31 @@ function AgentActivityLog({
                           lastHeartbeatTime={lastHeartbeatTime}
                         />
                       ) : (
-                        entry.output && (
-                          <pre
-                            className="ia-terminal-output"
-                            style={{ maxHeight: '400px', overflow: 'auto' }}
-                          >
-                            {entry.output}
-                          </pre>
-                        )
+                        <>
+                          {entry.output && (
+                            <pre
+                              className="ia-terminal-output"
+                              style={{ maxHeight: '400px', overflow: 'auto' }}
+                            >
+                              {entry.output}
+                            </pre>
+                          )}
+                          {!entry.stopped && (
+                            <div className="ia-sub-entry ia-sub-reasoning">
+                              <div className="ia-sub-entry-header">
+                                <span
+                                  className={`ia-liveness-dot ${livenessStatus}`}
+                                  data-tooltip={tsDotTooltip}
+                                />
+                                <div className="spinner-border spinner-border-sm" role="status">
+                                  <span className="sr-only">Loading...</span>
+                                </div>
+                                <i className="fa fa-hourglass-half" aria-hidden="true" />
+                                <span>Waiting for agent response...</span>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </>
                   )}

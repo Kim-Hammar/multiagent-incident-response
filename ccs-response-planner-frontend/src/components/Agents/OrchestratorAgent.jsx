@@ -243,8 +243,6 @@ function OrchestratorAgent() {
   const [lastHeartbeatTime, setLastHeartbeatTime] = useState(Date.now())
   const [livenessStatus, setLivenessStatus] = useState('alive')
   const [heartbeatStatus, setHeartbeatStatus] = useState('')
-  const managerStartTimeRef = useRef(null)
-
   const {
     conversationHistory,
     setConversationHistory,
@@ -686,7 +684,6 @@ function OrchestratorAgent() {
     setContextUsage(null)
     setActiveTab('planning')
     setRunning(true)
-    managerStartTimeRef.current = Date.now()
     await createSession(selectedIncidentId)
     callStep([])
   }
@@ -712,7 +709,7 @@ function OrchestratorAgent() {
         tool_name: proposal.tool_name,
         output: '',
         subEvents: [],
-        _startTime: managerStartTimeRef.current || Date.now()
+        _startTime: Date.now()
       }
       const historyForBackend = conversationHistoryRef.current
       setConversationHistory((prev) => [...prev, approvalEntry, streamEntry])
