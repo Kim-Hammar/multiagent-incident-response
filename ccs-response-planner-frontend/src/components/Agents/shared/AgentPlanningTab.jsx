@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AgentActivityLog from './AgentActivityLog.jsx'
 import ContextModal from './ContextModal.jsx'
 import PromptModal from './PromptModal.jsx'
+import { DEFAULT_MODEL_NAME } from '../../Common/constants.js'
 
 /**
  * Planning process tab — wraps AgentActivityLog.
@@ -125,7 +126,7 @@ function AgentPlanningTab({
             }}
           >
             <i className="fa fa-microchip" aria-hidden="true" style={{ marginRight: '4px' }} />
-            LLM: {modelName || 'Default'}
+            LLM: {modelName || DEFAULT_MODEL_NAME}
           </span>
           {onViewPrompt && (
             <button

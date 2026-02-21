@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import AgentActivityLog from './AgentActivityLog.jsx'
-import { API_AGENTS_REPORTS_URL } from '../../Common/constants.js'
+import { API_AGENTS_REPORTS_URL, DEFAULT_MODEL_NAME } from '../../Common/constants.js'
 
 /**
  * Shared history tab for all agents.
@@ -138,7 +138,7 @@ function AgentHistoryTab({
                 )}
                 <span style={{ color: '#6c757d', marginLeft: '8px' }}>
                   <i className="fa fa-microchip" aria-hidden="true" />{' '}
-                  {entry.model_name || 'Default'}
+                  {entry.model_name || DEFAULT_MODEL_NAME}
                 </span>
               </span>
               <i

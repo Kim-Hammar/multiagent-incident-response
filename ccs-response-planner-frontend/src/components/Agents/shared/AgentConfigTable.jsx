@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PromptModal from './PromptModal.jsx'
+import { DEFAULT_MODEL_NAME } from '../../Common/constants.js'
 
 /**
  * Reusable table for configuring LLM models, iteration limits,
@@ -37,7 +38,7 @@ function AgentConfigTable({ rows, models, isAgentBusy, token, getPromptBody }) {
 
   const modelOptions = (
     <>
-      <option value="">Default (Gemini 3 Pro)</option>
+      <option value="">Default ({DEFAULT_MODEL_NAME})</option>
       {models.map((m) => (
         <option key={m.name} value={m.name}>
           {m.display_name}
