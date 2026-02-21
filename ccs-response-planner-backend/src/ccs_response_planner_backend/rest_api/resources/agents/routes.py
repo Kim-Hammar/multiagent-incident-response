@@ -130,6 +130,27 @@ logger = logging.getLogger(__name__)
 
 _DT_TOOLS = {"dt_exec", "generate_attack_image"}
 
+
+def _make_error_event(exc: Exception) -> dict[str, Any]:
+    """
+    Build a structured error event with optional detail.
+
+    :param exc: the exception that occurred
+    :return: an error event dict
+    """
+    event: dict[str, Any] = {
+        "type": "error", "message": str(exc),
+    }
+    if hasattr(exc, "to_error_detail"):
+        event["errorDetail"] = exc.to_error_detail()
+    else:
+        event["errorDetail"] = {
+            "message": str(exc),
+            "error_type": type(exc).__name__,
+        }
+    return event
+
+
 agents_bp = Blueprint(
     API.AGENTS_RESOURCE, __name__,
     url_prefix=f"{API.PREFIX}/{API.AGENTS_RESOURCE}",
@@ -303,8 +324,9 @@ def _save_step_result(
         for ev in events:
             ev_type = ev.get("type", "")
             if ev_type in ("text", "thinking"):
-                accumulated_text += ev.get(
-                    "text", "",
+                accumulated_text += (
+                    ev.get("delta", "")
+                    or ev.get("full_text", "")
                 )
             elif ev_type == "tool_proposal":
                 final_entry = ev
@@ -342,14 +364,15 @@ def _save_step_result(
             if e.get("type") != "streaming"
         ]
 
-        last_type = (
-            history[-1].get("type") if history else None
-        )
-        if final_entry and last_type == final_entry.get(
-            "type"
-        ):
-            pass  # Source tab already saved this
-        else:
+        # Check if already present anywhere in history
+        already_saved = any(
+            e.get("type") == final_entry.get("type")
+            and e.get("tool_name") == final_entry.get(
+                "tool_name",
+            )
+            for e in history
+        ) if final_entry else False
+        if not already_saved:
             if accumulated_text:
                 history.append({
                     "role": "model",
@@ -425,10 +448,10 @@ def _save_tool_result(
         )
 
         if done_event:
-            last = history[-1] if history else {}
-            already_saved = (
-                last.get("type") == "tool_result"
-                and last.get("tool_name") == tool_name
+            already_saved = any(
+                e.get("type") == "tool_result"
+                and e.get("tool_name") == tool_name
+                for e in history
             )
             if not already_saved:
                 result = done_event.get("result", {})
@@ -629,9 +652,7 @@ def agents_report_step() -> tuple[Response, int]:
                 compaction_threshold=compaction_threshold,
             )
         except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
+            yield _make_error_event(e)
 
     job_manager.start_job(
         job_id, run, on_complete=on_complete,
@@ -912,9 +933,7 @@ def agents_validation_step() -> tuple[Response, int]:
                 ),
             )
         except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
+            yield _make_error_event(e)
 
     job_manager.start_job(
         job_id, run, on_complete=on_complete,
@@ -1165,9 +1184,7 @@ def agents_code_step() -> tuple[Response, int]:
                 compaction_threshold=compaction_threshold,
             )
         except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
+            yield _make_error_event(e)
 
     job_manager.start_job(
         job_id, run, on_complete=on_complete,
@@ -1395,9 +1412,7 @@ def agents_code_review_step() -> tuple[Response, int]:
                 compaction_threshold=compaction_threshold,
             )
         except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
+            yield _make_error_event(e)
 
     job_manager.start_job(
         job_id, run, on_complete=on_complete,
@@ -2225,9 +2240,7 @@ def agents_code_manager_step() -> (
                 ),
             )
         except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
+            yield _make_error_event(e)
 
     job_manager.start_job(
         job_id, run, on_complete=on_complete,
@@ -2531,9 +2544,7 @@ def agents_rl_step() -> tuple[Response, int]:
                 compaction_threshold=compaction_threshold,
             )
         except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
+            yield _make_error_event(e)
 
     job_manager.start_job(
         job_id, run, on_complete=on_complete,
@@ -2766,9 +2777,7 @@ def agents_plan_manager_step() -> (
                 ),
             )
         except Exception as e:
-            yield {
-                "type": "error", "message": str(e),
-            }
+            yield _make_error_event(e)
 
     job_manager.start_job(
         job_id, run, on_complete=on_complete,

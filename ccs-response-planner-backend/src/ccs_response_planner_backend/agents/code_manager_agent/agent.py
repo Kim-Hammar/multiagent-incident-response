@@ -5,10 +5,12 @@ generate-review-revise loop.
 """
 import base64
 import json
+import logging
 import os
 import re
 from typing import Any, Generator
 
+import httpx
 from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
@@ -35,6 +37,8 @@ from ccs_response_planner_backend.agents.code_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
+
+logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3-pro-preview"
 CONTEXT_LIMIT = 1_048_576
@@ -462,11 +466,32 @@ class CodeManagerAgent:
                 )
             else:
                 yield from fn(**tool_args)
+        except (
+            TimeoutError, OSError,
+            httpx.TimeoutException,
+        ):
+            raise
         except Exception as e:
-            yield {
+            logger.error(
+                "execute_tool_stream(%s) error: "
+                "%s: %s",
+                tool_name, type(e).__name__, e,
+                exc_info=True,
+            )
+            event: dict[str, Any] = {
                 "type": "error",
                 "message": str(e),
             }
+            if hasattr(e, "to_error_detail"):
+                event["errorDetail"] = (
+                    e.to_error_detail()
+                )
+            else:
+                event["errorDetail"] = {
+                    "message": str(e),
+                    "error_type": type(e).__name__,
+                }
+            yield event
 
     @staticmethod
     def _serialize_part(part: Any) -> dict[str, Any]:

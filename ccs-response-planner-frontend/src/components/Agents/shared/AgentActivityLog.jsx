@@ -1360,7 +1360,9 @@ function AgentActivityLog({
           if (entry.type === 'error') {
             const d = entry.errorDetail
             const errorType = d?.error_type || ''
-            const isTimeout = /timeout/i.test(errorType) || /timeout/i.test(entry.message)
+            const isTimeout =
+              /timeout|timed.out|idle.for/i.test(errorType) ||
+              /timeout|timed.out|idle.for/i.test(entry.message)
             const headerLabel = isTimeout
               ? 'LLM call timed out'
               : errorType
@@ -1376,6 +1378,21 @@ function AgentActivityLog({
                   <p className="ia-error-message mb-0">{entry.message}</p>
                   {d && (
                     <div className="ia-error-detail">
+                      {d.agent_name && (
+                        <span className="ia-error-detail-item">
+                          <strong>Agent:</strong> {d.agent_name}
+                        </span>
+                      )}
+                      {d.step_number > 0 && (
+                        <span className="ia-error-detail-item">
+                          <strong>Step:</strong> {d.step_number}
+                        </span>
+                      )}
+                      {d.model_name && (
+                        <span className="ia-error-detail-item">
+                          <strong>Model:</strong> {d.model_name}
+                        </span>
+                      )}
                       {d.last_status && (
                         <span className="ia-error-detail-item">
                           <strong>Last status:</strong> {d.last_status}

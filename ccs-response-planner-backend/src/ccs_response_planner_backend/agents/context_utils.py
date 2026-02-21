@@ -355,7 +355,9 @@ def compact_context(
         api_key = os.environ.get(
             "GEMINI_API_KEY", "",
         )
-        gem_client: Any = genai.Client(api_key=api_key)
+        gem_client: Any = genai.Client(
+            api_key=api_key,
+        )
         gem_resp = gem_client.models.generate_content(
             model=model_name,
             contents=prompt,

@@ -18,7 +18,16 @@ import {
  * @param {function} [opts.onRestore] - called with session data on restore
  * @param {function} [opts.onResumeJob] - called when a running job is found
  */
-export function useAgentSession({ agentType, token, logout, activeTab, onRestore, onResumeJob }) {
+export function useAgentSession({
+  agentType,
+  token,
+  logout,
+  activeTab,
+  incidentInputs,
+  agentConfig,
+  onRestore,
+  onResumeJob
+}) {
   const [conversationHistory, rawSetConversationHistory] = useState([])
   const conversationHistoryRef = useRef([])
   const setConversationHistory = (value) => {
@@ -36,6 +45,10 @@ export function useAgentSession({ agentType, token, logout, activeTab, onRestore
   const pendingProposalRef = useRef(null)
   const contextUsageRef = useRef(null)
   const uiStateRef = useRef(null)
+  const incidentInputsRef = useRef(incidentInputs)
+  incidentInputsRef.current = incidentInputs
+  const agentConfigRef = useRef(agentConfig)
+  agentConfigRef.current = agentConfig
 
   const setPendingProposalRef = (v) => {
     pendingProposalRef.current = v
@@ -67,7 +80,7 @@ export function useAgentSession({ agentType, token, logout, activeTab, onRestore
           context_usage: contextUsageRef.current,
           ui_state: uiStateRef.current
         })
-      }).catch(() => {})
+      }).catch((err) => console.warn('Session auto-save failed:', err.message))
     }
 
     const elapsed = Date.now() - lastSaveRef.current
@@ -130,7 +143,10 @@ export function useAgentSession({ agentType, token, logout, activeTab, onRestore
             clearInterval(pollingRef.current)
             pollingRef.current = null
           }
-          const toolName = uiState.executingTool
+          let toolName = uiState.executingTool
+          if (!toolName && session.pending_proposal?.tool_name) {
+            toolName = session.pending_proposal.tool_name
+          }
           if (onResumeJob) {
             onResumeJob(String(session.id), session, toolName, originalStartTime)
           }
@@ -321,7 +337,19 @@ export function useAgentSession({ agentType, token, logout, activeTab, onRestore
   }, [activeTab])
 
   // Session CRUD
-  const createSession = async (incidentInputs, agentConfig) => {
+  const createSession = async (firstArg, secondArg) => {
+    // Support both calling conventions:
+    //   createSession(incidentId)           — uses incidentInputs/agentConfig from hook options
+    //   createSession(inputsObj, configObj)  — legacy direct passing
+    let inputs, config, incidentId
+    if (typeof firstArg === 'object' && firstArg !== null) {
+      inputs = firstArg
+      config = secondArg
+    } else {
+      incidentId = firstArg
+      inputs = incidentInputsRef.current
+      config = agentConfigRef.current
+    }
     try {
       const res = await fetch(API_AGENTS_SESSIONS_URL, {
         method: 'POST',
@@ -330,8 +358,9 @@ export function useAgentSession({ agentType, token, logout, activeTab, onRestore
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          incident_inputs: incidentInputs,
-          agent_config: agentConfig,
+          incident_inputs: inputs,
+          agent_config: config,
+          ...(incidentId != null && { incident_id: incidentId }),
           agent_type: agentType
         })
       })

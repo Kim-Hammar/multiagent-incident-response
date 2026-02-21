@@ -4,6 +4,7 @@ an incident report produced by the ReportAgent.
 """
 import base64
 import json
+import logging
 import os
 import re
 from typing import Any, Generator
@@ -39,6 +40,8 @@ from ccs_response_planner_backend.agents.report_reviewer_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
+
+logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3-pro-preview"
 CONTEXT_LIMIT = 1_048_576
@@ -365,12 +368,20 @@ class ReportReviewerAgent:
         all_parts: list[Any] = []
         usage_metadata = None
 
+        n_turns = len(contents)
+        logger.info(
+            "ReportReviewerAgent calling Gemini "
+            "model=%s turns=%d",
+            effective_model, n_turns,
+        )
         _raw_stream = client.models.generate_content_stream(
             model=effective_model,
             contents=contents,
             config=config,
         )
+        chunk_count = 0
         for chunk in iter_with_idle_timeout(_raw_stream):
+            chunk_count += 1
             if chunk.usage_metadata:
                 usage_metadata = chunk.usage_metadata
             if not chunk.candidates:
@@ -402,6 +413,12 @@ class ReportReviewerAgent:
                 ):
                     function_call = part.function_call
 
+        logger.info(
+            "ReportReviewerAgent stream done: "
+            "%d chunks, function_call=%s",
+            chunk_count,
+            function_call.name if function_call else None,
+        )
         if usage_metadata:
             self._last_prompt_tokens = (
                 usage_metadata.prompt_token_count or 0

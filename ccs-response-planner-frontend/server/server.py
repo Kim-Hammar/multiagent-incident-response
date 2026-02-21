@@ -1,6 +1,13 @@
 import logging
 import os
+import sys
 import time
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    stream=sys.stderr,
+)
 
 import ccs_response_planner_backend.rest_api.rest_api as rest_api
 from ccs_response_planner_backend.constants.constants import (

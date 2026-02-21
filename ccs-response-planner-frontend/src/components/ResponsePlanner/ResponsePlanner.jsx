@@ -862,7 +862,15 @@ function ResponsePlanner() {
             setAlert({ type: 'danger', message: msg })
             setConversationHistory((prev) => {
               const base = prev.filter((e) => e !== streamingEntry)
-              return [...base, { role: 'system', type: 'error', message: msg }]
+              return [
+                ...base,
+                {
+                  role: 'system',
+                  type: 'error',
+                  message: msg,
+                  errorDetail: event.errorDetail || null
+                }
+              ]
             })
             errorOccurred = true
           }
@@ -1052,7 +1060,9 @@ function ResponsePlanner() {
           } else if (event.type === 'done') {
             doneEvent = event
           } else if (event.type === 'error') {
-            throw new Error(event.message || 'Streaming tool error')
+            const err = new Error(event.message || 'Streaming tool error')
+            err.errorDetail = event.errorDetail || null
+            throw err
           }
         }
       })

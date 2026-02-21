@@ -6,7 +6,14 @@ Provides streaming generator functions that run sub-agents
 tool calls and yielding progress events.
 """
 import logging
+import time
 from typing import Any, Callable, Generator
+
+import httpx
+
+from ccs_response_planner_backend.agents.stream_timeout import (
+    AgentTimeoutError,
+)
 
 from ccs_response_planner_backend.agents.code_agent.agent import CodeAgent
 from ccs_response_planner_backend.agents.code_reviewer_agent.agent import (
@@ -31,6 +38,58 @@ _INTERNAL_KEYS = {
     "_model_parts", "_anthropic_content",
     "_tool_use_id", "_vendor",
 }
+
+
+def _timeout_step_stream(
+    agent: Any,
+    step_kwargs: dict[str, Any],
+    step_start: float,
+    step_num: int,
+    agent_label: str,
+) -> Generator[dict[str, Any], None, None]:
+    """
+    Iterate ``agent.step_stream`` and convert timeout
+    errors into :class:`AgentTimeoutError`.
+
+    :param agent: the agent instance to call
+    :param step_kwargs: kwargs passed to step_stream
+    :param step_start: monotonic timestamp of step start
+    :param step_num: zero-based step index
+    :param agent_label: human name for error messages
+    :return: events from step_stream
+    """
+    model = step_kwargs.get("model_name", "unknown")
+    logger.info(
+        "%s step %d starting (model=%s)",
+        agent_label, step_num + 1, model,
+    )
+    try:
+        yield from agent.step_stream(**step_kwargs)
+    except (
+        TimeoutError, OSError,
+        httpx.TimeoutException,
+    ) as e:
+        elapsed = round(
+            time.monotonic() - step_start,
+        )
+        logger.error(
+            "%s step %d TIMED OUT after %ds "
+            "(model=%s): %s: %s",
+            agent_label, step_num + 1, elapsed,
+            model, type(e).__name__, e,
+        )
+        raise AgentTimeoutError(
+            f"{agent_label} step {step_num + 1} timed "
+            f"out after {elapsed}s: {e}",
+            agent_name=agent_label,
+            step_number=step_num + 1,
+            model_name=step_kwargs.get(
+                "model_name", "",
+            ),
+            elapsed_seconds=(
+                time.monotonic() - step_start
+            ),
+        ) from e
 
 
 def run_code_agent_stream(
@@ -78,27 +137,36 @@ def run_code_agent_stream(
         }
 
         step_reasoning = ""
-        for event in agent.step_stream(
-            system_description=context.get(
+        step_start = time.monotonic()
+        ca_kwargs: dict[str, Any] = {
+            "system_description": context.get(
                 "system_description", "",
             ),
-            incident_report=context.get(
+            "incident_report": context.get(
                 "incident_report", "",
             ),
-            specification=context.get("specification", ""),
-            operator_feedback=operator_feedback,
-            conversation_history=conversation_history,
-            model_name=context.get("code_agent_model"),
-            dt_config=context.get("dt_config"),
-            is_revision=bool(
+            "specification": context.get(
+                "specification", "",
+            ),
+            "operator_feedback": operator_feedback,
+            "conversation_history": conversation_history,
+            "model_name": context.get(
+                "code_agent_model",
+            ),
+            "dt_config": context.get("dt_config"),
+            "is_revision": bool(
                 previous_code and review_feedback
             ),
-            compaction_model=context.get(
+            "compaction_model": context.get(
                 "compaction_model",
             ),
-            compaction_threshold=context.get(
+            "compaction_threshold": context.get(
                 "code_agent_compaction", 0.8,
             ),
+        }
+        for event in _timeout_step_stream(
+            agent, ca_kwargs, step_start,
+            step_num, "CodeAgent",
         ):
             etype = event.get("type")
 
@@ -386,28 +454,37 @@ def run_code_reviewer_agent_stream(
         }
 
         step_reasoning = ""
-        for event in agent.step_stream(
-            system_description=context.get(
+        step_start = time.monotonic()
+        cr_kwargs: dict[str, Any] = {
+            "system_description": context.get(
                 "system_description", "",
             ),
-            incident_report=context.get(
+            "incident_report": context.get(
                 "incident_report", "",
             ),
-            specification=context.get("specification", ""),
-            operator_feedback=operator_feedback,
-            code_report=code_report,
-            conversation_history=conversation_history,
-            model_name=context.get("reviewer_agent_model"),
-            dt_config=context.get("dt_config"),
-            review_iteration=context.get(
+            "specification": context.get(
+                "specification", "",
+            ),
+            "operator_feedback": operator_feedback,
+            "code_report": code_report,
+            "conversation_history": conversation_history,
+            "model_name": context.get(
+                "reviewer_agent_model",
+            ),
+            "dt_config": context.get("dt_config"),
+            "review_iteration": context.get(
                 "review_count", 1,
             ),
-            compaction_model=context.get(
+            "compaction_model": context.get(
                 "compaction_model",
             ),
-            compaction_threshold=context.get(
+            "compaction_threshold": context.get(
                 "code_reviewer_compaction", 0.8,
             ),
+        }
+        for event in _timeout_step_stream(
+            agent, cr_kwargs, step_start,
+            step_num, "CodeReviewerAgent",
         ):
             etype = event.get("type")
 

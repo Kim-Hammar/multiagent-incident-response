@@ -11,17 +11,36 @@ import psycopg
 from ccs_response_planner_backend.constants.constants import DB
 
 
-def _sanitize_json(data: Any) -> str:
+def _strip_null_bytes(obj: Any) -> Any:
     """
-    Serialize data to JSON and strip null bytes.
+    Recursively strip null bytes from strings in a data structure.
 
     PostgreSQL jsonb does not support \\u0000, so we remove
-    any null bytes from the serialized string.
+    null bytes from string values before serialization.
+
+    :param obj: the data to sanitize
+    :return: a copy with null bytes removed from all strings
+    """
+    if isinstance(obj, str):
+        return obj.replace("\x00", "")
+    if isinstance(obj, dict):
+        return {k: _strip_null_bytes(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_strip_null_bytes(i) for i in obj]
+    return obj
+
+
+def _sanitize_json(data: Any) -> str:
+    """
+    Serialize data to JSON safe for PostgreSQL jsonb.
+
+    Strips null bytes from the data before serialization
+    to avoid corrupting valid JSON escape sequences.
 
     :param data: the data to serialize
-    :return: a JSON string with null bytes removed
+    :return: a JSON string safe for PostgreSQL jsonb
     """
-    return json.dumps(data).replace("\\u0000", "").replace("\x00", "")
+    return json.dumps(_strip_null_bytes(data))
 
 
 class DatabaseFacade:

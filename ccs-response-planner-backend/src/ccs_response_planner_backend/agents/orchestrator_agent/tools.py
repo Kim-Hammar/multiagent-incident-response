@@ -7,7 +7,14 @@ auto-approving tool calls and yielding progress events.
 """
 import json
 import logging
+import time
 from typing import Any, Callable, Generator
+
+import httpx
+
+from ccs_response_planner_backend.agents.stream_timeout import (
+    AgentTimeoutError,
+)
 
 from ccs_response_planner_backend.agents.report_manager_agent.agent import (
     ReportManagerAgent,
@@ -45,6 +52,58 @@ _INTERNAL_KEYS = {
 
 
 _SKIP_TYPES = {"prompt", "context_usage", "nested_event"}
+
+
+def _timeout_step_stream(
+    agent: Any,
+    step_kwargs: dict[str, Any],
+    step_start: float,
+    step_num: int,
+    agent_label: str,
+) -> Generator[dict[str, Any], None, None]:
+    """
+    Iterate ``agent.step_stream`` and convert timeout
+    errors into :class:`AgentTimeoutError`.
+
+    :param agent: the agent instance to call
+    :param step_kwargs: kwargs passed to step_stream
+    :param step_start: monotonic timestamp of step start
+    :param step_num: zero-based step index
+    :param agent_label: human name for error messages
+    :return: events from step_stream
+    """
+    model = step_kwargs.get("model_name", "unknown")
+    logger.info(
+        "%s step %d starting (model=%s)",
+        agent_label, step_num + 1, model,
+    )
+    try:
+        yield from agent.step_stream(**step_kwargs)
+    except (
+        TimeoutError, OSError,
+        httpx.TimeoutException,
+    ) as e:
+        elapsed = round(
+            time.monotonic() - step_start,
+        )
+        logger.error(
+            "%s step %d TIMED OUT after %ds "
+            "(model=%s): %s: %s",
+            agent_label, step_num + 1, elapsed,
+            model, type(e).__name__, e,
+        )
+        raise AgentTimeoutError(
+            f"{agent_label} step {step_num + 1} timed "
+            f"out after {elapsed}s: {e}",
+            agent_name=agent_label,
+            step_number=step_num + 1,
+            model_name=step_kwargs.get(
+                "model_name", "",
+            ),
+            elapsed_seconds=(
+                time.monotonic() - step_start
+            ),
+        ) from e
 
 
 def _process_collected_events(
@@ -199,7 +258,11 @@ def run_report_manager_stream(
 
         pending_tool = None
         step_reasoning = ""
-        for event in agent.step_stream(**step_kwargs):
+        step_start = time.monotonic()
+        for event in _timeout_step_stream(
+            agent, step_kwargs, step_start,
+            step_num, "ReportManager",
+        ):
             etype = event.get("type")
 
             if etype == "system_prompt":
@@ -393,6 +456,11 @@ def run_report_manager_stream(
                             collected.append(
                                 tool_event,
                             )
+                except (
+                    TimeoutError, AgentTimeoutError,
+                    OSError,
+                ):
+                    raise
                 except Exception as e:
                     tool_result = {"error": str(e)}
 
@@ -447,6 +515,11 @@ def run_report_manager_stream(
                         tool_result = {
                             "error": result_obj["error"],
                         }
+                except (
+                    TimeoutError, AgentTimeoutError,
+                    OSError,
+                ):
+                    raise
                 except Exception as e:
                     tool_result = {"error": str(e)}
                 conversation_history.append({
@@ -664,7 +737,11 @@ def run_plan_manager_stream(
 
         pending_tool = None
         step_reasoning = ""
-        for event in agent.step_stream(**step_kwargs):
+        step_start = time.monotonic()
+        for event in _timeout_step_stream(
+            agent, step_kwargs, step_start,
+            step_num, "PlanManager",
+        ):
             etype = event.get("type")
 
             if etype == "system_prompt":
@@ -858,6 +935,11 @@ def run_plan_manager_stream(
                             collected.append(
                                 tool_event,
                             )
+                except (
+                    TimeoutError, AgentTimeoutError,
+                    OSError,
+                ):
+                    raise
                 except Exception as e:
                     tool_result = {"error": str(e)}
 
@@ -937,6 +1019,11 @@ def run_plan_manager_stream(
                         tool_result = {
                             "error": result_obj["error"],
                         }
+                except (
+                    TimeoutError, AgentTimeoutError,
+                    OSError,
+                ):
+                    raise
                 except Exception as e:
                     tool_result = {"error": str(e)}
                 conversation_history.append({

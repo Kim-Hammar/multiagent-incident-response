@@ -588,7 +588,9 @@ function OrchestratorAgent() {
               return [...prev.slice(0, idx), compactionEntry, ...prev.slice(idx)]
             })
           } else if (event.type === 'error') {
-            throw new Error(event.message || 'Agent stream error')
+            const err = new Error(event.message || 'Agent stream error')
+            err.errorDetail = event.errorDetail || null
+            throw err
           }
         }
       })
