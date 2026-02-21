@@ -449,6 +449,7 @@ function ResponsePlanner() {
         setAutopilot(config.autopilot ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
+        let jobEventCount = -1
         try {
           const jobRes = await fetch(apiJobStatusUrl(String(session.id)), {
             headers: { Authorization: `Bearer ${token}` }
@@ -456,6 +457,7 @@ function ResponsePlanner() {
           if (jobRes.ok) {
             const jobData = await jobRes.json()
             jobRunning = jobData.running && !jobData.done
+            jobEventCount = jobData.event_count ?? 0
           }
         } catch {
           /* treat as no running job */
@@ -491,6 +493,41 @@ function ResponsePlanner() {
             callStep(history, String(session.id))
           }
         } else {
+          // Job is not running — if no events were recorded, the job
+          // never existed in this server lifetime (backend restarted).
+          // Cancel the stale session immediately to avoid a brief
+          // flash of old activity before the stale-detection effect
+          // clears it.
+          if (jobEventCount === 0) {
+            fetch(`${API_AGENTS_SESSIONS_URL}/${String(session.id)}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                status: 'cancelled',
+                conversation_history: [],
+                ui_state: { running: false, executingTool: null, dtStatus: null }
+              })
+            }).catch(() => {})
+            setSessionId(null)
+            setConversationHistory([])
+            setPendingProposal(null)
+            setContextUsage(null)
+            setRunning(false)
+            setExecutingTool(null)
+            setDtStatus(null)
+            setSystemDescription('')
+            setSecurityAlerts('')
+            setOperatorFeedback('')
+            setSpecification('')
+            setSystemDescriptionImages([])
+            setSecurityAlertsImages([])
+            setSelectedIncidentId(null)
+            setRestoredSession(true)
+            return
+          }
           if (history.length > 0) {
             const last = history[history.length - 1]
             if (last.type === 'tool_approval' && last.approved) {
@@ -518,8 +555,6 @@ function ResponsePlanner() {
           setRunning(false)
           setExecutingTool(null)
           setDtStatus(null)
-          // Stash restored history; the job-status effect will decide
-          // whether to show it (job still alive) or clear it (stale).
           setConversationHistory(history)
           setPendingProposal(proposal)
           if (!window.location.hash) setActiveTab('planning')
@@ -745,7 +780,7 @@ function ResponsePlanner() {
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '', _startTime: Date.now() }
     let errorOccurred = false
-    setConversationHistory((prev) => [...prev, streamingEntry])
+    let streamingAdded = false
     try {
       let job_id
       if (resumeJobId) {
@@ -805,6 +840,64 @@ function ResponsePlanner() {
           setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
           if (errorOccurred) return
+
+          if (event.type === 'dt_progress') {
+            setDtStatus(event.message)
+            setConversationHistory((prev) => {
+              const updated = [...prev]
+              for (const e of updated) {
+                if (e.type === 'dt_redeploy' && !e.done) {
+                  e.done = true
+                }
+              }
+              if (event.phase === 'ready') {
+                return [
+                  ...updated,
+                  {
+                    role: 'system',
+                    type: 'dt_redeploy',
+                    phase: 'ready',
+                    message: event.message,
+                    done: true,
+                    details: [],
+                    _startTime: Date.now()
+                  }
+                ]
+              }
+              return [
+                ...updated,
+                {
+                  role: 'system',
+                  type: 'dt_redeploy',
+                  phase: event.phase,
+                  message: event.message,
+                  done: false,
+                  details: [],
+                  _startTime: Date.now()
+                }
+              ]
+            })
+            return
+          }
+
+          if (event.type === 'dt_progress_detail') {
+            setConversationHistory((prev) => {
+              const target = [...prev].reverse().find(
+                (e) => e.type === 'dt_redeploy' && e.phase === event.phase
+              )
+              if (target) {
+                target.details = [...(target.details || []), event.message]
+              }
+              return [...prev]
+            })
+            return
+          }
+
+          if (!streamingAdded) {
+            streamingAdded = true
+            setConversationHistory((prev) => [...prev, streamingEntry])
+          }
+
           if (event.ts && !streamingEntry._tsAdjusted) {
             streamingEntry._startTime = event.ts
             streamingEntry._tsAdjusted = true
@@ -840,8 +933,6 @@ function ResponsePlanner() {
               orchestrator_agent_report: event.orchestrator_agent_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress') {
-            setDtStatus(event.message)
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
@@ -1600,8 +1691,11 @@ function ResponsePlanner() {
     fetchHistory()
   }, [token])
 
-  const toggleEntry = (index) => {
-    setExpandedEntries((prev) => ({ ...prev, [index]: !prev[index] }))
+  const toggleEntry = (index, value) => {
+    setExpandedEntries((prev) => ({
+      ...prev,
+      [index]: value !== undefined ? value : !prev[index]
+    }))
   }
 
   const isAgentBusy = running || executingTool

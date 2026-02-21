@@ -13,3 +13,4 @@ requests==2.32.3
 OTXv2==1.5.12
 anthropic==0.79.0
 pydantic==2.10.6
+gunicorn==21.2.0

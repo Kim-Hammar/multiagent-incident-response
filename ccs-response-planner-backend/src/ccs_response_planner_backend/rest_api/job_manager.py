@@ -4,6 +4,7 @@ Thread-safe singleton for running agent generators in background threads.
 Jobs accumulate events in memory so they can be polled by the frontend
 even after a tab close/reopen.
 """
+import json
 import logging
 import threading
 import time
@@ -11,6 +12,10 @@ import uuid
 from typing import Any, Callable, Generator, Optional
 
 logger = logging.getLogger(__name__)
+
+# Cap each events response at ~100 KB of raw JSON so
+# even slow connections can download a page quickly.
+_MAX_RESPONSE_BYTES = 100_000
 
 
 class _Job:
@@ -20,6 +25,7 @@ class _Job:
 
     def __init__(self) -> None:
         self.events: list[dict[str, Any]] = []
+        self.event_sizes: list[int] = []
         self.done: bool = False
         self.error: Optional[str] = None
         self.cancelled: bool = False
@@ -39,6 +45,7 @@ _STATUS_MAP: dict[str, str] = {
     "tool_result": "Processing tool result",
     "context_compaction": "Compacting context",
     "dt_progress": "Deploying digital twin",
+    "dt_progress_detail": "Deploying digital twin",
     "output_chunk": "Executing command",
     "sub_event": "Running sub-agent",
     "assessment": "Producing report",
@@ -69,7 +76,7 @@ def _status_from_event(event: dict[str, Any]) -> str | None:
         name = event.get("tool_name", "")
         if name:
             return f"Preparing tool call: {name}"
-    if etype == "dt_progress":
+    if etype in ("dt_progress", "dt_progress_detail"):
         msg = event.get("message", "")
         if msg:
             return str(msg)
@@ -150,6 +157,13 @@ class JobManager:
                             "ts", int(time.time() * 1000),
                         )
                         job.events.append(event)
+                        try:
+                            size = len(json.dumps(
+                                event, default=str,
+                            ))
+                        except Exception:
+                            size = 1000
+                        job.event_sizes.append(size)
                         job.last_event_time = time.time()
                         status = _status_from_event(event)
                         if status is not None:
@@ -189,13 +203,17 @@ class JobManager:
                 idle = time.time() - job.last_event_time
                 if idle >= 10:
                     with job.lock:
-                        job.events.append({
+                        hb = {
                             "type": "heartbeat",
                             "timestamp": int(
                                 time.time() * 1000,
                             ),
                             "status": job.last_status,
-                        })
+                        }
+                        job.events.append(hb)
+                        job.event_sizes.append(
+                            len(json.dumps(hb)),
+                        )
 
         t = threading.Thread(
             target=_run, daemon=True,
@@ -215,12 +233,19 @@ class JobManager:
         self,
         job_id: str,
         after: int = 0,
+        limit: int = 0,
     ) -> dict[str, Any]:
         """
         Return events accumulated since index ``after``.
 
+        When *limit* is positive, at most *limit* events are
+        returned.  ``done`` is only ``True`` when the job has
+        finished **and** all events have been delivered, so the
+        caller naturally paginates by polling until ``done``.
+
         :param job_id: the job key
         :param after: index to start returning events from
+        :param limit: max number of events to return (0 = all)
         :return: dict with events, done, error, next_index,
                  last_event_time
         """
@@ -240,12 +265,34 @@ class JobManager:
                 "last_event_time": 0,
             }
         with job.lock:
-            new_events = job.events[after:]
+            all_remaining = job.events[after:]
+            all_sizes = job.event_sizes[after:]
+            if limit > 0:
+                all_remaining = all_remaining[:limit]
+                all_sizes = all_sizes[:limit]
+            # Apply byte-size cap — always include at
+            # least 1 event to guarantee progress.
+            cumulative = 0
+            cut = len(all_remaining)
+            for i, size in enumerate(all_sizes):
+                cumulative += size
+                if (
+                    cumulative > _MAX_RESPONSE_BYTES
+                    and i > 0
+                ):
+                    cut = i
+                    break
+            new_events = all_remaining[:cut]
             next_index = after + len(new_events)
+            all_delivered = next_index >= len(job.events)
             return {
                 "events": new_events,
-                "done": job.done,
-                "error": job.error,
+                "done": job.done and all_delivered,
+                "error": (
+                    job.error
+                    if (job.done and all_delivered)
+                    else None
+                ),
                 "next_index": next_index,
                 "last_event_time": int(
                     job.last_event_time * 1000,

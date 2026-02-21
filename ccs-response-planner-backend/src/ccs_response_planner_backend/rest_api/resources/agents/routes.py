@@ -171,22 +171,35 @@ def _redeploy_dt() -> Generator[dict[str, str], None, None]:
         config = DIGITAL_TWIN.DEFAULT_CONFIG
     yield {
         "type": "dt_progress",
+        "phase": "stop",
         "message": "Stopping digital twin...",
     }
     for item in DockerManager.stop():
         msg = item.get("message", "")
         if item.get("type") == "progress" and msg:
             logger.info("DT redeploy (stop): %s", msg)
+            yield {
+                "type": "dt_progress_detail",
+                "phase": "stop",
+                "message": msg,
+            }
     yield {
         "type": "dt_progress",
+        "phase": "deploy",
         "message": "Deploying fresh digital twin...",
     }
     for item in DockerManager.deploy(config):
         msg = item.get("message", "")
         if item.get("type") == "progress" and msg:
             logger.info("DT redeploy (deploy): %s", msg)
+            yield {
+                "type": "dt_progress_detail",
+                "phase": "deploy",
+                "message": msg,
+            }
     yield {
         "type": "dt_progress",
+        "phase": "ready",
         "message": "Digital twin ready",
     }
 
@@ -529,7 +542,10 @@ def job_events(
     :return: a tuple of (JSON response, HTTP status code)
     """
     after = request.args.get("after", 0, type=int)
-    data = job_manager.get_events(job_id, after=after)
+    limit = request.args.get("limit", 0, type=int)
+    data = job_manager.get_events(
+        job_id, after=after, limit=limit,
+    )
     return jsonify(data), 200
 
 

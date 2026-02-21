@@ -604,7 +604,8 @@ function SubAgentLog({
   lastHeartbeatTime
 }) {
   const [expanded, setExpanded] = useState({})
-  const toggle = (i) => setExpanded((prev) => ({ ...prev, [i]: !prev[i] }))
+  const toggle = (i, value) =>
+    setExpanded((prev) => ({ ...prev, [i]: value !== undefined ? value : !prev[i] }))
   const statusText =
     heartbeatStatus ||
     (livenessStatus === 'alive' ? 'Connected' : livenessStatus === 'error' ? 'Error' : 'No signal')
@@ -706,12 +707,12 @@ function SubAgentLog({
           )
         }
         if (ev.type === 'tool_call') {
-          const isOpen = !!expanded[i]
+          const isOpen = expanded[i] ?? isLast
           const isOrchTool = ORCHESTRATOR_TOOLS.has(ev.tool_name)
           const argPairs = isOrchTool ? null : formatToolArgs(ev.tool_name, ev.tool_args)
           return (
             <div key={i} className="ia-sub-entry ia-sub-tool-call">
-              <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
+              <div className="ia-sub-entry-header" onClick={() => toggle(i, !isOpen)}>
                 {isLast && (
                   <>
                     <span
@@ -977,6 +978,59 @@ function AgentActivityLog({
       </div>
       <div className="ia-log">
         {conversationHistory.map((entry, index) => {
+          if (entry.type === 'dt_redeploy') {
+            const hasDetails = entry.details && entry.details.length > 0
+            const isOpen = expandedEntries[index] ?? !entry.done
+            return (
+              <div
+                key={index}
+                className={`card ia-entry ${entry.done ? 'ia-result-entry' : 'ia-streaming-entry'}`}
+              >
+                <div
+                  className="card-body"
+                  style={{ padding: '10px 14px', cursor: hasDetails ? 'pointer' : 'default' }}
+                  onClick={() => hasDetails && toggleEntry(index, !isOpen)}
+                >
+                  <div className="ia-thinking-header">
+                    {entry.done ? (
+                      <i
+                        className="fa fa-check-circle"
+                        style={{ color: '#38a169' }}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <div className="spinner-border spinner-border-sm" role="status">
+                        <span className="sr-only">Loading...</span>
+                      </div>
+                    )}
+                    <i className="fa fa-server" style={{ marginLeft: '6px' }} aria-hidden="true" />
+                    <span className="ia-thinking-title">{entry.message}</span>
+                    {!entry.done && <ElapsedTimer startTime={entry._startTime} />}
+                    {hasDetails && (
+                      <i
+                        className={`fa fa-chevron-${isOpen ? 'up' : 'down'}`}
+                        style={{ marginLeft: 'auto', opacity: 0.5 }}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+                  {isOpen && hasDetails && (
+                    <div
+                      className="ia-dt-log"
+                      style={{ marginTop: '8px', fontSize: '0.85em', opacity: 0.8 }}
+                    >
+                      {entry.details.map((line, i) => (
+                        <div key={i} style={{ fontFamily: 'monospace', padding: '1px 0' }}>
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          }
+
           if (entry.type === 'streaming') {
             const isStale = livenessStatus === 'stale'
             const isError = livenessStatus === 'error'
@@ -1140,7 +1194,7 @@ function AgentActivityLog({
 
           if (entry.type === 'tool_streaming') {
             const hasSubEvents = entry.subEvents && entry.subEvents.length > 0
-            const isOpen = !!expandedEntries[index]
+            const isOpen = expandedEntries[index] ?? !entry.stopped
             const agentLabel = toolLabel(entry.tool_name)
             const tsStatusText =
               heartbeatStatus ||
@@ -1162,7 +1216,7 @@ function AgentActivityLog({
                   <div
                     className="ia-thinking-header"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => toggleEntry(index)}
+                    onClick={() => toggleEntry(index, !isOpen)}
                   >
                     {entry.stopped ? (
                       <span className="badge badge-secondary">Completed</span>

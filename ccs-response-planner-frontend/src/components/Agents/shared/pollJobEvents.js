@@ -7,6 +7,8 @@
 
 const API_BASE = '/api/agents/jobs'
 const STALE_THRESHOLD = 30000
+const EVENT_LIMIT = 20
+const FETCH_TIMEOUT = 10000
 
 /**
  * Poll a background job for events until it completes.
@@ -32,22 +34,24 @@ export async function pollJobEvents({
 }) {
   let nextIndex = 0
   let retries = 0
-  const MAX_RETRIES = 15
+  const MAX_RETRIES = 45
   let lastRealEventTime = Date.now()
   let staleNotified = false
 
   while (true) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
+    let gotFullBatch = false
+
     try {
       const fetchSignal = signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
-        : AbortSignal.timeout(30000)
+        ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT)])
+        : AbortSignal.timeout(FETCH_TIMEOUT)
 
-      const res = await fetch(`${API_BASE}/${jobId}/events?after=${nextIndex}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: fetchSignal
-      })
+      const res = await fetch(
+        `${API_BASE}/${jobId}/events?after=${nextIndex}&limit=${EVENT_LIMIT}`,
+        { headers: { Authorization: `Bearer ${token}` }, signal: fetchSignal }
+      )
 
       if (res.status === 401) {
         throw Object.assign(new Error('Unauthorized'), { status: 401 })
@@ -60,6 +64,7 @@ export async function pollJobEvents({
       const { events, done, error, next_index } = data
 
       retries = 0
+      gotFullBatch = events.length >= EVENT_LIMIT
 
       for (const event of events) {
         if (event.type === 'heartbeat') {
@@ -99,6 +104,10 @@ export async function pollJobEvents({
       onStale(Date.now() - lastRealEventTime)
     }
 
-    await new Promise((resolve) => setTimeout(resolve, pollInterval))
+    // When catching up (got a full batch), poll immediately — more events
+    // are likely waiting.  Only sleep when we're caught up or on error.
+    if (!gotFullBatch) {
+      await new Promise((resolve) => setTimeout(resolve, pollInterval))
+    }
   }
 }

@@ -1,6 +1,7 @@
 """
 REST API server for the CCS Response Planner.
 """
+import gzip
 import os
 from typing import Any, Optional
 
@@ -96,6 +97,41 @@ def create_app(static_folder: str) -> Flask:
     sock = Sock(app)
     register_terminal_ws(sock)
 
+    @app.after_request
+    def compress_response(response: Any) -> Any:
+        """
+        Gzip-compress JSON API responses larger than 500 bytes.
+
+        :param response: the Flask response object
+        :return: the response, possibly gzip-compressed
+        """
+        if (
+            response.status_code < 200
+            or response.status_code >= 300
+        ):
+            return response
+        if "Content-Encoding" in response.headers:
+            return response
+        if response.direct_passthrough:
+            return response
+        accept = request.headers.get(
+            "Accept-Encoding", "",
+        )
+        if "gzip" not in accept.lower():
+            return response
+        ct = response.content_type or ""
+        if not ct.startswith("application/json"):
+            return response
+        data = response.get_data()
+        if len(data) < 500:
+            return response
+        compressed = gzip.compress(data)
+        response.set_data(compressed)
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Content-Length"] = len(compressed)
+        response.headers["Vary"] = "Accept-Encoding"
+        return response
+
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
     def serve(path: str) -> Any:
@@ -146,7 +182,7 @@ def start_server(
     https: Optional[bool] = False,
 ) -> None:
     """
-    Start the Flask server.
+    Start the Flask server using Gunicorn with gthread workers.
 
     :param static_folder: path to the static frontend build directory
     :param port: port number to listen on
@@ -154,10 +190,51 @@ def start_server(
     :param host: host address to bind to
     :param https: whether to enable HTTPS (not yet implemented)
     """
-    app = create_app(static_folder)
-    app.run(
-        host=host,
-        port=port,
-        threaded=True,
-        debug=False,
+    from gunicorn.app.base import (  # type: ignore[import-untyped]
+        BaseApplication,
     )
+
+    app = create_app(static_folder)
+
+    class _GunicornApp(BaseApplication):  # type: ignore[misc]
+        """
+        Thin wrapper to run a Flask app inside Gunicorn.
+        """
+
+        def __init__(
+            self, flask_app: Any, options: dict[str, Any],
+        ) -> None:
+            self.flask_app = flask_app
+            self.options = options
+            super().__init__()
+
+        def load_config(self) -> None:
+            """
+            Apply options to the Gunicorn config.
+            """
+            for key, value in self.options.items():
+                if (
+                    key in self.cfg.settings
+                    and value is not None
+                ):
+                    self.cfg.set(key, value)
+
+        def load(self) -> Any:
+            """
+            Return the WSGI application.
+
+            :return: the Flask app
+            """
+            return self.flask_app
+
+    options: dict[str, Any] = {
+        "bind": f"{host}:{port}",
+        "workers": 1,
+        "worker_class": "gthread",
+        "threads": num_threads,
+        "accesslog": "-",
+        "errorlog": "-",
+        "loglevel": "info",
+        "timeout": 600,
+    }
+    _GunicornApp(app, options).run()

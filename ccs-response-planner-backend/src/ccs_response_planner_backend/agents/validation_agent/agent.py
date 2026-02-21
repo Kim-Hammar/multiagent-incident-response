@@ -136,6 +136,11 @@ class ValidationAgent:
                 include_thoughts=True,
                 thinking_budget=THINKING_BUDGET,
             ),
+            automatic_function_calling=(
+                genai_types.AutomaticFunctionCallingConfig(
+                    disable=True,
+                )
+            ),
         )
 
     @staticmethod
