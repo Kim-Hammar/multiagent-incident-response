@@ -112,6 +112,15 @@ from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
     STREAMING_TOOL_DISPATCH as ORCHESTRATOR_STREAMING_DISPATCH,
     TOOL_DISPATCH as ORCHESTRATOR_TOOL_DISPATCH,
 )
+from ccs_response_planner_backend.agents.pentest_agent.agent import (
+    PentestAgent,
+)
+from ccs_response_planner_backend.agents.pentest_agent.prompt import (
+    build_system_prompt as build_pentest_prompt,
+)
+from ccs_response_planner_backend.agents.pentest_agent.tools import (
+    STREAMING_TOOL_DISPATCH as PENTEST_STREAMING_DISPATCH,
+)
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
     format_container_table,
@@ -353,6 +362,7 @@ def _save_step_result(
                 "orchestrator_report",
                 "plan_manager_report",
                 "report_review",
+                "pentest_report",
             ):
                 final_entry = ev
             elif ev_type == "context_usage":
@@ -3605,3 +3615,218 @@ def delete_session(
             session_id, e,
         )
         return jsonify({"error": str(e)}), 500
+
+
+# ── Pentest Agent ─────────────────────────────────────────────
+
+
+@agents_bp.route("/pentest/step", methods=["POST"])
+@token_required
+def agents_pentest_step() -> tuple[Response, int]:
+    """
+    Start a PentestAgent step as a background job.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    attack_path = body.get("attack_path", "")
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    if not isinstance(images, list):
+        images = []
+    if not system_description and not attack_path:
+        return jsonify({
+            "error": (
+                "system_description and attack_path "
+                "are required"
+            ),
+        }), 400
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
+
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
+        """
+        Run the PentestAgent step in background.
+
+        :return: a generator of event dicts
+        """
+        try:
+            if not conversation_history:
+                yield from _redeploy_dt()
+
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
+            agent = PentestAgent()
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
+            )
+            yield from agent.step_stream(
+                system_description=system_description,
+                attack_path=attack_path,
+                conversation_history=(
+                    conversation_history
+                ),
+                images=images,
+                model_name=model_name,
+                dt_config=dt_config,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
+                ),
+            )
+        except Exception as e:
+            yield _make_error_event(e)
+
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
+    return jsonify({"job_id": job_id}), 202
+
+
+@agents_bp.route("/pentest/prompt", methods=["POST"])
+@token_required
+def agents_pentest_prompt() -> tuple[Response, int]:
+    """
+    Render the PentestAgent system prompt from the given context.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
+    prompt = build_pentest_prompt(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        attack_path=body.get(
+            "attack_path", "",
+        ) or "N/A",
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
+        dt_container_table=format_container_table(
+            dt_config,
+        ),
+        dt_network_connectivity=(
+            format_network_connectivity(dt_config)
+        ),
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route("/pentest/tool", methods=["POST"])
+@token_required
+def agents_pentest_tool() -> tuple[Response, int]:
+    """
+    Execute an approved tool call for PentestAgent.
+
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in PENTEST_STREAMING_DISPATCH:
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
+
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
+            """
+            try:
+                agent = PentestAgent()
+                yield from agent.execute_tool_stream(
+                    tool_name, tool_args,
+                )
+            except Exception as e:
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
+
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
+        return jsonify({"job_id": job_id}), 202
+
+    agent = PentestAgent()
+    result = agent.execute_tool(
+        tool_name, tool_args,
+    )
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result), 200

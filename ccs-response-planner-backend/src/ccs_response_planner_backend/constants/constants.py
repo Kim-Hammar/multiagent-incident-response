@@ -121,6 +121,15 @@ class API:
     AGENTS_ORCHESTRATOR_PROMPT_ROUTE = (
         "/api/agents/orchestrator/prompt"
     )
+    AGENTS_PENTEST_STEP_ROUTE = (
+        "/api/agents/pentest/step"
+    )
+    AGENTS_PENTEST_TOOL_ROUTE = (
+        "/api/agents/pentest/tool"
+    )
+    AGENTS_PENTEST_PROMPT_ROUTE = (
+        "/api/agents/pentest/prompt"
+    )
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
     AGENTS_SESSIONS_ACTIVE_ROUTE = (

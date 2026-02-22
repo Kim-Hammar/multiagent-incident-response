@@ -9,6 +9,7 @@ import PlannerAgent from './PlannerAgent.jsx'
 import ReportReviewerAgent from './ReportReviewerAgent.jsx'
 import ReportManagerAgent from './ReportManagerAgent.jsx'
 import OrchestratorAgent from './OrchestratorAgent.jsx'
+import PentestAgent from './PentestAgent.jsx'
 import './Agents.css'
 
 /**
@@ -41,6 +42,7 @@ function Agents() {
           <option value="code-manager">Code Manager Agent</option>
           <option value="plan-manager">Plan Manager Agent</option>
           <option value="planner">Planner Agent</option>
+          <option value="pentest">Pentest Agent</option>
         </select>
       </div>
 
@@ -54,6 +56,7 @@ function Agents() {
       {selectedAgent === 'code-manager' && <CodeManagerAgent />}
       {selectedAgent === 'plan-manager' && <PlanManagerAgent />}
       {selectedAgent === 'planner' && <PlannerAgent />}
+      {selectedAgent === 'pentest' && <PentestAgent />}
     </div>
   )
 }

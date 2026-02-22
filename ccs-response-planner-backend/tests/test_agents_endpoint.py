@@ -1957,3 +1957,139 @@ def test_orchestrator_prompt_renders_prompt(
     assert "My system" in data["prompt"]
     assert "My alerts" in data["prompt"]
     assert "My feedback" in data["prompt"]
+
+
+# ── Pentest Agent ─────────────────────────────────────────────
+
+
+def test_pentest_step_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/pentest/step requires auth.
+    """
+    resp = client.post(
+        "/api/agents/pentest/step",
+        data=json.dumps({
+            "system_description": "Test system",
+            "attack_path": "Test path",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_pentest_step_requires_inputs(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/pentest/step returns 400 without inputs.
+    """
+    resp = client.post(
+        "/api/agents/pentest/step",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes.PentestAgent",
+)
+def test_pentest_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/pentest/tool with dt_exec streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_firewall",
+            "command": "iptables -L",
+            "exit_code": 0,
+            "output": "Chain INPUT\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/pentest/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_firewall",
+                "command": "iptables -L",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    events = _get_job_events(client, resp, auth_headers)
+    assert events[-1]["type"] == "done"
+
+
+def test_pentest_tool_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/pentest/tool requires auth.
+    """
+    resp = client.post(
+        "/api/agents/pentest/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "x", "command": "y",
+            },
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_pentest_prompt_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/pentest/prompt requires auth.
+    """
+    resp = client.post(
+        "/api/agents/pentest/prompt",
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_pentest_prompt_renders_prompt(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/pentest/prompt renders the prompt.
+    """
+    resp = client.post(
+        "/api/agents/pentest/prompt",
+        data=json.dumps({
+            "system_description": "My pentest system",
+            "attack_path": (
+                "SSH brute force to server_3"
+            ),
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "prompt" in data
+    assert "My pentest system" in data["prompt"]
+    assert (
+        "SSH brute force to server_3"
+        in data["prompt"]
+    )
