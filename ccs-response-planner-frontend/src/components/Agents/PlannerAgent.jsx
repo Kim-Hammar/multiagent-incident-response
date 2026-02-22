@@ -3,16 +3,16 @@ import useTabWithHash from '../../hooks/useTabWithHash.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_RL_STEP_URL,
-  API_AGENTS_RL_TOOL_URL,
-  API_AGENTS_RL_PROMPT_URL,
+  API_AGENTS_PLANNER_STEP_URL,
+  API_AGENTS_PLANNER_TOOL_URL,
+  API_AGENTS_PLANNER_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
-import RlAgentConfigTab from './RlAgentConfigTab.jsx'
+import PlannerAgentConfigTab from './PlannerAgentConfigTab.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
-import RlAgentReport from './RlAgentReport.jsx'
+import PlannerAgentReport from './PlannerAgentReport.jsx'
 import RewardChart from './RewardChart.jsx'
 import RlTrainResult from './RlTrainResult.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
@@ -23,10 +23,10 @@ import { cleanConversationHistory, stripForBackend } from './shared/conversation
 import { pollJobEvents } from './shared/pollJobEvents.js'
 
 /**
- * RlAgent component — drives the RL agent loop with
+ * PlannerAgent component — drives the Planner agent loop with
  * human-in-the-loop tool approval and live RL training visualization.
  */
-function RlAgent() {
+function PlannerAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useTabWithHash('config')
   const [systemDescription, setSystemDescription] = useState('')
@@ -90,7 +90,7 @@ function RlAgent() {
     pollingRef,
     restoredSession
   } = useAgentSession({
-    agentType: 'rl',
+    agentType: 'planner',
     token,
     logout,
     activeTab,
@@ -250,7 +250,7 @@ function RlAgent() {
     try {
       let job_id = resumeJobId
       if (!job_id) {
-        const res = await fetch(API_AGENTS_RL_STEP_URL, {
+        const res = await fetch(API_AGENTS_PLANNER_STEP_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -500,7 +500,7 @@ function RlAgent() {
       const controller = new AbortController()
       abortControllerRef.current = controller
       try {
-        const res = await fetch(API_AGENTS_RL_TOOL_URL, {
+        const res = await fetch(API_AGENTS_PLANNER_TOOL_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -598,7 +598,7 @@ function RlAgent() {
       const controller = new AbortController()
       abortControllerRef.current = controller
       try {
-        const res = await fetch(API_AGENTS_RL_TOOL_URL, {
+        const res = await fetch(API_AGENTS_PLANNER_TOOL_URL, {
           method: 'POST',
           signal: controller.signal,
           headers: {
@@ -732,7 +732,7 @@ function RlAgent() {
   }
 
   const getPromptText = async () => {
-    const res = await fetch(API_AGENTS_RL_PROMPT_URL, {
+    const res = await fetch(API_AGENTS_PLANNER_PROMPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -760,7 +760,7 @@ function RlAgent() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=rl`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=planner`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -780,7 +780,7 @@ function RlAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'rl',
+          agent_type: 'planner',
           report,
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(historyToSave),
@@ -807,7 +807,7 @@ function RlAgent() {
 
   const deleteAllReports = async () => {
     try {
-      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=rl`, {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=planner`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -828,7 +828,7 @@ function RlAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <RlAgentReport
+    <PlannerAgentReport
       key={index}
       entry={entry}
       index={index}
@@ -942,7 +942,7 @@ function RlAgent() {
       </ul>
 
       {activeTab === 'config' && (
-        <RlAgentConfigTab
+        <PlannerAgentConfigTab
           systemDescription={systemDescription}
           setSystemDescription={setSystemDescription}
           incidentReport={incidentReport}
@@ -978,10 +978,10 @@ function RlAgent() {
           })}
           rows={[
             {
-              label: 'RL Agent',
+              label: 'Planner Agent',
               model: selectedModel,
               setModel: setSelectedModel,
-              promptUrl: API_AGENTS_RL_PROMPT_URL,
+              promptUrl: API_AGENTS_PLANNER_PROMPT_URL,
               iteration: {
                 value: timeLimitMinutes,
                 set: setTimeLimitMinutes,
@@ -1040,7 +1040,7 @@ function RlAgent() {
           deleteReport={deleteReport}
           deleteAllReports={deleteAllReports}
           renderReport={(report) => (
-            <RlAgentReport
+            <PlannerAgentReport
               entry={{ type: 'planner_report', planner_report: report }}
               index="history"
               isExpanded={true}
@@ -1067,4 +1067,4 @@ function RlAgent() {
   )
 }
 
-export default RlAgent
+export default PlannerAgent

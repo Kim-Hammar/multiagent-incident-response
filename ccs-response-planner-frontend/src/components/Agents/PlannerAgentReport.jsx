@@ -10,9 +10,9 @@ function downloadPolicyZip(policyData) {
 }
 
 /**
- * Renders the final RL agent report for the RL Agent.
+ * Renders the final Planner Agent report.
  */
-function RlAgentReport({ entry, index, isExpanded, toggleEntry, policyData }) {
+function PlannerAgentReport({ entry, index, isExpanded, toggleEntry, policyData }) {
   if (entry.type !== 'planner_report') return null
 
   const r = entry.planner_report || {}
@@ -170,4 +170,4 @@ function RlAgentReport({ entry, index, isExpanded, toggleEntry, policyData }) {
   )
 }
 
-export default RlAgentReport
+export default PlannerAgentReport

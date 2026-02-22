@@ -1,5 +1,5 @@
 """
-System prompt template for the RlAgent.
+System prompt template for the PlannerAgent.
 """
 
 SYSTEM_PROMPT_TEMPLATE = """\

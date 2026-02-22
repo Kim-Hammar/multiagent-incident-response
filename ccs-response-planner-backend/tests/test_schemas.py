@@ -32,7 +32,7 @@ from ccs_response_planner_backend.agents.code_reviewer_agent.tool_declarations i
 from ccs_response_planner_backend.agents.code_manager_agent.tool_declarations import (  # noqa: E501
     PRODUCE_ORCHESTRATOR_REPORT_DECL,
 )
-from ccs_response_planner_backend.agents.rl_agent.tool_declarations import (
+from ccs_response_planner_backend.agents.planner_agent.tool_declarations import (
     PRODUCE_PLANNER_REPORT_DECL as RL_REPORT_DECL,
 )
 from ccs_response_planner_backend.agents.validation_agent.tool_declarations import (  # noqa: E501
@@ -108,7 +108,7 @@ AGENT_DECL_MODEL = [
     ("code_agent", PRODUCE_CODE_REPORT_DECL, CodeReport),
     ("code_reviewer_agent", PRODUCE_REVIEW_REPORT_DECL, ReviewReport),
     ("code_manager_agent", PRODUCE_ORCHESTRATOR_REPORT_DECL, OrchestratorReport),
-    ("rl_agent", RL_REPORT_DECL, PlannerReport),
+    ("planner_agent", RL_REPORT_DECL, PlannerReport),
     ("validation_agent", VALIDATION_REPORT_DECL, ValidationReport),
     ("report_agent", INFO_REPORT_DECL, InformationReport),
     ("plan_manager_agent", PRODUCE_PLAN_MANAGER_REPORT_DECL, PlanManagerReport),
@@ -144,7 +144,7 @@ FALLBACK_DICTS = {
         "code_report_summary": "",
         "review_report_summary": "",
     },
-    "rl_agent": {
+    "planner_agent": {
         "executive_summary": "fallback",
         "algorithm": "",
         "hyperparameters": "",
@@ -183,7 +183,7 @@ FALLBACK_DICTS = {
         "iterations": 0,
         "final_verdict": "unknown",
         "code_manager_summary": "",
-        "rl_agent_summary": "",
+        "planner_agent_summary": "",
         "validation_summary": "",
     },
     "report_reviewer_agent": {
@@ -478,7 +478,7 @@ def test_registry_contains_all_ten_agents():
     assert len(REPORT_MODELS) == 10
     expected = {
         "code_agent", "code_reviewer_agent", "code_manager_agent",
-        "rl_agent", "validation_agent", "report_agent",
+        "planner_agent", "validation_agent", "report_agent",
         "plan_manager_agent",
         "report_reviewer_agent", "report_manager_agent",
         "orchestrator_agent",

@@ -52,15 +52,15 @@ from ccs_response_planner_backend.agents.code_reviewer_agent.tools import (
     STREAMING_TOOL_DISPATCH as CODE_REVIEW_STREAMING_DISPATCH,
     TOOL_DISPATCH as CODE_REVIEW_TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.agents.rl_agent.agent import (
-    RlAgent,
+from ccs_response_planner_backend.agents.planner_agent.agent import (
+    PlannerAgent,
 )
-from ccs_response_planner_backend.agents.rl_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as RL_PROMPT_TEMPLATE,
+from ccs_response_planner_backend.agents.planner_agent.prompt import (
+    SYSTEM_PROMPT_TEMPLATE as PLANNER_PROMPT_TEMPLATE,
 )
-from ccs_response_planner_backend.agents.rl_agent.tools import (
-    STREAMING_TOOL_DISPATCH as RL_STREAMING_DISPATCH,
-    TOOL_DISPATCH as RL_TOOL_DISPATCH,
+from ccs_response_planner_backend.agents.planner_agent.tools import (
+    STREAMING_TOOL_DISPATCH as PLANNER_STREAMING_DISPATCH,
+    TOOL_DISPATCH as PLANNER_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.code_manager_agent.agent import (
     CodeManagerAgent,
@@ -243,7 +243,7 @@ def _write_env_to_sandbox(env_code: str) -> None:
     :param env_code: the Python source code for the environment
     """
     import docker as docker_lib
-    from ccs_response_planner_backend.agents.rl_agent.tools import (
+    from ccs_response_planner_backend.agents.planner_agent.tools import (
         _ensure_python_sandbox,
         _write_code_to_sandbox,
     )
@@ -2437,11 +2437,11 @@ def agents_code_manager_tool() -> (
         return jsonify({"error": str(e)}), 500
 
 
-@agents_bp.route("/rl/step", methods=["POST"])
+@agents_bp.route("/planner/step", methods=["POST"])
 @token_required
-def agents_rl_step() -> tuple[Response, int]:
+def agents_planner_step() -> tuple[Response, int]:
     """
-    Start an RlAgent step as a background job.
+    Start a PlannerAgent step as a background job.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -2509,7 +2509,7 @@ def agents_rl_step() -> tuple[Response, int]:
         dict[str, Any], None, None
     ]:
         """
-        Run the RlAgent step in background.
+        Run the PlannerAgent step in background.
 
         :return: a generator of event dicts
         """
@@ -2542,7 +2542,7 @@ def agents_rl_step() -> tuple[Response, int]:
                             ),
                         }
                         return
-            agent = RlAgent()
+            agent = PlannerAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
             )
@@ -2568,11 +2568,11 @@ def agents_rl_step() -> tuple[Response, int]:
     return jsonify({"job_id": job_id}), 202
 
 
-@agents_bp.route("/rl/prompt", methods=["POST"])
+@agents_bp.route("/planner/prompt", methods=["POST"])
 @token_required
-def agents_rl_prompt() -> tuple[Response, int]:
+def agents_planner_prompt() -> tuple[Response, int]:
     """
-    Render the RlAgent system prompt from the given context.
+    Render the PlannerAgent system prompt from the given context.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -2592,12 +2592,12 @@ def agents_rl_prompt() -> tuple[Response, int]:
         except (json.JSONDecodeError, ValueError):
             code_report = {}
     formatted_report = (
-        RlAgent._format_code_report(
+        PlannerAgent._format_code_report(
             code_report or {},
         )
     )
     time_limit = body.get("time_limit_minutes", 5)
-    prompt = RL_PROMPT_TEMPLATE.format(
+    prompt = PLANNER_PROMPT_TEMPLATE.format(
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
@@ -2615,11 +2615,11 @@ def agents_rl_prompt() -> tuple[Response, int]:
     return jsonify({"prompt": prompt}), 200
 
 
-@agents_bp.route("/rl/tool", methods=["POST"])
+@agents_bp.route("/planner/tool", methods=["POST"])
 @token_required
-def agents_rl_tool() -> tuple[Response, int]:
+def agents_planner_tool() -> tuple[Response, int]:
     """
-    Execute an approved tool call for the RlAgent.
+    Execute an approved tool call for the PlannerAgent.
 
     Streaming tools run as background jobs; other tools
     return a single JSON response.
@@ -2632,7 +2632,7 @@ def agents_rl_tool() -> tuple[Response, int]:
     if not tool_name:
         return jsonify({"error": "tool_name is required"}), 400
 
-    if tool_name in RL_STREAMING_DISPATCH:
+    if tool_name in PLANNER_STREAMING_DISPATCH:
         session_id = body.get("session_id")
         username = g.username
         job_id = (
@@ -2665,7 +2665,7 @@ def agents_rl_tool() -> tuple[Response, int]:
             :return: a generator of event dicts
             """
             try:
-                agent = RlAgent()
+                agent = PlannerAgent()
                 yield from agent.execute_tool_stream(
                     tool_name, tool_args,
                 )
@@ -2680,12 +2680,12 @@ def agents_rl_tool() -> tuple[Response, int]:
         )
         return jsonify({"job_id": job_id}), 202
 
-    if tool_name not in RL_TOOL_DISPATCH:
+    if tool_name not in PLANNER_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
     try:
-        agent = RlAgent()
+        agent = PlannerAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:
@@ -2849,7 +2849,7 @@ def agents_plan_manager_tool() -> (
     """
     Execute an approved tool call for PlanManagerAgent.
 
-    Sub-agent tools (run_code_manager, run_rl_agent,
+    Sub-agent tools (run_code_manager, run_planner_agent,
     run_validation_agent) are streaming. Builds context
     from the request body and accumulated reports in the
     conversation history.
@@ -2891,8 +2891,8 @@ def agents_plan_manager_tool() -> (
             "reviewer_agent_model": body.get(
                 "reviewer_agent_model",
             ),
-            "rl_agent_model": body.get(
-                "rl_agent_model",
+            "planner_agent_model": body.get(
+                "planner_agent_model",
             ),
             "validation_agent_model": body.get(
                 "validation_agent_model",
@@ -2900,8 +2900,8 @@ def agents_plan_manager_tool() -> (
             "code_manager_iterations": body.get(
                 "code_manager_iterations", 3,
             ),
-            "rl_time_limit_minutes": body.get(
-                "rl_time_limit_minutes", 5,
+            "planner_time_limit_minutes": body.get(
+                "planner_time_limit_minutes", 5,
             ),
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
@@ -2937,7 +2937,7 @@ def agents_plan_manager_tool() -> (
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_rl_agent"
+                == "run_planner_agent"
             ):
                 result = entry.get("result", {})
                 context["planner_report"] = result.get(
@@ -3215,8 +3215,8 @@ def agents_orchestrator_tool() -> (
             "code_reviewer_agent_model": body.get(
                 "code_reviewer_agent_model",
             ),
-            "rl_agent_model": body.get(
-                "rl_agent_model",
+            "planner_agent_model": body.get(
+                "planner_agent_model",
             ),
             "validation_agent_model": body.get(
                 "validation_agent_model",
@@ -3230,8 +3230,8 @@ def agents_orchestrator_tool() -> (
             "code_manager_iterations": body.get(
                 "code_manager_iterations", 3,
             ),
-            "rl_time_limit_minutes": body.get(
-                "rl_time_limit_minutes", 5,
+            "planner_time_limit_minutes": body.get(
+                "planner_time_limit_minutes", 5,
             ),
             "dt_config": (
                 DatabaseFacade.get_digital_twin_config()
@@ -3261,8 +3261,8 @@ def agents_orchestrator_tool() -> (
             "code_reviewer_compaction": body.get(
                 "code_reviewer_compaction", 0.8,
             ),
-            "rl_agent_compaction": body.get(
-                "rl_agent_compaction", 0.8,
+            "planner_agent_compaction": body.get(
+                "planner_agent_compaction", 0.8,
             ),
             "validation_agent_compaction": body.get(
                 "validation_agent_compaction", 0.8,
@@ -3376,7 +3376,7 @@ def save_agent_report() -> tuple[Response, int]:
     conversation_history = body.get("conversation_history")
     model_name = body.get("model_name") or None
     policy_data = None
-    if agent_type == "rl":
+    if agent_type == "planner":
         try:
             policy_data = _read_policy_from_sandbox()
         except Exception:

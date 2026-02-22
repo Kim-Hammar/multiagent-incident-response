@@ -416,7 +416,7 @@ parameter for reproducibility
 any shell command value that contains double quotes. For example: \
 `'chpasswd <<< "admin:newpass"'` — NOT \
 `"chpasswd <<< \\"admin:newpass\\""`. This prevents quoting conflicts \
-when the RL Agent embeds the code inside a triple-quoted string.
+when the Planner Agent embeds the code inside a triple-quoted string.
 
 ### Workflow
 

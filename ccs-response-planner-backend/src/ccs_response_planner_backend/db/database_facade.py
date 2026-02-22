@@ -157,8 +157,18 @@ class DatabaseFacade:
                 """)
                 cur.execute(
                     f"UPDATE {DB.AGENT_REPORTS_TABLE} "
-                    f"SET agent_type = 'rl' "
+                    f"SET agent_type = 'planner' "
                     f"WHERE agent_type = 'mdp_planner'"
+                )
+                cur.execute(
+                    f"UPDATE {DB.AGENT_REPORTS_TABLE} "
+                    f"SET agent_type = 'planner' "
+                    f"WHERE agent_type = 'rl'"
+                )
+                cur.execute(
+                    f"UPDATE {DB.PLANNING_SESSIONS_TABLE} "
+                    f"SET agent_type = 'planner' "
+                    f"WHERE agent_type = 'rl'"
                 )
                 cur.execute(f"""
                     CREATE TABLE IF NOT EXISTS

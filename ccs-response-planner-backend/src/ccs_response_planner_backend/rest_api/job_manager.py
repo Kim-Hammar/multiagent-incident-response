@@ -27,7 +27,7 @@ class _Job:
         self.events: list[dict[str, Any]] = []
         self.event_sizes: list[int] = []
         self.done: bool = False
-        self.error: Optional[str] = None
+        self.error: Optional[dict[str, object]] = None
         self.cancelled: bool = False
         self.lock: threading.Lock = threading.Lock()
         self.last_event_time: float = time.time()

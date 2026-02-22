@@ -80,13 +80,11 @@ function AgentHistoryTab({
             style={{ fontSize: '11px', padding: '2px 10px' }}
             disabled={deletingAll}
             onClick={async () => {
-              if (window.confirm('Delete all reports? This cannot be undone.')) {
-                setDeletingAll(true)
-                try {
-                  await Promise.resolve(deleteAllReports())
-                } finally {
-                  setDeletingAll(false)
-                }
+              setDeletingAll(true)
+              try {
+                await Promise.resolve(deleteAllReports())
+              } finally {
+                setDeletingAll(false)
               }
             }}
           >
@@ -150,7 +148,7 @@ function AgentHistoryTab({
           </div>
           {historyExpanded[entry.id] && (
             <div style={{ marginTop: '8px' }}>
-              {renderReport(entry.report)}
+              {renderReport(entry.report, entry)}
               <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 {entry.has_conversation_history && (
                   <button

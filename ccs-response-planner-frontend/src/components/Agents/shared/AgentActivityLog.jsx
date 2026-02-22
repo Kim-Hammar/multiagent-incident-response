@@ -14,7 +14,7 @@ import {
   ValidationReportBody,
   PlanManagerReportBody
 } from './ReportBodies.jsx'
-import RlAgentReport from '../RlAgentReport.jsx'
+import PlannerAgentReport from '../PlannerAgentReport.jsx'
 
 const RL_STREAMING_TYPES = new Set(['progress', 'eval_progress', 'started', 'result', 'timeout'])
 
@@ -23,7 +23,7 @@ const ORCHESTRATOR_TOOLS = new Set([
   'run_code_reviewer_agent',
   'produce_orchestrator_report',
   'run_code_manager',
-  'run_rl_agent',
+  'run_planner_agent',
   'run_validation_agent',
   'produce_plan_manager_report',
   'run_report_agent',
@@ -193,7 +193,7 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
-  if (toolName === 'run_rl_agent' || toolName === 'run_validation_agent') {
+  if (toolName === 'run_planner_agent' || toolName === 'run_validation_agent') {
     return (
       <div className="ia-orchestrator-args">
         <div className="ia-orchestrator-note">
@@ -237,10 +237,10 @@ function renderOrchestratorArgs(toolName, args) {
             </div>
           </CollapsibleSection>
         )}
-        {args.rl_agent_summary && (
-          <CollapsibleSection label="RL Agent Summary" icon="fa-line-chart">
+        {args.planner_agent_summary && (
+          <CollapsibleSection label="Planner Agent Summary" icon="fa-line-chart">
             <div className="ia-arg-markdown">
-              <ReactMarkdown>{args.rl_agent_summary}</ReactMarkdown>
+              <ReactMarkdown>{args.planner_agent_summary}</ReactMarkdown>
             </div>
           </CollapsibleSection>
         )}
@@ -535,11 +535,11 @@ function renderSubAgentReport(toolName, result) {
       </div>
     )
   }
-  if (toolName === 'run_rl_agent' && result.planner_report) {
+  if (toolName === 'run_planner_agent' && result.planner_report) {
     return (
-      <RlAgentReport
+      <PlannerAgentReport
         entry={{ type: 'planner_report', planner_report: result.planner_report }}
-        index="sub-rl"
+        index="sub-planner"
         isExpanded={true}
         toggleEntry={() => {}}
       />
@@ -915,8 +915,11 @@ function SubAgentLog({
           const lastEv = subEvents[subEvents.length - 1]
           const lastShowsSpinner =
             lastEv &&
-            (lastEv.type === 'reasoning' || lastEv.type === 'text' || lastEv.type === 'tool_call' ||
-              lastEv.type === 'tool_result' || RL_STREAMING_TYPES.has(lastEv.type))
+            (lastEv.type === 'reasoning' ||
+              lastEv.type === 'text' ||
+              lastEv.type === 'tool_call' ||
+              lastEv.type === 'tool_result' ||
+              RL_STREAMING_TYPES.has(lastEv.type))
           if (lastShowsSpinner) return null
           return (
             <div className="ia-sub-entry ia-sub-reasoning">

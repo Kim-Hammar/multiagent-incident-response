@@ -442,7 +442,7 @@ def test_summarize_plan_manager_result() -> None:
             "iterations": 1,
             "final_verdict": "pass",
             "code_manager_summary": "CM",
-            "rl_agent_summary": "RL",
+            "planner_agent_summary": "RL",
             "validation_summary": "V",
         },
         "response_plan": "class Env:\n  ...(10k lines)...",

@@ -201,7 +201,7 @@ function ResponsePlanner() {
   const [codeManagerModel, setCodeManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
   const [codeReviewerModel, setCodeReviewerModel] = useState('')
-  const [rlAgentModel, setRlAgentModel] = useState('')
+  const [plannerAgentModel, setPlannerAgentModel] = useState('')
   const [validationAgentModel, setValidationAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [orchestratorCompaction, setOrchestratorCompaction] = useState(80)
@@ -212,12 +212,12 @@ function ResponsePlanner() {
   const [codeManagerCompaction, setCodeManagerCompaction] = useState(80)
   const [codeAgentCompaction, setCodeAgentCompaction] = useState(80)
   const [codeReviewerCompaction, setCodeReviewerCompaction] = useState(80)
-  const [rlAgentCompaction, setRlAgentCompaction] = useState(80)
+  const [plannerAgentCompaction, setPlannerAgentCompaction] = useState(80)
   const [validationAgentCompaction, setValidationAgentCompaction] = useState(80)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
-  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(10)
+  const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const sessionIdRef = useRef(null)
@@ -443,7 +443,7 @@ function ResponsePlanner() {
         setCodeManagerModel(config.codeManagerModel || '')
         setCodeAgentModel(config.codeAgentModel || '')
         setCodeReviewerModel(config.codeReviewerModel || '')
-        setRlAgentModel(config.rlAgentModel || '')
+        setPlannerAgentModel(config.plannerAgentModel || '')
         setValidationAgentModel(config.validationAgentModel || '')
         setCompactionModel(config.compactionModel || '')
         setOrchestratorCompaction(config.orchestratorCompaction || 80)
@@ -454,12 +454,12 @@ function ResponsePlanner() {
         setCodeManagerCompaction(config.codeManagerCompaction || 80)
         setCodeAgentCompaction(config.codeAgentCompaction || 80)
         setCodeReviewerCompaction(config.codeReviewerCompaction || 80)
-        setRlAgentCompaction(config.rlAgentCompaction || 80)
+        setPlannerAgentCompaction(config.plannerAgentCompaction || 80)
         setValidationAgentCompaction(config.validationAgentCompaction || 80)
         setReportManagerIterations(config.reportManagerIterations || 1)
         setPlanManagerIterations(config.planManagerIterations || 1)
         setCodeManagerIterations(config.codeManagerIterations || 1)
-        setRlTimeLimitMinutes(config.rlTimeLimitMinutes || 10)
+        setPlannerTimeLimitMinutes(config.plannerTimeLimitMinutes || 10)
         setAutopilot(config.autopilot ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
@@ -1310,7 +1310,7 @@ function ResponsePlanner() {
             codeManagerModel,
             codeAgentModel,
             codeReviewerModel,
-            rlAgentModel,
+            plannerAgentModel,
             validationAgentModel,
             compactionModel,
             orchestratorCompaction,
@@ -1321,12 +1321,12 @@ function ResponsePlanner() {
             codeManagerCompaction,
             codeAgentCompaction,
             codeReviewerCompaction,
-            rlAgentCompaction,
+            plannerAgentCompaction,
             validationAgentCompaction,
             reportManagerIterations,
             planManagerIterations,
             codeManagerIterations,
-            rlTimeLimitMinutes,
+            plannerTimeLimitMinutes,
             autopilot
           }
         })
@@ -1389,12 +1389,12 @@ function ResponsePlanner() {
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
           code_reviewer_model: codeReviewerModel || undefined,
-          rl_agent_model: rlAgentModel || undefined,
+          planner_agent_model: plannerAgentModel || undefined,
           validation_agent_model: validationAgentModel || undefined,
           report_manager_iterations: reportManagerIterations,
           plan_manager_iterations: planManagerIterations,
           code_manager_iterations: codeManagerIterations,
-          rl_time_limit_minutes: rlTimeLimitMinutes,
+          planner_time_limit_minutes: plannerTimeLimitMinutes,
           compaction_model: compactionModel || undefined,
           report_manager_compaction: reportManagerCompaction / 100,
           report_agent_compaction: reportAgentCompaction / 100,
@@ -1403,7 +1403,7 @@ function ResponsePlanner() {
           code_manager_compaction: codeManagerCompaction / 100,
           code_agent_compaction: codeAgentCompaction / 100,
           code_reviewer_compaction: codeReviewerCompaction / 100,
-          rl_agent_compaction: rlAgentCompaction / 100,
+          planner_agent_compaction: plannerAgentCompaction / 100,
           validation_agent_compaction: validationAgentCompaction / 100
         }
         const { result } = await executeStreamingTool({
@@ -1922,8 +1922,8 @@ function ResponsePlanner() {
             setCodeAgentModel={setCodeAgentModel}
             codeReviewerModel={codeReviewerModel}
             setCodeReviewerModel={setCodeReviewerModel}
-            rlAgentModel={rlAgentModel}
-            setRlAgentModel={setRlAgentModel}
+            plannerAgentModel={plannerAgentModel}
+            setPlannerAgentModel={setPlannerAgentModel}
             validationAgentModel={validationAgentModel}
             setValidationAgentModel={setValidationAgentModel}
             compactionModel={compactionModel}
@@ -1934,8 +1934,8 @@ function ResponsePlanner() {
             setPlanManagerIterations={setPlanManagerIterations}
             codeManagerIterations={codeManagerIterations}
             setCodeManagerIterations={setCodeManagerIterations}
-            rlTimeLimitMinutes={rlTimeLimitMinutes}
-            setRlTimeLimitMinutes={setRlTimeLimitMinutes}
+            plannerTimeLimitMinutes={plannerTimeLimitMinutes}
+            setPlannerTimeLimitMinutes={setPlannerTimeLimitMinutes}
             orchestratorCompaction={orchestratorCompaction}
             setOrchestratorCompaction={setOrchestratorCompaction}
             reportManagerCompaction={reportManagerCompaction}
@@ -1952,8 +1952,8 @@ function ResponsePlanner() {
             setCodeAgentCompaction={setCodeAgentCompaction}
             codeReviewerCompaction={codeReviewerCompaction}
             setCodeReviewerCompaction={setCodeReviewerCompaction}
-            rlAgentCompaction={rlAgentCompaction}
-            setRlAgentCompaction={setRlAgentCompaction}
+            plannerAgentCompaction={plannerAgentCompaction}
+            setPlannerAgentCompaction={setPlannerAgentCompaction}
             validationAgentCompaction={validationAgentCompaction}
             setValidationAgentCompaction={setValidationAgentCompaction}
           />

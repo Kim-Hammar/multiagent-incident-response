@@ -119,15 +119,18 @@ function RewardChart({
                 {' '}
                 | {fmtTime(Math.round(latest.elapsed_seconds))} /{' '}
                 {fmtTime(latest.time_limit_seconds)} (
-                {Math.min(100, Math.round((latest.elapsed_seconds / latest.time_limit_seconds) * 100))}
+                {Math.min(
+                  100,
+                  Math.round((latest.elapsed_seconds / latest.time_limit_seconds) * 100)
+                )}
                 %), {latest.timesteps.toLocaleString()} timesteps
               </span>
             ) : (
               latest.total_timesteps > 0 && (
                 <span>
                   {' '}
-                  | {latest.timesteps.toLocaleString()} /{' '}
-                  {latest.total_timesteps.toLocaleString()} timesteps (
+                  | {latest.timesteps.toLocaleString()} / {latest.total_timesteps.toLocaleString()}{' '}
+                  timesteps (
                   {Math.min(100, Math.round((latest.timesteps / latest.total_timesteps) * 100))}
                   %)
                 </span>

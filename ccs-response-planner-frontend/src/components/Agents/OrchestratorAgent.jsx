@@ -13,7 +13,7 @@ import {
   API_AGENTS_CODE_MANAGER_PROMPT_URL,
   API_AGENTS_CODE_PROMPT_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
-  API_AGENTS_RL_PROMPT_URL,
+  API_AGENTS_PLANNER_PROMPT_URL,
   API_AGENTS_VALIDATION_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
@@ -159,7 +159,7 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
             )}
             {report.planner_report && Object.keys(report.planner_report).length > 0 && (
               <div className="ia-assessment-section">
-                <div className="ia-assessment-label">RL Planner Report</div>
+                <div className="ia-assessment-label">Planner Agent Report</div>
                 <PlannerReportInline report={report.planner_report} />
               </div>
             )}
@@ -226,14 +226,14 @@ function OrchestratorAgent() {
   const [codeManagerModel, setCodeManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
   const [codeReviewerModel, setCodeReviewerModel] = useState('')
-  const [rlAgentModel, setRlAgentModel] = useState('')
+  const [plannerAgentModel, setPlannerAgentModel] = useState('')
   const [validationAgentModel, setValidationAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
-  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(10)
+  const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -284,14 +284,14 @@ function OrchestratorAgent() {
       codeManagerModel,
       codeAgentModel,
       codeReviewerModel,
-      rlAgentModel,
+      plannerAgentModel,
       validationAgentModel,
       compactionModel,
       compactionThreshold,
       reportManagerIterations,
       planManagerIterations,
       codeManagerIterations,
-      rlTimeLimitMinutes,
+      plannerTimeLimitMinutes,
       autopilot
     },
     onRestore: (session) => {
@@ -313,7 +313,7 @@ function OrchestratorAgent() {
         if (cfg.codeManagerModel != null) setCodeManagerModel(cfg.codeManagerModel)
         if (cfg.codeAgentModel != null) setCodeAgentModel(cfg.codeAgentModel)
         if (cfg.codeReviewerModel != null) setCodeReviewerModel(cfg.codeReviewerModel)
-        if (cfg.rlAgentModel != null) setRlAgentModel(cfg.rlAgentModel)
+        if (cfg.plannerAgentModel != null) setPlannerAgentModel(cfg.plannerAgentModel)
         if (cfg.validationAgentModel != null) setValidationAgentModel(cfg.validationAgentModel)
         if (cfg.compactionModel != null) setCompactionModel(cfg.compactionModel)
         if (cfg.compactionThreshold != null) setCompactionThreshold(cfg.compactionThreshold)
@@ -321,7 +321,8 @@ function OrchestratorAgent() {
           setReportManagerIterations(cfg.reportManagerIterations)
         if (cfg.planManagerIterations != null) setPlanManagerIterations(cfg.planManagerIterations)
         if (cfg.codeManagerIterations != null) setCodeManagerIterations(cfg.codeManagerIterations)
-        if (cfg.rlTimeLimitMinutes != null) setRlTimeLimitMinutes(cfg.rlTimeLimitMinutes)
+        if (cfg.plannerTimeLimitMinutes != null)
+          setPlannerTimeLimitMinutes(cfg.plannerTimeLimitMinutes)
         if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
@@ -727,12 +728,12 @@ function OrchestratorAgent() {
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
           code_reviewer_model: codeReviewerModel || undefined,
-          rl_agent_model: rlAgentModel || undefined,
+          planner_agent_model: plannerAgentModel || undefined,
           validation_agent_model: validationAgentModel || undefined,
           report_manager_iterations: reportManagerIterations,
           plan_manager_iterations: planManagerIterations,
           code_manager_iterations: codeManagerIterations,
-          rl_time_limit_minutes: rlTimeLimitMinutes,
+          planner_time_limit_minutes: plannerTimeLimitMinutes,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current
@@ -980,12 +981,12 @@ function OrchestratorAgent() {
         code_manager_model: codeManagerModel || undefined,
         code_agent_model: codeAgentModel || undefined,
         code_reviewer_model: codeReviewerModel || undefined,
-        rl_agent_model: rlAgentModel || undefined,
+        planner_agent_model: plannerAgentModel || undefined,
         validation_agent_model: validationAgentModel || undefined,
         report_manager_iterations: reportManagerIterations,
         plan_manager_iterations: planManagerIterations,
         code_manager_iterations: codeManagerIterations,
-        rl_time_limit_minutes: rlTimeLimitMinutes,
+        planner_time_limit_minutes: plannerTimeLimitMinutes,
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current
@@ -1505,13 +1506,13 @@ function OrchestratorAgent() {
               setCompaction: null
             },
             {
-              label: 'RL Agent',
-              model: rlAgentModel,
-              setModel: setRlAgentModel,
-              promptUrl: API_AGENTS_RL_PROMPT_URL,
+              label: 'Planner Agent',
+              model: plannerAgentModel,
+              setModel: setPlannerAgentModel,
+              promptUrl: API_AGENTS_PLANNER_PROMPT_URL,
               iteration: {
-                value: rlTimeLimitMinutes,
-                set: setRlTimeLimitMinutes,
+                value: plannerTimeLimitMinutes,
+                set: setPlannerTimeLimitMinutes,
                 min: 1,
                 max: 60,
                 suffix: 'min'

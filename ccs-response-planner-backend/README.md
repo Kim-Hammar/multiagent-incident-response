@@ -71,6 +71,18 @@ mypy src
 tox                # Run all checks (pytest + flake8 + mypy)
 ```
 
+### Agent Integration Tests
+
+The agent integration tests exercise the full agent loop with real LLM calls (Gemini). They are excluded from the regular unit test suite and run separately:
+
+```bash
+# From the project root:
+./agent_tests.sh              # All agent tests (needs GEMINI_API_KEY + Docker)
+./agent_tests.sh --no-docker  # Skip tests that require a Docker daemon
+```
+
+Requires `GEMINI_API_KEY` in the root `.env` file. Tests marked `@pytest.mark.docker` also need a running Docker daemon.
+
 ## Development (Docker)
 
 From the project root:

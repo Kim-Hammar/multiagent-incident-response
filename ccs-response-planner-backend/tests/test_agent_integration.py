@@ -172,6 +172,12 @@ def run_agent_loop(
                         done_result = tool_event.get("result")
                         if done_result is not None:
                             tool_result = done_result
+                        else:
+                            tool_result = {
+                                k: v
+                                for k, v in tool_event.items()
+                                if k != "type"
+                            }
                     elif te_type == "error":
                         tool_result["error"] = (
                             tool_event.get("message", "error")
@@ -332,22 +338,22 @@ class TestCodeAgentIntegration:
 @skip_no_docker
 @pytest.mark.slow
 @pytest.mark.docker
-class TestRlAgentIntegration:
-    """Integration test for RlAgent (RL training)."""
+class TestPlannerAgentIntegration:
+    """Integration test for PlannerAgent (RL training)."""
 
     def test_produces_planner_report(self):
         """
-        RlAgent should train a policy and produce a planner report.
+        PlannerAgent should train a policy and produce a planner report.
         """
-        from ccs_response_planner_backend.agents.rl_agent.agent import (
-            RlAgent,
+        from ccs_response_planner_backend.agents.planner_agent.agent import (
+            PlannerAgent,
         )
-        from ccs_response_planner_backend.agents.rl_agent.tools import (
+        from ccs_response_planner_backend.agents.planner_agent.tools import (
             STREAMING_TOOL_DISPATCH,
             TOOL_DISPATCH,
         )
 
-        agent = RlAgent()
+        agent = PlannerAgent()
         events, report = run_agent_loop(
             agent=agent,
             step_kwargs={
@@ -365,7 +371,7 @@ class TestRlAgentIntegration:
             report_event_type="planner_report",
         )
         assert report is not None, (
-            "RlAgent did not produce a planner report"
+            "PlannerAgent did not produce a planner report"
         )
         assert "planner_report" in report
 
@@ -546,7 +552,7 @@ class TestPlanManagerIntegration:
 
     def test_orchestrates_full_pipeline(self):
         """
-        PlanManagerAgent should invoke code_manager, rl_agent, and
+        PlanManagerAgent should invoke code_manager, planner_agent, and
         validation_agent, then produce a plan_manager_report.
         """
         from ccs_response_planner_backend.agents.plan_manager_agent.agent import (  # noqa: E501
@@ -566,9 +572,9 @@ class TestPlanManagerIntegration:
             "code_manager_model": MODEL,
             "code_agent_model": MODEL,
             "reviewer_agent_model": MODEL,
-            "rl_agent_model": MODEL,
+            "planner_agent_model": MODEL,
             "validation_agent_model": MODEL,
-            "rl_time_limit_minutes": 1,
+            "planner_time_limit_minutes": 1,
             "username": "test",
             "dt_config": None,
             "compaction_model": None,

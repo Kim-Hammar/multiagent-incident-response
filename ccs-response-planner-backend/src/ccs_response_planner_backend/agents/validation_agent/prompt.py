@@ -30,7 +30,7 @@ actions have been applied.
 7. Call `produce_validation_report` with the complete per-action results."""
 
 SEQUENCE_MODE_INSTRUCTIONS = """\
-1. Carefully read the RL Agent Report's Action Sequence above. Identify \
+1. Carefully read the Planner Agent Report's Action Sequence above. Identify \
 the ordered list of response actions to apply.
 2. For **each action** in the plan, in order:
    a. Apply the action by running the necessary shell commands on the \
@@ -68,7 +68,7 @@ Also run the specification commands and record pass/fail counts.
    e. Record the action name, description, commands executed, outcome, recovery state, \
 service state, and **actual_step_cost** for this action.
 3. After applying ALL actions, compute the **actual_total_cost** by summing all per-step \
-costs. Compare this with the `expected_total_cost` from the RL Agent report. \
+costs. Compare this with the `expected_total_cost` from the Planner Agent report. \
 Then call `produce_validation_report` with the complete per-action results."""
 
 QUERY_POLICY_TOOL_DOC = """\
@@ -119,8 +119,8 @@ verifies one such constraint — the command succeeds (exit code 0) \
 when the constraint is met.
 {{specification}}
 
-### RL Agent Report
-This report was produced by the RL Agent after training a policy \
+### Planner Agent Report
+This report was produced by the Planner Agent after training a policy \
 on the MDP model. It includes the algorithm and hyperparameters \
 used, a summary of training convergence, and the recommended \
 action sequence that constitutes the response plan.

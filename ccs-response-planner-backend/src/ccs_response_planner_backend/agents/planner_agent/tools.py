@@ -1,5 +1,5 @@
 """
-Tool dispatch for the RlAgent.
+Tool dispatch for the PlannerAgent.
 
 Provides ``python_exec`` (standard) and ``rl_train`` (streaming)
 tools that run code in the Python sandbox container.

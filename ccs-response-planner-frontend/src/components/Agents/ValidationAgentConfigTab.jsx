@@ -144,7 +144,7 @@ function ValidationAgentConfigTab({
       </div>
       <div className="ia-section">
         <label htmlFor="va-planner-report">
-          RL Agent report
+          Planner Agent report
           {plannerReportId && (
             <span className="badge badge-success ml-2">
               <i className="fa fa-check" /> Policy available
@@ -152,7 +152,7 @@ function ValidationAgentConfigTab({
           )}
         </label>
         <p className="ia-hint">
-          JSON report from the RL Agent containing action sequence and expected total cost.
+          JSON report from the Planner Agent containing action sequence and expected total cost.
         </p>
         <textarea
           id="va-planner-report"
@@ -162,7 +162,7 @@ function ValidationAgentConfigTab({
           onChange={(e) => setPlannerReport(e.target.value)}
           disabled={isAgentBusy}
           style={{ fontFamily: 'monospace', fontSize: '12px' }}
-          placeholder="Paste the RL Agent report JSON..."
+          placeholder="Paste the Planner Agent report JSON..."
         />
       </div>
       <button

@@ -8,7 +8,7 @@ import {
   API_AGENTS_CODE_MANAGER_PROMPT_URL,
   API_AGENTS_CODE_PROMPT_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
-  API_AGENTS_RL_PROMPT_URL,
+  API_AGENTS_PLANNER_PROMPT_URL,
   API_AGENTS_VALIDATION_PROMPT_URL
 } from '../Common/constants'
 import PromptModal from '../Agents/shared/PromptModal.jsx'
@@ -41,8 +41,8 @@ function SubAgentsTab({
   setCodeAgentModel,
   codeReviewerModel,
   setCodeReviewerModel,
-  rlAgentModel,
-  setRlAgentModel,
+  plannerAgentModel,
+  setPlannerAgentModel,
   validationAgentModel,
   setValidationAgentModel,
   compactionModel,
@@ -53,8 +53,8 @@ function SubAgentsTab({
   setPlanManagerIterations,
   codeManagerIterations,
   setCodeManagerIterations,
-  rlTimeLimitMinutes,
-  setRlTimeLimitMinutes,
+  plannerTimeLimitMinutes,
+  setPlannerTimeLimitMinutes,
   orchestratorCompaction,
   setOrchestratorCompaction,
   reportManagerCompaction,
@@ -71,8 +71,8 @@ function SubAgentsTab({
   setCodeAgentCompaction,
   codeReviewerCompaction,
   setCodeReviewerCompaction,
-  rlAgentCompaction,
-  setRlAgentCompaction,
+  plannerAgentCompaction,
+  setPlannerAgentCompaction,
   validationAgentCompaction,
   setValidationAgentCompaction
 }) {
@@ -211,19 +211,19 @@ function SubAgentsTab({
       setCompaction: setCodeReviewerCompaction
     },
     {
-      label: 'RL Agent',
-      model: rlAgentModel,
-      setModel: setRlAgentModel,
-      promptUrl: API_AGENTS_RL_PROMPT_URL,
+      label: 'Planner Agent',
+      model: plannerAgentModel,
+      setModel: setPlannerAgentModel,
+      promptUrl: API_AGENTS_PLANNER_PROMPT_URL,
       iteration: {
-        value: rlTimeLimitMinutes,
-        set: setRlTimeLimitMinutes,
+        value: plannerTimeLimitMinutes,
+        set: setPlannerTimeLimitMinutes,
         min: 1,
         max: 60,
         suffix: 'min time limit'
       },
-      compaction: rlAgentCompaction,
-      setCompaction: setRlAgentCompaction
+      compaction: plannerAgentCompaction,
+      setCompaction: setPlannerAgentCompaction
     },
     {
       label: 'Validation Agent',

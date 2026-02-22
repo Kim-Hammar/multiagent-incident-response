@@ -9,13 +9,13 @@ import {
   API_AGENTS_CODE_MANAGER_PROMPT_URL,
   API_AGENTS_CODE_PROMPT_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
-  API_AGENTS_RL_PROMPT_URL,
+  API_AGENTS_PLANNER_PROMPT_URL,
   API_AGENTS_VALIDATION_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
-import RlAgentReport from './RlAgentReport.jsx'
+import PlannerAgentReport from './PlannerAgentReport.jsx'
 import ValidationAgentReport from './ValidationAgentReport.jsx'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
@@ -98,7 +98,7 @@ function enrichReport(report, history) {
         enriched.code_report = e.result.code_report
       }
     }
-    if (e.tool_name === 'run_rl_agent') {
+    if (e.tool_name === 'run_planner_agent') {
       if (!enriched.planner_report && e.result.planner_report) {
         enriched.planner_report = e.result.planner_report
       }
@@ -150,8 +150,74 @@ function PlanManagerReport({ entry, index, isExpanded, toggleEntry }) {
 }
 
 /**
+ * Wrapper for history tab entries that lazily fetches conversation_history
+ * and re-enriches the report with sub-reports when they are missing.
+ */
+function PlanManagerHistoryReport({ report, reportId, hasConversationHistory, token, logout }) {
+  const [enrichedReport, setEnrichedReport] = useState(report)
+  const [loading, setLoading] = useState(false)
+  const fetchedRef = useRef(false)
+
+  const isMissingSubs =
+    !report?.code_report &&
+    !report?.planner_report &&
+    !report?.validation_report &&
+    !report?.response_plan
+
+  useEffect(() => {
+    if (!isMissingSubs || !hasConversationHistory || !reportId || fetchedRef.current) return
+    fetchedRef.current = true
+    setLoading(true)
+    const doFetch = async () => {
+      try {
+        const res = await fetch(`${API_AGENTS_REPORTS_URL}/${reportId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.status === 401 && logout) {
+          logout()
+          return
+        }
+        if (res.ok) {
+          const data = await res.json()
+          if (data?.conversation_history) {
+            setEnrichedReport(enrichReport(report, data.conversation_history))
+          }
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false)
+      }
+    }
+    doFetch()
+  }, [report, reportId, hasConversationHistory, token, logout, isMissingSubs])
+
+  if (loading) {
+    return (
+      <div className="text-center" style={{ padding: '16px 0' }}>
+        <span
+          className="spinner-border spinner-border-sm"
+          role="status"
+          style={{ width: '14px', height: '14px', marginRight: '6px' }}
+        />
+        <span style={{ fontSize: '12px', color: '#6c757d' }}>Loading full report...</span>
+      </div>
+    )
+  }
+
+  return (
+    <PlanManagerReport
+      entry={{ type: 'plan_manager_report', plan_manager_report: enrichedReport }}
+      index="history"
+      isExpanded={true}
+      toggleEntry={() => {}}
+    />
+  )
+}
+
+/**
  * PlanManagerAgent component — orchestrates the full incident response pipeline:
- * CodeManager -> RL Agent -> Validation Agent with iterative revision.
+ * CodeManager -> Planner Agent -> Validation Agent with iterative revision.
  */
 function PlanManagerAgent() {
   const { token, logout } = useAuth()
@@ -176,12 +242,12 @@ function PlanManagerAgent() {
   const [codeManagerModel, setCodeManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
-  const [rlAgentModel, setRlAgentModel] = useState('')
+  const [plannerAgentModel, setPlannerAgentModel] = useState('')
   const [validationAgentModel, setValidationAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
-  const [rlTimeLimitMinutes, setRlTimeLimitMinutes] = useState(10)
+  const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -229,13 +295,13 @@ function PlanManagerAgent() {
       setCodeManagerModel(config.codeManagerModel || '')
       setCodeAgentModel(config.codeAgentModel || '')
       setReviewerAgentModel(config.reviewerAgentModel || '')
-      setRlAgentModel(config.rlAgentModel || '')
+      setPlannerAgentModel(config.plannerAgentModel || '')
       setValidationAgentModel(config.validationAgentModel || '')
       setCompactionModel(config.compactionModel || '')
       setCompactionThreshold(config.compactionThreshold || 80)
       setMaxIterations(config.maxIterations || 1)
       setCodeManagerIterations(config.codeManagerIterations || 1)
-      setRlTimeLimitMinutes(config.rlTimeLimitMinutes || 10)
+      setPlannerTimeLimitMinutes(config.plannerTimeLimitMinutes || 10)
       setAutopilot(config.autopilot ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
@@ -527,7 +593,7 @@ function PlanManagerAgent() {
             iterations: 0,
             final_verdict: 'unknown',
             code_manager_summary: '',
-            rl_agent_summary: '',
+            planner_agent_summary: '',
             validation_summary: ''
           }
         }
@@ -596,13 +662,13 @@ function PlanManagerAgent() {
         codeManagerModel,
         codeAgentModel,
         reviewerAgentModel,
-        rlAgentModel,
+        plannerAgentModel,
         validationAgentModel,
         compactionModel,
         compactionThreshold,
         maxIterations,
         codeManagerIterations,
-        rlTimeLimitMinutes,
+        plannerTimeLimitMinutes,
         autopilot
       }
     )
@@ -646,10 +712,10 @@ function PlanManagerAgent() {
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          rl_agent_model: rlAgentModel || undefined,
+          planner_agent_model: plannerAgentModel || undefined,
           validation_agent_model: validationAgentModel || undefined,
           code_manager_iterations: codeManagerIterations,
-          rl_time_limit_minutes: rlTimeLimitMinutes,
+          planner_time_limit_minutes: plannerTimeLimitMinutes,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current
@@ -909,10 +975,10 @@ function PlanManagerAgent() {
         code_manager_model: codeManagerModel || undefined,
         code_agent_model: codeAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,
-        rl_agent_model: rlAgentModel || undefined,
+        planner_agent_model: plannerAgentModel || undefined,
         validation_agent_model: validationAgentModel || undefined,
         code_manager_iterations: codeManagerIterations,
-        rl_time_limit_minutes: rlTimeLimitMinutes,
+        planner_time_limit_minutes: plannerTimeLimitMinutes,
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current
@@ -1158,14 +1224,14 @@ function PlanManagerAgent() {
         </div>
       )
     }
-    if (entry.tool_name === 'run_rl_agent' && entry.result) {
+    if (entry.tool_name === 'run_planner_agent' && entry.result) {
       const r = entry.result
       return (
         <div style={{ marginTop: '10px' }}>
           {r.planner_report && (
-            <RlAgentReport
+            <PlannerAgentReport
               entry={{ type: 'planner_report', planner_report: r.planner_report }}
-              index="pm-rl"
+              index="pm-planner"
               isExpanded={true}
               toggleEntry={() => {}}
             />
@@ -1286,7 +1352,7 @@ function PlanManagerAgent() {
           <div className="ia-description">
             <p>
               This agent orchestrates the full incident response pipeline: CodeManager (MDP
-              generation) -&gt; RL Agent (policy training) -&gt; Validation Agent (digital twin
+              generation) -&gt; Planner Agent (policy training) -&gt; Validation Agent (digital twin
               testing). It iteratively revises the pipeline until the response plan passes
               validation or the iteration limit is reached.
             </p>
@@ -1442,17 +1508,17 @@ function PlanManagerAgent() {
               promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL
             },
             {
-              label: 'RL Agent',
-              model: rlAgentModel,
-              setModel: setRlAgentModel,
+              label: 'Planner Agent',
+              model: plannerAgentModel,
+              setModel: setPlannerAgentModel,
               iteration: {
                 min: 1,
                 max: 60,
-                value: rlTimeLimitMinutes,
-                set: setRlTimeLimitMinutes,
+                value: plannerTimeLimitMinutes,
+                set: setPlannerTimeLimitMinutes,
                 suffix: 'min'
               },
-              promptUrl: API_AGENTS_RL_PROMPT_URL
+              promptUrl: API_AGENTS_PLANNER_PROMPT_URL
             },
             {
               label: 'Validation Agent',
@@ -1503,12 +1569,13 @@ function PlanManagerAgent() {
           reportHistory={reportHistory}
           deleteReport={deleteReport}
           deleteAllReports={deleteAllReports}
-          renderReport={(report) => (
-            <PlanManagerReport
-              entry={{ type: 'plan_manager_report', plan_manager_report: report }}
-              index="history"
-              isExpanded={true}
-              toggleEntry={() => {}}
+          renderReport={(report, entry) => (
+            <PlanManagerHistoryReport
+              report={report}
+              reportId={entry?.id}
+              hasConversationHistory={entry?.has_conversation_history}
+              token={token}
+              logout={logout}
             />
           )}
           renderFinalReport={renderFinalReport}

@@ -656,9 +656,9 @@ function ValidationAgent() {
         }
       }
 
-      // Fetch latest RL Agent report for this incident
+      // Fetch latest Planner Agent report for this incident
       const plannerRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=rl&incident_id=${incidentId}`,
+        `${API_AGENTS_REPORTS_URL}?agent_type=planner&incident_id=${incidentId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (plannerRes.ok) {

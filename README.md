@@ -114,6 +114,8 @@ From the project root:
 
 ```bash
 ./unit_tests.sh       # Backend (pytest) + frontend (vitest) tests
+./agent_tests.sh      # Agent integration tests with real LLM calls (needs API keys)
+./agent_tests.sh --no-docker  # Agent tests without Docker-dependent tests
 ./python_linter.sh    # flake8
 ./js_linter.sh        # eslint
 ./linter.sh           # Both linters

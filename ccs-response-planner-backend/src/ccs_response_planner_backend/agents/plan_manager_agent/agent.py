@@ -1,7 +1,7 @@
 """
 PlanManagerAgent — uses Gemini with function calling to
 orchestrate the full incident response pipeline:
-CodeManager -> RlAgent -> ValidationAgent.
+CodeManager -> PlannerAgent -> ValidationAgent.
 """
 import base64
 import json
@@ -82,7 +82,7 @@ def _build_initial_message(
 class PlanManagerAgent:
     """
     A top-level orchestrator agent that uses Gemini function
-    calling to coordinate CodeManagerAgent, RlAgent, and
+    calling to coordinate CodeManagerAgent, PlannerAgent, and
     ValidationAgent in an automated pipeline loop.
     """
 
@@ -586,7 +586,7 @@ class PlanManagerAgent:
                     "iterations": 0,
                     "final_verdict": "unknown",
                     "code_manager_summary": "",
-                    "rl_agent_summary": "",
+                    "planner_agent_summary": "",
                     "validation_summary": "",
                 },
             }

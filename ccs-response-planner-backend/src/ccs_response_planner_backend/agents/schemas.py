@@ -145,7 +145,7 @@ class OrchestratorReport(BaseModel):
     review_report_summary: str
 
 
-# ── RL Agent ───────────────────────────────────────────────────
+# ── Planner Agent ─────────────────────────────────────────────
 
 
 class RlActionStep(BaseModel):
@@ -164,7 +164,7 @@ class RlActionStep(BaseModel):
 
 class PlannerReport(BaseModel):
     """
-    Report produced by the rl_agent.
+    Report produced by the planner_agent.
     """
 
     executive_summary: str
@@ -319,7 +319,7 @@ class PlanManagerReport(BaseModel):
     iterations: int
     final_verdict: str
     code_manager_summary: str
-    rl_agent_summary: str
+    planner_agent_summary: str
     validation_summary: str
 
 
@@ -344,7 +344,7 @@ REPORT_MODELS: dict[str, type[BaseModel]] = {
     "code_agent": CodeReport,
     "code_reviewer_agent": ReviewReport,
     "code_manager_agent": OrchestratorReport,
-    "rl_agent": PlannerReport,
+    "planner_agent": PlannerReport,
     "validation_agent": ValidationReport,
     "report_agent": InformationReport,
     "plan_manager_agent": PlanManagerReport,

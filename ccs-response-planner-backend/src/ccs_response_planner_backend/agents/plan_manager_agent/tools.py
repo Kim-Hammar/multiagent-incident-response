@@ -2,7 +2,7 @@
 Tool dispatch for the PlanManagerAgent.
 
 Provides streaming generator functions that run sub-agents
-(CodeManagerAgent, RlAgent, ValidationAgent) internally,
+(CodeManagerAgent, PlannerAgent, ValidationAgent) internally,
 auto-approving tool calls and yielding progress events.
 """
 import json
@@ -22,10 +22,10 @@ from ccs_response_planner_backend.agents.code_manager_agent.agent import (
 from ccs_response_planner_backend.agents.code_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as CM_STREAMING_DISPATCH,
 )
-from ccs_response_planner_backend.agents.rl_agent.agent import RlAgent
-from ccs_response_planner_backend.agents.rl_agent.tools import (
-    STREAMING_TOOL_DISPATCH as RL_STREAMING_DISPATCH,
-    TOOL_DISPATCH as RL_TOOL_DISPATCH,
+from ccs_response_planner_backend.agents.planner_agent.agent import PlannerAgent
+from ccs_response_planner_backend.agents.planner_agent.tools import (
+    STREAMING_TOOL_DISPATCH as PLANNER_STREAMING_DISPATCH,
+    TOOL_DISPATCH as PLANNER_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.validation_agent.agent import (
     ValidationAgent,
@@ -201,7 +201,7 @@ def _write_env_to_sandbox(env_code: str) -> None:
     :param env_code: the Python source code for the environment
     """
     import docker as docker_lib
-    from ccs_response_planner_backend.agents.rl_agent.tools import (
+    from ccs_response_planner_backend.agents.planner_agent.tools import (
         _ensure_python_sandbox,
         _write_code_to_sandbox,
     )
@@ -947,11 +947,11 @@ def run_code_manager_stream(
     }
 
 
-def run_rl_agent_stream(
+def run_planner_agent_stream(
     context: dict[str, Any],
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the RlAgent sub-agent to completion.
+    Run the PlannerAgent sub-agent to completion.
 
     Requires code_report in context. Handles env code
     setup, then runs the RL agent loop.
@@ -968,7 +968,7 @@ def run_rl_agent_stream(
             yield {
                 "type": "output_chunk",
                 "text": (
-                    "[RlAgent] Env code written to "
+                    "[PlannerAgent] Env code written to "
                     "sandbox.\n"
                 ),
             }
@@ -980,12 +980,12 @@ def run_rl_agent_stream(
             yield {
                 "type": "output_chunk",
                 "text": (
-                    f"[RlAgent] Warning: failed to write "
+                    f"[PlannerAgent] Warning: failed to write "
                     f"env code: {e}\n"
                 ),
             }
 
-    agent = RlAgent()
+    agent = PlannerAgent()
     step_kwargs: dict[str, Any] = {
         "system_description": context.get(
             "system_description", "",
@@ -1002,10 +1002,10 @@ def run_rl_agent_stream(
         "code_report": code_report,
         "conversation_history": [],
         "model_name": context.get(
-            "rl_agent_model",
+            "planner_agent_model",
         ),
         "time_limit_minutes": context.get(
-            "rl_time_limit_minutes", 5,
+            "planner_time_limit_minutes", 5,
         ),
         "prev_planner_report": context.get(
             "planner_report",
@@ -1017,7 +1017,7 @@ def run_rl_agent_stream(
             "compaction_model",
         ),
         "compaction_threshold": context.get(
-            "rl_agent_compaction", 0.8,
+            "planner_agent_compaction", 0.8,
         ),
     }
 
@@ -1027,9 +1027,9 @@ def run_rl_agent_stream(
     for ev in _run_sub_agent_loop(
         agent=agent,
         step_kwargs=step_kwargs,
-        agent_streaming_dispatch=RL_STREAMING_DISPATCH,
-        agent_tool_dispatch=RL_TOOL_DISPATCH,
-        agent_label="RlAgent",
+        agent_streaming_dispatch=PLANNER_STREAMING_DISPATCH,
+        agent_tool_dispatch=PLANNER_TOOL_DISPATCH,
+        agent_label="PlannerAgent",
         report_event_type="planner_report",
         context=context,
     ):
@@ -1056,7 +1056,7 @@ def run_rl_agent_stream(
     if planner_report is None:
         planner_report = {
             "executive_summary": (
-                "RlAgent did not produce a report "
+                "PlannerAgent did not produce a report "
                 "within the step limit."
             ),
             "response_plan": "",
@@ -1070,7 +1070,7 @@ def run_rl_agent_stream(
     ]
     try:
         DatabaseFacade.save_agent_report(
-            agent_type="rl",
+            agent_type="planner",
             report=planner_report,
             username=context.get("username", "system"),
             incident_id=context.get("incident_id"),
@@ -1247,7 +1247,7 @@ STREAMING_TOOL_DISPATCH: dict[
     ],
 ] = {
     "run_code_manager": run_code_manager_stream,
-    "run_rl_agent": run_rl_agent_stream,
+    "run_planner_agent": run_planner_agent_stream,
     "run_validation_agent": (
         run_validation_agent_stream
     ),

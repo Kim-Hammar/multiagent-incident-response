@@ -783,7 +783,7 @@ function PlanManagerReportBody({ result: r }) {
       )}
       {r.planner_report && Object.keys(r.planner_report).length > 0 && (
         <div className="ia-assessment-section">
-          <div className="ia-assessment-label">RL Policy Report</div>
+          <div className="ia-assessment-label">Planner Agent Report</div>
           <PlannerReportInline report={r.planner_report} />
         </div>
       )}

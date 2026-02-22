@@ -2,9 +2,9 @@ import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
- * Configuration tab for the RL Agent.
+ * Configuration tab for the Planner Agent.
  */
-function RlAgentConfigTab({
+function PlannerAgentConfigTab({
   systemDescription,
   setSystemDescription,
   incidentReport,
@@ -153,4 +153,4 @@ function RlAgentConfigTab({
   )
 }
 
-export default RlAgentConfigTab
+export default PlannerAgentConfigTab

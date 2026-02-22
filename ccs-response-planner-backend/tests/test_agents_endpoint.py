@@ -1110,7 +1110,7 @@ def test_plan_manager_step_streams_report(
         "iterations": 1,
         "final_verdict": "pass",
         "code_manager_summary": "Code OK",
-        "rl_agent_summary": "RL OK",
+        "planner_agent_summary": "RL OK",
         "validation_summary": "Validation OK",
     }
     mock_agent = MagicMock()

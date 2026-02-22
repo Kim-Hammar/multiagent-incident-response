@@ -10,7 +10,7 @@ Your job is to invoke two sub-agents exactly once each, in order:
 
 1. **ReportManager** — produces a reviewed incident assessment.
 2. **PlanManager** — uses that assessment to generate a response plan \
-(by building an MDP model and training an RL policy).
+(by building an MDP model and training a policy).
 
 Both sub-agents are themselves orchestrators of many internal agents \
 and run their own internal revision loops. You do NOT need to know \
@@ -41,10 +41,10 @@ ReportReviewerAgent to produce a reviewed incident assessment. \
 Call `run_report_manager` to trigger this phase. The ReportManager \
 handles its own internal generate-review-revise loop.
 
-2. **PlanManager** — Orchestrates the CodeManager, RL Agent, and \
+2. **PlanManager** — Orchestrates the CodeManager, Planner Agent, and \
 Validation Agent to produce a validated incident response plan. \
 Call `run_plan_manager` to trigger this phase. The PlanManager \
-handles its own internal code-generation, RL-training, and \
+handles its own internal code-generation, planning, and \
 validation loop.
 
 ## Pipeline (exactly three steps)
@@ -58,7 +58,7 @@ the response plan using the assessment from step 1.
 3. **Final Report:** Call `produce_orchestrator_agent_report` with a \
 consolidated summary that includes: a brief executive summary of \
 the overall process, the incident assessment from the ReportManager, \
-and the code report, RL policy report, and validation report from \
+and the code report, planner report, and validation report from \
 the PlanManager.
 
 ## Incident Context

@@ -624,7 +624,7 @@ def run_plan_manager_stream(
     :param context: dict with assessment, system_description,
         operator_feedback, images, plan_manager_model,
         code_manager_model, code_agent_model,
-        reviewer_agent_model, rl_agent_model,
+        reviewer_agent_model, planner_agent_model,
         validation_agent_model, code_manager_iterations,
         rl_time_limit_minutes, dt_config, username
     :return: generator yielding event dicts
@@ -702,8 +702,8 @@ def run_plan_manager_stream(
         "reviewer_agent_model": context.get(
             "code_reviewer_agent_model",
         ),
-        "rl_agent_model": context.get(
-            "rl_agent_model",
+        "planner_agent_model": context.get(
+            "planner_agent_model",
         ),
         "validation_agent_model": context.get(
             "validation_agent_model",
@@ -949,7 +949,7 @@ def run_plan_manager_stream(
                     pm_context["code_report"] = (
                         code_report
                     )
-                elif tool_name == "run_rl_agent":
+                elif tool_name == "run_planner_agent":
                     planner = tool_result.get(
                         "planner_report", {},
                     )
@@ -1051,7 +1051,7 @@ def run_plan_manager_stream(
             "iterations": 0,
             "final_verdict": "major_issues",
             "code_manager_summary": "",
-            "rl_agent_summary": "",
+            "planner_agent_summary": "",
             "validation_summary": "",
         }
 
@@ -1060,7 +1060,7 @@ def run_plan_manager_stream(
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_rl_agent"
+                == "run_planner_agent"
             ):
                 result = entry.get("result", {})
                 pr = result.get("planner_report", {})

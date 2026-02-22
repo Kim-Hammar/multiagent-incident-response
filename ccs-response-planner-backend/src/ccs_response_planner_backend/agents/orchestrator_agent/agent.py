@@ -655,8 +655,8 @@ class OrchestratorAgent:
                     "code_manager_summary": report.get(
                         "code_manager_summary", "",
                     ),
-                    "rl_agent_summary": report.get(
-                        "rl_agent_summary", "",
+                    "planner_agent_summary": report.get(
+                        "planner_agent_summary", "",
                     ),
                     "validation_summary": report.get(
                         "validation_summary", "",

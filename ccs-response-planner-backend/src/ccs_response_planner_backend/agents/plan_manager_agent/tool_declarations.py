@@ -30,10 +30,10 @@ RUN_CODE_MANAGER_DECL = genai_types.FunctionDeclaration(
     },
 )
 
-RUN_RL_AGENT_DECL = genai_types.FunctionDeclaration(
-    name="run_rl_agent",
+RUN_PLANNER_AGENT_DECL = genai_types.FunctionDeclaration(
+    name="run_planner_agent",
     description=(
-        "Run the RL Agent to train a reinforcement "
+        "Run the Planner Agent to train a reinforcement "
         "learning policy on the MDP environment. "
         "Requires that run_code_manager has completed "
         "successfully first."
@@ -50,7 +50,7 @@ RUN_VALIDATION_AGENT_DECL = genai_types.FunctionDeclaration(
     description=(
         "Run the Validation Agent to test the response "
         "plan on the digital twin. Requires that "
-        "run_rl_agent has completed successfully first."
+        "run_planner_agent has completed successfully first."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
@@ -64,7 +64,7 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
     description=(
         "Produce the final pipeline report. Call this "
         "ONLY after at least one full pipeline cycle "
-        "(CodeManager + RL Agent + Validation Agent)."
+        "(CodeManager + Planner Agent + Validation Agent)."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
@@ -98,7 +98,7 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
                     "generation phase."
                 ),
             },
-            "rl_agent_summary": {
+            "planner_agent_summary": {
                 "type": "string",
                 "description": (
                     "Summary of the RL training "
@@ -118,7 +118,7 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
             "iterations",
             "final_verdict",
             "code_manager_summary",
-            "rl_agent_summary",
+            "planner_agent_summary",
             "validation_summary",
         ],
     },
@@ -126,13 +126,13 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
 
 ITERATING_DECLARATIONS = [
     RUN_CODE_MANAGER_DECL,
-    RUN_RL_AGENT_DECL,
+    RUN_PLANNER_AGENT_DECL,
     RUN_VALIDATION_AGENT_DECL,
 ]
 
 ALL_DECLARATIONS = [
     RUN_CODE_MANAGER_DECL,
-    RUN_RL_AGENT_DECL,
+    RUN_PLANNER_AGENT_DECL,
     RUN_VALIDATION_AGENT_DECL,
     PRODUCE_PLAN_MANAGER_REPORT_DECL,
 ]

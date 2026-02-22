@@ -1,5 +1,5 @@
 """
-RlAgent — uses Gemini with function calling to train
+PlannerAgent — uses Gemini with function calling to train
 an RL policy on a Gymnasium MDP environment and produce an
 incident response plan.
 """
@@ -24,14 +24,14 @@ from ccs_response_planner_backend.agents.context_utils import (
     compact_tool_result,
     maybe_compact_context,
 )
-from ccs_response_planner_backend.agents.rl_agent.prompt import (
+from ccs_response_planner_backend.agents.planner_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
-from ccs_response_planner_backend.agents.rl_agent.tool_declarations import (
+from ccs_response_planner_backend.agents.planner_agent.tool_declarations import (
     ALL_DECLARATIONS,
     ITERATING_DECLARATIONS,
 )
-from ccs_response_planner_backend.agents.rl_agent.tools import (
+from ccs_response_planner_backend.agents.planner_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
@@ -77,7 +77,7 @@ def _build_initial_message(
 THINKING_BUDGET = 16384
 
 
-class RlAgent:
+class PlannerAgent:
     """
     An agent that uses Gemini function calling to train an
     RL policy on a Gymnasium MDP environment and produce a
@@ -216,7 +216,7 @@ class RlAgent:
         Returns an empty string on the first run (no previous
         reports), so the prompt section is omitted entirely.
 
-        :param prev_planner_report: previous RL planner report
+        :param prev_planner_report: previous planner report
         :param prev_validation_report: previous validation report
         :return: formatted revision context or empty string
         """
@@ -543,12 +543,12 @@ class RlAgent:
             return obj
         if hasattr(obj, "items"):
             return {
-                str(k): RlAgent._normalize_args(v)
+                str(k): PlannerAgent._normalize_args(v)
                 for k, v in obj.items()
             }
         if hasattr(obj, "__iter__"):
             return [
-                RlAgent._normalize_args(v)
+                PlannerAgent._normalize_args(v)
                 for v in obj
             ]
         return obj

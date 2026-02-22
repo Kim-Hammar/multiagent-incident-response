@@ -18,7 +18,7 @@ export const TOOL_LABELS = {
   run_code_reviewer_agent: { label: 'Code Reviewer Agent', icon: 'fa-search' },
   produce_orchestrator_report: { label: 'Code Manager Report', icon: 'fa-file-text' },
   run_code_manager: { label: 'Code Manager', icon: 'fa-sitemap' },
-  run_rl_agent: { label: 'RL Agent', icon: 'fa-line-chart' },
+  run_planner_agent: { label: 'Planner Agent', icon: 'fa-line-chart' },
   run_validation_agent: { label: 'Validation Agent', icon: 'fa-check-circle' },
   produce_plan_manager_report: { label: 'Plan Manager Report', icon: 'fa-flag-checkered' },
   generate_attack_image: { label: 'Attack Path Image', icon: 'fa-image' },

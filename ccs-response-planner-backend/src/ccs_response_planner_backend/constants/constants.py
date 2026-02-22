@@ -73,9 +73,9 @@ class API:
     AGENTS_CODE_REVIEW_PROMPT_ROUTE = (
         "/api/agents/code-review/prompt"
     )
-    AGENTS_RL_STEP_ROUTE = "/api/agents/rl/step"
-    AGENTS_RL_TOOL_ROUTE = "/api/agents/rl/tool"
-    AGENTS_RL_PROMPT_ROUTE = "/api/agents/rl/prompt"
+    AGENTS_PLANNER_STEP_ROUTE = "/api/agents/planner/step"
+    AGENTS_PLANNER_TOOL_ROUTE = "/api/agents/planner/tool"
+    AGENTS_PLANNER_PROMPT_ROUTE = "/api/agents/planner/prompt"
     AGENTS_CODE_MANAGER_STEP_ROUTE = (
         "/api/agents/code-manager/step"
     )

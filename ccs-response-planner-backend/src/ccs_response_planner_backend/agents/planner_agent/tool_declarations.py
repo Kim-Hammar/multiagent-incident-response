@@ -1,5 +1,5 @@
 """
-Gemini function-calling declarations for the RlAgent tools.
+Gemini function-calling declarations for the PlannerAgent tools.
 """
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
