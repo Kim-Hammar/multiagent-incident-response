@@ -1923,7 +1923,7 @@ function ResponsePlanner() {
           />
         )}
 
-        {activeTab === 'planning' && (
+        <div style={{ display: activeTab === 'planning' ? undefined : 'none' }}>
           <AgentPlanningTab
             loading={!restoredSession}
             running={running}
@@ -1950,7 +1950,7 @@ function ResponsePlanner() {
             lastHeartbeatTime={lastHeartbeatTime}
             heartbeatStatus={heartbeatStatus}
           />
-        )}
+        </div>
 
         {activeTab === 'history' && (
           <AgentHistoryTab
