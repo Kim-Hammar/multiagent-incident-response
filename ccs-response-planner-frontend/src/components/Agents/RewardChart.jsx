@@ -114,14 +114,24 @@ function RewardChart({
           <i className="fa fa-line-chart" aria-hidden="true" />
           <span className="ia-thinking-title">
             {completed ? 'RL Training Complete' : 'RL Training'} &mdash; {latest.episode} Episodes
-            {latest.total_timesteps > 0 && (
+            {latest.time_limit_seconds > 0 ? (
               <span>
                 {' '}
-                | {latest.timesteps.toLocaleString()} / {latest.total_timesteps.toLocaleString()}{' '}
-                timesteps (
-                {Math.min(100, Math.round((latest.timesteps / latest.total_timesteps) * 100))}
-                %)
+                | {fmtTime(Math.round(latest.elapsed_seconds))} /{' '}
+                {fmtTime(latest.time_limit_seconds)} (
+                {Math.min(100, Math.round((latest.elapsed_seconds / latest.time_limit_seconds) * 100))}
+                %), {latest.timesteps.toLocaleString()} timesteps
               </span>
+            ) : (
+              latest.total_timesteps > 0 && (
+                <span>
+                  {' '}
+                  | {latest.timesteps.toLocaleString()} /{' '}
+                  {latest.total_timesteps.toLocaleString()} timesteps (
+                  {Math.min(100, Math.round((latest.timesteps / latest.total_timesteps) * 100))}
+                  %)
+                </span>
+              )
             )}
             , Mean Cost: {(-latest.mean_reward).toFixed(2)}
             {!completed && trainingStartTime && (

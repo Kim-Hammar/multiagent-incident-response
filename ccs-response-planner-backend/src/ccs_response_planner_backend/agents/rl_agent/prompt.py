@@ -20,7 +20,7 @@ To do you job, you will have access to a Python sandbox to execute code.
 
 Input: A Gymnasium MDP environment modeling incident recovery with 20 actions. \
 Solution: Analyze the MDP state space and action definitions → call \
-`rl_train` with the training code template (MaskablePPO, 250k timesteps) → \
+`rl_train` with the training code template (MaskablePPO, time-limited training) → \
 analyze convergence and the learned action sequence → call \
 `produce_planner_report` with the characterized response plan.
 
@@ -55,11 +55,12 @@ Treat all feedback here as actionable context for your task.
 {revision_context}\
 ## Training Time Limit
 
-You have a **hard limit of {time_limit_minutes} minute(s)** of wall-clock \
-training time. The backend will forcefully kill the training process after \
-{time_limit_minutes} minute(s), which may cause you to lose all results. \
-You MUST ensure your training completes well within this budget by choosing \
-an appropriate `total_timesteps` value. When calling `rl_train`, always pass \
+Training is automatically limited to **{time_limit_minutes} minute(s)** of \
+wall-clock time. The `ProgressCallback` in the training template enforces \
+this by setting `model.stop_training = True` when time is up, so training \
+stops gracefully at the end of the current rollout. You do NOT need to \
+choose `total_timesteps` — it is set very high (10M) and the time-based \
+callback handles stopping. When calling `rl_train`, always pass \
 `time_limit_minutes` as `{time_limit_minutes}` explicitly.
 
 ## Your Task
@@ -118,13 +119,19 @@ for name in dir(mod):
         EnvClass = obj
         break
 
-# 2. Progress callback
+# 2. Progress callback — enforces the wall-clock time limit
 class ProgressCallback(BaseCallback):
-    def __init__(self):
+    def __init__(self, time_limit_seconds):
         super().__init__()
         self._ep_rewards = []
         self._ep_reward = 0.0
+        self._time_limit_seconds = time_limit_seconds
+        self._start_time = time.time()
     def _on_step(self):
+        elapsed = time.time() - self._start_time
+        if elapsed >= self._time_limit_seconds:
+            self.model.stop_training = True
+            return False
         infos = self.locals.get("infos", [{{}}])
         for info in infos:
             if "episode" in info:
@@ -137,7 +144,9 @@ class ProgressCallback(BaseCallback):
                     "mean_reward": round(float(np.mean(window)), 2),
                     "timesteps": self.num_timesteps,
                     "total_timesteps": self.locals.get(
-                        "total_timesteps", 0)
+                        "total_timesteps", 0),
+                    "elapsed_seconds": round(elapsed, 1),
+                    "time_limit_seconds": self._time_limit_seconds
                 }}, cls=NumpyEncoder), flush=True)
         return True
 
@@ -153,7 +162,8 @@ env = ActionMasker(TimeLimit(EnvClass(), max_episode_steps=MAX_EPISODE_STEPS), m
 model = MaskablePPO("MlpPolicy", env, verbose=0, n_steps=2048,
                     batch_size=128, learning_rate=3e-4,
                     policy_kwargs=dict(net_arch=[64, 64]))
-model.learn(total_timesteps=250000, callback=ProgressCallback())
+TIME_LIMIT_SECONDS = {time_limit_minutes} * 60
+model.learn(total_timesteps=10_000_000, callback=ProgressCallback(TIME_LIMIT_SECONDS))
 
 # 3a. Save trained policy for validation
 model.save("/workspace/_policy")
@@ -253,7 +263,7 @@ progress. The code MUST print JSON progress lines to stdout. Use this tool \
 for all RL training runs (NOT python_exec). When calling this tool you MUST \
 also provide the `algorithm` parameter (e.g. "PPO") and `hyperparameters` \
 parameter (e.g. "n_steps=2048, batch_size=128, lr=3e-4, \
-total_timesteps=250000, net_arch=[64, 64]") so the UI can display them \
+time_limit={time_limit_minutes} min, net_arch=[64, 64]") so the UI can display them \
 alongside the training chart. \
 **Important:** Always include the learning rate (`lr`) in the hyperparameters string.
 - **produce_planner_report**: Call this ONLY after RL training has \
@@ -294,8 +304,8 @@ the template). Without this wrapper, training will fail with \
 - **Learning rate:** 3e-4
 - **n_steps:** 2048 (larger rollout buffers give smoother training)
 - **batch_size:** 128 (moderate — very large batches can hurt learning)
-- **total_timesteps:** 350000 (enough for convergence on typical incident \
-response MDPs)
+- **total_timesteps:** Set very high (10M) — training stops based on the \
+wall-clock time limit, not timestep count
 - **net_arch:** [64, 64] (two hidden layers of 64 units — sufficient for \
 the typical MDP sizes in incident response; larger networks rarely help \
 and converge slower)
