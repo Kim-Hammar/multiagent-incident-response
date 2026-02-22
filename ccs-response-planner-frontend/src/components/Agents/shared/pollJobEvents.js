@@ -17,9 +17,10 @@ const FETCH_TIMEOUT = 10000
  * @param {string} opts.jobId - The background job ID
  * @param {string} opts.token - Auth bearer token
  * @param {AbortSignal} [opts.signal] - Optional AbortController signal
- * @param {(event: Object) => void} opts.onEvent - Called for each new event
+ * @param {(event: Object, eventIndex: number) => void} opts.onEvent - Called for each new event (with its global index)
  * @param {(status: string) => void} [opts.onHeartbeat] - Called with status string on each heartbeat
  * @param {(elapsedMs: number) => void} [opts.onStale] - Called when no real events for 30s
+ * @param {number} [opts.startIndex=0] - Event index to start polling from
  * @param {number} [opts.pollInterval=300] - Milliseconds between polls
  * @returns {Promise<void>}
  */
@@ -30,9 +31,10 @@ export async function pollJobEvents({
   onEvent,
   onHeartbeat,
   onStale,
+  startIndex = 0,
   pollInterval = 100
 }) {
-  let nextIndex = 0
+  let nextIndex = startIndex
   let retries = 0
   const MAX_RETRIES = 45
   let lastRealEventTime = Date.now()
@@ -68,9 +70,11 @@ export async function pollJobEvents({
 
       // Advance cursor before processing so an onEvent error
       // cannot leave us re-fetching the same batch forever.
+      const batchStartIndex = nextIndex
       nextIndex = next_index
 
-      for (const event of events) {
+      for (let i = 0; i < events.length; i++) {
+        const event = events[i]
         try {
           if (event.type === 'heartbeat') {
             lastRealEventTime = Date.now()
@@ -80,7 +84,7 @@ export async function pollJobEvents({
           }
           lastRealEventTime = Date.now()
           staleNotified = false
-          onEvent(event)
+          onEvent(event, batchStartIndex + i)
         } catch (eventErr) {
           // Always propagate abort so callers can cancel cleanly.
           if (eventErr.name === 'AbortError') throw eventErr

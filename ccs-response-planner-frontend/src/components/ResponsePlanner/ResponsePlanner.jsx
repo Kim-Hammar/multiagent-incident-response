@@ -503,9 +503,9 @@ function ResponsePlanner() {
           const toolName = uiState.executingTool
           if (toolName && STREAMING_TOOLS.has(toolName)) {
             setExecutingTool(toolName)
-            resumeToolJob(String(session.id), toolName, originalStartTime)
+            resumeToolJob(String(session.id), toolName, originalStartTime, jobEventCount)
           } else {
-            callStep(history, String(session.id))
+            callStep(history, String(session.id), jobEventCount)
           }
         } else {
           // Job is not running — if no events were recorded, the job
@@ -844,13 +844,14 @@ function ResponsePlanner() {
     }
   }
 
-  const callStep = async (history, resumeJobId = null) => {
+  const callStep = async (history, resumeJobId = null, catchUpUntil = 0) => {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '', _startTime: Date.now() }
     let errorOccurred = false
     let streamingAdded = false
+    let caughtUp = catchUpUntil <= 0
     try {
       let job_id
       if (resumeJobId) {
@@ -906,18 +907,29 @@ function ResponsePlanner() {
           setHeartbeatStatus(status)
         },
         onStale: () => setLivenessStatus('stale'),
-        onEvent: (event) => {
+        onEvent: (event, eventIndex) => {
           setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
           if (errorOccurred) return
 
+          // Transition from catch-up to live mode
+          if (!caughtUp && eventIndex >= catchUpUntil) {
+            caughtUp = true
+            // streamingEntry is already in state; flush accumulated data
+            if (streamingAdded) {
+              setConversationHistory((prev) => [...prev])
+            }
+          }
+
           if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            if (!caughtUp) return
             handleDtEvent(event)
             return
           }
 
           if (!streamingAdded) {
             streamingAdded = true
+            // Always add immediately so the spinner is visible during catch-up
             setConversationHistory((prev) => [...prev, streamingEntry])
           }
 
@@ -928,14 +940,14 @@ function ResponsePlanner() {
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             streamingEntry.text = accumulated
-            setConversationHistory((prev) => [...prev])
+            if (caughtUp) setConversationHistory((prev) => [...prev])
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
-            setConversationHistory((prev) => [...prev])
+            if (caughtUp) setConversationHistory((prev) => [...prev])
           } else if (event.type === 'tool_input_delta') {
             toolInputAccumulated += event.delta
             streamingEntry.toolInput = toolInputAccumulated
-            setConversationHistory((prev) => [...prev])
+            if (caughtUp) setConversationHistory((prev) => [...prev])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
               role: 'model',
@@ -966,11 +978,13 @@ function ResponsePlanner() {
               compacted_tokens: event.compacted_tokens,
               compaction_model: event.compaction_model
             }
-            setConversationHistory((prev) => {
-              const idx = prev.indexOf(streamingEntry)
-              if (idx === -1) return [...prev, compactionEntry]
-              return [...prev.slice(0, idx), compactionEntry, ...prev.slice(idx)]
-            })
+            if (caughtUp) {
+              setConversationHistory((prev) => {
+                const idx = prev.indexOf(streamingEntry)
+                if (idx === -1) return [...prev, compactionEntry]
+                return [...prev.slice(0, idx), compactionEntry, ...prev.slice(idx)]
+              })
+            }
           } else if (event.type === 'error') {
             const msg = event.message || 'Agent stream error'
             setAlert({ type: 'danger', message: msg })
@@ -990,6 +1004,12 @@ function ResponsePlanner() {
           }
         }
       })
+
+      // If the job completed entirely within the catch-up window, flush now
+      if (!caughtUp && streamingAdded) {
+        caughtUp = true
+        setConversationHistory((prev) => [...prev])
+      }
 
       if (errorOccurred) return
 
@@ -1074,7 +1094,7 @@ function ResponsePlanner() {
   }
   callStepRef.current = callStep
 
-  const resumeToolJob = async (jobId, toolName, originalStartTime = null) => {
+  const resumeToolJob = async (jobId, toolName, originalStartTime = null, catchUpUntil = 0) => {
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamEntry = {
@@ -1084,6 +1104,8 @@ function ResponsePlanner() {
       subEvents: [],
       _startTime: originalStartTime || Date.now()
     }
+    let caughtUp = catchUpUntil <= 0
+    // Always add streamEntry immediately so the spinner is visible during catch-up
     setConversationHistory((prev) => [...prev, streamEntry])
     try {
       let doneEvent = null
@@ -1098,27 +1120,36 @@ function ResponsePlanner() {
           setHeartbeatStatus(status)
         },
         onStale: () => setLivenessStatus('stale'),
-        onEvent: (event) => {
+        onEvent: (event, eventIndex) => {
           setLastHeartbeatTime(Date.now())
           setLivenessStatus('alive')
+
+          // Transition from catch-up to live mode
+          if (!caughtUp && eventIndex >= catchUpUntil) {
+            caughtUp = true
+            // streamEntry is already in state; flush accumulated data
+            setConversationHistory((prev) => [...prev])
+          }
+
           if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            if (!caughtUp) return
             handleDtEvent(event)
             return
           }
           if (event.type === 'output_chunk') {
             streamEntry.output += event.text
-            setConversationHistory((prev) => [...prev])
+            if (caughtUp) setConversationHistory((prev) => [...prev])
           } else if (event.type === 'sub_event') {
             const inner = event.event
             if (inner.type === 'context_usage') {
               streamEntry.contextUsage = inner
-              setConversationHistory((prev) => [...prev])
+              if (caughtUp) setConversationHistory((prev) => [...prev])
               return
             }
             if (inner.type === 'prompt') {
               streamEntry.prompt = inner.text
               streamEntry.promptImages = inner.images || []
-              setConversationHistory((prev) => [...prev])
+              if (caughtUp) setConversationHistory((prev) => [...prev])
               return
             }
             const evTs = event.ts || Date.now()
@@ -1174,7 +1205,7 @@ function ResponsePlanner() {
               if (!inner._startTime) inner._startTime = evTs
               streamEntry.subEvents.push(inner)
             }
-            setConversationHistory((prev) => [...prev])
+            if (caughtUp) setConversationHistory((prev) => [...prev])
           } else if (event.type === 'done') {
             doneEvent = event
           } else if (event.type === 'error') {
@@ -1184,6 +1215,11 @@ function ResponsePlanner() {
           }
         }
       })
+      // If the job completed entirely within the catch-up window, flush now
+      if (!caughtUp) {
+        caughtUp = true
+        setConversationHistory((prev) => [...prev])
+      }
       streamEntry.stopped = true
       const result = doneEvent
         ? doneEvent.result || {
