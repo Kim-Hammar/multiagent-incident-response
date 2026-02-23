@@ -39,26 +39,30 @@ export async function pollJobEvents({
   const MAX_RETRIES = 45
   let lastRealEventTime = Date.now()
   let staleNotified = false
+  let pollCount = 0
 
   while (true) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
     let gotFullBatch = false
+    pollCount++
 
     try {
       const fetchSignal = signal
         ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT)])
         : AbortSignal.timeout(FETCH_TIMEOUT)
 
-      const res = await fetch(
-        `${API_BASE}/${jobId}/events?after=${nextIndex}&limit=${EVENT_LIMIT}`,
-        { headers: { Authorization: `Bearer ${token}` }, signal: fetchSignal }
-      )
+      const url = `${API_BASE}/${jobId}/events?after=${nextIndex}&limit=${EVENT_LIMIT}`
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: fetchSignal
+      })
 
       if (res.status === 401) {
         throw Object.assign(new Error('Unauthorized'), { status: 401 })
       }
       if (!res.ok) {
+        console.warn('[pollJobEvents] HTTP %d for job=%s after=%d', res.status, jobId, nextIndex)
         throw new Error(`Job poll failed (HTTP ${res.status})`)
       }
 
@@ -67,6 +71,15 @@ export async function pollJobEvents({
 
       retries = 0
       gotFullBatch = events.length >= EVENT_LIMIT
+
+      // Log every 50th poll and whenever done or non-empty events
+      if (done || events.length > 0 || pollCount % 50 === 0) {
+        const types = events.map((e) => e.type).join(',')
+        console.log(
+          '[pollJobEvents] job=%s poll#%d after=%d events=%d types=[%s] done=%s next=%d',
+          jobId, pollCount, nextIndex, events.length, types, done, next_index
+        )
+      }
 
       // Advance cursor before processing so an onEvent error
       // cannot leave us re-fetching the same batch forever.
@@ -95,6 +108,7 @@ export async function pollJobEvents({
       }
 
       if (done) {
+        console.log('[pollJobEvents] job=%s DONE after %d polls', jobId, pollCount)
         if (error) {
           const err = new Error(error.message || String(error))
           err.errorDetail = error
@@ -104,9 +118,22 @@ export async function pollJobEvents({
       }
     } catch (err) {
       if (err.name === 'AbortError' && signal?.aborted) throw err
-      if ((err.name === 'TimeoutError' || err.name === 'TypeError') && retries < MAX_RETRIES) {
+      if (
+        (err.name === 'TimeoutError' || err.name === 'TypeError' || err.name === 'SyntaxError') &&
+        retries < MAX_RETRIES
+      ) {
         retries++
+        if (retries % 5 === 0) {
+          console.warn(
+            '[pollJobEvents] job=%s retry %d/%d (%s: %s)',
+            jobId, retries, MAX_RETRIES, err.name, err.message
+          )
+        }
       } else {
+        console.error(
+          '[pollJobEvents] job=%s fatal error after %d polls: %s: %s',
+          jobId, pollCount, err.name, err.message
+        )
         err._source = 'poll_network'
         throw err
       }

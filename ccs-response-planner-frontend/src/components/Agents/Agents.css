@@ -1114,6 +1114,44 @@
   overflow: auto;
 }
 
+/* ── Copyable code block wrapper ──────────────────── */
+.ia-copyable-block {
+  position: relative;
+}
+.ia-copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(128, 128, 128, 0.2);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: #888;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
+  line-height: 1;
+}
+.ia-copyable-block:hover .ia-copy-btn {
+  opacity: 1;
+}
+.ia-copy-btn:hover {
+  background: rgba(128, 128, 128, 0.4);
+  color: #555;
+}
+/* Light-on-dark variant for dark code blocks */
+.ia-copyable-block .ia-arg-code ~ .ia-copy-btn,
+.ia-copyable-block .ia-terminal-output ~ .ia-copy-btn {
+  color: rgba(255, 255, 255, 0.45);
+}
+.ia-copyable-block .ia-arg-code ~ .ia-copy-btn:hover,
+.ia-copyable-block .ia-terminal-output ~ .ia-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .ia-arg-code {
   margin: 0;
   padding: 10px;

@@ -16,6 +16,7 @@ import {
   HostAnalysisBody
 } from './ReportBodies.jsx'
 import PlannerAgentReport from '../PlannerAgentReport.jsx'
+import CopyablePre from './CopyablePre.jsx'
 
 const RL_STREAMING_TYPES = new Set(['progress', 'eval_progress', 'started', 'result', 'timeout'])
 
@@ -115,7 +116,7 @@ function renderOrchestratorArgs(toolName, args) {
             label={`Previous Code (${args.previous_code.split('\n').length} lines)`}
             icon="fa-code"
           >
-            <pre className="ia-arg-code">{args.previous_code}</pre>
+            <CopyablePre className="ia-arg-code" text={args.previous_code}>{args.previous_code}</CopyablePre>
           </CollapsibleSection>
         )}
       </div>
@@ -504,7 +505,7 @@ function renderTerminalResult(toolName, result) {
             ))}
           </ul>
         )}
-        {result.error && <pre className="ia-terminal-output error">{result.error}</pre>}
+        {result.error && <CopyablePre className="ia-terminal-output error" text={result.error}>{result.error}</CopyablePre>}
       </div>
     )
   }
@@ -524,7 +525,7 @@ function renderTerminalResult(toolName, result) {
         </span>
       </div>
       {result.output != null && result.output !== '' ? (
-        <pre className="ia-terminal-output">{result.output}</pre>
+        <CopyablePre className="ia-terminal-output" text={result.output}>{result.output}</CopyablePre>
       ) : (
         <span className="ia-terminal-empty">(no output)</span>
       )}
@@ -1124,7 +1125,7 @@ function SubAgentLog({
                           <div key={j} className="ia-proposal-arg-row">
                             <span className="ia-proposal-arg-label">{label}:</span>
                             {isCode ? (
-                              <pre className="ia-arg-code">{value}</pre>
+                              <CopyablePre className="ia-arg-code" text={value}>{value}</CopyablePre>
                             ) : (
                               <span className="ia-proposal-arg-value">{value}</span>
                             )}
@@ -1201,9 +1202,7 @@ function SubAgentLog({
                       <div className="ia-terminal-meta">
                         <span className="badge badge-danger">Training Error</span>
                       </div>
-                      <pre className="ia-terminal-output error">
-                        {ev.result.stderr || ev.result.error}
-                      </pre>
+                      <CopyablePre className="ia-terminal-output error" text={ev.result.stderr || ev.result.error}>{ev.result.stderr || ev.result.error}</CopyablePre>
                     </div>
                   ) : (
                     <>
@@ -1222,9 +1221,7 @@ function SubAgentLog({
                         terminal ||
                         report ||
                         renderSearchToolResult(ev.tool_name, ev.result) || (
-                          <pre className="ia-result-data mb-0">
-                            {JSON.stringify(ev.result, null, 2)}
-                          </pre>
+                          <CopyablePre className="ia-result-data mb-0" text={JSON.stringify(ev.result, null, 2)}>{JSON.stringify(ev.result, null, 2)}</CopyablePre>
                         )
                       )}
                     </>
@@ -1481,7 +1478,7 @@ function AgentActivityLog({
                   )}
                   {entry.toolInput ? (
                     <div className="ia-streaming-trace" ref={streamingTraceRef}>
-                      <pre className="ia-tool-input-pre">{entry.toolInput}</pre>
+                      <CopyablePre className="ia-tool-input-pre" text={entry.toolInput}>{entry.toolInput}</CopyablePre>
                     </div>
                   ) : (
                     entry.text &&
@@ -1554,7 +1551,7 @@ function AgentActivityLog({
                             <div key={i} className="ia-proposal-arg-row">
                               <span className="ia-proposal-arg-label">{label}:</span>
                               {isCode ? (
-                                <pre className="ia-arg-code">{value}</pre>
+                                <CopyablePre className="ia-arg-code" text={value}>{value}</CopyablePre>
                               ) : (
                                 <span className="ia-proposal-arg-value">{value}</span>
                               )}
@@ -1704,12 +1701,7 @@ function AgentActivityLog({
                       ) : (
                         <>
                           {entry.output && (
-                            <pre
-                              className="ia-terminal-output"
-                              style={{ maxHeight: '400px', overflow: 'auto' }}
-                            >
-                              {entry.output}
-                            </pre>
+                            <CopyablePre className="ia-terminal-output" style={{ maxHeight: '400px', overflow: 'auto' }} text={entry.output}>{entry.output}</CopyablePre>
                           )}
                           {!entry.stopped && (
                             <div className="ia-sub-entry ia-sub-reasoning">
@@ -1763,7 +1755,7 @@ function AgentActivityLog({
                         <div key={i} className="ia-proposal-arg-row">
                           <span className="ia-proposal-arg-label">{label}:</span>
                           {isCode ? (
-                            <pre className="ia-arg-code">{value}</pre>
+                            <CopyablePre className="ia-arg-code" text={value}>{value}</CopyablePre>
                           ) : (
                             <span className="ia-proposal-arg-value">{value}</span>
                           )}
@@ -1827,9 +1819,7 @@ function AgentActivityLog({
                         renderSubAgentReport(entry.tool_name, displayResult) ||
                         renderSearchToolResult(entry.tool_name, displayResult) || (
                           <>
-                            <pre className="ia-result-data mb-0">
-                              {JSON.stringify(displayResult, null, 2)}
-                            </pre>
+                            <CopyablePre className="ia-result-data mb-0" text={JSON.stringify(displayResult, null, 2)}>{JSON.stringify(displayResult, null, 2)}</CopyablePre>
                             {hasImage && (
                               <img
                                 src={entry.result.image}

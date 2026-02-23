@@ -1,3 +1,5 @@
+import CopyablePre from './CopyablePre.jsx'
+
 /**
  * Modal dialog that displays the raw conversation history (context)
  * sent to the LLM, with size statistics for debugging.
@@ -104,7 +106,23 @@ function ContextModal({ show, conversationHistory, onClose }) {
             )}
           </div>
 
-          <pre className="ia-prompt-text">
+          <CopyablePre
+            className="ia-prompt-text"
+            text={JSON.stringify(
+              entries,
+              (key, value) => {
+                if (
+                  typeof value === 'string' &&
+                  value.startsWith('data:image/') &&
+                  value.length > 200
+                ) {
+                  return '(base64 image omitted)'
+                }
+                return value
+              },
+              2
+            )}
+          >
             {JSON.stringify(
               entries,
               (key, value) => {
@@ -119,7 +137,7 @@ function ContextModal({ show, conversationHistory, onClose }) {
               },
               2
             )}
-          </pre>
+          </CopyablePre>
         </div>
       </div>
     </div>

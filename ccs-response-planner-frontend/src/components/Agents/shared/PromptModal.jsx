@@ -1,3 +1,5 @@
+import CopyablePre from './CopyablePre.jsx'
+
 /**
  * Modal dialog that displays the system prompt text.
  */
@@ -41,7 +43,7 @@ function PromptModal({ show, promptText, promptImages, onClose }) {
               </div>
             </div>
           )}
-          <pre className="ia-prompt-text">{promptText}</pre>
+          <CopyablePre className="ia-prompt-text" text={promptText}>{promptText}</CopyablePre>
         </div>
       </div>
     </div>

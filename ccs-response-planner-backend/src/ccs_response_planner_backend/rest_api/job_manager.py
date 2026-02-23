@@ -293,14 +293,28 @@ class JobManager:
                     break
             new_events = all_remaining[:cut]
             next_index = after + len(new_events)
-            all_delivered = next_index >= len(job.events)
+            total_events = len(job.events)
+            all_delivered = next_index >= total_events
+            is_done = job.done and all_delivered
+
+            # Log when transitioning to done, or when
+            # the job is done but not yet all-delivered
+            # (to help debug stuck polls).
+            if job.done and not all_delivered:
+                logger.info(
+                    "get_events: job=%s done but "
+                    "NOT all_delivered: after=%d, "
+                    "returned=%d, total=%d, "
+                    "next_index=%d, cut=%d",
+                    job_id, after, len(new_events),
+                    total_events, next_index, cut,
+                )
+
             return {
                 "events": new_events,
-                "done": job.done and all_delivered,
+                "done": is_done,
                 "error": (
-                    job.error
-                    if (job.done and all_delivered)
-                    else None
+                    job.error if is_done else None
                 ),
                 "next_index": next_index,
                 "last_event_time": int(

@@ -33,6 +33,7 @@ function ValidationAgent() {
   const [incidentReport, setIncidentReport] = useState('')
   const [responsePlan, setResponsePlan] = useState('')
   const [specification, setSpecification] = useState('')
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [codeReport, setCodeReport] = useState('')
   const [plannerReport, setPlannerReport] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
@@ -92,6 +93,7 @@ function ValidationAgent() {
       setIncidentReport(inputs.incidentReport || '')
       setResponsePlan(inputs.responsePlan || '')
       setSpecification(inputs.specification || '')
+      setSpecificationCommands(inputs.specificationCommands || [])
       setCodeReport(inputs.codeReport || '')
       setPlannerReport(inputs.plannerReport || '')
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
@@ -260,6 +262,7 @@ function ValidationAgent() {
             incident_report: incidentReport,
             response_plan: responsePlan,
             specification: specification,
+            specification_commands: specificationCommands,
             code_report: codeReport,
             planner_report: plannerReport,
             conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
@@ -476,6 +479,7 @@ function ValidationAgent() {
         incidentReport,
         responsePlan,
         specification,
+        specificationCommands,
         codeReport,
         plannerReport,
         systemDescriptionImages,
@@ -653,6 +657,7 @@ function ValidationAgent() {
       setIncidentReport(data.incident_report || '')
       setResponsePlan(data.response_plan || '')
       setSpecification(data.specification || '')
+      setSpecificationCommands(data.specification_commands || [])
       setSystemDescriptionImages(data.system_description_images || [])
 
       // Fetch latest Code Agent report for this incident
@@ -707,6 +712,7 @@ function ValidationAgent() {
     setIncidentReport('')
     setResponsePlan('')
     setSpecification('')
+    setSpecificationCommands([])
     setCodeReport('')
     setPlannerReport('')
     setSystemDescriptionImages([])
@@ -803,6 +809,7 @@ function ValidationAgent() {
         incident_report: incidentReport,
         response_plan: responsePlan,
         specification: specification,
+        specification_commands: specificationCommands,
         code_report: codeReport,
         planner_report: plannerReport
       })
@@ -976,8 +983,8 @@ function ValidationAgent() {
           setIncidentReport={setIncidentReport}
           responsePlan={responsePlan}
           setResponsePlan={setResponsePlan}
-          specification={specification}
-          setSpecification={setSpecification}
+          specificationCommands={specificationCommands}
+          setSpecificationCommands={setSpecificationCommands}
           codeReport={codeReport}
           setCodeReport={setCodeReport}
           plannerReport={plannerReport}
@@ -1007,6 +1014,7 @@ function ValidationAgent() {
             incident_report: incidentReport,
             response_plan: responsePlan,
             specification: specification,
+            specification_commands: specificationCommands,
             code_report: codeReport,
             planner_report: plannerReport
           })}

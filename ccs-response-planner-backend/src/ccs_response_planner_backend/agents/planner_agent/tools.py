@@ -8,8 +8,11 @@ import base64
 import io
 import json
 import logging
+import os
+import signal
 import tarfile
 import threading
+import time
 import zipfile
 from typing import Any, Callable, Generator
 
@@ -182,6 +185,9 @@ def _extract_policy_zip(
     ).decode("ascii")
 
 
+MAX_TIME_LIMIT_MINUTES = 60
+
+
 def rl_train(
     code: str, time_limit_minutes: int = 10,
     algorithm: str = "", hyperparameters: str = "",
@@ -197,6 +203,17 @@ def rl_train(
     :param time_limit_minutes: max training time in minutes
     :return: a generator yielding parsed JSON dicts
     """
+    time_limit_minutes = min(
+        max(int(time_limit_minutes), 1),
+        MAX_TIME_LIMIT_MINUTES,
+    )
+    timeout_secs = time_limit_minutes * 60 + 30
+    logger.info(
+        "rl_train called: time_limit_minutes=%d, "
+        "kill timer=%ds",
+        time_limit_minutes, timeout_secs,
+    )
+
     client = docker.from_env()
     ct = _ensure_python_sandbox(client)
     _write_code_to_sandbox(client, ct, code, "_train.py")
@@ -206,40 +223,108 @@ def rl_train(
         ["python", "-u", "/workspace/_train.py"],
         stdout=True, stderr=True,
     )["Id"]
+    logger.info("rl_train exec created: %s", exec_id)
 
     stream = client.api.exec_start(exec_id, stream=True)
+    start_time = time.monotonic()
     yield {"type": "started", "message": "Training started"}
 
     timed_out = threading.Event()
 
     def _kill_exec() -> None:
         """
-        Kill the training process after time limit.
+        Kill the training process after the time limit.
+
+        Uses ``os.kill`` with the host-side PID from
+        ``exec_inspect`` — this is reliable regardless of
+        which tools are installed in the container.
         """
+        elapsed = time.monotonic() - start_time
+        logger.warning(
+            "rl_train kill timer fired after %.1fs "
+            "(limit was %ds) – killing exec %s",
+            elapsed, timeout_secs, exec_id,
+        )
         timed_out.set()
+
+        # ── Method 1: os.kill from host ──────────────
         try:
             info = client.api.exec_inspect(exec_id)
             pid = info.get("Pid", 0)
-            if pid:
-                client.api.exec_create(
-                    ct.id,
-                    ["/bin/sh", "-c", f"kill -9 {pid}"],
-                    stdout=True, stderr=True,
+            running = info.get("Running", False)
+            logger.info(
+                "exec_inspect: Pid=%s, Running=%s",
+                pid, running,
+            )
+            if pid and pid > 0:
+                os.kill(pid, signal.SIGKILL)
+                logger.info(
+                    "os.kill(%d, SIGKILL) succeeded",
+                    pid,
                 )
+                return
+            else:
+                logger.warning(
+                    "exec_inspect returned Pid=%s, "
+                    "trying container-side kill", pid,
+                )
+        except ProcessLookupError:
+            logger.info(
+                "Process %s already dead", exec_id,
+            )
+            return
         except Exception:
             logger.warning(
-                "Failed to kill training process",
-                exc_info=True,
+                "os.kill failed for exec %s",
+                exec_id, exc_info=True,
             )
 
-    timer = threading.Timer(
-        time_limit_minutes * 60, _kill_exec,
-    )
+        # ── Method 2: Python-based kill inside container
+        try:
+            py_kill = (
+                "python3 -c \""
+                "import os,signal as S;"
+                "[os.kill(int(p),S.SIGKILL) "
+                "for p in os.listdir('/proc') "
+                "if p.isdigit() and "
+                "'_train.py' in "
+                "open('/proc/'+p+'/cmdline').read()"
+                "]\""
+            )
+            kill_id = client.api.exec_create(
+                ct.id,
+                ["/bin/sh", "-c", py_kill],
+                stdout=True, stderr=True,
+            )["Id"]
+            output = client.api.exec_start(kill_id)
+            logger.info(
+                "Container-side python kill output: %s",
+                output,
+            )
+        except Exception:
+            logger.warning(
+                "Container-side kill also failed "
+                "for exec %s",
+                exec_id, exc_info=True,
+            )
+
+    timer = threading.Timer(timeout_secs, _kill_exec)
+    timer.daemon = True
     timer.start()
+    logger.info(
+        "Kill timer started: %ds from now", timeout_secs,
+    )
 
     line_buffer = ""
     stderr_buffer = ""
     result_data: dict[str, Any] | None = None
+    # Throttle progress events to ≤1/s so the frontend
+    # poll (limit=5) can always keep up.  Non-progress
+    # events (result, error, eval_progress) are always
+    # forwarded immediately.
+    _MIN_PROGRESS_INTERVAL = 1.0
+    _last_progress_time = 0.0
+    _skipped = 0
     try:
         for chunk in stream:
             text = chunk.decode("utf-8", errors="replace")
@@ -255,7 +340,24 @@ def rl_train(
                     parsed = json.loads(line)
                     if parsed.get("type") == "result":
                         result_data = parsed
-                    yield parsed
+                        yield parsed
+                    elif parsed.get("type") == "progress":
+                        now = time.monotonic()
+                        if (
+                            now - _last_progress_time
+                            >= _MIN_PROGRESS_INTERVAL
+                        ):
+                            if _skipped:
+                                parsed["_skipped"] = (
+                                    _skipped
+                                )
+                            yield parsed
+                            _last_progress_time = now
+                            _skipped = 0
+                        else:
+                            _skipped += 1
+                    else:
+                        yield parsed
                 except (json.JSONDecodeError, ValueError):
                     stderr_buffer += line + "\n"
     except Exception as e:
@@ -265,6 +367,13 @@ def rl_train(
         )
     finally:
         timer.cancel()
+
+    elapsed = time.monotonic() - start_time
+    logger.info(
+        "rl_train stream ended after %.1fs, "
+        "timed_out=%s",
+        elapsed, timed_out.is_set(),
+    )
 
     if timed_out.is_set():
         yield {
@@ -296,6 +405,15 @@ def rl_train(
 
     policy_data = _extract_policy_zip(ct, algorithm)
 
+    # Yield policy_data as a separate event to keep the
+    # done event small — large base64 payloads can break
+    # JSON serialisation / transfer for the poll endpoint.
+    if policy_data:
+        yield {
+            "type": "policy_data",
+            "policy_data": policy_data,
+        }
+
     done_event: dict[str, Any] = {
         "type": "done",
         "exit_code": exit_code,
@@ -311,9 +429,12 @@ def rl_train(
             stderr_buffer.strip()[:2000]
             or f"Training failed (exit {exit_code})"
         )
-    if policy_data:
-        done_event["policy_data"] = policy_data
     yield done_event
+    logger.info(
+        "rl_train finished: exit_code=%s, "
+        "total_elapsed=%.1fs",
+        exit_code, time.monotonic() - start_time,
+    )
 
 
 TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {

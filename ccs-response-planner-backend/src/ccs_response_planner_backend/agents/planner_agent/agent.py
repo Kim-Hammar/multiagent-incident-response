@@ -5,6 +5,7 @@ incident response plan.
 """
 import base64
 import json
+import logging
 import os
 import re
 from typing import Any, Generator
@@ -28,13 +29,15 @@ from ccs_response_planner_backend.agents.planner_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.agents.planner_agent.tool_declarations import (
-    ALL_DECLARATIONS,
     ITERATING_DECLARATIONS,
+    POST_TRAINING_DECLARATIONS,
 )
 from ccs_response_planner_backend.agents.planner_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
+
+logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3-pro-preview"
 CONTEXT_LIMIT = 1_048_576
@@ -373,10 +376,18 @@ class PlannerAgent:
             ):
                 yield ev
 
+        has_trained = self._has_trained(conversation_history)
         declarations = (
-            ALL_DECLARATIONS
-            if self._has_trained(conversation_history)
+            POST_TRAINING_DECLARATIONS
+            if has_trained
             else ITERATING_DECLARATIONS
+        )
+        decl_names = [d.name for d in declarations]
+        logger.info(
+            "step_stream: has_trained=%s, "
+            "available_tools=%s, history_len=%d",
+            has_trained, decl_names,
+            len(conversation_history),
         )
 
         if is_anthropic_model(effective_model):
@@ -484,6 +495,10 @@ class PlannerAgent:
         ]
 
         if function_call:
+            logger.info(
+                "step_stream: LLM called tool=%s",
+                function_call.name,
+            )
             if function_call.name == REPORT_TOOL_NAME:
                 event: dict[str, Any] = {
                     "type": "planner_report",
@@ -511,6 +526,10 @@ class PlannerAgent:
                     event["thinking_trace"] = thinking_trace
                 yield event
         else:
+            logger.info(
+                "step_stream: no function call, "
+                "parsing as planner report",
+            )
             yield self._parse_planner_report(full_text)
 
     @staticmethod
@@ -518,16 +537,30 @@ class PlannerAgent:
         history: list[dict[str, Any]],
     ) -> bool:
         """
-        Check whether the conversation history contains an
-        rl_train tool_result entry (gates produce_planner_report).
+        Check whether the conversation history contains a
+        **successful** rl_train tool_result (gates
+        produce_planner_report and removes rl_train from
+        the available tools).
+
+        A result is considered successful when the ``done``
+        event has ``exit_code == 0`` or when a ``result``
+        event (type=result from the training script) is
+        present.
 
         :param history: the conversation history list
-        :return: True if any rl_train result exists
+        :return: True if a successful rl_train result exists
         """
         for entry in history:
-            if entry.get("type") == "tool_result":
-                if entry.get("tool_name") == "rl_train":
-                    return True
+            if entry.get("type") != "tool_result":
+                continue
+            if entry.get("tool_name") != "rl_train":
+                continue
+            result = entry.get("result", {})
+            done = result.get("done") or {}
+            if done.get("exit_code") == 0:
+                return True
+            if result.get("result"):
+                return True
         return False
 
     @staticmethod

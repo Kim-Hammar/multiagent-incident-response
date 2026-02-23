@@ -58,10 +58,12 @@ Treat all feedback here as actionable context for your task.
 Training is automatically limited to **{time_limit_minutes} minute(s)** of \
 wall-clock time. The `ProgressCallback` in the training template enforces \
 this by setting `model.stop_training = True` when time is up, so training \
-stops gracefully at the end of the current rollout. You do NOT need to \
-choose `total_timesteps` — it is set very high (10M) and the time-based \
-callback handles stopping. When calling `rl_train`, always pass \
-`time_limit_minutes` as `{time_limit_minutes}` explicitly.
+stops gracefully at the end of the current rollout. Evaluation runs within \
+a 20-second budget after training stops; a hard deadline force-exits the \
+script 25 seconds after the time limit to guarantee termination. \
+You do NOT need to choose `total_timesteps` — it is set very high (10M) \
+and the time-based callback handles stopping. When calling `rl_train`, \
+always pass `time_limit_minutes` as `{time_limit_minutes}` explicitly.
 
 ## Your Task
 
@@ -88,7 +90,7 @@ You MUST:
 - After training, evaluate the policy and print the action sequence
 
 ```python
-import json, sys, time, importlib.util
+import json, os, sys, time, importlib.util, threading
 import numpy as np
 import gymnasium
 from gymnasium.wrappers import TimeLimit
@@ -106,6 +108,20 @@ class NumpyEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return super().default(obj)
+
+# 0a. Global hard deadline — force-exit the entire script if evaluation
+#     runs too long after training stops.  Training uses the full time
+#     limit; this adds a short grace period for evaluation.
+TIME_LIMIT_SECONDS = {time_limit_minutes} * 60
+_SCRIPT_START = time.time()
+def _hard_deadline():
+    grace = TIME_LIMIT_SECONDS + 25
+    remaining = grace - (time.time() - _SCRIPT_START)
+    if remaining > 0:
+        time.sleep(remaining)
+    os._exit(1)
+_deadline_thread = threading.Thread(target=_hard_deadline, daemon=True)
+_deadline_thread.start()
 
 # 1. Import env from pre-written file
 spec = importlib.util.spec_from_file_location("_env", "/workspace/_env.py")
@@ -162,7 +178,6 @@ env = ActionMasker(TimeLimit(EnvClass(), max_episode_steps=MAX_EPISODE_STEPS), m
 model = MaskablePPO("MlpPolicy", env, verbose=0, n_steps=2048,
                     batch_size=128, learning_rate=3e-4,
                     policy_kwargs=dict(net_arch=[64, 64]))
-TIME_LIMIT_SECONDS = {time_limit_minutes} * 60
 model.learn(total_timesteps=10_000_000, callback=ProgressCallback(TIME_LIMIT_SECONDS))
 
 # 3a. Save trained policy for validation
@@ -173,11 +188,15 @@ model.save("/workspace/_policy")
 #    stochastic policy used during training.  deterministic=True picks
 #    argmax of logits and can get stuck in action-repeat loops when the
 #    greedy action is a no-op for the current state.
+#    Budget: evaluation must finish within 20s of the training time limit.
+EVAL_DEADLINE = _SCRIPT_START + TIME_LIMIT_SECONDS + 20
 NUM_EVAL_EPISODES = 10
 MAX_EVAL_STEPS = MAX_EPISODE_STEPS
 eval_env = TimeLimit(EnvClass(), max_episode_steps=MAX_EVAL_STEPS)
 eval_rewards = []
 for ep_i in range(NUM_EVAL_EPISODES):
+    if time.time() >= EVAL_DEADLINE:
+        break
     obs, _ = eval_env.reset()
     obs = np.array(obs, dtype=np.float32)
     ep_reward = 0.0
@@ -205,15 +224,16 @@ for ep_i in range(NUM_EVAL_EPISODES):
         "reward": round(ep_reward, 2),
         "mean_reward": round(float(np.mean(eval_rewards)), 2)
     }}, cls=NumpyEncoder), flush=True)
-mean_eval_reward = float(np.mean(eval_rewards))
+mean_eval_reward = float(np.mean(eval_rewards)) if eval_rewards else 0.0
 
 # 5. Run one detailed episode to capture the action sequence
+#    Skip if we are already past the evaluation deadline.
 detail_env = TimeLimit(EnvClass(), max_episode_steps=MAX_EVAL_STEPS)
 obs, _ = detail_env.reset()
 obs = np.array(obs, dtype=np.float32)
 actions_taken = []
 ep_reward = 0.0
-for _ in range(MAX_EVAL_STEPS):
+for _ in range(MAX_EVAL_STEPS if time.time() < EVAL_DEADLINE else 0):
     mask = np.array(
         detail_env.unwrapped.get_action_mask(), dtype=np.bool_
     )
@@ -392,9 +412,11 @@ overwrote it.
 code. NumPy float32/int64 values are NOT JSON-serializable by default and \
 will crash the script. The `NumpyEncoder` class from the template handles this.
 - Do NOT call `produce_planner_report` until you have called `rl_train` \
-at least once. However, do not call `rl_train` more than 3 times. If \
-training still does not converge after 3 attempts, call \
-`produce_planner_report` with the best results you have.
+at least once. Call `rl_train` exactly **once** — do NOT retry training \
+with different hyperparameters or seeds. After the single training run \
+completes, immediately call `produce_planner_report` with the results. \
+Only retry `rl_train` if the first attempt failed with an actual error \
+(e.g., import error, crash), and never more than 2 times total.
 - In `produce_planner_report`, you MUST populate **ALL** fields, \
 including the **`action_sequence`** array (the "Recommended Action \
 Sequence"). This is mandatory on EVERY call — first run or revision \

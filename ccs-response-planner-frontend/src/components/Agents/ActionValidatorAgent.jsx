@@ -33,6 +33,7 @@ function ActionValidatorAgent() {
   const [plannerReport, setPlannerReport] = useState('')
   const [actionToValidate, setActionToValidate] = useState('')
   const [operatorFeedback, setOperatorFeedback] = useState('')
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [running, setRunning] = useState(false)
   const [executingTool, setExecutingTool] = useState(null)
@@ -89,6 +90,7 @@ function ActionValidatorAgent() {
       setPlannerReport(inputs.plannerReport || '')
       setActionToValidate(inputs.actionToValidate || '')
       setOperatorFeedback(inputs.operatorFeedback || '')
+      setSpecificationCommands(inputs.specificationCommands || [])
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
       setSelectedIncidentId(inputs.selectedIncidentId || null)
       const config = session.agent_config || {}
@@ -249,6 +251,7 @@ function ActionValidatorAgent() {
             planner_report: plannerReport,
             action_to_validate: actionToValidate,
             operator_feedback: operatorFeedback,
+            specification_commands: specificationCommands,
             conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
             images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
@@ -471,6 +474,7 @@ function ActionValidatorAgent() {
         plannerReport,
         actionToValidate,
         operatorFeedback,
+        specificationCommands,
         systemDescriptionImages,
         selectedIncidentId
       },
@@ -641,8 +645,49 @@ function ActionValidatorAgent() {
       }
       const data = await res.json()
       setSystemDescription(data.system_description || '')
+      setSpecificationCommands(data.specification_commands || [])
       setOperatorFeedback(data.operator_feedback || '')
       setSystemDescriptionImages(data.system_description_images || [])
+
+      // Fetch latest Code Agent report for this incident
+      const codeRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=code&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (codeRes.ok) {
+        const codeReports = await codeRes.json()
+        if (codeReports.length > 0) {
+          setCodeReport(JSON.stringify(codeReports[0].report || {}, null, 2))
+        }
+      }
+
+      // Fetch latest Planner Agent report for this incident
+      const plannerRes = await fetch(
+        `${API_AGENTS_REPORTS_URL}?agent_type=planner&incident_id=${incidentId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (plannerRes.ok) {
+        const plannerReports = await plannerRes.json()
+        if (plannerReports.length > 0) {
+          const report = plannerReports[0].report || {}
+          setPlannerReport(JSON.stringify(report, null, 2))
+
+          // Pick the first action from the action_sequence as example
+          const seq = report.action_sequence || []
+          if (seq.length > 0) {
+            const first = seq[0]
+            let actionText = `Action ${first.step || 1} — ${first.action || 'Unknown'}`
+            if (first.description) actionText += `\n${first.description}`
+            if (first.commands && first.commands.length > 0) {
+              actionText += '\nCommands:'
+              for (const cmd of first.commands) {
+                actionText += `\n  ${cmd.command} on ${cmd.container}`
+              }
+            }
+            setActionToValidate(actionText)
+          }
+        }
+      }
     } catch (err) {
       setAlert({ type: 'danger', message: `Failed to load example: ${err.message}` })
     }
@@ -654,6 +699,7 @@ function ActionValidatorAgent() {
     setPlannerReport('')
     setActionToValidate('')
     setOperatorFeedback('')
+    setSpecificationCommands([])
     setSystemDescriptionImages([])
     setConversationHistory([])
     setPendingProposal(null)
@@ -746,7 +792,8 @@ function ActionValidatorAgent() {
         code_report: codeReport,
         planner_report: plannerReport,
         action_to_validate: actionToValidate,
-        operator_feedback: operatorFeedback
+        operator_feedback: operatorFeedback,
+        specification_commands: specificationCommands
       })
     })
     if (res.status === 401) {
@@ -922,6 +969,8 @@ function ActionValidatorAgent() {
           setActionToValidate={setActionToValidate}
           operatorFeedback={operatorFeedback}
           setOperatorFeedback={setOperatorFeedback}
+          specificationCommands={specificationCommands}
+          setSpecificationCommands={setSpecificationCommands}
           systemDescriptionImages={systemDescriptionImages}
           setSystemDescriptionImages={setSystemDescriptionImages}
           handlePaste={handlePaste}
@@ -944,7 +993,8 @@ function ActionValidatorAgent() {
             code_report: codeReport,
             planner_report: plannerReport,
             action_to_validate: actionToValidate,
-            operator_feedback: operatorFeedback
+            operator_feedback: operatorFeedback,
+            specification_commands: specificationCommands
           })}
           rows={[
             {

@@ -5,6 +5,7 @@
  */
 
 import ReactMarkdown from 'react-markdown'
+import CopyablePre from './CopyablePre.jsx'
 
 const CHECK_LABELS = {
   find_env_class: 'Env class found',
@@ -164,7 +165,8 @@ function CodeReportBody({ report: r }) {
               <i className="fa fa-download" aria-hidden="true" /> Download .py
             </button>
           </div>
-          <pre
+          <CopyablePre
+            text={r.generated_code}
             style={{
               background: '#f5f5f5',
               padding: '12px',
@@ -177,7 +179,7 @@ function CodeReportBody({ report: r }) {
             }}
           >
             {r.generated_code}
-          </pre>
+          </CopyablePre>
         </div>
       )}
     </div>
@@ -796,7 +798,8 @@ function PlanManagerReportBody({ result: r }) {
       {r.response_plan && (
         <div className="ia-assessment-section">
           <div className="ia-assessment-label">Response Plan</div>
-          <pre
+          <CopyablePre
+            text={r.response_plan}
             style={{
               background: '#f5f5f5',
               padding: '12px',
@@ -809,7 +812,7 @@ function PlanManagerReportBody({ result: r }) {
             }}
           >
             {r.response_plan}
-          </pre>
+          </CopyablePre>
         </div>
       )}
     </div>

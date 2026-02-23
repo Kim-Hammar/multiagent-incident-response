@@ -114,40 +114,36 @@ function RewardChart({
           <i className="fa fa-line-chart" aria-hidden="true" />
           <span className="ia-thinking-title">
             {completed ? 'RL Training Complete' : 'RL Training'} &mdash; {latest.episode} Episodes
-            {latest.time_limit_seconds > 0 ? (
-              <span>
-                {' '}
-                | {fmtTime(Math.round(latest.elapsed_seconds))} /{' '}
-                {fmtTime(latest.time_limit_seconds)} (
-                {Math.min(
-                  100,
-                  Math.round((latest.elapsed_seconds / latest.time_limit_seconds) * 100)
-                )}
-                %), {latest.timesteps.toLocaleString()} timesteps
-              </span>
-            ) : (
-              latest.total_timesteps > 0 && (
-                <span>
-                  {' '}
-                  | {latest.timesteps.toLocaleString()} / {latest.total_timesteps.toLocaleString()}{' '}
-                  timesteps (
-                  {Math.min(100, Math.round((latest.timesteps / latest.total_timesteps) * 100))}
-                  %)
-                </span>
-              )
-            )}
+            {(() => {
+              const timeLimitSecs =
+                latest.time_limit_seconds || (timeLimitMinutes ? timeLimitMinutes * 60 : 0)
+              const displayElapsed = trainingStartTime
+                ? elapsed
+                : Math.round(latest.elapsed_seconds || 0)
+              if (timeLimitSecs > 0) {
+                const pct = Math.min(100, Math.round((displayElapsed / timeLimitSecs) * 100))
+                return (
+                  <span>
+                    {' '}
+                    | {fmtTime(displayElapsed)} / {fmtTime(timeLimitSecs)} ({pct}%),{' '}
+                    {latest.timesteps.toLocaleString()} timesteps
+                  </span>
+                )
+              }
+              if (latest.total_timesteps > 0) {
+                return (
+                  <span>
+                    {' '}
+                    | {latest.timesteps.toLocaleString()} /{' '}
+                    {latest.total_timesteps.toLocaleString()} timesteps (
+                    {Math.min(100, Math.round((latest.timesteps / latest.total_timesteps) * 100))}
+                    %)
+                  </span>
+                )
+              }
+              return null
+            })()}
             , Mean Cost: {(-latest.mean_reward).toFixed(2)}
-            {!completed && trainingStartTime && (
-              <span
-                style={{
-                  marginLeft: '12px',
-                  color: overLimit ? '#dc3545' : '#888',
-                  fontWeight: overLimit ? '600' : 'normal'
-                }}
-              >
-                {elapsedStr}
-              </span>
-            )}
           </span>
         </div>
         <svg

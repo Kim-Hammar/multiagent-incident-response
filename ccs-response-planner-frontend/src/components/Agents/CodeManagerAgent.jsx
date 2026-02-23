@@ -78,6 +78,7 @@ function CodeManagerAgent() {
   const [systemDescription, setSystemDescription] = useState('')
   const [incidentReport, setIncidentReport] = useState('')
   const [specification, setSpecification] = useState('')
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [running, setRunning] = useState(false)
@@ -135,6 +136,7 @@ function CodeManagerAgent() {
       setSystemDescription(inputs.systemDescription || '')
       setIncidentReport(inputs.incidentReport || '')
       setSpecification(inputs.specification || '')
+      setSpecificationCommands(inputs.specificationCommands || [])
       setOperatorFeedback(inputs.operatorFeedback || '')
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
       setSelectedIncidentId(inputs.selectedIncidentId || null)
@@ -311,6 +313,7 @@ function CodeManagerAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
             conversation_history: stripForBackend(history),
             images: [...systemDescriptionImages],
@@ -525,6 +528,7 @@ function CodeManagerAgent() {
         systemDescription,
         incidentReport,
         specification,
+        specificationCommands,
         operatorFeedback,
         systemDescriptionImages,
         selectedIncidentId
@@ -576,6 +580,7 @@ function CodeManagerAgent() {
           system_description: systemDescription,
           incident_report: incidentReport,
           specification: specification,
+          specification_commands: specificationCommands,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages],
           code_agent_model: codeAgentModel || undefined,
@@ -757,6 +762,7 @@ function CodeManagerAgent() {
       setSystemDescription(data.system_description || '')
       setIncidentReport(data.incident_report || '')
       setSpecification(data.specification || '')
+      setSpecificationCommands(data.specification_commands || [])
       setOperatorFeedback('')
       setSystemDescriptionImages(data.system_description_images || [])
 
@@ -781,6 +787,7 @@ function CodeManagerAgent() {
     setSystemDescription('')
     setIncidentReport('')
     setSpecification('')
+    setSpecificationCommands([])
     setOperatorFeedback('')
     setSystemDescriptionImages([])
     setConversationHistory([])
@@ -810,6 +817,7 @@ function CodeManagerAgent() {
         system_description: systemDescription,
         incident_report: incidentReport,
         specification: specification,
+        specification_commands: specificationCommands,
         operator_feedback: operatorFeedback,
         images: [...systemDescriptionImages],
         code_agent_model: codeAgentModel || undefined,
@@ -930,6 +938,7 @@ function CodeManagerAgent() {
         system_description: systemDescription,
         incident_report: incidentReport,
         specification: specification,
+        specification_commands: specificationCommands,
         operator_feedback: operatorFeedback,
         max_iterations: maxIterations
       })
@@ -1154,20 +1163,126 @@ function CodeManagerAgent() {
             />
           </div>
           <div className="ia-section">
-            <label htmlFor="cm-specification">Specification commands</label>
-            <p className="ia-hint">
-              JSON array of specification commands that define service-level requirements of the
-              system.
-            </p>
-            <textarea
-              id="cm-specification"
-              className="form-control ia-textarea"
-              rows="4"
-              value={specification}
-              onChange={(e) => setSpecification(e.target.value)}
-              disabled={isAgentBusy}
-              placeholder="Leave empty to use default specification commands from the digital twin config."
-            />
+            <label>Specification commands</label>
+            <p className="ia-hint">Service-level requirements that must hold after recovery.</p>
+            <div
+              style={{
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                padding: '10px 14px',
+                fontSize: '12px',
+                maxHeight: '300px',
+                overflowY: 'auto'
+              }}
+            >
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #dee2e6', textAlign: 'left' }}>
+                    <th style={{ padding: '4px 8px 6px 0', fontWeight: 600 }}>Host</th>
+                    <th style={{ padding: '4px 8px 6px 0', fontWeight: 600 }}>Description</th>
+                    <th style={{ padding: '4px 8px 6px 0', fontWeight: 600 }}>Command</th>
+                    <th style={{ padding: '4px 0 6px 0', fontWeight: 600, width: '32px' }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {specificationCommands.map((cmd, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '3px 6px 3px 0' }}>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          value={cmd.host}
+                          onChange={(e) =>
+                            setSpecificationCommands((prev) =>
+                              prev.map((c, j) =>
+                                j === i ? { ...c, host: e.target.value } : c
+                              )
+                            )
+                          }
+                          disabled={isAgentBusy}
+                          placeholder="hostname"
+                          style={{ fontSize: '12px', fontFamily: 'monospace' }}
+                        />
+                      </td>
+                      <td style={{ padding: '3px 6px 3px 0' }}>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          value={cmd.description}
+                          onChange={(e) =>
+                            setSpecificationCommands((prev) =>
+                              prev.map((c, j) =>
+                                j === i ? { ...c, description: e.target.value } : c
+                              )
+                            )
+                          }
+                          disabled={isAgentBusy}
+                          placeholder="what to verify"
+                          style={{ fontSize: '12px' }}
+                        />
+                      </td>
+                      <td style={{ padding: '3px 6px 3px 0' }}>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          value={cmd.command}
+                          onChange={(e) =>
+                            setSpecificationCommands((prev) =>
+                              prev.map((c, j) =>
+                                j === i ? { ...c, command: e.target.value } : c
+                              )
+                            )
+                          }
+                          disabled={isAgentBusy}
+                          placeholder="shell command"
+                          style={{ fontSize: '12px', fontFamily: 'monospace' }}
+                        />
+                      </td>
+                      <td style={{ padding: '3px 0', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() =>
+                            setSpecificationCommands((prev) => prev.filter((_, j) => j !== i))
+                          }
+                          disabled={isAgentBusy}
+                          title="Remove row"
+                          style={{ padding: '1px 6px', fontSize: '11px', lineHeight: 1.4 }}
+                        >
+                          <i className="fa fa-times" aria-hidden="true" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {specificationCommands.length === 0 && (
+                <p
+                  style={{
+                    textAlign: 'center',
+                    color: '#888',
+                    margin: '8px 0 4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  No specification commands. Add rows manually or load an example.
+                </p>
+              )}
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() =>
+                  setSpecificationCommands((prev) => [
+                    ...prev,
+                    { host: '', description: '', command: '' }
+                  ])
+                }
+                disabled={isAgentBusy}
+                style={{ marginTop: '6px', fontSize: '11px' }}
+              >
+                <i className="fa fa-plus" aria-hidden="true" /> Add row
+              </button>
+            </div>
           </div>
           <div className="ia-section">
             <label htmlFor="cm-operator-feedback">Operator feedback (optional)</label>
@@ -1226,6 +1341,7 @@ function CodeManagerAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback
           })}
           rows={[

@@ -32,6 +32,7 @@ function CodeAgent() {
   const [systemDescription, setSystemDescription] = useState('')
   const [incidentReport, setIncidentReport] = useState('')
   const [specification, setSpecification] = useState('')
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
   const [running, setRunning] = useState(false)
@@ -87,6 +88,7 @@ function CodeAgent() {
       setSystemDescription(inputs.systemDescription || '')
       setIncidentReport(inputs.incidentReport || '')
       setSpecification(inputs.specification || '')
+      setSpecificationCommands(inputs.specificationCommands || [])
       setOperatorFeedback(inputs.operatorFeedback || '')
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
       setSelectedIncidentId(inputs.selectedIncidentId || null)
@@ -251,6 +253,7 @@ function CodeAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
             conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
             images: [...systemDescriptionImages],
@@ -452,6 +455,7 @@ function CodeAgent() {
         systemDescription,
         incidentReport,
         specification,
+        specificationCommands,
         operatorFeedback,
         systemDescriptionImages,
         selectedIncidentId
@@ -625,6 +629,7 @@ function CodeAgent() {
       setSystemDescription(data.system_description || '')
       setIncidentReport(data.incident_report || '')
       setSpecification(data.specification || '')
+      setSpecificationCommands(data.specification_commands || [])
       setOperatorFeedback('')
       setSystemDescriptionImages(data.system_description_images || [])
 
@@ -649,6 +654,7 @@ function CodeAgent() {
     setSystemDescription('')
     setIncidentReport('')
     setSpecification('')
+    setSpecificationCommands([])
     setOperatorFeedback('')
     setSystemDescriptionImages([])
     setConversationHistory([])
@@ -741,6 +747,7 @@ function CodeAgent() {
         system_description: systemDescription,
         incident_report: incidentReport,
         specification: specification,
+        specification_commands: specificationCommands,
         operator_feedback: operatorFeedback
       })
     })
@@ -911,8 +918,8 @@ function CodeAgent() {
           setSystemDescription={setSystemDescription}
           incidentReport={incidentReport}
           setIncidentReport={setIncidentReport}
-          specification={specification}
-          setSpecification={setSpecification}
+          specificationCommands={specificationCommands}
+          setSpecificationCommands={setSpecificationCommands}
           operatorFeedback={operatorFeedback}
           setOperatorFeedback={setOperatorFeedback}
           systemDescriptionImages={systemDescriptionImages}
@@ -936,6 +943,7 @@ function CodeAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback
           })}
           rows={[

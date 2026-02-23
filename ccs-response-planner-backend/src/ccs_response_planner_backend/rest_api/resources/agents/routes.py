@@ -3,6 +3,7 @@ Routes and sub-resources for the /agents resource.
 """
 import json
 import logging
+import math
 import uuid
 from typing import Any, Generator
 
@@ -182,6 +183,26 @@ agents_bp = Blueprint(
     API.AGENTS_RESOURCE, __name__,
     url_prefix=f"{API.PREFIX}/{API.AGENTS_RESOURCE}",
 )
+
+
+def _sanitize_for_json(obj: Any) -> Any:
+    """
+    Recursively replace ``NaN`` and ``Infinity`` floats
+    with ``None`` so the result is valid JSON for
+    ``JSON.parse`` in the browser.
+
+    :param obj: any JSON-compatible value
+    :return: sanitised copy
+    """
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    return obj
 
 
 def _redeploy_dt() -> Generator[dict[str, str], None, None]:
@@ -568,6 +589,11 @@ def job_events(
     """
     Poll for events from a background job.
 
+    Sanitises the response JSON to replace ``NaN`` and
+    ``Infinity`` floats with ``null`` — Python's
+    ``json.dumps`` emits them but JavaScript's
+    ``JSON.parse`` rejects them.
+
     :param job_id: the job identifier
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -576,7 +602,17 @@ def job_events(
     data = job_manager.get_events(
         job_id, after=after, limit=limit,
     )
-    return jsonify(data), 200
+    if data.get("done"):
+        logger.info(
+            "job_events: job=%s done=True, "
+            "events=%d, after=%d, next=%d",
+            job_id, len(data.get("events", [])),
+            after, data.get("next_index", 0),
+        )
+    body = json.dumps(
+        _sanitize_for_json(data), default=str,
+    )
+    return Response(body, mimetype="application/json"), 200
 
 
 @agents_bp.route(

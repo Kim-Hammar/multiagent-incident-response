@@ -32,6 +32,7 @@ function PlannerAgent() {
   const [systemDescription, setSystemDescription] = useState('')
   const [incidentReport, setIncidentReport] = useState('')
   const [specification, setSpecification] = useState('')
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [codeReport, setCodeReport] = useState('')
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(10)
@@ -99,6 +100,7 @@ function PlannerAgent() {
       setSystemDescription(inputs.systemDescription || '')
       setIncidentReport(inputs.incidentReport || '')
       setSpecification(inputs.specification || '')
+      setSpecificationCommands(inputs.specificationCommands || [])
       setOperatorFeedback(inputs.operatorFeedback || '')
       setCodeReport(inputs.codeReport || '')
       setTimeLimitMinutes(inputs.timeLimitMinutes || 10)
@@ -113,12 +115,31 @@ function PlannerAgent() {
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
     },
-    onResumeJob: (jobId, session) => {
+    onResumeJob: (jobId, session, toolName) => {
       setContextUsage(session.context_usage || null)
       setPendingProposal(null)
       if (!window.location.hash) setActiveTab('planning')
       setRunning(true)
-      callStep(conversationHistoryRef.current, jobId)
+      // Detect rl_train from conversation history: if the last
+      // tool_proposal is rl_train and there's no subsequent
+      // tool_approval, the tool job is still running.
+      const history = conversationHistoryRef.current
+      let resumeTool = toolName || null
+      if (!resumeTool) {
+        const lastProposal = [...history].reverse().find((e) => e.type === 'tool_proposal')
+        const lastApproval = [...history].reverse().find((e) => e.type === 'tool_approval')
+        const proposalIdx = lastProposal ? history.indexOf(lastProposal) : -1
+        const approvalIdx = lastApproval ? history.indexOf(lastApproval) : -1
+        if (lastProposal && proposalIdx > approvalIdx) {
+          resumeTool = lastProposal.tool_name
+        }
+      }
+      console.log('[PlannerAgent] onResumeJob: toolName=%s, resumeTool=%s', toolName, resumeTool)
+      if (resumeTool === 'rl_train') {
+        resumeRlTrain(jobId)
+      } else {
+        callStep(conversationHistoryRef.current, jobId)
+      }
     }
   })
 
@@ -166,6 +187,10 @@ function PlannerAgent() {
 
   useEffect(() => {
     if (autopilot && pendingProposal && isSourceTabRef.current) {
+      console.log(
+        '[PlannerAgent] Autopilot auto-approving: tool=%s',
+        pendingProposal.tool_name
+      )
       handleApprove()
     }
   }, [autopilot, pendingProposal])
@@ -260,6 +285,7 @@ function PlannerAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
             code_report: codeReport,
             conversation_history: stripForBackend(history).map((e) =>
@@ -335,6 +361,7 @@ function PlannerAgent() {
               { ...streamingEntry, text: accumulated }
             ])
           } else if (event.type === 'tool_proposal') {
+            console.log('[PlannerAgent] callStep received tool_proposal: tool=%s', event.tool_name)
             finalEntry = {
               role: 'model',
               type: 'tool_proposal',
@@ -348,6 +375,7 @@ function PlannerAgent() {
               _vendor: event._vendor
             }
           } else if (event.type === 'planner_report') {
+            console.log('[PlannerAgent] callStep received planner_report')
             finalEntry = {
               role: 'model',
               type: 'planner_report',
@@ -446,6 +474,145 @@ function PlannerAgent() {
     }
   }
 
+  const resumeRlTrain = async (jobId) => {
+    const history = conversationHistoryRef.current
+    const lastProposal = [...history]
+      .reverse()
+      .find((e) => e.type === 'tool_proposal' && e.tool_name === 'rl_train')
+    const toolArgs = lastProposal?.tool_args || {}
+
+    setExecutingTool('rl_train')
+    setTrainingData([])
+    setEvalProgress(null)
+    setTrainingStartTime(Date.now())
+    setTrainingMeta({
+      algorithm: toolArgs.algorithm || '',
+      hyperparameters: toolArgs.hyperparameters || '',
+      started: true
+    })
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    const safetyMs = (timeLimitMinutes + 3) * 60 * 1000
+    const safetyTimer = setTimeout(() => {
+      console.warn('[PlannerAgent] rl_train resume safety timeout fired after %dms', safetyMs)
+      controller.abort()
+    }, safetyMs)
+
+    try {
+      const progressEvents = []
+      let resultEvent = null
+      let doneEvent = null
+      let pollAborted = false
+
+      try {
+        await pollJobEvents({
+          jobId,
+          token,
+          signal: controller.signal,
+          onEvent: (event) => {
+            if (event.type === 'started') {
+              setTrainingMeta((prev) => ({ ...prev, started: true }))
+            } else if (event.type === 'progress') {
+              progressEvents.push(event)
+              setTrainingData((prev) => [...prev, event])
+            } else if (event.type === 'eval_progress') {
+              setEvalProgress(event)
+            } else if (event.type === 'result') {
+              console.log('[PlannerAgent] rl_train resume: result event received')
+              resultEvent = event
+            } else if (event.type === 'policy_data') {
+              console.log('[PlannerAgent] rl_train resume: policy_data event received')
+              if (event.policy_data) setPolicyData(event.policy_data)
+            } else if (event.type === 'done' || event.type === 'timeout') {
+              console.log(
+                '[PlannerAgent] rl_train resume: %s event, exit_code=%s',
+                event.type,
+                event.exit_code
+              )
+              doneEvent = event
+              if (event.policy_data) setPolicyData(event.policy_data)
+            } else if (event.type === 'error') {
+              console.log('[PlannerAgent] rl_train resume: error: %s', event.message)
+              setAlert({ type: 'danger', message: event.message || 'Training error' })
+            }
+          }
+        })
+      } catch (pollErr) {
+        if (pollErr.name === 'AbortError') {
+          pollAborted = true
+          console.warn(
+            '[PlannerAgent] rl_train resume poll aborted. episodes=%d, hasResult=%s',
+            progressEvents.length,
+            !!resultEvent
+          )
+        } else {
+          throw pollErr
+        }
+      }
+      clearTimeout(safetyTimer)
+
+      console.log(
+        '[PlannerAgent] rl_train resume poll %s. episodes=%d, hasResult=%s, hasDone=%s',
+        pollAborted ? 'ABORTED' : 'returned',
+        progressEvents.length,
+        !!resultEvent,
+        !!doneEvent
+      )
+      setTrainingStartTime(null)
+      const runId = ++runIdCounterRef.current
+      trainingRunsRef.current[runId] = {
+        data: [...progressEvents],
+        meta: { algorithm: toolArgs.algorithm || '', hyperparameters: toolArgs.hyperparameters || '' }
+      }
+      const toolResult = {
+        progress_episodes: progressEvents.length,
+        progress_data: [...progressEvents],
+        training_meta: {
+          algorithm: toolArgs.algorithm || '',
+          hyperparameters: toolArgs.hyperparameters || ''
+        },
+        result: resultEvent,
+        done: doneEvent
+      }
+      const approvalEntry = {
+        role: 'user',
+        type: 'tool_approval',
+        tool_name: 'rl_train',
+        tool_args: toolArgs,
+        approved: true
+      }
+      const resultEntry = {
+        role: 'tool',
+        type: 'tool_result',
+        tool_name: 'rl_train',
+        result: toolResult,
+        _runId: runId
+      }
+      let updated
+      setConversationHistory((prev) => {
+        const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
+        updated = [...stripped, approvalEntry, resultEntry]
+        console.log(
+          '[PlannerAgent] rl_train resume result added (runId=%d). Calling callStep. history=%d',
+          runId,
+          updated.length
+        )
+        return updated
+      })
+      setExecutingTool(null)
+      await callStep(updated)
+    } catch (err) {
+      clearTimeout(safetyTimer)
+      if (err.name === 'AbortError') return
+      setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
+      setTrainingStartTime(null)
+      setExecutingTool(null)
+      setRunning(false)
+    }
+  }
+
   const handleRun = async () => {
     setPendingProposal(null)
     setConversationHistory([])
@@ -459,6 +626,7 @@ function PlannerAgent() {
         systemDescription,
         incidentReport,
         specification,
+        specificationCommands,
         operatorFeedback,
         codeReport,
         timeLimitMinutes,
@@ -478,6 +646,7 @@ function PlannerAgent() {
   const handleApprove = async () => {
     if (!pendingProposal) return
     const proposal = pendingProposal
+    console.log('[PlannerAgent] handleApprove: tool=%s', proposal.tool_name)
     const approvalEntry = {
       role: 'user',
       type: 'tool_approval',
@@ -499,6 +668,15 @@ function PlannerAgent() {
       })
       const controller = new AbortController()
       abortControllerRef.current = controller
+
+      // Safety timeout: abort the poll if it hasn't completed
+      // within timeLimitMinutes + 3 min grace.
+      const safetyMs = (timeLimitMinutes + 3) * 60 * 1000
+      const safetyTimer = setTimeout(() => {
+        console.warn('[PlannerAgent] rl_train safety timeout fired after %dms', safetyMs)
+        controller.abort()
+      }, safetyMs)
+
       try {
         const res = await fetch(API_AGENTS_PLANNER_TOOL_URL, {
           method: 'POST',
@@ -513,10 +691,12 @@ function PlannerAgent() {
           })
         })
         if (res.status === 401) {
+          clearTimeout(safetyTimer)
           logout()
           return
         }
         if (!res.ok) {
+          clearTimeout(safetyTimer)
           const errData = await res.json().catch(() => ({}))
           setAlert({
             type: 'danger',
@@ -527,33 +707,64 @@ function PlannerAgent() {
         }
 
         const { job_id } = await res.json()
+        console.log('[PlannerAgent] rl_train job started: job_id=%s', job_id)
         const progressEvents = []
         let resultEvent = null
         let doneEvent = null
+        let pollAborted = false
 
-        await pollJobEvents({
-          jobId: job_id,
-          token,
-          signal: controller.signal,
-          onEvent: (event) => {
-            if (event.type === 'started') {
-              setTrainingMeta((prev) => ({ ...prev, started: true }))
-            } else if (event.type === 'progress') {
-              progressEvents.push(event)
-              setTrainingData((prev) => [...prev, event])
-            } else if (event.type === 'eval_progress') {
-              setEvalProgress(event)
-            } else if (event.type === 'result') {
-              resultEvent = event
-            } else if (event.type === 'done' || event.type === 'timeout') {
-              doneEvent = event
-              if (event.policy_data) setPolicyData(event.policy_data)
-            } else if (event.type === 'error') {
-              setAlert({ type: 'danger', message: event.message || 'Training error' })
+        try {
+          await pollJobEvents({
+            jobId: job_id,
+            token,
+            signal: controller.signal,
+            onEvent: (event) => {
+              if (event.type === 'started') {
+                console.log('[PlannerAgent] rl_train: started event received')
+                setTrainingMeta((prev) => ({ ...prev, started: true }))
+              } else if (event.type === 'progress') {
+                progressEvents.push(event)
+                setTrainingData((prev) => [...prev, event])
+              } else if (event.type === 'eval_progress') {
+                setEvalProgress(event)
+              } else if (event.type === 'result') {
+                console.log('[PlannerAgent] rl_train: result event received')
+                resultEvent = event
+              } else if (event.type === 'policy_data') {
+                console.log('[PlannerAgent] rl_train: policy_data event received')
+                if (event.policy_data) setPolicyData(event.policy_data)
+              } else if (event.type === 'done' || event.type === 'timeout') {
+                console.log(
+                  '[PlannerAgent] rl_train: %s event received, exit_code=%s',
+                  event.type, event.exit_code
+                )
+                doneEvent = event
+                if (event.policy_data) setPolicyData(event.policy_data)
+              } else if (event.type === 'error') {
+                console.log('[PlannerAgent] rl_train: error event: %s', event.message)
+                setAlert({ type: 'danger', message: event.message || 'Training error' })
+              }
             }
+          })
+        } catch (pollErr) {
+          if (pollErr.name === 'AbortError') {
+            // Safety timeout or user cancel — use whatever data we collected
+            pollAborted = true
+            console.warn(
+              '[PlannerAgent] rl_train poll aborted. episodes=%d, hasResult=%s',
+              progressEvents.length, !!resultEvent
+            )
+          } else {
+            throw pollErr
           }
-        })
+        }
+        clearTimeout(safetyTimer)
 
+        console.log(
+          '[PlannerAgent] rl_train pollJobEvents %s. episodes=%d, hasResult=%s, hasDone=%s',
+          pollAborted ? 'ABORTED' : 'returned',
+          progressEvents.length, !!resultEvent, !!doneEvent
+        )
         setTrainingStartTime(null)
         const runId = ++runIdCounterRef.current
         trainingRunsRef.current[runId] = {
@@ -583,12 +794,17 @@ function PlannerAgent() {
         let updated
         setConversationHistory((prev) => {
           const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
-          updated = [...stripped, resultEntry]
+          updated = [...stripped, approvalEntry, resultEntry]
+          console.log(
+            '[PlannerAgent] rl_train result added to history (runId=%d). Calling callStep. history length=%d',
+            runId, updated.length
+          )
           return updated
         })
         setExecutingTool(null)
         await callStep(updated)
       } catch (err) {
+        clearTimeout(safetyTimer)
         if (err.name === 'AbortError') return
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })
         setTrainingStartTime(null)
@@ -665,9 +881,8 @@ function PlannerAgent() {
   const loadExample = async (incidentId) => {
     setSelectedIncidentId(incidentId)
     try {
-      const exampleRes = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const headers = { Authorization: `Bearer ${token}` }
+      const exampleRes = await fetch(`${API_EXAMPLES_URL}/${incidentId}`, { headers })
       if (exampleRes.status === 401) {
         logout()
         return
@@ -676,26 +891,22 @@ function PlannerAgent() {
       setSystemDescription(exampleData.system_description || '')
       setIncidentReport(exampleData.incident_report || '')
       setSpecification(exampleData.specification || '')
+      setSpecificationCommands(exampleData.specification_commands || [])
       setOperatorFeedback('')
       setSystemDescriptionImages(exampleData.system_description_images || [])
 
-      const reportsRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=code&incident_id=${incidentId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      const [reportsRes, infoRes] = await Promise.all([
+        fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code&incident_id=${incidentId}`, { headers }),
+        fetch(`${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`, { headers })
+      ])
+
       if (reportsRes.ok) {
         const reports = await reportsRes.json()
         if (reports.length > 0) {
-          const latest = reports[0]
-          const report = latest.report || {}
-          setCodeReport(JSON.stringify(report, null, 2))
+          setCodeReport(JSON.stringify(reports[0].report || {}, null, 2))
         }
       }
 
-      const infoRes = await fetch(
-        `${API_AGENTS_REPORTS_URL}?agent_type=report&incident_id=${incidentId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
       if (infoRes.ok) {
         const infoReports = await infoRes.json()
         if (infoReports.length > 0) {
@@ -713,6 +924,7 @@ function PlannerAgent() {
     setSystemDescription('')
     setIncidentReport('')
     setSpecification('')
+    setSpecificationCommands([])
     setOperatorFeedback('')
     setCodeReport('')
     setTimeLimitMinutes(5)
@@ -742,6 +954,7 @@ function PlannerAgent() {
         system_description: systemDescription,
         incident_report: incidentReport,
         specification: specification,
+        specification_commands: specificationCommands,
         operator_feedback: operatorFeedback,
         code_report: codeReport,
         time_limit_minutes: timeLimitMinutes
@@ -947,8 +1160,8 @@ function PlannerAgent() {
           setSystemDescription={setSystemDescription}
           incidentReport={incidentReport}
           setIncidentReport={setIncidentReport}
-          specification={specification}
-          setSpecification={setSpecification}
+          specificationCommands={specificationCommands}
+          setSpecificationCommands={setSpecificationCommands}
           operatorFeedback={operatorFeedback}
           setOperatorFeedback={setOperatorFeedback}
           codeReport={codeReport}
@@ -974,6 +1187,7 @@ function PlannerAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback
           })}
           rows={[

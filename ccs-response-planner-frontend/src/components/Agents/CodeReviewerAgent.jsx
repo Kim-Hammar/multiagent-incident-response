@@ -32,6 +32,7 @@ function CodeReviewerAgent() {
   const [systemDescription, setSystemDescription] = useState('')
   const [incidentReport, setIncidentReport] = useState('')
   const [specification, setSpecification] = useState('')
+  const [specificationCommands, setSpecificationCommands] = useState([])
   const [operatorFeedback, setOperatorFeedback] = useState('')
   const [codeReport, setCodeReport] = useState('')
   const [systemDescriptionImages, setSystemDescriptionImages] = useState([])
@@ -88,6 +89,7 @@ function CodeReviewerAgent() {
       setSystemDescription(inputs.systemDescription || '')
       setIncidentReport(inputs.incidentReport || '')
       setSpecification(inputs.specification || '')
+      setSpecificationCommands(inputs.specificationCommands || [])
       setOperatorFeedback(inputs.operatorFeedback || '')
       setCodeReport(inputs.codeReport || '')
       setSystemDescriptionImages(inputs.systemDescriptionImages || [])
@@ -253,6 +255,7 @@ function CodeReviewerAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
             code_report: codeReport,
             conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
@@ -456,6 +459,7 @@ function CodeReviewerAgent() {
         systemDescription,
         incidentReport,
         specification,
+        specificationCommands,
         operatorFeedback,
         codeReport,
         systemDescriptionImages,
@@ -630,6 +634,7 @@ function CodeReviewerAgent() {
       setSystemDescription(exampleData.system_description || '')
       setIncidentReport(exampleData.incident_report || '')
       setSpecification(exampleData.specification || '')
+      setSpecificationCommands(exampleData.specification_commands || [])
       setOperatorFeedback('')
       setSystemDescriptionImages(exampleData.system_description_images || [])
 
@@ -667,6 +672,7 @@ function CodeReviewerAgent() {
     setSystemDescription('')
     setIncidentReport('')
     setSpecification('')
+    setSpecificationCommands([])
     setOperatorFeedback('')
     setCodeReport('')
     setSystemDescriptionImages([])
@@ -760,6 +766,7 @@ function CodeReviewerAgent() {
         system_description: systemDescription,
         incident_report: incidentReport,
         specification: specification,
+        specification_commands: specificationCommands,
         operator_feedback: operatorFeedback,
         code_report: codeReport
       })
@@ -931,8 +938,8 @@ function CodeReviewerAgent() {
           setSystemDescription={setSystemDescription}
           incidentReport={incidentReport}
           setIncidentReport={setIncidentReport}
-          specification={specification}
-          setSpecification={setSpecification}
+          specificationCommands={specificationCommands}
+          setSpecificationCommands={setSpecificationCommands}
           operatorFeedback={operatorFeedback}
           setOperatorFeedback={setOperatorFeedback}
           codeReport={codeReport}
@@ -958,6 +965,7 @@ function CodeReviewerAgent() {
             system_description: systemDescription,
             incident_report: incidentReport,
             specification: specification,
+            specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
             code_report: codeReport
           })}
