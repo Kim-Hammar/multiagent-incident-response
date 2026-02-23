@@ -630,6 +630,226 @@ function renderSubAgentReport(toolName, result) {
   return null
 }
 
+const SEARCH_TOOLS = new Set([
+  'tavily_search',
+  'nvd_search',
+  'mitre_search',
+  'virustotal_scan',
+  'abuseipdb_check',
+  'otx_search'
+])
+
+/**
+ * Render structured results for search / threat-intel tools
+ * instead of falling back to raw JSON.
+ */
+function renderSearchToolResult(toolName, result) {
+  if (!result || typeof result !== 'object') return null
+  if (!SEARCH_TOOLS.has(toolName)) return null
+
+  if (toolName === 'tavily_search') {
+    const items = result.results || []
+    return (
+      <div className="ia-search-results" style={{ marginTop: '8px' }}>
+        {result.query && (
+          <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+            Query: <strong>{result.query}</strong>
+            {result.response_time != null && <span> ({result.response_time}s)</span>}
+          </div>
+        )}
+        {items.length === 0 && <div className="text-muted">No results found.</div>}
+        {items.map((r, i) => (
+          <div key={i} className="ia-assessment-section" style={{ marginBottom: '8px' }}>
+            <div className="ia-assessment-label" style={{ display: 'flex', alignItems: 'center' }}>
+              <a href={r.url} target="_blank" rel="noopener noreferrer">{r.title || r.url}</a>
+              {r.score != null && (
+                <span className="badge badge-secondary ml-2" style={{ fontSize: '10px' }}>
+                  {Math.round(r.score * 100)}%
+                </span>
+              )}
+            </div>
+            {r.content && <p className="ia-assessment-body mb-0">{r.content}</p>}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (toolName === 'nvd_search') {
+    const items = result.results || []
+    return (
+      <div className="ia-search-results" style={{ marginTop: '8px' }}>
+        {result.query && (
+          <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+            Query: <strong>{result.query}</strong>
+          </div>
+        )}
+        {items.length === 0 && <div className="text-muted">No results found.</div>}
+        {items.map((r, i) => (
+          <div key={i} className="ia-assessment-section" style={{ marginBottom: '8px' }}>
+            <div className="ia-assessment-label" style={{ display: 'flex', alignItems: 'center' }}>
+              <a href={r.url} target="_blank" rel="noopener noreferrer">{r.id}</a>
+              {r.score != null && (
+                <span
+                  className={`badge badge-${r.score >= 9 ? 'danger' : r.score >= 7 ? 'warning' : r.score >= 4 ? 'info' : 'success'} ml-2`}
+                  style={{ fontSize: '10px' }}
+                >
+                  CVSS {r.score}
+                </span>
+              )}
+            </div>
+            {r.description && <p className="ia-assessment-body mb-0">{r.description}</p>}
+            {r.published && (
+              <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>
+                Published: {r.published}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (toolName === 'mitre_search') {
+    const items = result.results || []
+    return (
+      <div className="ia-search-results" style={{ marginTop: '8px' }}>
+        {result.query && (
+          <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+            Query: <strong>{result.query}</strong>
+          </div>
+        )}
+        {items.length === 0 && <div className="text-muted">No results found.</div>}
+        {items.map((r, i) => (
+          <div key={i} className="ia-assessment-section" style={{ marginBottom: '8px' }}>
+            <div className="ia-assessment-label" style={{ display: 'flex', alignItems: 'center' }}>
+              <a href={r.url} target="_blank" rel="noopener noreferrer">
+                {r.id} — {r.name}
+              </a>
+            </div>
+            {r.tactics && r.tactics.length > 0 && (
+              <div style={{ marginBottom: '4px' }}>
+                {r.tactics.map((t, j) => (
+                  <span key={j} className="badge badge-dark mr-1" style={{ fontSize: '10px' }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+            {r.description && <p className="ia-assessment-body mb-0">{r.description}</p>}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (toolName === 'virustotal_scan') {
+    const r = result.result || {}
+    const stats = r.last_analysis_stats || {}
+    return (
+      <div className="ia-search-results" style={{ marginTop: '8px' }}>
+        <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+          <strong>{r.type}</strong>: {r.value}
+        </div>
+        {r.reputation != null && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Reputation</div>
+            <span className={`badge badge-${r.reputation < 0 ? 'danger' : r.reputation === 0 ? 'secondary' : 'success'}`}>
+              {r.reputation}
+            </span>
+          </div>
+        )}
+        {Object.keys(stats).length > 0 && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Analysis Stats</div>
+            <div>
+              {Object.entries(stats).map(([k, v]) => (
+                <span key={k} className="mr-2" style={{ fontSize: '12px' }}>
+                  <span className={`badge badge-${k === 'malicious' ? 'danger' : k === 'suspicious' ? 'warning' : k === 'harmless' ? 'success' : 'secondary'}`}>
+                    {k}: {v}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {r.last_analysis_date && (
+          <div style={{ fontSize: '10px', color: '#888', marginTop: '4px' }}>
+            Last analysis: {r.last_analysis_date}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (toolName === 'abuseipdb_check') {
+    const r = result.result || {}
+    const score = r.abuse_confidence_score
+    return (
+      <div className="ia-search-results" style={{ marginTop: '8px' }}>
+        <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+          IP: <strong>{r.ip}</strong>
+          {r.country_code && <span> ({r.country_code})</span>}
+          {r.isp && <span> — {r.isp}</span>}
+        </div>
+        {score != null && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Abuse Confidence Score</div>
+            <span className={`badge badge-${score >= 80 ? 'danger' : score >= 40 ? 'warning' : score > 0 ? 'info' : 'success'}`}
+              style={{ fontSize: '14px', padding: '4px 10px' }}
+            >
+              {score}%
+            </span>
+          </div>
+        )}
+        <div style={{ fontSize: '12px', marginTop: '4px' }}>
+          <span className="mr-3">Total reports: <strong>{r.total_reports || 0}</strong></span>
+          {r.last_reported_at && <span>Last reported: {r.last_reported_at}</span>}
+        </div>
+      </div>
+    )
+  }
+
+  if (toolName === 'otx_search') {
+    const r = result.result || {}
+    const pulses = r.pulses || []
+    return (
+      <div className="ia-search-results" style={{ marginTop: '8px' }}>
+        <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>
+          <strong>{r.type}</strong>: {r.value}
+          {r.pulse_count != null && <span> — {r.pulse_count} pulse(s)</span>}
+        </div>
+        {pulses.length > 0 && (
+          <div className="ia-assessment-section">
+            <div className="ia-assessment-label">Threat Pulses</div>
+            {pulses.map((p, j) => (
+              <div key={j} style={{ marginBottom: '6px' }}>
+                <div style={{ fontWeight: 600, fontSize: '12px' }}>{p.name || p.id}</div>
+                {p.description && (
+                  <p className="ia-assessment-body mb-0" style={{ fontSize: '12px' }}>
+                    {p.description}
+                  </p>
+                )}
+                {p.tags && p.tags.length > 0 && (
+                  <div style={{ marginTop: '2px' }}>
+                    {p.tags.map((t, k) => (
+                      <span key={k} className="badge badge-secondary mr-1" style={{ fontSize: '9px' }}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return null
+}
+
 /**
  * Render parallel sub-agent events grouped by agent_id.
  * Each agent gets its own CollapsibleSection with a status indicator.
@@ -974,7 +1194,8 @@ function SubAgentLog({
                         />
                       ) : (
                         terminal ||
-                        report || (
+                        report ||
+                        renderSearchToolResult(ev.tool_name, ev.result) || (
                           <pre className="ia-result-data mb-0">
                             {JSON.stringify(ev.result, null, 2)}
                           </pre>
@@ -1013,15 +1234,42 @@ function SubAgentLog({
           )
         }
         if (ev.type === 'report') {
-          const isOpen = expanded[i] ?? true
+          if (ev.host_analysis) {
+            const a = ev.host_analysis
+            const isOpen = !!expanded[i]
+            const statusClass = {
+              'Confirmed Compromised': 'danger',
+              'Likely Compromised': 'warning',
+              'Possibly Compromised': 'info',
+              'No Evidence of Compromise': 'success'
+            }
+            return (
+              <div key={i} className="card ia-entry border-dark" style={{ marginTop: '8px' }}>
+                <div className="card-body">
+                  <div className="ia-result-header" onClick={() => toggle(i)}>
+                    <span className="badge badge-dark">Host Analysis</span>
+                    <span className="ia-tool-name">
+                      {a.host_name || 'Host Analysis Report'}
+                    </span>
+                    {a.compromise_status && (
+                      <span
+                        className={`badge badge-${statusClass[a.compromise_status] || 'secondary'}`}
+                        style={{ marginLeft: '8px' }}
+                      >
+                        {a.compromise_status}
+                      </span>
+                    )}
+                    <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
+                  </div>
+                  {isOpen && <HostAnalysisBody report={a} />}
+                </div>
+              </div>
+            )
+          }
           return (
             <div key={i} className="ia-sub-entry ia-sub-report">
-              <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
-                <i className="fa fa-check-circle" style={{ color: '#38a169' }} aria-hidden="true" />
-                <span>Report produced</span>
-                <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
-              </div>
-              {isOpen && ev.host_analysis && <HostAnalysisBody report={ev.host_analysis} />}
+              <i className="fa fa-check-circle" style={{ color: '#38a169' }} aria-hidden="true" />
+              <span>Report produced</span>
             </div>
           )
         }
@@ -1550,7 +1798,8 @@ function AgentActivityLog({
                       ) : null}
                       {customRender ||
                         renderTerminalResult(entry.tool_name, displayResult) ||
-                        renderSubAgentReport(entry.tool_name, displayResult) || (
+                        renderSubAgentReport(entry.tool_name, displayResult) ||
+                        renderSearchToolResult(entry.tool_name, displayResult) || (
                           <>
                             <pre className="ia-result-data mb-0">
                               {JSON.stringify(displayResult, null, 2)}
