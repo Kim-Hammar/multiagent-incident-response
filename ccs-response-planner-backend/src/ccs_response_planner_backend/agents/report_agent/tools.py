@@ -6,8 +6,12 @@ the corresponding route handler, reads its API key from the
 environment, and returns a plain dict (no Flask dependency).
 """
 import base64
+import logging
 import os
+import queue
 import tempfile
+import threading
+import time
 from typing import Any, Callable, Generator
 
 import docker
@@ -21,6 +25,8 @@ from tavily import TavilyClient
 from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
+import httpx
+
 from ccs_response_planner_backend.agents.shared_tools import (
     dt_exec,
     dt_exec_stream,
@@ -31,6 +37,8 @@ from ccs_response_planner_backend.constants.constants import DOCKER, LLM
 from ccs_response_planner_backend.db.database_facade import (
     DatabaseFacade,
 )
+
+_logger = logging.getLogger(__name__)
 
 _STIX_URL = (
     "https://raw.githubusercontent.com/mitre/cti"
@@ -502,6 +510,523 @@ def generate_attack_image(
         return {"error": str(exc), "prompt": prompt}
 
 
+_MAX_INNER_STEPS = 50
+_CONCURRENCY_LIMIT = 3
+_OUTPUT_LIMIT = 2000
+
+
+def _truncate_sub_result(
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Return a copy of a tool result with long strings truncated.
+
+    :param result: the original tool result dict
+    :return: a truncated copy of the result
+    """
+    out: dict[str, Any] = {}
+    for key, val in result.items():
+        if key == "image":
+            out[key] = val
+        elif (
+            isinstance(val, str) and len(val) > _OUTPUT_LIMIT
+        ):
+            out[key] = (
+                val[:_OUTPUT_LIMIT] + "... (truncated)"
+            )
+        else:
+            out[key] = val
+    return out
+
+
+def _run_single_host_analyzer(
+    host: dict[str, Any],
+    context: dict[str, Any],
+    event_queue: "queue.Queue[dict[str, Any]]",
+    semaphore: threading.Semaphore,
+) -> None:
+    """
+    Run a HostAnalyzerAgent for a single host in a thread.
+
+    Puts tagged sub_event dicts onto *event_queue*. When
+    finished, puts an ``_agent_done`` sentinel.
+
+    :param host: dict with host_id and host_description
+    :param context: incident context (system_description,
+        security_alerts, etc.)
+    :param event_queue: shared queue for emitting events
+    :param semaphore: limits concurrent LLM API calls
+    """
+    from ccs_response_planner_backend.agents.host_analyzer_agent.agent import (  # noqa: E501
+        HostAnalyzerAgent,
+    )
+
+    agent_id = host.get("host_id", "unknown")
+    agent_label = host.get(
+        "host_description", agent_id,
+    )
+
+    try:
+        agent = HostAnalyzerAgent()
+        conversation_history: list[dict[str, Any]] = []
+        host_analysis = None
+
+        for step_num in range(_MAX_INNER_STEPS):
+            event_queue.put({
+                "type": "sub_event",
+                "agent_id": agent_id,
+                "agent_label": agent_label,
+                "event": {
+                    "type": "text_delta",
+                    "text": (
+                        f"Step {step_num + 1}...\n"
+                    ),
+                },
+            })
+
+            step_reasoning = ""
+            step_start = time.monotonic()
+
+            ha_kwargs: dict[str, Any] = {
+                "system_description": context.get(
+                    "system_description", "",
+                ),
+                "security_alerts": context.get(
+                    "security_alerts", "",
+                ),
+                "operator_feedback": context.get(
+                    "operator_feedback", "",
+                ),
+                "host_description": (
+                    host.get("host_description", "")
+                ),
+                "conversation_history": (
+                    conversation_history
+                ),
+                "images": context.get("images"),
+                "model_name": context.get(
+                    "host_analyzer_model",
+                ),
+                "dt_config": context.get("dt_config"),
+            }
+
+            with semaphore:
+                try:
+                    for event in agent.step_stream(
+                        **ha_kwargs,
+                    ):
+                        etype = event.get("type")
+
+                        if etype == "system_prompt":
+                            event_queue.put({
+                                "type": "sub_event",
+                                "agent_id": agent_id,
+                                "agent_label": (
+                                    agent_label
+                                ),
+                                "event": {
+                                    "type": "prompt",
+                                    "text": event.get(
+                                        "text", "",
+                                    ),
+                                    "images": event.get(
+                                        "images", [],
+                                    ),
+                                },
+                            })
+                        elif etype == "thinking":
+                            step_reasoning += event.get(
+                                "delta", "",
+                            )
+                            event_queue.put({
+                                "type": "sub_event",
+                                "agent_id": agent_id,
+                                "agent_label": (
+                                    agent_label
+                                ),
+                                "event": {
+                                    "type": (
+                                        "thinking_delta"
+                                    ),
+                                    "text": event.get(
+                                        "delta", "",
+                                    ),
+                                },
+                            })
+                        elif etype == "text":
+                            step_reasoning += event.get(
+                                "delta", "",
+                            )
+                            event_queue.put({
+                                "type": "sub_event",
+                                "agent_id": agent_id,
+                                "agent_label": (
+                                    agent_label
+                                ),
+                                "event": {
+                                    "type": "text_delta",
+                                    "text": event.get(
+                                        "delta", "",
+                                    ),
+                                },
+                            })
+                        elif etype == "host_analysis":
+                            host_analysis = event.get(
+                                "host_analysis", {},
+                            )
+                            if step_reasoning:
+                                conversation_history.append({
+                                    "role": "model",
+                                    "type": "reasoning",
+                                    "text": (
+                                        step_reasoning
+                                    ),
+                                })
+                                step_reasoning = ""
+                            conversation_history.append({
+                                "role": "model",
+                                "type": "host_analysis",
+                                "host_analysis": (
+                                    host_analysis
+                                ),
+                            })
+                            event_queue.put({
+                                "type": "sub_event",
+                                "agent_id": agent_id,
+                                "agent_label": (
+                                    agent_label
+                                ),
+                                "event": {
+                                    "type": "report",
+                                },
+                            })
+                        elif etype == "context_usage":
+                            event_queue.put({
+                                "type": "sub_event",
+                                "agent_id": agent_id,
+                                "agent_label": (
+                                    agent_label
+                                ),
+                                "event": {
+                                    "type": (
+                                        "context_usage"
+                                    ),
+                                    "prompt_tokens": (
+                                        event.get(
+                                            "prompt_tokens",
+                                            0,
+                                        )
+                                    ),
+                                    "candidates_tokens": (
+                                        event.get(
+                                            "candidates_tokens",
+                                            0,
+                                        )
+                                    ),
+                                    "total_tokens": (
+                                        event.get(
+                                            "total_tokens",
+                                            0,
+                                        )
+                                    ),
+                                    "context_limit": (
+                                        event.get(
+                                            "context_limit",
+                                            0,
+                                        )
+                                    ),
+                                },
+                            })
+                        elif etype == "tool_proposal":
+                            tool_name = event.get(
+                                "tool_name", "",
+                            )
+                            tool_args = event.get(
+                                "tool_args", {},
+                            )
+                            event_queue.put({
+                                "type": "sub_event",
+                                "agent_id": agent_id,
+                                "agent_label": (
+                                    agent_label
+                                ),
+                                "event": {
+                                    "type": "tool_call",
+                                    "tool_name": (
+                                        tool_name
+                                    ),
+                                    "tool_args": (
+                                        tool_args
+                                    ),
+                                },
+                            })
+                            if step_reasoning:
+                                conversation_history.append({
+                                    "role": "model",
+                                    "type": "reasoning",
+                                    "text": (
+                                        step_reasoning
+                                    ),
+                                })
+                                step_reasoning = ""
+                            conversation_history.append({
+                                "role": "model",
+                                "type": "tool_proposal",
+                                "tool_name": tool_name,
+                                "tool_args": tool_args,
+                                "rationale": event.get(
+                                    "rationale", "",
+                                ),
+                                "_model_parts": (
+                                    event.get(
+                                        "_model_parts",
+                                    )
+                                ),
+                                "_vendor": event.get(
+                                    "_vendor",
+                                ),
+                            })
+                            conversation_history.append({
+                                "role": "user",
+                                "type": "tool_approval",
+                                "tool_name": tool_name,
+                                "approved": True,
+                            })
+                            try:
+                                result = (
+                                    agent.execute_tool(
+                                        tool_name,
+                                        tool_args,
+                                    )
+                                )
+                                tool_result = result.get(
+                                    "result", {},
+                                )
+                                if result.get("error"):
+                                    tool_result = {
+                                        "error": (
+                                            result[
+                                                "error"
+                                            ]
+                                        ),
+                                    }
+                            except Exception as e:
+                                tool_result = {
+                                    "error": str(e),
+                                }
+                            conversation_history.append({
+                                "role": "tool",
+                                "type": "tool_result",
+                                "tool_name": tool_name,
+                                "result": tool_result,
+                            })
+                            sub_result = (
+                                _truncate_sub_result(
+                                    tool_result,
+                                )
+                            )
+                            event_queue.put({
+                                "type": "sub_event",
+                                "agent_id": agent_id,
+                                "agent_label": (
+                                    agent_label
+                                ),
+                                "event": {
+                                    "type": (
+                                        "tool_result"
+                                    ),
+                                    "tool_name": (
+                                        tool_name
+                                    ),
+                                    "result": (
+                                        sub_result
+                                    ),
+                                },
+                            })
+                except (
+                    TimeoutError,
+                    OSError,
+                    httpx.TimeoutException,
+                ) as e:
+                    elapsed = round(
+                        time.monotonic() - step_start,
+                    )
+                    _logger.error(
+                        "HostAnalyzer[%s] step %d "
+                        "TIMED OUT after %ds: %s",
+                        agent_id, step_num + 1,
+                        elapsed, e,
+                    )
+                    event_queue.put({
+                        "type": "sub_event",
+                        "agent_id": agent_id,
+                        "agent_label": agent_label,
+                        "event": {
+                            "type": "text_delta",
+                            "text": (
+                                f"Timeout after "
+                                f"{elapsed}s: {e}\n"
+                            ),
+                        },
+                    })
+                    break
+
+            if host_analysis is not None:
+                break
+
+        if host_analysis is None:
+            host_analysis = {
+                "host_id": agent_id,
+                "summary": (
+                    "HostAnalyzerAgent did not produce"
+                    " an analysis within the step "
+                    "limit."
+                ),
+            }
+
+        event_queue.put({
+            "type": "_agent_done",
+            "agent_id": agent_id,
+            "agent_label": agent_label,
+            "host_analysis": host_analysis,
+        })
+    except Exception as exc:
+        _logger.exception(
+            "HostAnalyzer[%s] failed: %s",
+            agent_id, exc,
+        )
+        event_queue.put({
+            "type": "sub_event",
+            "agent_id": agent_id,
+            "agent_label": agent_label,
+            "event": {
+                "type": "text_delta",
+                "text": f"Error: {exc}\n",
+            },
+        })
+        event_queue.put({
+            "type": "_agent_done",
+            "agent_id": agent_id,
+            "agent_label": agent_label,
+            "host_analysis": {
+                "host_id": agent_id,
+                "error": str(exc),
+            },
+        })
+
+
+def run_host_analyzers_stream(
+    hosts: list[dict[str, Any]],
+    context: dict[str, Any] | None = None,
+) -> Generator[dict[str, Any], None, None]:
+    """
+    Run parallel HostAnalyzerAgents for multiple hosts.
+
+    Spawns one thread per host, each running a
+    HostAnalyzerAgent to completion with auto-approved
+    tool calls. Uses a shared queue to yield tagged
+    sub_event dicts and a final done event.
+
+    :param hosts: list of dicts with host_id and
+        host_description
+    :param context: incident context dict injected by the
+        route handler
+    :return: generator yielding event dicts
+    """
+    ctx = context or {}
+    if not hosts:
+        yield {
+            "type": "done",
+            "result": {"host_analyses": {}},
+        }
+        return
+
+    yield {
+        "type": "sub_event",
+        "event": {
+            "type": "parallel_start",
+            "hosts": [
+                {
+                    "agent_id": h.get(
+                        "host_id", f"host_{i}",
+                    ),
+                    "agent_label": h.get(
+                        "host_description",
+                        h.get(
+                            "host_id", f"host_{i}",
+                        ),
+                    ),
+                }
+                for i, h in enumerate(hosts)
+            ],
+        },
+    }
+
+    event_queue: queue.Queue[dict[str, Any]] = (
+        queue.Queue()
+    )
+    semaphore = threading.Semaphore(_CONCURRENCY_LIMIT)
+    threads: list[threading.Thread] = []
+
+    for host in hosts:
+        t = threading.Thread(
+            target=_run_single_host_analyzer,
+            args=(host, ctx, event_queue, semaphore),
+            daemon=True,
+        )
+        threads.append(t)
+        t.start()
+
+    done_count = 0
+    total = len(hosts)
+    host_analyses: dict[str, Any] = {}
+
+    while done_count < total:
+        try:
+            event = event_queue.get(timeout=600)
+        except queue.Empty:
+            yield {
+                "type": "output_chunk",
+                "text": (
+                    "[HostAnalyzers] Timed out "
+                    "waiting for agents.\n"
+                ),
+            }
+            break
+
+        if event.get("type") == "_agent_done":
+            done_count += 1
+            agent_id = event.get("agent_id", "")
+            host_analyses[agent_id] = event.get(
+                "host_analysis", {},
+            )
+            yield {
+                "type": "sub_event",
+                "agent_id": agent_id,
+                "agent_label": event.get(
+                    "agent_label", agent_id,
+                ),
+                "event": {"type": "agent_done"},
+            }
+            yield {
+                "type": "output_chunk",
+                "text": (
+                    f"[HostAnalyzers] {agent_id} "
+                    f"done ({done_count}/{total}).\n"
+                ),
+            }
+        else:
+            yield event
+
+    for t in threads:
+        t.join(timeout=5)
+
+    yield {
+        "type": "done",
+        "result": {"host_analyses": host_analyses},
+    }
+
+
 TOOL_DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "tavily_search": tavily_search,
     "nvd_search": nvd_search,
@@ -520,4 +1045,5 @@ STREAMING_TOOL_DISPATCH: dict[
 ] = {
     "dt_exec": dt_exec_stream,
     "dt_restart": dt_restart_stream,
+    "run_host_analyzers": run_host_analyzers_stream,
 }

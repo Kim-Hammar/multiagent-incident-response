@@ -17,7 +17,8 @@ export const STREAMING_TOOLS = new Set([
   'run_report_agent',
   'run_report_reviewer_agent',
   'run_report_manager',
-  'run_plan_manager'
+  'run_plan_manager',
+  'run_host_analyzers'
 ])
 
 /**
@@ -100,6 +101,8 @@ export async function executeStreamingTool({
         onChunk(event.text)
       } else if (event.type === 'sub_event' && onSubEvent) {
         if (event.ts) event.event._ts = event.ts
+        if (event.agent_id) event.event.agent_id = event.agent_id
+        if (event.agent_label) event.event.agent_label = event.agent_label
         onSubEvent(event.event)
       } else if (event.type === 'done') {
         doneEvent = event

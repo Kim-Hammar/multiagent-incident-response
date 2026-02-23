@@ -31,7 +31,8 @@ const ORCHESTRATOR_TOOLS = new Set([
   'produce_report_manager_report',
   'run_report_manager',
   'run_plan_manager',
-  'produce_orchestrator_agent_report'
+  'produce_orchestrator_agent_report',
+  'run_host_analyzers'
 ])
 
 const TOOL_LABELS = {
@@ -47,7 +48,8 @@ const TOOL_LABELS = {
   produce_plan_manager_report: 'plan manager report',
   produce_pentest_report: 'pentest report',
   produce_host_analysis: 'host analysis report',
-  produce_action_validation: 'action validation report'
+  produce_action_validation: 'action validation report',
+  run_host_analyzers: 'parallel host analysis'
 }
 
 /**
@@ -381,6 +383,30 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
+  if (toolName === 'run_host_analyzers') {
+    const hosts = args?.hosts || []
+    return (
+      <div className="ia-orchestrator-args">
+        <div className="ia-orchestrator-note">
+          <i className="fa fa-server" aria-hidden="true" />
+          <span>
+            Analyzing {hosts.length} host{hosts.length !== 1 ? 's' : ''} in parallel
+          </span>
+        </div>
+        {hosts.length > 0 && (
+          <div style={{ marginTop: '6px' }}>
+            {hosts.map((h, i) => (
+              <div key={i} className="ia-orchestrator-verdict-row">
+                <span className="ia-proposal-arg-label">{h.host_id}:</span>
+                <span className="ia-proposal-arg-value">{h.host_description}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (toolName === 'run_report_manager') {
     return (
       <div className="ia-orchestrator-args">
@@ -588,7 +614,89 @@ function renderSubAgentReport(toolName, result) {
   if (toolName === 'run_plan_manager' && result.plan_manager_report) {
     return <PlanManagerReportBody result={result} />
   }
+  if (toolName === 'run_host_analyzers' && result.host_analyses) {
+    const analyses = result.host_analyses
+    return (
+      <div style={{ marginTop: '10px' }}>
+        {Object.entries(analyses).map(([hostId, analysis]) => (
+          <CollapsibleSection key={hostId} label={`${hostId} analysis`} icon="fa-server">
+            <pre className="ia-result-data mb-0">{JSON.stringify(analysis, null, 2)}</pre>
+          </CollapsibleSection>
+        ))}
+      </div>
+    )
+  }
   return null
+}
+
+/**
+ * Render parallel sub-agent events grouped by agent_id.
+ * Each agent gets its own CollapsibleSection with a status indicator.
+ */
+function ParallelSubAgentLog({
+  hosts,
+  subEvents,
+  active,
+  onViewPrompt,
+  onViewContext,
+  livenessStatus,
+  heartbeatStatus,
+  lastHeartbeatTime
+}) {
+  const grouped = {}
+  const doneSet = new Set()
+  for (const ev of subEvents || []) {
+    const aid = ev.agent_id
+    if (!aid) continue
+    if (ev.type === 'agent_done') {
+      doneSet.add(aid)
+      continue
+    }
+    if (!grouped[aid]) grouped[aid] = []
+    grouped[aid].push(ev)
+  }
+  const hostList = hosts || Object.keys(grouped).map((id) => ({ agent_id: id, agent_label: id }))
+
+  return (
+    <div className="ia-sub-agent-log" style={{ marginTop: '8px' }}>
+      {hostList.map((h) => {
+        const aid = h.agent_id
+        const isDone = doneSet.has(aid)
+        const events = grouped[aid] || []
+        const icon = isDone ? 'fa-check-circle' : active ? 'fa-spinner fa-spin' : 'fa-circle-o'
+        const iconColor = isDone ? '#38a169' : '#888'
+        return (
+          <CollapsibleSection
+            key={aid}
+            label={h.agent_label || aid}
+            icon={icon}
+            defaultOpen={!isDone && active}
+          >
+            <span style={{ position: 'absolute', right: '12px', top: '8px' }}>
+              <i className={`fa ${icon}`} style={{ color: iconColor }} aria-hidden="true" />
+            </span>
+            {events.length > 0 ? (
+              <SubAgentLog
+                subEvents={events}
+                agentLabel={h.agent_label || aid}
+                active={active && !isDone}
+                onViewPrompt={onViewPrompt}
+                onViewContext={onViewContext}
+                livenessStatus={livenessStatus}
+                heartbeatStatus={heartbeatStatus}
+                lastHeartbeatTime={lastHeartbeatTime}
+              />
+            ) : (
+              <div className="ia-sub-entry">
+                <i className="fa fa-hourglass-half" aria-hidden="true" />
+                <span style={{ marginLeft: '6px', opacity: 0.6 }}>Waiting to start...</span>
+              </div>
+            )}
+          </CollapsibleSection>
+        )
+      })}
+    </div>
+  )
 }
 
 /**
@@ -1283,7 +1391,21 @@ function AgentActivityLog({
                           </button>
                         )}
                       </div>
-                      {hasSubEvents ? (
+                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' ? (
+                        <ParallelSubAgentLog
+                          hosts={entry._parallelHosts}
+                          subEvents={entry.subEvents}
+                          active={!entry.stopped}
+                          onViewPrompt={(text, images) => {
+                            setPromptModalText(text)
+                            setPromptModalImages(images || [])
+                          }}
+                          onViewContext={(history) => setContextModalHistory(history)}
+                          livenessStatus={livenessStatus}
+                          heartbeatStatus={heartbeatStatus}
+                          lastHeartbeatTime={lastHeartbeatTime}
+                        />
+                      ) : hasSubEvents ? (
                         <SubAgentLog
                           subEvents={entry.subEvents}
                           agentLabel={agentLabel}

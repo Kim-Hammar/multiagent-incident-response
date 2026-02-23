@@ -12,12 +12,12 @@ Before producing a solution or invoking a tool, think step-by-step about the bes
 
 ## Example
 
-Input: Alerts showing SSH brute-force from 10.0.1.10 against Server 2. \
-Solution: Think about what to investigate → call `dt_exec` to check auth \
-logs on Server 2 → call `dt_exec` to inspect running processes and \
-network connections → look up unfamiliar indicators with external tools \
-only if needed → call `generate_attack_image` with the full attack path \
-→ call `produce_assessment` with the structured findings.
+Input: Alerts showing SSH brute-force from 10.0.1.10 against multiple servers. \
+Solution: Think about what to investigate → do an initial `dt_exec` to check \
+the firewall or gateway logs to identify affected hosts → call \
+`run_host_analyzers` with the relevant hosts for parallel deep analysis → \
+review the host analysis results → call `generate_attack_image` with the \
+full attack path → call `produce_assessment` with the structured findings.
 
 ## Incident Context
 
@@ -46,6 +46,18 @@ and should be your primary investigation method. Available tools:
    **Primary — Digital Twin investigation (use these first):**
    - Execute shell commands on digital-twin containers (dt_exec)
    - Run Python analysis scripts in a sandbox (dt_python_exec)
+
+   **Delegation — Parallel host analysis:**
+   When **multiple hosts** need detailed investigation, use \
+`run_host_analyzers` to delegate deep per-host analysis to parallel \
+HostAnalyzerAgent sub-agents. Each sub-agent independently investigates \
+one host using DT commands, external lookups, and other tools, then \
+produces a structured host analysis report. **Only include hosts that \
+are relevant to the incident** — do not analyze every host in the \
+digital twin. Typical workflow: do a quick initial investigation \
+(e.g. check firewall/gateway logs) to identify the relevant hosts, \
+then call `run_host_analyzers` with those hosts. The results will \
+feed back into your context for the final assessment.
 
    **Supplementary — External lookups (use selectively):**
    The following tools query external databases. Only use them when you \
@@ -77,6 +89,9 @@ Commands run non-interactively — use flags like \
 `DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
 for any command that might prompt for input.
    - **dt_python_exec**: `code` — Python 3 source code to execute.
+   - **run_host_analyzers**: `hosts` — array of objects, each with \
+`host_id` (container name, e.g. `i1_server_1`) and `host_description` \
+(brief description of why this host is relevant and what to look for).
 
 3. **Before each tool call**, briefly explain your rationale in text, then \
 immediately make the function call in the same response.

@@ -512,6 +512,20 @@ function ReportAgent() {
       const streamEntry = { type: 'tool_streaming', tool_name: proposal.tool_name, output: '' }
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
+
+      const isHostAnalyzers = proposal.tool_name === 'run_host_analyzers'
+      const extra = { session_id: sessionIdRef.current }
+      if (isHostAnalyzers) {
+        extra.system_description = systemDescription
+        extra.security_alerts = securityAlerts
+        extra.operator_feedback = operatorFeedback
+        extra.images = [
+          ...systemDescriptionImages,
+          ...securityAlertsImages,
+          ...operatorFeedbackImages
+        ]
+      }
+
       try {
         const { result } = await executeStreamingTool({
           url: API_AGENTS_REPORT_TOOL_URL,
@@ -520,11 +534,24 @@ function ReportAgent() {
           incidentId: selectedIncidentId,
           token,
           signal: controller.signal,
-          extraBody: { session_id: sessionIdRef.current },
+          extraBody: extra,
           onChunk: (text) => {
             streamEntry.output += text
             setConversationHistory([...base])
           },
+          onSubEvent: isHostAnalyzers
+            ? (ev) => {
+                if (ev.type === 'parallel_start') {
+                  streamEntry._parallelHosts = ev.hosts
+                  if (!streamEntry.subEvents) streamEntry.subEvents = []
+                  setConversationHistory([...base])
+                  return
+                }
+                if (!streamEntry.subEvents) streamEntry.subEvents = []
+                streamEntry.subEvents = [...streamEntry.subEvents, ev]
+                setConversationHistory([...base])
+              }
+            : undefined,
           onHeartbeat: (status) => {
             setLastHeartbeatTime(Date.now())
             setHeartbeatStatus(status)

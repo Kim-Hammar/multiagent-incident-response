@@ -22,6 +22,7 @@ export const TOOL_LABELS = {
   run_validation_agent: { label: 'Validation Agent', icon: 'fa-check-circle' },
   produce_plan_manager_report: { label: 'Plan Manager Report', icon: 'fa-flag-checkered' },
   generate_attack_image: { label: 'Attack Path Image', icon: 'fa-image' },
+  run_host_analyzers: { label: 'Parallel Host Analysis', icon: 'fa-server' },
   context_compaction: { label: 'Context Compaction', icon: 'fa-compress' }
 }
 
@@ -68,6 +69,14 @@ export function formatToolArgs(toolName, args) {
       return [['State vector', JSON.stringify(args.state || [])]]
     case 'generate_attack_image':
       return [['Prompt', args.prompt || '', true]]
+    case 'run_host_analyzers':
+      return [
+        [
+          'Hosts',
+          (args.hosts || []).map((h) => `${h.host_id}: ${h.host_description}`).join('\n'),
+          true
+        ]
+      ]
     default:
       return [['Arguments', JSON.stringify(args)]]
   }

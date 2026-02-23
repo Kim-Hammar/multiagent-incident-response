@@ -18,7 +18,14 @@ import './Agents.css'
  * Agents page with dropdown selector for individual agents.
  */
 function Agents() {
-  const [selectedAgent, setSelectedAgent] = useState('report')
+  const [selectedAgent, setSelectedAgent] = useState(
+    () => localStorage.getItem('selectedAgent') || 'report'
+  )
+
+  const handleAgentChange = (value) => {
+    setSelectedAgent(value)
+    localStorage.setItem('selectedAgent', value)
+  }
 
   return (
     <div className="Agents">
@@ -32,7 +39,7 @@ function Agents() {
           id="agent-select"
           className="form-control form-control-sm"
           value={selectedAgent}
-          onChange={(e) => setSelectedAgent(e.target.value)}
+          onChange={(e) => handleAgentChange(e.target.value)}
         >
           <option value="orchestrator">Orchestrator Agent</option>
           <option value="report">Report Agent</option>

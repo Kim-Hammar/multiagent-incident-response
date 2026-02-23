@@ -253,6 +253,59 @@ TOOL_DECLARATIONS = [
         },
     ),
     genai_types.FunctionDeclaration(
+        name="run_host_analyzers",
+        description=(
+            "Delegate deep analysis of one or more hosts "
+            "to parallel HostAnalyzerAgent sub-agents. "
+            "Each sub-agent will independently investigate "
+            "the specified host using DT shell commands, "
+            "external lookups, and other tools, then "
+            "produce a structured host analysis report. "
+            "Use this when multiple hosts need detailed "
+            "investigation — only include hosts that are "
+            "relevant to the incident."
+        ),
+        parameters={  # type: ignore[arg-type]
+            "type": "object",
+            "properties": {
+                "hosts": {
+                    "type": "array",
+                    "description": (
+                        "List of hosts to analyze in "
+                        "parallel."
+                    ),
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "host_id": {
+                                "type": "string",
+                                "description": (
+                                    "The container / "
+                                    "host identifier "
+                                    "(e.g. i1_server_1)."
+                                ),
+                            },
+                            "host_description": {
+                                "type": "string",
+                                "description": (
+                                    "A brief description "
+                                    "of why this host "
+                                    "is relevant and "
+                                    "what to look for."
+                                ),
+                            },
+                        },
+                        "required": [
+                            "host_id",
+                            "host_description",
+                        ],
+                    },
+                },
+            },
+            "required": ["hosts"],
+        },
+    ),
+    genai_types.FunctionDeclaration(
         name="produce_assessment",
         description=(
             "Produce the final structured incident assessment. "

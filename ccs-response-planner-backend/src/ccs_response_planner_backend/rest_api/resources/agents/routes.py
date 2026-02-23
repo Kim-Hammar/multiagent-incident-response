@@ -763,6 +763,26 @@ def agents_report_tool() -> tuple[Response, int]:
     if tool_name in _DT_TOOLS and incident_id is not None:
         tool_args["incident_id"] = incident_id
 
+    if tool_name == "run_host_analyzers":
+        tool_args["context"] = {
+            "system_description": body.get(
+                "system_description", "",
+            ),
+            "security_alerts": body.get(
+                "security_alerts", "",
+            ),
+            "operator_feedback": body.get(
+                "operator_feedback", "",
+            ),
+            "images": body.get("images"),
+            "dt_config": body.get("dt_config"),
+            "incident_id": incident_id,
+            "username": g.username,
+            "host_analyzer_model": body.get(
+                "host_analyzer_model",
+            ),
+        }
+
     if tool_name in INFO_STREAMING_DISPATCH:
         session_id = body.get("session_id")
         username = g.username
