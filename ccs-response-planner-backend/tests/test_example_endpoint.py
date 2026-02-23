@@ -43,7 +43,7 @@ def test_example_body_has_exactly_seven_keys(
     client: FlaskClient, auth_headers: dict[str, str]
 ) -> None:
     data = client.get("/api/example", headers=auth_headers).get_json()
-    assert len(data) == 8
+    assert len(data) == 10
 
 
 def test_example_body_has_incident_report(

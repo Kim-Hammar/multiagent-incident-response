@@ -9,8 +9,6 @@ import os
 import re
 from typing import Any, Generator
 
-logger = logging.getLogger(__name__)
-
 from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
@@ -41,6 +39,8 @@ from ccs_response_planner_backend.agents.host_analyzer_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
+
+logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3-pro-preview"
 CONTEXT_LIMIT = 1_048_576
