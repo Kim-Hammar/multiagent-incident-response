@@ -54,6 +54,8 @@ _STATUS_MAP: dict[str, str] = {
     "code_report": "Producing report",
     "report_review": "Producing report",
     "planner_report": "Producing report",
+    "host_analysis": "Producing report",
+    "action_validation": "Producing report",
     "error": "Error occurred",
 }
 

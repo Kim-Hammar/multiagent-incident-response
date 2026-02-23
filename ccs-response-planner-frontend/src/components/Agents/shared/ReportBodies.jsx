@@ -934,6 +934,134 @@ function PlannerReportInline({ report: r }) {
   )
 }
 
+/* ── Host analysis body (from HostAnalyzerAgent results) ────── */
+
+const HOST_STATUS_STYLES = {
+  'Confirmed Compromised': 'danger',
+  'Likely Compromised': 'warning',
+  'Possibly Compromised': 'info',
+  'No Evidence of Compromise': 'success'
+}
+
+function HostAnalysisBody({ report: a }) {
+  const attackVectors = a.attack_vectors || []
+  const iocs = a.indicators_of_compromise || []
+  const services = a.affected_services || []
+  const recommendations = a.recommendations || []
+  return (
+    <div style={{ marginTop: '10px' }}>
+      {a.compromise_status && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Compromise Status</div>
+          <span
+            className={`badge badge-${HOST_STATUS_STYLES[a.compromise_status] || 'secondary'}`}
+            style={{ fontSize: '14px', padding: '6px 12px' }}
+          >
+            {a.compromise_status}
+          </span>
+        </div>
+      )}
+      {a.executive_summary && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Executive Summary</div>
+          <p className="ia-assessment-body mb-0">{a.executive_summary}</p>
+        </div>
+      )}
+      {a.compromise_details && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Compromise Details</div>
+          <p className="ia-assessment-body mb-0">{a.compromise_details}</p>
+        </div>
+      )}
+      {a.security_posture && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Security Posture</div>
+          <p className="ia-assessment-body mb-0">{a.security_posture}</p>
+        </div>
+      )}
+      {attackVectors.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Attack Vectors</div>
+          <table className="ia-ioc-table">
+            <thead>
+              <tr>
+                <th>Vector</th>
+                <th>Description</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attackVectors.map((v, i) => (
+                <tr key={i}>
+                  <td>{v.vector}</td>
+                  <td>{v.description}</td>
+                  <td>{v.evidence}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {iocs.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Indicators of Compromise</div>
+          <table className="ia-ioc-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Context</th>
+              </tr>
+            </thead>
+            <tbody>
+              {iocs.map((ioc, i) => (
+                <tr key={i}>
+                  <td>{ioc.type}</td>
+                  <td>{ioc.value}</td>
+                  <td>{ioc.context}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {services.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Affected Services</div>
+          <table className="ia-asset-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Status</th>
+                <th>Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((svc, i) => (
+                <tr key={i}>
+                  <td>{svc.service}</td>
+                  <td>{svc.status}</td>
+                  <td>{svc.impact}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {recommendations.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Recommendations</div>
+          <ol className="ia-assessment-body mb-0">
+            {recommendations.map((rec, i) => (
+              <li key={i}>{rec}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export {
   CodeReportBody,
   ReviewReportBody,
@@ -942,6 +1070,7 @@ export {
   ValidationReportBody,
   PlanManagerReportBody,
   PlannerReportInline,
+  HostAnalysisBody,
   VERDICT_STYLES,
   SEVERITY_STYLES
 }

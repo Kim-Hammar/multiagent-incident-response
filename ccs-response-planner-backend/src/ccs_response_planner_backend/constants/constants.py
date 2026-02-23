@@ -130,6 +130,24 @@ class API:
     AGENTS_PENTEST_PROMPT_ROUTE = (
         "/api/agents/pentest/prompt"
     )
+    AGENTS_HOST_ANALYZER_STEP_ROUTE = (
+        "/api/agents/host-analyzer/step"
+    )
+    AGENTS_HOST_ANALYZER_TOOL_ROUTE = (
+        "/api/agents/host-analyzer/tool"
+    )
+    AGENTS_HOST_ANALYZER_PROMPT_ROUTE = (
+        "/api/agents/host-analyzer/prompt"
+    )
+    AGENTS_ACTION_VALIDATOR_STEP_ROUTE = (
+        "/api/agents/action-validator/step"
+    )
+    AGENTS_ACTION_VALIDATOR_TOOL_ROUTE = (
+        "/api/agents/action-validator/tool"
+    )
+    AGENTS_ACTION_VALIDATOR_PROMPT_ROUTE = (
+        "/api/agents/action-validator/prompt"
+    )
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"
     AGENTS_SESSIONS_ACTIVE_ROUTE = (

@@ -44,7 +44,10 @@ const TOOL_LABELS = {
   produce_orchestrator_report: 'orchestrator report',
   produce_orchestrator_agent_report: 'orchestrator report',
   produce_report_manager_report: 'report manager report',
-  produce_plan_manager_report: 'plan manager report'
+  produce_plan_manager_report: 'plan manager report',
+  produce_pentest_report: 'pentest report',
+  produce_host_analysis: 'host analysis report',
+  produce_action_validation: 'action validation report'
 }
 
 /**

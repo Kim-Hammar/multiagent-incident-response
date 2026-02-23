@@ -121,6 +121,24 @@ from ccs_response_planner_backend.agents.pentest_agent.prompt import (
 from ccs_response_planner_backend.agents.pentest_agent.tools import (
     STREAMING_TOOL_DISPATCH as PENTEST_STREAMING_DISPATCH,
 )
+from ccs_response_planner_backend.agents.host_analyzer_agent.agent import (
+    HostAnalyzerAgent,
+)
+from ccs_response_planner_backend.agents.host_analyzer_agent.prompt import (
+    build_system_prompt as build_host_analyzer_prompt,
+)
+from ccs_response_planner_backend.agents.host_analyzer_agent.tools import (
+    STREAMING_TOOL_DISPATCH as HOST_ANALYZER_STREAMING_DISPATCH,
+)
+from ccs_response_planner_backend.agents.action_validator_agent.agent import (
+    ActionValidatorAgent,
+)
+from ccs_response_planner_backend.agents.action_validator_agent.prompt import (
+    build_system_prompt as build_action_validator_prompt,
+)
+from ccs_response_planner_backend.agents.action_validator_agent.tools import (
+    STREAMING_TOOL_DISPATCH as ACTION_VALIDATOR_STREAMING_DISPATCH,
+)
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
     format_container_table,
@@ -363,6 +381,8 @@ def _save_step_result(
                 "plan_manager_report",
                 "report_review",
                 "pentest_report",
+                "host_analysis",
+                "action_validation",
             ):
                 final_entry = ev
             elif ev_type == "context_usage":
@@ -3824,6 +3844,546 @@ def agents_pentest_tool() -> tuple[Response, int]:
         return jsonify({"job_id": job_id}), 202
 
     agent = PentestAgent()
+    result = agent.execute_tool(
+        tool_name, tool_args,
+    )
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result), 200
+
+
+# ── Host Analyzer Agent ──────────────────────────────────────
+
+
+@agents_bp.route("/host-analyzer/step", methods=["POST"])
+@token_required
+def agents_host_analyzer_step() -> tuple[Response, int]:
+    """
+    Start a HostAnalyzerAgent step as a background job.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    security_alerts = body.get("security_alerts", "")
+    operator_feedback = body.get(
+        "operator_feedback", "",
+    )
+    host_description = body.get(
+        "host_description", "",
+    )
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    if not isinstance(images, list):
+        images = []
+    if (
+        not system_description
+        and not host_description
+    ):
+        return jsonify({
+            "error": (
+                "system_description and "
+                "host_description are required"
+            ),
+        }), 400
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
+
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
+        """
+        Run the HostAnalyzerAgent step in background.
+
+        :return: a generator of event dicts
+        """
+        try:
+            if not conversation_history:
+                yield from _redeploy_dt()
+
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
+            agent = HostAnalyzerAgent()
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
+            )
+            yield from agent.step_stream(
+                system_description=(
+                    system_description
+                ),
+                security_alerts=security_alerts,
+                operator_feedback=operator_feedback,
+                host_description=host_description,
+                conversation_history=(
+                    conversation_history
+                ),
+                images=images,
+                model_name=model_name,
+                dt_config=dt_config,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
+                ),
+            )
+        except Exception as e:
+            yield _make_error_event(e)
+
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
+    return jsonify({"job_id": job_id}), 202
+
+
+@agents_bp.route(
+    "/host-analyzer/prompt", methods=["POST"],
+)
+@token_required
+def agents_host_analyzer_prompt() -> tuple[
+    Response, int
+]:
+    """
+    Render the HostAnalyzerAgent system prompt.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
+    prompt = build_host_analyzer_prompt(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        security_alerts=body.get(
+            "security_alerts", "",
+        ) or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        host_description=body.get(
+            "host_description", "",
+        ) or "N/A",
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
+        dt_container_table=format_container_table(
+            dt_config,
+        ),
+        dt_network_connectivity=(
+            format_network_connectivity(dt_config)
+        ),
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route(
+    "/host-analyzer/tool", methods=["POST"],
+)
+@token_required
+def agents_host_analyzer_tool() -> tuple[
+    Response, int
+]:
+    """
+    Execute an approved tool call for HostAnalyzerAgent.
+
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in HOST_ANALYZER_STREAMING_DISPATCH:
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
+
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
+            """
+            try:
+                agent = HostAnalyzerAgent()
+                yield from agent.execute_tool_stream(
+                    tool_name, tool_args,
+                )
+            except Exception as e:
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
+
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
+        return jsonify({"job_id": job_id}), 202
+
+    agent = HostAnalyzerAgent()
+    result = agent.execute_tool(
+        tool_name, tool_args,
+    )
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result), 200
+
+
+# ── Action Validator Agent ───────────────────────────────────
+
+
+@agents_bp.route(
+    "/action-validator/step", methods=["POST"],
+)
+@token_required
+def agents_action_validator_step() -> tuple[
+    Response, int
+]:
+    """
+    Start an ActionValidatorAgent step as a background job.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    system_description = body.get(
+        "system_description", "",
+    )
+    code_report = body.get("code_report")
+    planner_report = body.get("planner_report")
+    action_to_validate = body.get(
+        "action_to_validate", "",
+    )
+    operator_feedback = body.get(
+        "operator_feedback", "",
+    )
+    conversation_history = body.get(
+        "conversation_history", [],
+    )
+    images = body.get("images", [])
+    model_name = body.get("model_name") or None
+    if isinstance(planner_report, str):
+        try:
+            planner_report = json.loads(
+                planner_report,
+            )
+        except (json.JSONDecodeError, ValueError):
+            planner_report = {}
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            code_report = {}
+    if not isinstance(images, list):
+        images = []
+    if (
+        not system_description
+        and not action_to_validate
+    ):
+        return jsonify({
+            "error": (
+                "system_description or "
+                "action_to_validate is required"
+            ),
+        }), 400
+    session_id = body.get("session_id")
+    username = g.username
+    job_id = (
+        str(session_id) if session_id
+        else body.get("job_id") or str(uuid.uuid4())
+    )
+    last_prompt_tokens = body.get(
+        "last_prompt_tokens", 0,
+    )
+    compaction_model = body.get(
+        "compaction_model",
+    ) or None
+    compaction_threshold = body.get(
+        "compaction_threshold", 0.8,
+    )
+
+    code_report_formatted = (
+        ValidationAgent._format_code_report(
+            code_report or {},
+        )
+    )
+    planner_report_formatted = (
+        ValidationAgent._format_planner_report(
+            planner_report or {},
+        )
+    )
+
+    def on_complete(
+        events: list[dict[str, Any]],
+    ) -> None:
+        """
+        Auto-save step results to the planning session.
+
+        :param events: the accumulated job events
+        """
+        if not session_id:
+            return
+        _save_step_result(
+            session_id, username, events,
+        )
+
+    def run() -> Generator[
+        dict[str, Any], None, None
+    ]:
+        """
+        Run the ActionValidatorAgent step in background.
+
+        :return: a generator of event dicts
+        """
+        try:
+            if not conversation_history:
+                yield from _redeploy_dt()
+
+            dt_config = (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            )
+            agent = ActionValidatorAgent()
+            agent._last_prompt_tokens = (
+                last_prompt_tokens
+            )
+            yield from agent.step_stream(
+                system_description=(
+                    system_description
+                ),
+                code_report_formatted=(
+                    code_report_formatted
+                ),
+                planner_report_formatted=(
+                    planner_report_formatted
+                ),
+                action_to_validate=(
+                    action_to_validate
+                ),
+                operator_feedback=operator_feedback,
+                conversation_history=(
+                    conversation_history
+                ),
+                images=images,
+                model_name=model_name,
+                dt_config=dt_config,
+                compaction_model=compaction_model,
+                compaction_threshold=(
+                    compaction_threshold
+                ),
+            )
+        except Exception as e:
+            yield _make_error_event(e)
+
+    job_manager.start_job(
+        job_id, run, on_complete=on_complete,
+    )
+    return jsonify({"job_id": job_id}), 202
+
+
+@agents_bp.route(
+    "/action-validator/prompt", methods=["POST"],
+)
+@token_required
+def agents_action_validator_prompt() -> tuple[
+    Response, int
+]:
+    """
+    Render the ActionValidatorAgent system prompt.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    code_report = body.get("code_report")
+    planner_report = body.get("planner_report")
+    if isinstance(planner_report, str):
+        try:
+            planner_report = json.loads(
+                planner_report,
+            )
+        except (json.JSONDecodeError, ValueError):
+            planner_report = {}
+    if isinstance(code_report, str):
+        try:
+            code_report = json.loads(code_report)
+        except (json.JSONDecodeError, ValueError):
+            code_report = {}
+    dt_config = (
+        DatabaseFacade.get_digital_twin_config()
+        or DIGITAL_TWIN.DEFAULT_CONFIG
+    )
+    prompt = build_action_validator_prompt(
+        system_description=body.get(
+            "system_description", "",
+        ) or "N/A",
+        code_report_formatted=(
+            ValidationAgent._format_code_report(
+                code_report or {},
+            )
+        ),
+        planner_report_formatted=(
+            ValidationAgent._format_planner_report(
+                planner_report or {},
+            )
+        ),
+        action_to_validate=body.get(
+            "action_to_validate", "",
+        ) or "N/A",
+        operator_feedback=body.get(
+            "operator_feedback", "",
+        ) or "N/A",
+        dt_container_list=format_container_list(
+            dt_config,
+        ),
+        dt_container_table=format_container_table(
+            dt_config,
+        ),
+        dt_network_connectivity=(
+            format_network_connectivity(dt_config)
+        ),
+    )
+    return jsonify({"prompt": prompt}), 200
+
+
+@agents_bp.route(
+    "/action-validator/tool", methods=["POST"],
+)
+@token_required
+def agents_action_validator_tool() -> tuple[
+    Response, int
+]:
+    """
+    Execute an approved tool call for ActionValidatorAgent.
+
+    Streaming tools run as background jobs; other tools
+    return a single JSON response.
+
+    :return: a tuple of (JSON response, HTTP status code)
+    """
+    body = request.get_json(silent=True) or {}
+    tool_name = body.get("tool_name", "")
+    tool_args = body.get("tool_args", {})
+    incident_id = body.get("incident_id")
+    if not tool_name:
+        return jsonify({
+            "error": "tool_name is required",
+        }), 400
+    if tool_name in _DT_TOOLS and incident_id is not None:
+        tool_args["incident_id"] = incident_id
+
+    if tool_name in ACTION_VALIDATOR_STREAMING_DISPATCH:
+        session_id = body.get("session_id")
+        username = g.username
+        job_id = (
+            str(session_id) if session_id
+            else body.get("job_id")
+            or str(uuid.uuid4())
+        )
+
+        def on_complete(
+            events: list[dict[str, Any]],
+        ) -> None:
+            """
+            Auto-save tool results to session.
+
+            :param events: the accumulated job events
+            """
+            if not session_id:
+                return
+            _save_tool_result(
+                session_id, username,
+                events, tool_name,
+            )
+
+        def run() -> Generator[
+            dict[str, Any], None, None
+        ]:
+            """
+            Run the streaming tool in background.
+
+            :return: a generator of event dicts
+            """
+            try:
+                agent = ActionValidatorAgent()
+                yield from agent.execute_tool_stream(
+                    tool_name, tool_args,
+                )
+            except Exception as e:
+                yield {
+                    "type": "error",
+                    "message": str(e),
+                }
+
+        job_manager.start_job(
+            job_id, run, on_complete=on_complete,
+        )
+        return jsonify({"job_id": job_id}), 202
+
+    agent = ActionValidatorAgent()
     result = agent.execute_tool(
         tool_name, tool_args,
     )

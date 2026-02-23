@@ -369,6 +369,87 @@ class PentestReport(BaseModel):
     defensive_recommendations: list[str]
 
 
+# ── Host Analyzer Agent ──────────────────────────────────────
+
+
+class HostAttackVector(BaseModel):
+    """
+    An attack vector identified on a host.
+    """
+
+    vector: str
+    description: str
+    evidence: str
+
+
+class HostIOCEntry(BaseModel):
+    """
+    An indicator of compromise found on a host.
+    """
+
+    type: str
+    value: str
+    context: str
+
+
+class HostServiceEntry(BaseModel):
+    """
+    A service affected on the analyzed host.
+    """
+
+    service: str
+    status: str
+    impact: str
+
+
+class HostAnalysisReport(BaseModel):
+    """
+    Report produced by the host_analyzer_agent.
+    """
+
+    host_name: str
+    compromise_status: str
+    compromise_details: str
+    attack_vectors: list[HostAttackVector]
+    security_posture: str
+    indicators_of_compromise: list[HostIOCEntry]
+    affected_services: list[HostServiceEntry]
+    recommendations: list[str]
+    executive_summary: str
+
+
+# ── Action Validator Agent ───────────────────────────────────
+
+
+class CommandResult(BaseModel):
+    """
+    Result of executing a single command on a container.
+    """
+
+    command: str
+    container: str
+    exit_code: int
+    output: str
+
+
+class ActionValidationReport(BaseModel):
+    """
+    Report produced by the action_validator_agent.
+    """
+
+    action_name: str
+    action_description: str
+    commands_executed: list[str]
+    command_results: list[CommandResult]
+    outcome: str
+    recovery_state_before: RecoveryState
+    recovery_state_after: RecoveryState
+    service_state: list[ServiceStateEntry]
+    step_cost: float
+    executive_summary: str
+    recommendations: list[str]
+
+
 # ── Registry ───────────────────────────────────────────────────
 
 REPORT_MODELS: dict[str, type[BaseModel]] = {
@@ -383,4 +464,6 @@ REPORT_MODELS: dict[str, type[BaseModel]] = {
     "report_manager_agent": ReportManagerReport,
     "orchestrator_agent": OrchestratorAgentReport,
     "pentest_agent": PentestReport,
+    "host_analyzer_agent": HostAnalysisReport,
+    "action_validator_agent": ActionValidationReport,
 }

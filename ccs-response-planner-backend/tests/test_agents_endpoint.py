@@ -2093,3 +2093,278 @@ def test_pentest_prompt_renders_prompt(
         "SSH brute force to server_3"
         in data["prompt"]
     )
+
+
+# ── Host Analyzer Agent ──────────────────────────────────────
+
+
+def test_host_analyzer_step_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/host-analyzer/step requires auth.
+    """
+    resp = client.post(
+        "/api/agents/host-analyzer/step",
+        data=json.dumps({
+            "system_description": "Test system",
+            "host_description": "Test host",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_host_analyzer_step_requires_inputs(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/host-analyzer/step returns 400
+    without inputs.
+    """
+    resp = client.post(
+        "/api/agents/host-analyzer/step",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".agents.routes.HostAnalyzerAgent",
+)
+def test_host_analyzer_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/host-analyzer/tool with dt_exec
+    streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_server_3",
+            "command": "cat /var/log/auth.log",
+            "exit_code": 0,
+            "output": "auth log data\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/host-analyzer/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_server_3",
+                "command": "cat /var/log/auth.log",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    events = _get_job_events(client, resp, auth_headers)
+    assert events[-1]["type"] == "done"
+
+
+def test_host_analyzer_tool_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/host-analyzer/tool requires auth.
+    """
+    resp = client.post(
+        "/api/agents/host-analyzer/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "x", "command": "y",
+            },
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_host_analyzer_prompt_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/host-analyzer/prompt requires auth.
+    """
+    resp = client.post(
+        "/api/agents/host-analyzer/prompt",
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_host_analyzer_prompt_renders_prompt(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/host-analyzer/prompt renders the
+    prompt.
+    """
+    resp = client.post(
+        "/api/agents/host-analyzer/prompt",
+        data=json.dumps({
+            "system_description": "My HA system",
+            "host_description": "Server 3 SSH host",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "prompt" in data
+    assert "My HA system" in data["prompt"]
+    assert "Server 3 SSH host" in data["prompt"]
+
+
+# ── Action Validator Agent ───────────────────────────────────
+
+
+def test_action_validator_step_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/action-validator/step requires auth.
+    """
+    resp = client.post(
+        "/api/agents/action-validator/step",
+        data=json.dumps({
+            "system_description": "Test system",
+            "action_to_validate": "Block attacker IP",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_action_validator_step_requires_inputs(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/action-validator/step returns 400
+    without inputs.
+    """
+    resp = client.post(
+        "/api/agents/action-validator/step",
+        data=json.dumps({}),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+
+
+@patch(
+    "ccs_response_planner_backend.rest_api.resources"
+    ".agents.routes.ActionValidatorAgent",
+)
+def test_action_validator_tool_dt_exec_streams_ndjson(
+    mock_agent_cls: MagicMock,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/action-validator/tool with dt_exec
+    streams NDJSON.
+    """
+    mock_agent = MagicMock()
+    mock_agent.execute_tool_stream.return_value = iter([
+        {
+            "type": "done",
+            "container": "i1_firewall",
+            "command": "iptables -L",
+            "exit_code": 0,
+            "output": "Chain INPUT\n",
+        },
+    ])
+    mock_agent_cls.return_value = mock_agent
+    resp = client.post(
+        "/api/agents/action-validator/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "i1_firewall",
+                "command": "iptables -L",
+            },
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    events = _get_job_events(client, resp, auth_headers)
+    assert events[-1]["type"] == "done"
+
+
+def test_action_validator_tool_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/action-validator/tool requires auth.
+    """
+    resp = client.post(
+        "/api/agents/action-validator/tool",
+        data=json.dumps({
+            "tool_name": "dt_exec",
+            "tool_args": {
+                "container": "x", "command": "y",
+            },
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_action_validator_prompt_requires_auth(
+    client: FlaskClient,
+) -> None:
+    """
+    POST /api/agents/action-validator/prompt requires auth.
+    """
+    resp = client.post(
+        "/api/agents/action-validator/prompt",
+        data=json.dumps({}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 401
+
+
+def test_action_validator_prompt_renders_prompt(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+) -> None:
+    """
+    POST /api/agents/action-validator/prompt renders the
+    prompt.
+    """
+    resp = client.post(
+        "/api/agents/action-validator/prompt",
+        data=json.dumps({
+            "system_description": "My AV system",
+            "action_to_validate": (
+                "Block attacker at firewall"
+            ),
+            "code_report": "{}",
+            "planner_report": "{}",
+        }),
+        content_type="application/json",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert "prompt" in data
+    assert "My AV system" in data["prompt"]
+    assert (
+        "Block attacker at firewall"
+        in data["prompt"]
+    )

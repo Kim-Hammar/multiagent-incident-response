@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, patch
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
-def test_create_tables_executes_sixteen_statements(mock_psycopg: MagicMock) -> None:
+def test_create_tables_executes_eighteen_statements(mock_psycopg: MagicMock) -> None:
     """
-    Verify create_tables issues sixteen SQL statements (six CREATE TABLE,
-    two CREATE INDEX, seven ALTER TABLE, and one UPDATE).
+    Verify create_tables issues eighteen SQL statements (six CREATE TABLE,
+    two CREATE INDEX, seven ALTER TABLE, and three UPDATE).
     """
     mock_conn = MagicMock()
     mock_cur = MagicMock()
@@ -18,7 +18,7 @@ def test_create_tables_executes_sixteen_statements(mock_psycopg: MagicMock) -> N
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
 
-    assert mock_cur.execute.call_count == 16
+    assert mock_cur.execute.call_count == 18
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")

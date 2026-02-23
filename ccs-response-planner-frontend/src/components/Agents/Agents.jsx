@@ -10,6 +10,8 @@ import ReportReviewerAgent from './ReportReviewerAgent.jsx'
 import ReportManagerAgent from './ReportManagerAgent.jsx'
 import OrchestratorAgent from './OrchestratorAgent.jsx'
 import PentestAgent from './PentestAgent.jsx'
+import HostAnalyzerAgent from './HostAnalyzerAgent.jsx'
+import ActionValidatorAgent from './ActionValidatorAgent.jsx'
 import './Agents.css'
 
 /**
@@ -43,6 +45,8 @@ function Agents() {
           <option value="plan-manager">Plan Manager Agent</option>
           <option value="planner">Planner Agent</option>
           <option value="pentest">Pentest Agent</option>
+          <option value="host-analyzer">Host Analyzer Agent</option>
+          <option value="action-validator">Action Validator Agent</option>
         </select>
       </div>
 
@@ -57,6 +61,8 @@ function Agents() {
       {selectedAgent === 'plan-manager' && <PlanManagerAgent />}
       {selectedAgent === 'planner' && <PlannerAgent />}
       {selectedAgent === 'pentest' && <PentestAgent />}
+      {selectedAgent === 'host-analyzer' && <HostAnalyzerAgent />}
+      {selectedAgent === 'action-validator' && <ActionValidatorAgent />}
     </div>
   )
 }

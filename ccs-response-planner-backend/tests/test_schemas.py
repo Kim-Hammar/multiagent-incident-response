@@ -19,6 +19,9 @@ from ccs_response_planner_backend.agents.schemas import (
     ReportReviewReport,
     ReportManagerReport,
     OrchestratorAgentReport,
+    PentestReport,
+    HostAnalysisReport,
+    ActionValidationReport,
 )
 
 # ── Tool declaration imports ───────────────────────────────────
@@ -52,6 +55,15 @@ from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations 
 )
 from ccs_response_planner_backend.agents.orchestrator_agent.tool_declarations import (  # noqa: E501
     PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL,
+)
+from ccs_response_planner_backend.agents.pentest_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_PENTEST_REPORT_DECL,
+)
+from ccs_response_planner_backend.agents.host_analyzer_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_HOST_ANALYSIS_DECL,
+)
+from ccs_response_planner_backend.agents.action_validator_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_ACTION_VALIDATION_DECL,
 )
 
 
@@ -115,6 +127,9 @@ AGENT_DECL_MODEL = [
     ("report_reviewer_agent", PRODUCE_REPORT_REVIEW_DECL, ReportReviewReport),
     ("report_manager_agent", PRODUCE_REPORT_MANAGER_REPORT_DECL, ReportManagerReport),
     ("orchestrator_agent", PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL, OrchestratorAgentReport),
+    ("pentest_agent", PRODUCE_PENTEST_REPORT_DECL, PentestReport),
+    ("host_analyzer_agent", PRODUCE_HOST_ANALYSIS_DECL, HostAnalysisReport),
+    ("action_validator_agent", PRODUCE_ACTION_VALIDATION_DECL, ActionValidationReport),
 ]
 
 
@@ -207,6 +222,52 @@ FALLBACK_DICTS = {
         "final_verdict": "unknown",
         "assessment_summary": "",
         "response_plan_summary": "",
+    },
+    "pentest_agent": {
+        "executive_summary": "fallback",
+        "attack_path_steps": [],
+        "overall_verdict": "Attack path not feasible",
+        "hosts_compromised": [],
+        "reproduction_commands": [],
+        "defensive_recommendations": [],
+    },
+    "host_analyzer_agent": {
+        "host_name": "Unknown",
+        "compromise_status": "No Evidence of Compromise",
+        "compromise_details": "",
+        "attack_vectors": [],
+        "security_posture": "",
+        "indicators_of_compromise": [],
+        "affected_services": [],
+        "recommendations": [],
+        "executive_summary": "fallback",
+    },
+    "action_validator_agent": {
+        "action_name": "Unknown",
+        "action_description": "",
+        "commands_executed": [],
+        "command_results": [],
+        "outcome": "Action failed",
+        "recovery_state_before": {
+            "is_attack_contained": False,
+            "is_attack_assessed": False,
+            "is_forensic_evidence_preserved": False,
+            "is_attack_evicted": False,
+            "is_system_hardened": False,
+            "are_services_restored": False,
+        },
+        "recovery_state_after": {
+            "is_attack_contained": False,
+            "is_attack_assessed": False,
+            "is_forensic_evidence_preserved": False,
+            "is_attack_evicted": False,
+            "is_system_hardened": False,
+            "are_services_restored": False,
+        },
+        "service_state": [],
+        "step_cost": 21.0,
+        "executive_summary": "fallback",
+        "recommendations": [],
     },
 }
 
@@ -471,16 +532,126 @@ def test_missing_required_field_raises():
         })
 
 
-def test_registry_contains_all_ten_agents():
+def test_registry_contains_all_agents():
     """
-    REPORT_MODELS registry has exactly 10 entries.
+    REPORT_MODELS registry has exactly 13 entries.
     """
-    assert len(REPORT_MODELS) == 10
+    assert len(REPORT_MODELS) == 13
     expected = {
         "code_agent", "code_reviewer_agent", "code_manager_agent",
         "planner_agent", "validation_agent", "report_agent",
         "plan_manager_agent",
         "report_reviewer_agent", "report_manager_agent",
         "orchestrator_agent",
+        "pentest_agent", "host_analyzer_agent",
+        "action_validator_agent",
     }
     assert set(REPORT_MODELS.keys()) == expected
+
+
+def test_sample_pentest_report():
+    """
+    A realistic PentestReport with attack path steps.
+    """
+    report = PentestReport.model_validate({
+        "executive_summary": "SSH brute force successful.",
+        "attack_path_steps": [
+            {
+                "step_name": "SSH Brute Force",
+                "step_description": "Brute force SSH on Server 3.",
+                "target_host": "i1_server_3",
+                "commands_executed": ["hydra -l root -P pass.txt ssh://10.0.3.3"],
+                "command_outputs": ["[22][ssh] host: 10.0.3.3 login: root password: toor"],
+                "success": True,
+                "evidence": "Root shell obtained.",
+            },
+        ],
+        "overall_verdict": "Attack path feasible",
+        "hosts_compromised": ["i1_server_3"],
+        "reproduction_commands": ["ssh root@10.0.3.3"],
+        "defensive_recommendations": ["Disable password auth."],
+    })
+    assert len(report.attack_path_steps) == 1
+    assert report.attack_path_steps[0].success is True
+    assert "i1_server_3" in report.hosts_compromised
+
+
+def test_sample_host_analysis_report():
+    """
+    A realistic HostAnalysisReport with attack vectors and IOCs.
+    """
+    report = HostAnalysisReport.model_validate({
+        "host_name": "i1_server_3",
+        "compromise_status": "Confirmed Compromise",
+        "compromise_details": "Root access via SSH brute force.",
+        "attack_vectors": [
+            {
+                "vector": "SSH Brute Force",
+                "description": "Dictionary attack on port 22.",
+                "evidence": "auth.log shows repeated failures.",
+            },
+        ],
+        "security_posture": "Weak: password auth enabled.",
+        "indicators_of_compromise": [
+            {"type": "ip", "value": "192.168.1.50", "context": "Attacker IP."},
+        ],
+        "affected_services": [
+            {"service": "SSH", "status": "compromised", "impact": "Root access."},
+        ],
+        "recommendations": ["Disable password auth.", "Rotate credentials."],
+        "executive_summary": "Server 3 compromised via SSH brute force.",
+    })
+    assert report.compromise_status == "Confirmed Compromise"
+    assert len(report.attack_vectors) == 1
+    assert len(report.indicators_of_compromise) == 1
+
+
+def test_sample_action_validation_report():
+    """
+    A realistic ActionValidationReport with before/after recovery state.
+    """
+    recovery_before = {
+        "is_attack_contained": False,
+        "is_attack_assessed": False,
+        "is_forensic_evidence_preserved": False,
+        "is_attack_evicted": False,
+        "is_system_hardened": False,
+        "are_services_restored": False,
+    }
+    recovery_after = {
+        "is_attack_contained": True,
+        "is_attack_assessed": False,
+        "is_forensic_evidence_preserved": False,
+        "is_attack_evicted": False,
+        "is_system_hardened": False,
+        "are_services_restored": True,
+    }
+    report = ActionValidationReport.model_validate({
+        "action_name": "Block attacker at firewall",
+        "action_description": "Add iptables DROP rule for attacker IP.",
+        "commands_executed": [
+            "iptables -I FORWARD -s 192.168.1.50 -j DROP",
+        ],
+        "command_results": [
+            {
+                "command": "iptables -I FORWARD -s 192.168.1.50 -j DROP",
+                "container": "i1_firewall",
+                "exit_code": 0,
+                "output": "",
+            },
+        ],
+        "outcome": "Action validated",
+        "recovery_state_before": recovery_before,
+        "recovery_state_after": recovery_after,
+        "service_state": [
+            {"description": "FTP reachable", "passed": True},
+        ],
+        "step_cost": 15.0,
+        "executive_summary": "Firewall rule applied successfully.",
+        "recommendations": ["Verify attacker cannot bypass."],
+    })
+    assert report.recovery_state_after.is_attack_contained is True
+    assert report.recovery_state_before.is_attack_contained is False
+    assert len(report.command_results) == 1
+    assert report.command_results[0].exit_code == 0
+    assert report.step_cost == 15.0
