@@ -124,10 +124,10 @@ export function useAgentSession({
         const session = data.session
         sessionIdRef.current = session.id
 
-        if (onRestore) onRestore(session)
-
         const uiState = session.ui_state || {}
         let jobRunning = false
+        let jobNotFound = false
+        let jobEventCount = -1
         try {
           const jobRes = await fetch(apiJobStatusUrl(String(session.id)), {
             headers: { Authorization: `Bearer ${token}` }
@@ -135,10 +135,36 @@ export function useAgentSession({
           if (jobRes.ok) {
             const jobData = await jobRes.json()
             jobRunning = jobData.running && !jobData.done
+            jobEventCount = jobData.event_count ?? -1
+          } else {
+            jobNotFound = true
           }
         } catch {
-          /* treat as no running job */
+          jobNotFound = true
         }
+
+        // Stale session: job gone (e.g. backend restart) or finished with no
+        // events.  Cancel the DB record and skip restoration so old data never
+        // flashes in the UI.
+        if (!jobRunning && (jobNotFound || jobEventCount === 0)) {
+          fetch(`${API_AGENTS_SESSIONS_URL}/${session.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              status: 'cancelled',
+              conversation_history: [],
+              ui_state: { running: false, executingTool: null }
+            })
+          }).catch(() => {})
+          sessionIdRef.current = null
+          setRestoredSession(true)
+          return
+        }
+
+        if (onRestore) onRestore(session)
 
         let history = session.conversation_history || []
         if (jobRunning) {

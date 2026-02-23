@@ -562,9 +562,7 @@ def _run_single_host_analyzer(
     )
 
     agent_id = host.get("host_id", "unknown")
-    agent_label = host.get(
-        "host_description", agent_id,
-    )
+    agent_label = f"Analysis of host {agent_id}"
 
     try:
         agent = HostAnalyzerAgent()
@@ -698,6 +696,9 @@ def _run_single_host_analyzer(
                                 ),
                                 "event": {
                                     "type": "report",
+                                    "host_analysis": (
+                                        host_analysis
+                                    ),
                                 },
                             })
                         elif etype == "context_usage":
@@ -950,11 +951,9 @@ def run_host_analyzers_stream(
                     "agent_id": h.get(
                         "host_id", f"host_{i}",
                     ),
-                    "agent_label": h.get(
-                        "host_description",
-                        h.get(
-                            "host_id", f"host_{i}",
-                        ),
+                    "agent_label": (
+                        f"Analysis of host "
+                        f"{h.get('host_id', f'host_{i}')}"
                     ),
                 }
                 for i, h in enumerate(hosts)

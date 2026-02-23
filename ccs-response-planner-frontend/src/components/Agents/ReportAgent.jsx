@@ -22,6 +22,60 @@ import { processDtEvent } from './shared/dtEventHandler.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 
+function handleNestedSubEvent(subEvents, innerEvent) {
+  if (innerEvent.type === 'context_usage') {
+    const lastToolCall = [...subEvents]
+      .reverse()
+      .find((e) => e.type === 'tool_call' && !e._completed)
+    if (lastToolCall) lastToolCall._contextUsage = innerEvent
+    return
+  }
+  if (innerEvent.type === 'thinking_delta') {
+    const last = subEvents[subEvents.length - 1]
+    if (last && last.type === 'reasoning') {
+      last.text += innerEvent.text
+    } else {
+      subEvents.push({ type: 'reasoning', text: innerEvent.text, _startTime: Date.now() })
+    }
+  } else if (innerEvent.type === 'text_delta') {
+    const last = subEvents[subEvents.length - 1]
+    if (last && last.type === 'text') {
+      last.text += innerEvent.text
+    } else {
+      subEvents.push({ type: 'text', text: innerEvent.text, _startTime: Date.now() })
+    }
+  } else if (innerEvent.type === 'nested_event') {
+    const lastToolCall = [...subEvents]
+      .reverse()
+      .find((e) => e.type === 'tool_call' && !e._completed)
+    if (lastToolCall) {
+      if (innerEvent.event.type === 'prompt') {
+        lastToolCall._prompt = innerEvent.event.text
+        lastToolCall._promptImages = innerEvent.event.images || []
+      } else if (innerEvent.event.type === 'context_usage') {
+        lastToolCall._contextUsage = innerEvent.event
+      } else {
+        if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+        handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
+      }
+    }
+  } else if (innerEvent.type === 'tool_result') {
+    const lastCall = [...subEvents].reverse().find((e) => e.type === 'tool_call')
+    if (lastCall) lastCall._completed = true
+    const streamSubs = innerEvent.subEvents || []
+    subEvents.push({
+      type: 'tool_result',
+      tool_name: innerEvent.tool_name,
+      result: innerEvent.result,
+      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+      _startTime: Date.now()
+    })
+  } else {
+    if (!innerEvent._startTime) innerEvent._startTime = Date.now()
+    subEvents.push(innerEvent)
+  }
+}
+
 /**
  * ReportAgent component — drives the agent loop with
  * human-in-the-loop tool approval. Renders 3 inner tabs.
@@ -509,7 +563,13 @@ function ReportAgent() {
     abortControllerRef.current = controller
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
-      const streamEntry = { type: 'tool_streaming', tool_name: proposal.tool_name, output: '' }
+      const streamEntry = {
+        type: 'tool_streaming',
+        tool_name: proposal.tool_name,
+        output: '',
+        subEvents: [],
+        _startTime: Date.now()
+      }
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
 
@@ -539,19 +599,88 @@ function ReportAgent() {
             streamEntry.output += text
             setConversationHistory([...base])
           },
-          onSubEvent: isHostAnalyzers
-            ? (ev) => {
-                if (ev.type === 'parallel_start') {
-                  streamEntry._parallelHosts = ev.hosts
-                  if (!streamEntry.subEvents) streamEntry.subEvents = []
-                  setConversationHistory([...base])
-                  return
-                }
-                if (!streamEntry.subEvents) streamEntry.subEvents = []
-                streamEntry.subEvents = [...streamEntry.subEvents, ev]
-                setConversationHistory([...base])
+          onSubEvent: (event) => {
+            if (isHostAnalyzers && event.type === 'parallel_start') {
+              streamEntry._parallelHosts = event.hosts
+              setConversationHistory([...base])
+              return
+            }
+            if (event.type === 'context_usage') {
+              streamEntry.contextUsage = event
+              setConversationHistory([...base])
+              return
+            }
+            if (event.type === 'prompt') {
+              streamEntry.prompt = event.text
+              streamEntry.promptImages = event.images || []
+              setConversationHistory([...base])
+              return
+            }
+            if (event.type === 'model_name') {
+              streamEntry._modelName = event.model_name
+              setConversationHistory([...base])
+              return
+            }
+            if (isHostAnalyzers) {
+              streamEntry.subEvents = [...streamEntry.subEvents, event]
+              setConversationHistory([...base])
+              return
+            }
+            if (event.type === 'thinking_delta') {
+              const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+              if (last && last.type === 'reasoning') {
+                last.text += event.text
+              } else {
+                streamEntry.subEvents.push({
+                  type: 'reasoning',
+                  text: event.text,
+                  _startTime: Date.now()
+                })
               }
-            : undefined,
+            } else if (event.type === 'text_delta') {
+              const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
+              if (last && last.type === 'text') {
+                last.text += event.text
+              } else {
+                streamEntry.subEvents.push({
+                  type: 'text',
+                  text: event.text,
+                  _startTime: Date.now()
+                })
+              }
+            } else if (event.type === 'nested_event') {
+              const lastToolCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call' && !e._completed)
+              if (lastToolCall) {
+                if (event.event.type === 'prompt') {
+                  lastToolCall._prompt = event.event.text
+                  lastToolCall._promptImages = event.event.images || []
+                } else if (event.event.type === 'context_usage') {
+                  lastToolCall._contextUsage = event.event
+                } else {
+                  if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                  handleNestedSubEvent(lastToolCall.subEvents, event.event)
+                }
+              }
+            } else if (event.type === 'tool_result') {
+              const lastCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call')
+              if (lastCall) lastCall._completed = true
+              streamEntry.subEvents.push({
+                type: 'tool_result',
+                tool_name: event.tool_name,
+                result: event.result,
+                subEvents: event.subEvents || [],
+                _startTime: Date.now()
+              })
+            } else {
+              if (!event._startTime) event._startTime = Date.now()
+              streamEntry.subEvents.push(event)
+            }
+            setConversationHistory([...base])
+          },
           onHeartbeat: (status) => {
             setLastHeartbeatTime(Date.now())
             setHeartbeatStatus(status)
@@ -567,6 +696,13 @@ function ReportAgent() {
         }
         let updated
         setConversationHistory((prev) => {
+          const streamingEntry = prev.find(
+            (e) => e.type === 'tool_streaming' && e.tool_name === proposal.tool_name
+          )
+          if (streamingEntry) {
+            if (streamingEntry.subEvents) resultEntry.subEvents = streamingEntry.subEvents
+            if (streamingEntry._parallelHosts) resultEntry._parallelHosts = streamingEntry._parallelHosts
+          }
           const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
           updated = [...stripped, resultEntry]
           return updated
@@ -748,6 +884,13 @@ function ReportAgent() {
       }
       let updated
       setConversationHistory((prev) => {
+        const streamingEntry = prev.find(
+          (e) => e.type === 'tool_streaming' && e.tool_name === toolName
+        )
+        if (streamingEntry) {
+          if (streamingEntry.subEvents) resultEntry.subEvents = streamingEntry.subEvents
+          if (streamingEntry._parallelHosts) resultEntry._parallelHosts = streamingEntry._parallelHosts
+        }
         const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
         updated = [...stripped, resultEntry]
         return updated

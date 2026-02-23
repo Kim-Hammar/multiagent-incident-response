@@ -12,7 +12,8 @@ import {
   AssessmentBody,
   IncidentReviewBody,
   ValidationReportBody,
-  PlanManagerReportBody
+  PlanManagerReportBody,
+  HostAnalysisBody
 } from './ReportBodies.jsx'
 import PlannerAgentReport from '../PlannerAgentReport.jsx'
 
@@ -619,8 +620,8 @@ function renderSubAgentReport(toolName, result) {
     return (
       <div style={{ marginTop: '10px' }}>
         {Object.entries(analyses).map(([hostId, analysis]) => (
-          <CollapsibleSection key={hostId} label={`${hostId} analysis`} icon="fa-server">
-            <pre className="ia-result-data mb-0">{JSON.stringify(analysis, null, 2)}</pre>
+          <CollapsibleSection key={hostId} label={`Analysis of host ${hostId}`} icon="fa-server">
+            <HostAnalysisBody report={analysis} />
           </CollapsibleSection>
         ))}
       </div>
@@ -1012,10 +1013,15 @@ function SubAgentLog({
           )
         }
         if (ev.type === 'report') {
+          const isOpen = expanded[i] ?? true
           return (
             <div key={i} className="ia-sub-entry ia-sub-report">
-              <i className="fa fa-check-circle" aria-hidden="true" />
-              <span>Report produced</span>
+              <div className="ia-sub-entry-header" onClick={() => toggle(i)}>
+                <i className="fa fa-check-circle" style={{ color: '#38a169' }} aria-hidden="true" />
+                <span>Report produced</span>
+                <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
+              </div>
+              {isOpen && ev.host_analysis && <HostAnalysisBody report={ev.host_analysis} />}
             </div>
           )
         }
@@ -1519,7 +1525,18 @@ function AgentActivityLog({
                   </div>
                   {isExpanded && (
                     <>
-                      {hasSubEvents && (
+                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' ? (
+                        <ParallelSubAgentLog
+                          hosts={entry._parallelHosts}
+                          subEvents={entry.subEvents}
+                          active={false}
+                          onViewPrompt={(text, images) => {
+                            setPromptModalText(text)
+                            setPromptModalImages(images || [])
+                          }}
+                          onViewContext={(history) => setContextModalHistory(history)}
+                        />
+                      ) : hasSubEvents ? (
                         <SubAgentLog
                           subEvents={entry.subEvents}
                           agentLabel={toolLabel(entry.tool_name)}
@@ -1530,26 +1547,28 @@ function AgentActivityLog({
                           }}
                           onViewContext={(history) => setContextModalHistory(history)}
                         />
-                      )}
-                      {customRender || renderTerminalResult(entry.tool_name, displayResult) || (
-                        <>
-                          <pre className="ia-result-data mb-0">
-                            {JSON.stringify(displayResult, null, 2)}
-                          </pre>
-                          {hasImage && (
-                            <img
-                              src={entry.result.image}
-                              alt="Generated attack path"
-                              style={{
-                                maxWidth: '100%',
-                                border: '1px solid #dee2e6',
-                                borderRadius: '4px',
-                                marginTop: '8px'
-                              }}
-                            />
-                          )}
-                        </>
-                      )}
+                      ) : null}
+                      {customRender ||
+                        renderTerminalResult(entry.tool_name, displayResult) ||
+                        renderSubAgentReport(entry.tool_name, displayResult) || (
+                          <>
+                            <pre className="ia-result-data mb-0">
+                              {JSON.stringify(displayResult, null, 2)}
+                            </pre>
+                            {hasImage && (
+                              <img
+                                src={entry.result.image}
+                                alt="Generated attack path"
+                                style={{
+                                  maxWidth: '100%',
+                                  border: '1px solid #dee2e6',
+                                  borderRadius: '4px',
+                                  marginTop: '8px'
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
                     </>
                   )}
                 </div>

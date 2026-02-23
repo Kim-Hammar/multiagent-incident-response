@@ -165,11 +165,6 @@ class DatabaseFacade:
                     f"SET agent_type = 'planner' "
                     f"WHERE agent_type = 'rl'"
                 )
-                cur.execute(
-                    f"UPDATE {DB.PLANNING_SESSIONS_TABLE} "
-                    f"SET agent_type = 'planner' "
-                    f"WHERE agent_type = 'rl'"
-                )
                 cur.execute(f"""
                     CREATE TABLE IF NOT EXISTS
                         {DB.PLANNING_SESSIONS_TABLE} (
@@ -201,6 +196,11 @@ class DatabaseFacade:
                     ADD COLUMN IF NOT EXISTS
                         agent_type VARCHAR(50)
                 """)
+                cur.execute(
+                    f"UPDATE {DB.PLANNING_SESSIONS_TABLE} "
+                    f"SET agent_type = 'planner' "
+                    f"WHERE agent_type = 'rl'"
+                )
                 cur.execute(f"""
                     CREATE INDEX IF NOT EXISTS
                         idx_planning_sessions_agent_type
