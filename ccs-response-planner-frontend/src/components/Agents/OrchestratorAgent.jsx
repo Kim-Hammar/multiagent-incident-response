@@ -27,6 +27,7 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
 import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { processDtEvent } from './shared/dtEventHandler.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 import {
@@ -476,6 +477,7 @@ function OrchestratorAgent() {
     const controller = new AbortController()
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '', _startTime: Date.now() }
+    const dtEntries = []
     setConversationHistory((prev) => [...prev, streamingEntry])
     let job_id = resumeJobId
     try {
@@ -490,7 +492,9 @@ function OrchestratorAgent() {
             system_description: systemDescription,
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
-            conversation_history: stripImagesFromHistory(history),
+            conversation_history: stripImagesFromHistory(
+              history.filter((e) => e.type !== 'dt_redeploy')
+            ),
             images: [...systemDescriptionImages, ...securityAlertsImages],
             model_name: orchestratorModel || undefined,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
@@ -509,7 +513,7 @@ function OrchestratorAgent() {
           setAlert({ type: 'danger', message: msg })
           setConversationHistory((prev) => {
             const base = prev.filter((e) => e !== streamingEntry)
-            return [...base, { role: 'system', type: 'error', message: msg }]
+            return [...base, ...dtEntries, { role: 'system', type: 'error', message: msg }]
           })
           return
         }
@@ -541,14 +545,35 @@ function OrchestratorAgent() {
           if (event.type === 'text' || event.type === 'thinking') {
             accumulated += event.delta
             streamingEntry.text = accumulated
-            setConversationHistory((prev) => [...prev])
+            setConversationHistory((prev) => {
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              return [
+                ...base,
+                ...dtEntries,
+                ...(dtEntries.some((e) => !e.done) ? [] : [streamingEntry])
+              ]
+            })
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
-            setConversationHistory((prev) => [...prev])
+            setConversationHistory((prev) => {
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              return [
+                ...base,
+                ...dtEntries,
+                ...(dtEntries.some((e) => !e.done) ? [] : [streamingEntry])
+              ]
+            })
           } else if (event.type === 'tool_input_delta') {
             toolInputAccumulated += event.delta
             streamingEntry.toolInput = toolInputAccumulated
-            setConversationHistory((prev) => [...prev])
+            setConversationHistory((prev) => {
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              return [
+                ...base,
+                ...dtEntries,
+                ...(dtEntries.some((e) => !e.done) ? [] : [streamingEntry])
+              ]
+            })
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
               role: 'model',
@@ -569,8 +594,12 @@ function OrchestratorAgent() {
               orchestrator_agent_report: event.orchestrator_agent_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress') {
-            setDtStatus(event.message)
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            processDtEvent(event, dtEntries, setDtStatus)
+            setConversationHistory((prev) => {
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              return [...base, ...dtEntries]
+            })
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
@@ -582,9 +611,15 @@ function OrchestratorAgent() {
               compaction_model: event.compaction_model
             }
             setConversationHistory((prev) => {
-              const idx = prev.indexOf(streamingEntry)
-              if (idx === -1) return [...prev, compactionEntry]
-              return [...prev.slice(0, idx), compactionEntry, ...prev.slice(idx)]
+              const base = prev.filter(
+                (e) => e !== streamingEntry && e.type !== 'dt_redeploy'
+              )
+              return [
+                ...base,
+                compactionEntry,
+                ...dtEntries,
+                ...(dtEntries.some((e) => !e.done) ? [] : [streamingEntry])
+              ]
             })
           } else if (event.type === 'error') {
             const err = new Error(event.message || 'Agent stream error')
@@ -603,8 +638,8 @@ function OrchestratorAgent() {
         }
         entries.push(finalEntry)
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry)
-          return [...base, ...entries]
+          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+          return [...base, ...dtEntries, ...entries]
         })
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -630,9 +665,10 @@ function OrchestratorAgent() {
         }
         report = enrichOrchestratorReport(report, history)
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry)
+          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
           return [
             ...base,
+            ...dtEntries,
             {
               role: 'model',
               type: 'orchestrator_agent_report',
@@ -643,9 +679,10 @@ function OrchestratorAgent() {
         saveReport(report, conversationHistoryRef.current)
       } else {
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry)
+          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
           return [
             ...base,
+            ...dtEntries,
             { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
           ]
         })
@@ -654,9 +691,10 @@ function OrchestratorAgent() {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory((prev) => {
-        const base = prev.filter((e) => e !== streamingEntry)
+        const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
         return [
           ...base,
+          ...dtEntries,
           { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
         ]
       })
@@ -720,7 +758,7 @@ function OrchestratorAgent() {
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages, ...securityAlertsImages],
-          conversation_history: historyForBackend,
+          conversation_history: historyForBackend.filter((e) => e.type !== 'dt_redeploy'),
           report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
           report_reviewer_model: reportReviewerModel || undefined,
@@ -973,7 +1011,7 @@ function OrchestratorAgent() {
         security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
         images: [...systemDescriptionImages, ...securityAlertsImages],
-        conversation_history: latestHistory,
+        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
         report_manager_model: reportManagerModel || undefined,
         report_agent_model: reportAgentModel || undefined,
         report_reviewer_model: reportReviewerModel || undefined,

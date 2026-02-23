@@ -18,6 +18,7 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
 import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { processDtEvent } from './shared/dtEventHandler.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 
@@ -238,6 +239,7 @@ function ReportReviewerAgent() {
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     const compactionEntries = []
+    const dtEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
       let job_id = resumeJobId
@@ -261,7 +263,7 @@ function ReportReviewerAgent() {
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
             incident_report: parsedReport,
-            conversation_history: history,
+            conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
             images: [
               ...systemDescriptionImages,
               ...securityAlertsImages,
@@ -285,6 +287,7 @@ function ReportReviewerAgent() {
           setConversationHistory([
             ...history,
             ...compactionEntries,
+            ...dtEntries,
             { role: 'system', type: 'error', message: msg }
           ])
           return
@@ -315,14 +318,16 @@ function ReportReviewerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_delta') {
             toolInputAccumulated += event.delta
@@ -330,7 +335,8 @@ function ReportReviewerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
@@ -352,8 +358,9 @@ function ReportReviewerAgent() {
               report_review: event.report_review,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress') {
-            setDtStatus(event.message)
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            processDtEvent(event, dtEntries, setDtStatus)
+            setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
@@ -367,7 +374,8 @@ function ReportReviewerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'error') {
             throw new Error(event.message || 'Agent stream error')
@@ -383,7 +391,7 @@ function ReportReviewerAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...compactionEntries, ...entries]
+        const updated = [...history, ...compactionEntries, ...dtEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -408,6 +416,7 @@ function ReportReviewerAgent() {
         const fallbackHistory = [
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           { role: 'model', type: 'report_review', report_review: review }
         ]
         setConversationHistory(fallbackHistory)
@@ -416,6 +425,7 @@ function ReportReviewerAgent() {
         setConversationHistory([
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
@@ -425,6 +435,7 @@ function ReportReviewerAgent() {
       setConversationHistory([
         ...history,
         ...compactionEntries,
+        ...dtEntries,
         { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
       ])
     } finally {

@@ -20,6 +20,7 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
 import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { processDtEvent } from './shared/dtEventHandler.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
 import { AssessmentBody, IncidentReviewBody as ReviewBody } from './shared/ReportBodies.jsx'
@@ -328,6 +329,7 @@ function ReportManagerAgent() {
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     const compactionEntries = []
+    const dtEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
       let job_id = resumeJobId
@@ -342,7 +344,9 @@ function ReportManagerAgent() {
             system_description: systemDescription,
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
-            conversation_history: stripImagesFromHistory(history),
+            conversation_history: stripImagesFromHistory(
+              history.filter((e) => e.type !== 'dt_redeploy')
+            ),
             images: [
               ...systemDescriptionImages,
               ...securityAlertsImages,
@@ -367,6 +371,7 @@ function ReportManagerAgent() {
           setConversationHistory([
             ...history,
             ...compactionEntries,
+            ...dtEntries,
             { role: 'system', type: 'error', message: msg }
           ])
           return
@@ -397,14 +402,16 @@ function ReportManagerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_delta') {
             toolInputAccumulated += event.delta
@@ -412,7 +419,8 @@ function ReportManagerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
@@ -434,8 +442,9 @@ function ReportManagerAgent() {
               report_manager_report: event.report_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress') {
-            setDtStatus(event.message)
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            processDtEvent(event, dtEntries, setDtStatus)
+            setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
@@ -449,7 +458,8 @@ function ReportManagerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'error') {
             throw new Error(event.message || 'Agent stream error')
@@ -465,7 +475,7 @@ function ReportManagerAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...compactionEntries, ...entries]
+        const updated = [...history, ...compactionEntries, ...dtEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -499,6 +509,7 @@ function ReportManagerAgent() {
         const fallbackHistory = [
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           {
             role: 'model',
             type: 'report_manager_report',
@@ -513,6 +524,7 @@ function ReportManagerAgent() {
         setConversationHistory([
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
@@ -522,6 +534,7 @@ function ReportManagerAgent() {
       setConversationHistory([
         ...history,
         ...compactionEntries,
+        ...dtEntries,
         { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
       ])
     } finally {
@@ -619,7 +632,7 @@ function ReportManagerAgent() {
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           report_agent_model: reportAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: latestHistory,
+          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
           last_assessment: lastAssessment,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
@@ -862,7 +875,7 @@ function ReportManagerAgent() {
         images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
         report_agent_model: reportAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,
-        conversation_history: latestHistory,
+        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
         last_assessment: lastAssessment,
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,

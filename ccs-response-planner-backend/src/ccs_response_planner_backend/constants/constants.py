@@ -1263,6 +1263,21 @@ class EXAMPLES:
         "server 1 originates from server 6, which indicates that "
         "server 6 is compromised as well."
     )
+    HOST_TO_ANALYZE = (
+        "Server 3 (10.0.3.3, Ubuntu 20) — SSH server, CI/CD "
+        "build pipeline. Suspected compromised via SSH "
+        "brute-force from external attacker 192.168.1.50."
+    )
+    ATTACK_PATH = (
+        "1. Initial access: SSH brute-force from attacker "
+        "(192.168.1.50) to Server 3 (10.0.3.3:22).\n"
+        "2. Lateral movement: Pivot from Server 3 (Zone 2) "
+        "to Server 6 (10.0.4.6, Zone 3) via cross-zone "
+        "route through the Log Collector.\n"
+        "3. SQL injection: From Server 6 (10.0.4.6), launch "
+        "UNION SELECT injection against Server 1's customer "
+        "portal (10.0.2.1:80)."
+    )
     SPECIFICATION = (
         "- Server 2 FTP service must remain accessible from "
         "Server 1\n"
@@ -1483,6 +1498,33 @@ class EXAMPLES_2:
         "Server 4 show a crypto-miner (xmrig) consuming "
         "98% CPU and DNS tunneling queries to "
         "evil.example.com for data exfiltration."
+    )
+    HOST_TO_ANALYZE = (
+        "Server 4 (10.1.2.10, Debian 11) — PostgreSQL "
+        "database, SSH. Suspected compromised via stolen "
+        "credentials from Server 2; crypto-miner (xmrig) "
+        "detected at 98% CPU and DNS tunneling to "
+        "evil.example.com for data exfiltration."
+    )
+    ATTACK_PATH = (
+        "1. Initial access: Exploit CVE-2020-9484 (Apache "
+        "Tomcat session deserialization) on Server 2 "
+        "(10.1.1.10:8080) from attacker 198.51.100.45.\n"
+        "2. Persistence: Upload JSP webshell to "
+        "/shell.jsp on Server 2 and install cron "
+        "persistence via /etc/cron.d/.cleanup.sh.\n"
+        "3. Credential theft: Extract plaintext PostgreSQL "
+        "credentials (app_svc / SuperSecret123!) from "
+        "/opt/tomcat/conf/db_config.xml on Server 2.\n"
+        "4. Lateral movement: Connect from Server 2 to "
+        "Server 4 (10.1.2.10) PostgreSQL on port 5432 "
+        "using stolen credentials, exploit COPY FROM "
+        "PROGRAM (CVE-2019-9193) for OS command "
+        "execution.\n"
+        "5. Impact: Deploy crypto-miner (xmrig) as "
+        "/tmp/.kworker on Server 4, establish DNS "
+        "tunneling to evil.example.com for data "
+        "exfiltration."
     )
     SPECIFICATION = (
         "- PostgreSQL on Server 4 must remain accessible "

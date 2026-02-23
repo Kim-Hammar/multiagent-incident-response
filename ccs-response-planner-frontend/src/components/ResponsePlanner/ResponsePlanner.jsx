@@ -18,6 +18,7 @@ import {
 import AgentPlanningTab from '../Agents/shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from '../Agents/shared/AgentHistoryTab.jsx'
 import { cleanConversationHistory } from '../Agents/shared/conversationUtils.js'
+import { handleDtEvent as sharedHandleDtEvent } from '../Agents/shared/dtEventHandler.js'
 import { STREAMING_TOOLS, executeStreamingTool } from '../Agents/shared/streamingToolExec.js'
 import { pollJobEvents } from '../Agents/shared/pollJobEvents.js'
 import {
@@ -795,53 +796,7 @@ function ResponsePlanner() {
       })
 
   const handleDtEvent = (event) => {
-    if (event.type === 'dt_progress') {
-      setDtStatus(event.message)
-      setConversationHistory((prev) => {
-        const updated = [...prev]
-        for (const e of updated) {
-          if (e.type === 'dt_redeploy' && !e.done) {
-            e.done = true
-          }
-        }
-        if (event.phase === 'ready') {
-          return [
-            ...updated,
-            {
-              role: 'system',
-              type: 'dt_redeploy',
-              phase: 'ready',
-              message: event.message,
-              done: true,
-              details: [],
-              _startTime: Date.now()
-            }
-          ]
-        }
-        return [
-          ...updated,
-          {
-            role: 'system',
-            type: 'dt_redeploy',
-            phase: event.phase,
-            message: event.message,
-            done: false,
-            details: [],
-            _startTime: Date.now()
-          }
-        ]
-      })
-    } else if (event.type === 'dt_progress_detail') {
-      setConversationHistory((prev) => {
-        const target = [...prev]
-          .reverse()
-          .find((e) => e.type === 'dt_redeploy' && e.phase === event.phase)
-        if (target) {
-          target.details = [...(target.details || []), event.message]
-        }
-        return [...prev]
-      })
-    }
+    sharedHandleDtEvent(event, setConversationHistory, setDtStatus)
   }
 
   const callStep = async (history, resumeJobId = null, catchUpUntil = 0) => {

@@ -4,9 +4,12 @@ a single host within an incident and produce a structured report.
 """
 import base64
 import json
+import logging
 import os
 import re
 from typing import Any, Generator
+
+logger = logging.getLogger(__name__)
 
 from google import genai  # type: ignore[attr-defined]
 from google.genai import types as genai_types  # type: ignore[attr-defined]
@@ -405,6 +408,10 @@ class HostAnalyzerAgent:
             result = fn(**tool_args)
             return {"tool_name": tool_name, "result": result}
         except Exception as e:
+            logger.exception(
+                "Tool %s failed with args %s", tool_name,
+                tool_args,
+            )
             return {"tool_name": tool_name, "error": str(e)}
 
     def execute_tool_stream(

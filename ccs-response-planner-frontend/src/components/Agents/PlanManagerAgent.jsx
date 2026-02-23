@@ -25,6 +25,7 @@ import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
 import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory } from './shared/conversationUtils.js'
+import { processDtEvent } from './shared/dtEventHandler.js'
 import { PlanManagerReportBody } from './shared/ReportBodies.jsx'
 import { pollJobEvents } from './shared/pollJobEvents.js'
 import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExec.js'
@@ -441,6 +442,7 @@ function PlanManagerAgent() {
     abortControllerRef.current = controller
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     const compactionEntries = []
+    const dtEntries = []
     setConversationHistory([...history, streamingEntry])
     try {
       let job_id = resumeJobId
@@ -456,7 +458,7 @@ function PlanManagerAgent() {
             incident_report: incidentReport,
             specification: specification,
             operator_feedback: operatorFeedback,
-            conversation_history: history,
+            conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
             images: [...systemDescriptionImages],
             model_name: managerModel || undefined,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
@@ -477,6 +479,7 @@ function PlanManagerAgent() {
           setConversationHistory([
             ...history,
             ...compactionEntries,
+            ...dtEntries,
             { role: 'system', type: 'error', message: msg }
           ])
           return
@@ -507,14 +510,16 @@ function PlanManagerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_delta') {
             toolInputAccumulated += event.delta
@@ -522,7 +527,8 @@ function PlanManagerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_proposal') {
             finalEntry = {
@@ -544,8 +550,9 @@ function PlanManagerAgent() {
               plan_manager_report: event.plan_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress') {
-            setDtStatus(event.message)
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+            processDtEvent(event, dtEntries, setDtStatus)
+            setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {
@@ -559,7 +566,8 @@ function PlanManagerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'error') {
             throw new Error(event.message || 'Agent stream error')
@@ -575,7 +583,7 @@ function PlanManagerAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...compactionEntries, ...entries]
+        const updated = [...history, ...compactionEntries, ...dtEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -600,6 +608,7 @@ function PlanManagerAgent() {
         const fallbackHistory = [
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           {
             role: 'model',
             type: 'plan_manager_report',
@@ -612,6 +621,7 @@ function PlanManagerAgent() {
         setConversationHistory([
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
@@ -621,6 +631,7 @@ function PlanManagerAgent() {
       setConversationHistory([
         ...history,
         ...compactionEntries,
+        ...dtEntries,
         { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
       ])
     } finally {
@@ -708,7 +719,7 @@ function PlanManagerAgent() {
           specification: specification,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages],
-          conversation_history: latestHistory,
+          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
@@ -971,7 +982,7 @@ function PlanManagerAgent() {
         specification: specification,
         operator_feedback: operatorFeedback,
         images: [...systemDescriptionImages],
-        conversation_history: latestHistory,
+        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
         code_manager_model: codeManagerModel || undefined,
         code_agent_model: codeAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,

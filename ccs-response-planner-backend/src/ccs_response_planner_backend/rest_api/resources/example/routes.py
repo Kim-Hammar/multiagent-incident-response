@@ -4,10 +4,20 @@ Routes and sub-resources for the /example and /examples resources.
 from flask import Blueprint, Response, jsonify
 
 from ccs_response_planner_backend.constants.constants import (
-    API, EXAMPLES, DIGITAL_TWIN,
+    API, EXAMPLES, EXAMPLES_2, DIGITAL_TWIN,
 )
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 from ccs_response_planner_backend.rest_api.util.auth import token_required
+
+_HOST_TO_ANALYZE_BY_INCIDENT: dict[int, str] = {
+    1: EXAMPLES.HOST_TO_ANALYZE,
+    2: EXAMPLES_2.HOST_TO_ANALYZE,
+}
+
+_ATTACK_PATH_BY_INCIDENT: dict[int, str] = {
+    1: EXAMPLES.ATTACK_PATH,
+    2: EXAMPLES_2.ATTACK_PATH,
+}
 
 example_bp = Blueprint(
     API.EXAMPLE_RESOURCE, __name__,
@@ -74,6 +84,12 @@ def example() -> tuple[Response, int]:
             "incident_report": incident["incident_report"],
             "response_plan": incident["response_plan"],
             "system_description_images": images,
+            "host_to_analyze": _HOST_TO_ANALYZE_BY_INCIDENT.get(
+                incident["id"], "",
+            ),
+            "attack_path": _ATTACK_PATH_BY_INCIDENT.get(
+                incident["id"], "",
+            ),
         }), 200
     images = (
         [EXAMPLES.SYSTEM_DESCRIPTION_IMAGE]
@@ -91,6 +107,8 @@ def example() -> tuple[Response, int]:
         "incident_report": EXAMPLES.INCIDENT_REPORT,
         "response_plan": EXAMPLES.RESPONSE_PLAN,
         "system_description_images": images,
+        "host_to_analyze": EXAMPLES.HOST_TO_ANALYZE,
+        "attack_path": EXAMPLES.ATTACK_PATH,
     }), 200
 
 
@@ -133,4 +151,10 @@ def get_example(incident_id: int) -> tuple[Response, int]:
         "incident_report": incident["incident_report"],
         "response_plan": incident["response_plan"],
         "system_description_images": images,
+        "host_to_analyze": _HOST_TO_ANALYZE_BY_INCIDENT.get(
+            incident["id"], "",
+        ),
+        "attack_path": _ATTACK_PATH_BY_INCIDENT.get(
+            incident["id"], "",
+        ),
     }), 200

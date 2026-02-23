@@ -41,14 +41,25 @@ Investigate its compromise status, services, logs, network activity, \
 and any indicators of compromise.
 3. Use the available tools **methodically and thoroughly** to gather \
 additional information about this host. Only call tools that will be \
-useful. Available tools:
+useful. **Prioritize hands-on investigation using the digital-twin \
+tools** — these let you directly verify what happened on the host \
+and should be your primary investigation method. Available tools:
+
+   **Primary — Digital Twin investigation (use these first):**
+   - Execute shell commands on digital-twin containers (dt_exec)
+   - Run Python analysis scripts in a sandbox (dt_python_exec)
+
+   **Supplementary — External lookups (use selectively):**
+   The following tools query external databases. Only use them when you \
+need to look up **specific, unfamiliar** vulnerabilities, exploits, or \
+indicators — for example, an uncommon CVE ID you have not seen before or \
+a suspicious IP you cannot assess from logs alone. Do NOT use them for \
+well-known attacks, techniques, or vulnerabilities you already know about.
    - Search for relevant CVEs and vulnerabilities (NVD)
    - Look up attacker techniques in the MITRE ATT&CK framework
    - Check suspicious IPs against abuse databases (AbuseIPDB)
    - Search for threat intelligence (OTX, Tavily)
    - Scan indicators on VirusTotal if applicable
-   - Execute shell commands on digital-twin containers (dt_exec)
-   - Run Python analysis scripts in a sandbox (dt_python_exec)
 
    **Tool argument formats:**
    - **tavily_search**: `query` — free-text search string.

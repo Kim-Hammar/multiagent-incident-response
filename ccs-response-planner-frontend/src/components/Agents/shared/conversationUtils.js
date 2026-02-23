@@ -14,7 +14,7 @@ const STRIP_KEYS = new Set([
  */
 export function cleanConversationHistory(history) {
   return history
-    .filter((entry) => entry.type !== 'streaming')
+    .filter((entry) => entry.type !== 'streaming' && entry.type !== 'dt_redeploy')
     .map((entry) => {
       const cleaned = {}
       for (const [key, value] of Object.entries(entry)) {
@@ -46,7 +46,10 @@ const BACKEND_STRIP_KEYS = new Set([
  */
 export function stripForBackend(history) {
   return history
-    .filter((entry) => entry.type !== 'streaming' && entry.type !== 'tool_streaming')
+    .filter(
+      (entry) =>
+        entry.type !== 'streaming' && entry.type !== 'tool_streaming' && entry.type !== 'dt_redeploy'
+    )
     .map((entry) => {
       const cleaned = {}
       for (const [key, value] of Object.entries(entry)) {

@@ -4090,6 +4090,10 @@ def agents_host_analyzer_tool() -> tuple[
         tool_name, tool_args,
     )
     if "error" in result:
+        logger.error(
+            "host-analyzer tool %s failed: %s",
+            tool_name, result["error"],
+        )
         return jsonify(result), 400
     return jsonify(result), 200
 
