@@ -885,7 +885,12 @@ function ParallelSubAgentLog({
         const isDone = doneSet.has(aid)
         const events = grouped[aid] || []
         const icon = isDone ? 'fa-check-circle' : active ? 'fa-spinner fa-spin' : 'fa-circle-o'
-        const iconColor = isDone ? '#38a169' : '#888'
+        const promptEv = [...events].reverse().find((e) => e.type === 'prompt')
+        const ctxEv = [...events].reverse().find((e) => e.type === 'context_usage')
+        const modelEv = [...events].reverse().find((e) => e.type === 'model_name')
+        const displayEvents = events.filter(
+          (e) => e.type !== 'prompt' && e.type !== 'context_usage' && e.type !== 'model_name'
+        )
         return (
           <CollapsibleSection
             key={aid}
@@ -893,14 +898,35 @@ function ParallelSubAgentLog({
             icon={icon}
             defaultOpen={!isDone && active}
           >
-            <span style={{ position: 'absolute', right: '12px', top: '8px' }}>
-              <i className={`fa ${icon}`} style={{ color: iconColor }} aria-hidden="true" />
-            </span>
-            {events.length > 0 ? (
+            {promptEv && onViewPrompt && (
+              <div style={{ marginBottom: '6px' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline-dark btn-sm"
+                  style={{ fontSize: '10px', padding: '1px 8px' }}
+                  onClick={() => onViewPrompt(promptEv.text, promptEv.images || [])}
+                >
+                  <i className="fa fa-file-text-o" aria-hidden="true" /> Prompt
+                </button>
+                {onViewContext && events.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-dark btn-sm"
+                    style={{ fontSize: '10px', padding: '1px 8px', marginLeft: '4px' }}
+                    onClick={() => onViewContext(events)}
+                  >
+                    <i className="fa fa-database" aria-hidden="true" /> Context
+                  </button>
+                )}
+              </div>
+            )}
+            {displayEvents.length > 0 ? (
               <SubAgentLog
-                subEvents={events}
+                subEvents={displayEvents}
                 agentLabel={h.agent_label || aid}
                 active={active && !isDone}
+                modelName={modelEv?.model_name}
+                contextUsage={ctxEv}
                 onViewPrompt={onViewPrompt}
                 onViewContext={onViewContext}
                 livenessStatus={livenessStatus}

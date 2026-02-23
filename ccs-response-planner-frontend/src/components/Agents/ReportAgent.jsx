@@ -600,8 +600,12 @@ function ReportAgent() {
             setConversationHistory([...base])
           },
           onSubEvent: (event) => {
-            if (isHostAnalyzers && event.type === 'parallel_start') {
-              streamEntry._parallelHosts = event.hosts
+            if (isHostAnalyzers) {
+              if (event.type === 'parallel_start') {
+                streamEntry._parallelHosts = event.hosts
+              } else {
+                streamEntry.subEvents = [...streamEntry.subEvents, event]
+              }
               setConversationHistory([...base])
               return
             }
@@ -618,11 +622,6 @@ function ReportAgent() {
             }
             if (event.type === 'model_name') {
               streamEntry._modelName = event.model_name
-              setConversationHistory([...base])
-              return
-            }
-            if (isHostAnalyzers) {
-              streamEntry.subEvents = [...streamEntry.subEvents, event]
               setConversationHistory([...base])
               return
             }
