@@ -1,25 +1,3 @@
-const RECOVERY_STATE_LABELS = {
-  is_attack_contained: 'Attack Contained',
-  is_attack_assessed: 'Attack Assessed',
-  is_forensic_evidence_preserved: 'Forensic Evidence Preserved',
-  is_attack_evicted: 'Attack Evicted',
-  is_system_hardened: 'System Hardened',
-  are_services_restored: 'Services Restored'
-}
-
-function RecoveryStateBadges({ state }) {
-  if (!state) return null
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-      {Object.entries(RECOVERY_STATE_LABELS).map(([key, label]) => (
-        <span key={key} className={`badge badge-${state[key] ? 'success' : 'secondary'}`}>
-          {state[key] ? '\u2713' : '\u2717'} {label}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 /**
  * Renders the final action validation report for the Action Validator Agent.
  */
@@ -59,13 +37,6 @@ function ActionValidatorAgentReport({ entry, index, isExpanded, toggleEntry }) {
               </div>
             )}
 
-            {r.step_cost !== undefined && (
-              <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Step Cost</div>
-                <span className="badge badge-dark">{r.step_cost}</span>
-              </div>
-            )}
-
             {r.action_description && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Action Description</div>
@@ -89,20 +60,20 @@ function ActionValidatorAgentReport({ entry, index, isExpanded, toggleEntry }) {
             {r.command_results && r.command_results.length > 0 && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Command Results</div>
-                <table className="ia-ioc-table">
+                <table className="ia-ioc-table" style={{ tableLayout: 'fixed' }}>
                   <thead>
                     <tr>
-                      <th>Container</th>
-                      <th>Command</th>
-                      <th>Exit Code</th>
-                      <th>Output</th>
+                      <th style={{ width: '12%' }}>Container</th>
+                      <th style={{ width: '28%' }}>Command</th>
+                      <th style={{ width: '10%' }}>Exit Code</th>
+                      <th style={{ width: '50%' }}>Output</th>
                     </tr>
                   </thead>
                   <tbody>
                     {r.command_results.map((cr, i) => (
                       <tr key={i}>
-                        <td>{cr.container}</td>
-                        <td>
+                        <td style={{ wordBreak: 'break-word' }}>{cr.container}</td>
+                        <td style={{ overflowWrap: 'anywhere' }}>
                           <code>{cr.command}</code>
                         </td>
                         <td>
@@ -119,7 +90,9 @@ function ActionValidatorAgentReport({ entry, index, isExpanded, toggleEntry }) {
                                 fontSize: '11px',
                                 maxHeight: '120px',
                                 overflow: 'auto',
-                                marginBottom: 0
+                                marginBottom: 0,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
                               }}
                             >
                               {cr.output}
@@ -127,46 +100,6 @@ function ActionValidatorAgentReport({ entry, index, isExpanded, toggleEntry }) {
                           ) : (
                             <span className="text-muted">(no output)</span>
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {r.recovery_state_before && (
-              <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Recovery State Before</div>
-                <RecoveryStateBadges state={r.recovery_state_before} />
-              </div>
-            )}
-
-            {r.recovery_state_after && (
-              <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Recovery State After</div>
-                <RecoveryStateBadges state={r.recovery_state_after} />
-              </div>
-            )}
-
-            {r.service_state && r.service_state.length > 0 && (
-              <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Service State</div>
-                <table className="ia-ioc-table">
-                  <thead>
-                    <tr>
-                      <th>Check</th>
-                      <th>Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {r.service_state.map((s, i) => (
-                      <tr key={i}>
-                        <td>{s.description}</td>
-                        <td>
-                          <span className={`badge badge-${s.passed ? 'success' : 'danger'}`}>
-                            {s.passed ? 'Passed' : 'Failed'}
-                          </span>
                         </td>
                       </tr>
                     ))}

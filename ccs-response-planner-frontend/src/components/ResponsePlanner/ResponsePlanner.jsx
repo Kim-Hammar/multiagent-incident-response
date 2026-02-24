@@ -876,7 +876,7 @@ function ResponsePlanner() {
             }
           }
 
-          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             if (!caughtUp) return
             handleDtEvent(event)
             return
@@ -1086,7 +1086,7 @@ function ResponsePlanner() {
             setConversationHistory((prev) => [...prev])
           }
 
-          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             if (!caughtUp) return
             handleDtEvent(event)
             return

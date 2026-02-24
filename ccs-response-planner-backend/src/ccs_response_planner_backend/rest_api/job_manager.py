@@ -46,6 +46,7 @@ _STATUS_MAP: dict[str, str] = {
     "context_compaction": "Compacting context",
     "dt_progress": "Deploying digital twin",
     "dt_progress_detail": "Deploying digital twin",
+    "sandbox_progress": "Starting Python sandbox",
     "output_chunk": "Executing command",
     "sub_event": "Running sub-agent",
     "assessment": "Producing report",
@@ -78,7 +79,10 @@ def _status_from_event(event: dict[str, Any]) -> str | None:
         name = event.get("tool_name", "")
         if name:
             return f"Preparing tool call: {name}"
-    if etype in ("dt_progress", "dt_progress_detail"):
+    if etype in (
+        "dt_progress", "dt_progress_detail",
+        "sandbox_progress",
+    ):
         msg = event.get("message", "")
         if msg:
             return str(msg)

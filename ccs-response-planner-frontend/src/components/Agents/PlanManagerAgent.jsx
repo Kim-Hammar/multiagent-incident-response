@@ -461,7 +461,7 @@ function PlanManagerAgent() {
             specification: specification,
             specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
-            conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
+            conversation_history: history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
             images: [...systemDescriptionImages],
             model_name: managerModel || undefined,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
@@ -553,7 +553,7 @@ function PlanManagerAgent() {
               plan_manager_report: event.plan_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -724,7 +724,7 @@ function PlanManagerAgent() {
           specification_commands: specificationCommands,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages],
-          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
+          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
@@ -990,7 +990,7 @@ function PlanManagerAgent() {
         specification_commands: specificationCommands,
         operator_feedback: operatorFeedback,
         images: [...systemDescriptionImages],
-        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
+        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
         code_manager_model: codeManagerModel || undefined,
         code_agent_model: codeAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,

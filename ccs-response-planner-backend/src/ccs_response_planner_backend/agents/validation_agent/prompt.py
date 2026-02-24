@@ -6,8 +6,7 @@ Supports two modes:
 - **Sequence mode**: follows the fixed action sequence from the planner
 """
 
-POLICY_MODE_INSTRUCTIONS = """\
-1. Read the **Code Agent Report** to determine the exact state vector \
+POLICY_MODE_INSTRUCTIONS = """\1. Read the **Code Agent Report** to determine the exact state vector \
 format. The state consists of per-host recovery flags (e.g. \
 `fw_block_attacker`, `s1_assessed`, `s1_preserved`, ...) followed by \
 specification dimensions — NOT 6 aggregate phases. Note the index of \
@@ -21,56 +20,25 @@ sets the environment state, computes the action mask (so already-completed \
 actions are excluded), and returns the recommended action with name, \
 description, and shell commands. If you pass a wrong-sized vector, the \
 tool returns an error with the expected dimension count.
-4. Apply the recommended action's commands via `dt_exec`.
-5. Reassess state: re-run specification commands, update the relevant \
-per-host recovery flags, compute the step cost using the phase-weighted \
-formula.
-6. Repeat steps 2–5 until the policy returns no valid actions or 30 \
-actions have been applied.
-7. Call `produce_validation_report` with the complete per-action results."""
-
-SEQUENCE_MODE_INSTRUCTIONS = """\
-1. Carefully read the Planner Agent Report's Action Sequence above. Identify \
+4. Collect all recommended actions from the policy until no valid actions \
+remain or 30 actions have been queried.
+5. Call `run_action_validators` with the complete action list. Each action \
+will be validated in parallel by a dedicated ActionValidatorAgent sub-agent \
+on the digital twin.
+6. After receiving results, aggregate the findings and call \
+`produce_validation_report` with the complete per-action results."""
+SEQUENCE_MODE_INSTRUCTIONS = """\1. Carefully read the Planner Agent Report's Action Sequence above. Identify \
 the ordered list of response actions to apply.
-2. For **each action** in the plan, in order:
-   a. Apply the action by running the necessary shell commands on the \
-appropriate digital-twin containers using `dt_exec`.
-   b. After applying the action, assess the **recovery state** \u2014 six boolean \
-indicators that track overall incident recovery progress:
-      - `is_attack_contained`: The attacker can no longer access or spread \
-within the system.
-      - `is_attack_assessed`: The full scope of the attack is understood \
-(affected systems, data, entry points).
-      - `is_forensic_evidence_preserved`: Evidence is collected and preserved \
-for analysis.
-      - `is_attack_evicted`: The attacker\u2019s access, backdoors, and malware \
-are removed.
-      - `is_system_hardened`: Vulnerabilities exploited are patched, \
-configurations tightened.
-      - `are_services_restored`: ALL **legitimate** specification \
-commands pass again. Specs may be temporarily violated during \
-recovery, but restoration is only complete when every legitimate \
-specification is satisfied. **Exception:** specs that test \
-connectivity FROM the attacker (e.g. "Attacker can reach Server 2") \
-should be expected to fail after containment — do NOT count these \
-against restoration.
-   c. After applying the action, check the **service state** by running the \
-specification commands listed above. Each specification command tests a \
-specific connectivity or service requirement. A command passes if it exits \
-with code 0 and fails otherwise.
-   d. **Compute the step cost**: after applying the action, assess the recovery \
-progress for each of the 6 phases (containment, assessment, preservation, \
-eviction, hardening, restoration) as a fraction 0.0\u20131.0. The per-step cost \
-uses phase-weighted penalties: \
-cost = 6*(1-containment) + 5*(1-assessment) + 4*(1-preservation) \
-+ 3*(1-eviction) + 2*(1-hardening) + 1*(1-restoration). \
-Also run the specification commands and record pass/fail counts.
-   e. Record the action name, description, commands executed, outcome, recovery state, \
-service state, and **actual_step_cost** for this action.
-3. After applying ALL actions, compute the **actual_total_cost** by summing all per-step \
-costs. Compare this with the `expected_total_cost` from the Planner Agent report. \
-Then call `produce_validation_report` with the complete per-action results."""
-
+2. Prepare the full list of actions with their names and descriptions \
+(including all shell commands and intended effects for each action).
+3. Call `run_action_validators` with the complete action list. Each action \
+will be validated in parallel by a dedicated ActionValidatorAgent sub-agent \
+on the digital twin. Wait for all results.
+4. After receiving the parallel validation results, aggregate the findings: \
+review each action's outcome, recovery state, service state, and step cost. \
+Compute the **actual_total_cost** by summing all per-step costs. Compare \
+this with the `expected_total_cost` from the Planner Agent report.
+5. Call `produce_validation_report` with the complete aggregated results."""
 QUERY_POLICY_TOOL_DOC = """\
 - **query_policy**: Pass the current state vector (per-host recovery flags \
 + specification dimensions, as defined in the Code Agent Report) and \
@@ -150,6 +118,11 @@ Commands run non-interactively — use flags like \
 `DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
 for any command that might prompt for input.
 {query_policy_tool_doc}\
+- **run_action_validators**: Validate multiple actions in parallel. Pass a \
+list of actions (each with action_name and action_description including \
+commands and intended effect). Each action is validated by a dedicated \
+sub-agent on the digital twin. Use this to validate all actions from the \
+response plan simultaneously instead of applying them one by one yourself.
 - **produce_validation_report**: Call this ONLY after applying all response \
 actions and gathering all results.
 
@@ -246,7 +219,8 @@ A moderate deviation does not indicate a problem with the plan.
 - Before producing a solution or invoking a tool, think step-by-step \
 about the best approach.
 - You MUST always respond with a tool call. Either call `dt_exec` to apply \
-an action or check state, {extra_tool_rule}\
+an action or check state, call `run_action_validators` to validate actions \
+in parallel, {extra_tool_rule}\
 or call `produce_validation_report` to deliver \
 the final validation report.
 - NEVER output plain text without also making a tool call.

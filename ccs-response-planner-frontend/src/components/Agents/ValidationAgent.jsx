@@ -265,7 +265,7 @@ function ValidationAgent() {
             specification_commands: specificationCommands,
             code_report: codeReport,
             planner_report: plannerReport,
-            conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
+            conversation_history: history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
             images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             compaction_model: compactionModel || undefined,
@@ -357,7 +357,7 @@ function ValidationAgent() {
               validation_report: event.validation_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'policy_loaded') {
@@ -513,9 +513,24 @@ function ValidationAgent() {
     abortControllerRef.current = controller
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
-      const streamEntry = { type: 'tool_streaming', tool_name: proposal.tool_name, output: '' }
+      const isActionValidators = proposal.tool_name === 'run_action_validators'
+      const streamEntry = {
+        type: 'tool_streaming',
+        tool_name: proposal.tool_name,
+        output: '',
+        subEvents: [],
+        _startTime: Date.now()
+      }
       const base = [...conversationHistory, approvalEntry, streamEntry]
       setConversationHistory(base)
+
+      const extra = { session_id: sessionIdRef.current }
+      if (isActionValidators) {
+        extra.system_description = systemDescription
+        extra.operator_feedback = ''
+        extra.images = [...systemDescriptionImages]
+      }
+
       try {
         const { result } = await executeStreamingTool({
           url: API_AGENTS_VALIDATION_TOOL_URL,
@@ -524,11 +539,21 @@ function ValidationAgent() {
           incidentId: selectedIncidentId,
           token,
           signal: controller.signal,
-          extraBody: { session_id: sessionIdRef.current },
+          extraBody: extra,
           onChunk: (text) => {
             streamEntry.output += text
             setConversationHistory([...base])
           },
+          onSubEvent: isActionValidators
+            ? (event) => {
+                if (event.type === 'parallel_start') {
+                  streamEntry._parallelHosts = event.hosts
+                } else {
+                  streamEntry.subEvents = [...streamEntry.subEvents, event]
+                }
+                setConversationHistory([...base])
+              }
+            : undefined,
           onHeartbeat: (status) => {
             setLastHeartbeatTime(Date.now())
             setHeartbeatStatus(status)
@@ -544,6 +569,14 @@ function ValidationAgent() {
         }
         let updated
         setConversationHistory((prev) => {
+          const streamingEntry = prev.find(
+            (e) => e.type === 'tool_streaming' && e.tool_name === proposal.tool_name
+          )
+          if (streamingEntry) {
+            if (streamingEntry.subEvents) resultEntry.subEvents = streamingEntry.subEvents
+            if (streamingEntry._parallelHosts)
+              resultEntry._parallelHosts = streamingEntry._parallelHosts
+          }
           const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
           updated = [...stripped, resultEntry]
           return updated
@@ -726,10 +759,12 @@ function ValidationAgent() {
   }
 
   const resumeToolJob = async (jobId, toolName, startTime) => {
+    const isActionValidators = toolName === 'run_action_validators'
     const streamEntry = {
       type: 'tool_streaming',
       tool_name: toolName,
       output: '',
+      subEvents: [],
       _startTime: startTime || Date.now()
     }
     setConversationHistory((prev) => [...prev, streamEntry])
@@ -750,6 +785,16 @@ function ValidationAgent() {
           streamEntry.output += text
           setConversationHistory((prev) => [...prev])
         },
+        onSubEvent: isActionValidators
+          ? (event) => {
+              if (event.type === 'parallel_start') {
+                streamEntry._parallelHosts = event.hosts
+              } else {
+                streamEntry.subEvents = [...streamEntry.subEvents, event]
+              }
+              setConversationHistory((prev) => [...prev])
+            }
+          : undefined,
         onHeartbeat: (status) => {
           setLastHeartbeatTime(Date.now())
           setHeartbeatStatus(status)
@@ -765,6 +810,13 @@ function ValidationAgent() {
       }
       let updated
       setConversationHistory((prev) => {
+        const sEntry = prev.find(
+          (e) => e.type === 'tool_streaming' && e.tool_name === toolName
+        )
+        if (sEntry) {
+          if (sEntry.subEvents) resultEntry.subEvents = sEntry.subEvents
+          if (sEntry._parallelHosts) resultEntry._parallelHosts = sEntry._parallelHosts
+        }
         const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
         updated = [...stripped, resultEntry]
         return updated

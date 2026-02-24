@@ -18,7 +18,8 @@ export const STREAMING_TOOLS = new Set([
   'run_report_reviewer_agent',
   'run_report_manager',
   'run_plan_manager',
-  'run_host_analyzers'
+  'run_host_analyzers',
+  'run_action_validators'
 ])
 
 /**
@@ -93,7 +94,12 @@ export async function executeStreamingTool({
     onStale,
     onEvent: (event) => {
       if (event.type === 'heartbeat') return
-      if ((event.type === 'dt_progress' || event.type === 'dt_progress_detail') && onDtProgress) {
+      if (
+        (event.type === 'dt_progress' ||
+          event.type === 'dt_progress_detail' ||
+          event.type === 'sandbox_progress') &&
+        onDtProgress
+      ) {
         onDtProgress(event)
         return
       }

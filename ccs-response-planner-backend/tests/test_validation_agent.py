@@ -76,6 +76,11 @@ def test_validation_step_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -86,6 +91,7 @@ def test_validation_step_400_missing_fields(
 def test_validation_step_streams_events(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -187,6 +193,11 @@ def test_validation_tool_executes_dt_exec(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -202,6 +213,7 @@ def test_validation_step_accepts_planner_report_id(
     mock_db: MagicMock,
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -226,7 +238,7 @@ def test_validation_step_accepts_planner_report_id(
         content_type="application/json",
         headers=auth_headers,
     )
-    assert resp.status_code == 202
+    _get_job_events(client, resp, auth_headers)
     mock_db.get_policy_data.assert_called_once_with(42)
 
 

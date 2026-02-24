@@ -17,7 +17,7 @@ PRODUCE_ACTION_VALIDATION_DECL = genai_types.FunctionDeclaration(
         "Produce the final structured action validation "
         "report. Call this ONLY after executing the "
         "action's commands on the digital twin and "
-        "assessing the recovery and service state."
+        "verifying the intended effect."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
@@ -33,7 +33,7 @@ PRODUCE_ACTION_VALIDATION_DECL = genai_types.FunctionDeclaration(
                 "type": "string",
                 "description": (
                     "Description of what the action "
-                    "does."
+                    "does and its intended effect."
                 ),
             },
             "commands_executed": {
@@ -92,6 +92,14 @@ PRODUCE_ACTION_VALIDATION_DECL = genai_types.FunctionDeclaration(
                     "Action failed."
                 ),
             },
+            "executive_summary": {
+                "type": "string",
+                "description": (
+                    "Brief summary of what happened: "
+                    "was the intended effect achieved, "
+                    "were there side-effects."
+                ),
+            },
             "recovery_state_before": {
                 "type": "object",
                 "properties": {
@@ -122,6 +130,10 @@ PRODUCE_ACTION_VALIDATION_DECL = genai_types.FunctionDeclaration(
                     "is_system_hardened",
                     "are_services_restored",
                 ],
+                "description": (
+                    "Recovery state BEFORE applying "
+                    "the action."
+                ),
             },
             "recovery_state_after": {
                 "type": "object",
@@ -153,6 +165,10 @@ PRODUCE_ACTION_VALIDATION_DECL = genai_types.FunctionDeclaration(
                     "is_system_hardened",
                     "are_services_restored",
                 ],
+                "description": (
+                    "Recovery state AFTER applying "
+                    "the action."
+                ),
             },
             "service_state": {
                 "type": "array",
@@ -170,24 +186,17 @@ PRODUCE_ACTION_VALIDATION_DECL = genai_types.FunctionDeclaration(
                         "description", "passed",
                     ],
                 },
+                "description": (
+                    "Service specification check "
+                    "results after applying the "
+                    "action."
+                ),
             },
             "step_cost": {
                 "type": "number",
                 "description": (
                     "Phase-weighted cost for this "
-                    "action: 6*(1-containment) + "
-                    "5*(1-assessment) + "
-                    "4*(1-preservation) + "
-                    "3*(1-eviction) + "
-                    "2*(1-hardening) + "
-                    "1*(1-restoration)."
-                ),
-            },
-            "executive_summary": {
-                "type": "string",
-                "description": (
-                    "Brief summary of the action "
-                    "validation results."
+                    "action step."
                 ),
             },
             "recommendations": {

@@ -345,7 +345,7 @@ function ReportManagerAgent() {
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
             conversation_history: stripImagesFromHistory(
-              history.filter((e) => e.type !== 'dt_redeploy')
+              history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
             ),
             images: [
               ...systemDescriptionImages,
@@ -442,7 +442,7 @@ function ReportManagerAgent() {
               report_manager_report: event.report_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -632,7 +632,7 @@ function ReportManagerAgent() {
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           report_agent_model: reportAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
+          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
           last_assessment: lastAssessment,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
@@ -875,7 +875,7 @@ function ReportManagerAgent() {
         images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
         report_agent_model: reportAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,
-        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
+        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
         last_assessment: lastAssessment,
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,

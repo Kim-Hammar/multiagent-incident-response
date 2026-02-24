@@ -319,7 +319,7 @@ function ReportAgent() {
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
             conversation_history: stripImagesFromHistory(
-              history.filter((e) => e.type !== 'dt_redeploy')
+              history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
             ),
             images: [
               ...systemDescriptionImages,
@@ -415,7 +415,7 @@ function ReportAgent() {
               assessment: event.assessment,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {

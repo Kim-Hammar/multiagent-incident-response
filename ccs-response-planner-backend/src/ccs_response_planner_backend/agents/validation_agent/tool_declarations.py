@@ -311,13 +311,64 @@ DT_RESTART_DECL = genai_types.FunctionDeclaration(
     },
 )
 
+RUN_ACTION_VALIDATORS_DECL = genai_types.FunctionDeclaration(
+    name="run_action_validators",
+    description=(
+        "Run parallel ActionValidatorAgents to validate "
+        "multiple actions simultaneously on the digital "
+        "twin. Each action is validated independently by "
+        "a dedicated sub-agent."
+    ),
+    parameters={  # type: ignore[arg-type]
+        "type": "object",
+        "properties": {
+            "actions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "action_name": {
+                            "type": "string",
+                            "description": (
+                                "Name of the action"
+                            ),
+                        },
+                        "action_description": {
+                            "type": "string",
+                            "description": (
+                                "Full description of "
+                                "the action including "
+                                "commands and intended "
+                                "effect"
+                            ),
+                        },
+                    },
+                    "required": [
+                        "action_name",
+                        "action_description",
+                    ],
+                },
+                "description": (
+                    "List of actions to validate "
+                    "in parallel"
+                ),
+            },
+        },
+        "required": ["actions"],
+    },
+)
+
 TOOL_DECLARATIONS = [
-    DT_EXEC_DECL, DT_RESTART_DECL, PRODUCE_REPORT_DECL,
+    DT_EXEC_DECL,
+    DT_RESTART_DECL,
+    RUN_ACTION_VALIDATORS_DECL,
+    PRODUCE_REPORT_DECL,
 ]
 
 TOOL_DECLARATIONS_WITH_POLICY = [
     DT_EXEC_DECL,
     DT_RESTART_DECL,
     QUERY_POLICY_DECL,
+    RUN_ACTION_VALIDATORS_DECL,
     PRODUCE_REPORT_DECL,
 ]

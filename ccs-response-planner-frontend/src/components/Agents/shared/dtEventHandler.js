@@ -27,6 +27,22 @@ export function processDtEvent(event, dtEntries, setDtStatus) {
     if (target) {
       target.details = [...(target.details || []), event.message]
     }
+  } else if (event.type === 'sandbox_progress') {
+    setDtStatus(event.message)
+    for (const e of dtEntries) {
+      if (e.type === 'sandbox_start' && !e.done) {
+        e.done = true
+      }
+    }
+    dtEntries.push({
+      role: 'system',
+      type: 'sandbox_start',
+      phase: event.phase,
+      message: event.message,
+      done: event.phase === 'ready',
+      details: [],
+      _startTime: Date.now()
+    })
   }
 }
 
@@ -67,6 +83,28 @@ export function handleDtEvent(event, setConversationHistory, setDtStatus) {
         target.details = [...(target.details || []), event.message]
       }
       return [...prev]
+    })
+  } else if (event.type === 'sandbox_progress') {
+    setDtStatus(event.message)
+    setConversationHistory((prev) => {
+      const updated = [...prev]
+      for (const e of updated) {
+        if (e.type === 'sandbox_start' && !e.done) {
+          e.done = true
+        }
+      }
+      return [
+        ...updated,
+        {
+          role: 'system',
+          type: 'sandbox_start',
+          phase: event.phase,
+          message: event.message,
+          done: event.phase === 'ready',
+          details: [],
+          _startTime: Date.now()
+        }
+      ]
     })
   }
 }

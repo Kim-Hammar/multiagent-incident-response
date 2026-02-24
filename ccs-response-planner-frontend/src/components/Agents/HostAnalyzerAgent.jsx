@@ -246,7 +246,7 @@ function HostAnalyzerAgent() {
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
             host_description: hostDescription,
-            conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
+            conversation_history: history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
             images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             compaction_model: compactionModel || undefined,
@@ -337,7 +337,7 @@ function HostAnalyzerAgent() {
               host_analysis: event.host_analysis,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {

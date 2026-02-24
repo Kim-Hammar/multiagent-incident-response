@@ -252,6 +252,35 @@ def _redeploy_dt() -> Generator[dict[str, str], None, None]:
     }
 
 
+def _start_sandbox() -> Generator[
+    dict[str, str], None, None
+]:
+    """
+    Ensure the Python sandbox container is running.
+
+    Yields ``sandbox_progress`` event dicts that can be streamed
+    to the frontend as NDJSON.
+
+    :return: a generator of progress event dicts
+    """
+    import docker as docker_lib
+    from ccs_response_planner_backend.agents.planner_agent.tools import (
+        _ensure_python_sandbox,
+    )
+    yield {
+        "type": "sandbox_progress",
+        "phase": "start",
+        "message": "Starting Python sandbox...",
+    }
+    client = docker_lib.from_env()
+    _ensure_python_sandbox(client)
+    yield {
+        "type": "sandbox_progress",
+        "phase": "ready",
+        "message": "Python sandbox ready",
+    }
+
+
 def _read_policy_from_sandbox() -> bytes | None:
     """
     Read /workspace/_policy.zip from the Python sandbox.
@@ -714,6 +743,7 @@ def agents_report_step() -> tuple[Response, int]:
         try:
             if not conversation_history:
                 yield from _redeploy_dt()
+                yield from _start_sandbox()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
@@ -965,6 +995,7 @@ def agents_validation_step() -> tuple[Response, int]:
         try:
             if not conversation_history:
                 yield from _redeploy_dt()
+                yield from _start_sandbox()
 
             has_policy = False
             if (
@@ -1132,6 +1163,25 @@ def agents_validation_tool() -> tuple[Response, int]:
     if tool_name in _DT_TOOLS and incident_id is not None:
         tool_args["incident_id"] = incident_id
 
+    if tool_name == "run_action_validators":
+        tool_args["context"] = {
+            "system_description": body.get(
+                "system_description", "",
+            ),
+            "operator_feedback": body.get(
+                "operator_feedback", "",
+            ),
+            "images": body.get("images"),
+            "dt_config": (
+                DatabaseFacade.get_digital_twin_config()
+                or DIGITAL_TWIN.DEFAULT_CONFIG
+            ),
+            "incident_id": incident_id,
+            "action_validator_model": body.get(
+                "action_validator_model",
+            ),
+        }
+
     if tool_name in VALIDATION_STREAMING_DISPATCH:
         session_id = body.get("session_id")
         username = g.username
@@ -1265,6 +1315,7 @@ def agents_code_step() -> tuple[Response, int]:
         try:
             if not conversation_history:
                 yield from _redeploy_dt()
+                yield from _start_sandbox()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
@@ -1492,6 +1543,7 @@ def agents_code_review_step() -> tuple[Response, int]:
         try:
             if not conversation_history:
                 yield from _redeploy_dt()
+                yield from _start_sandbox()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
@@ -2858,6 +2910,7 @@ def agents_plan_manager_step() -> (
         try:
             if not conversation_history:
                 yield from _redeploy_dt()
+                yield from _start_sandbox()
             agent = PlanManagerAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
@@ -3070,15 +3123,39 @@ def agents_plan_manager_tool() -> (
                 events, tool_name,
             )
 
+        def _last_tool_was_validator(
+            history: list[dict[str, Any]],
+        ) -> bool:
+            for entry in reversed(history):
+                if entry.get("type") == "tool_result":
+                    return (
+                        entry.get("tool_name")
+                        == "run_validation_agent"
+                    )
+            return False
+
         def run() -> Generator[
             dict[str, Any], None, None
         ]:
             """
             Run the streaming tool in background.
 
+            Redeploys the digital twin when the previous
+            tool was the validator (it may have altered
+            firewall rules, etc.) — unless the current
+            tool is the validator itself, which redeploys
+            internally.
+
             :return: a generator of event dicts
             """
             try:
+                if (
+                    tool_name != "run_validation_agent"
+                    and _last_tool_was_validator(
+                        conv_history,
+                    )
+                ):
+                    yield from _redeploy_dt()
                 agent = PlanManagerAgent()
                 yield from agent.execute_tool_stream(
                     tool_name, tool_args,
@@ -3184,6 +3261,7 @@ def agents_orchestrator_step() -> (
         try:
             if not conversation_history:
                 yield from _redeploy_dt()
+                yield from _start_sandbox()
             agent = OrchestratorAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
@@ -3764,6 +3842,7 @@ def agents_pentest_step() -> tuple[Response, int]:
         try:
             if not conversation_history:
                 yield from _redeploy_dt()
+                yield from _start_sandbox()
 
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
@@ -4173,8 +4252,6 @@ def agents_action_validator_step() -> tuple[
     system_description = body.get(
         "system_description", "",
     )
-    code_report = body.get("code_report")
-    planner_report = body.get("planner_report")
     action_to_validate = body.get(
         "action_to_validate", "",
     )
@@ -4186,18 +4263,6 @@ def agents_action_validator_step() -> tuple[
     )
     images = body.get("images", [])
     model_name = body.get("model_name") or None
-    if isinstance(planner_report, str):
-        try:
-            planner_report = json.loads(
-                planner_report,
-            )
-        except (json.JSONDecodeError, ValueError):
-            planner_report = {}
-    if isinstance(code_report, str):
-        try:
-            code_report = json.loads(code_report)
-        except (json.JSONDecodeError, ValueError):
-            code_report = {}
     if not isinstance(images, list):
         images = []
     if (
@@ -4224,17 +4289,6 @@ def agents_action_validator_step() -> tuple[
     ) or None
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
-    )
-
-    code_report_formatted = (
-        ValidationAgent._format_code_report(
-            code_report or {},
-        )
-    )
-    planner_report_formatted = (
-        ValidationAgent._format_planner_report(
-            planner_report or {},
-        )
     )
 
     def on_complete(
@@ -4275,12 +4329,6 @@ def agents_action_validator_step() -> tuple[
                 system_description=(
                     system_description
                 ),
-                code_report_formatted=(
-                    code_report_formatted
-                ),
-                planner_report_formatted=(
-                    planner_report_formatted
-                ),
                 action_to_validate=(
                     action_to_validate
                 ),
@@ -4318,20 +4366,6 @@ def agents_action_validator_prompt() -> tuple[
     :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
-    code_report = body.get("code_report")
-    planner_report = body.get("planner_report")
-    if isinstance(planner_report, str):
-        try:
-            planner_report = json.loads(
-                planner_report,
-            )
-        except (json.JSONDecodeError, ValueError):
-            planner_report = {}
-    if isinstance(code_report, str):
-        try:
-            code_report = json.loads(code_report)
-        except (json.JSONDecodeError, ValueError):
-            code_report = {}
     dt_config = (
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
@@ -4340,16 +4374,6 @@ def agents_action_validator_prompt() -> tuple[
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
-        code_report_formatted=(
-            ValidationAgent._format_code_report(
-                code_report or {},
-            )
-        ),
-        planner_report_formatted=(
-            ValidationAgent._format_planner_report(
-                planner_report or {},
-            )
-        ),
         action_to_validate=body.get(
             "action_to_validate", "",
         ) or "N/A",

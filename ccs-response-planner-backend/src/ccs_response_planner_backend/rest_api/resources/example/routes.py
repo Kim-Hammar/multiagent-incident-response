@@ -19,6 +19,11 @@ _ATTACK_PATH_BY_INCIDENT: dict[int, str] = {
     2: EXAMPLES_2.ATTACK_PATH,
 }
 
+_ACTION_TO_VALIDATE_BY_INCIDENT: dict[int, str] = {
+    1: EXAMPLES.ACTION_TO_VALIDATE,
+    2: EXAMPLES_2.ACTION_TO_VALIDATE,
+}
+
 example_bp = Blueprint(
     API.EXAMPLE_RESOURCE, __name__,
     url_prefix=f"{API.PREFIX}/{API.EXAMPLE_RESOURCE}",
@@ -90,6 +95,11 @@ def example() -> tuple[Response, int]:
             "attack_path": _ATTACK_PATH_BY_INCIDENT.get(
                 incident["id"], "",
             ),
+            "action_to_validate": (
+                _ACTION_TO_VALIDATE_BY_INCIDENT.get(
+                    incident["id"], "",
+                )
+            ),
         }), 200
     images = (
         [EXAMPLES.SYSTEM_DESCRIPTION_IMAGE]
@@ -109,6 +119,9 @@ def example() -> tuple[Response, int]:
         "system_description_images": images,
         "host_to_analyze": EXAMPLES.HOST_TO_ANALYZE,
         "attack_path": EXAMPLES.ATTACK_PATH,
+        "action_to_validate": (
+            EXAMPLES.ACTION_TO_VALIDATE
+        ),
     }), 200
 
 
@@ -156,5 +169,10 @@ def get_example(incident_id: int) -> tuple[Response, int]:
         ),
         "attack_path": _ATTACK_PATH_BY_INCIDENT.get(
             incident["id"], "",
+        ),
+        "action_to_validate": (
+            _ACTION_TO_VALIDATE_BY_INCIDENT.get(
+                incident["id"], "",
+            )
         ),
     }), 200

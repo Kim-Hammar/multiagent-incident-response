@@ -1311,6 +1311,16 @@ class EXAMPLES:
         "Snort IDS on the gateway will detect this as "
         "ET EXPLOIT Possible SQL Injection Attempt."
     )
+    ACTION_TO_VALIDATE = (
+        "Action 1 — Block attacker at perimeter firewall\n"
+        "Intended effect: contain the attack by blocking "
+        "all traffic from the external attacker "
+        "(192.168.1.50) so they can no longer access any "
+        "internal systems through the firewall.\n"
+        "Commands:\n"
+        "  iptables -I FORWARD -s 192.168.1.50 -j DROP "
+        "on i1_firewall"
+    )
     SPECIFICATION = (
         "- Server 2 FTP service must remain accessible from "
         "Server 1\n"
@@ -1600,6 +1610,17 @@ class EXAMPLES_2:
         "resolver and out to the internet, bypassing "
         "firewall rules that block direct outbound "
         "connections from the LAN."
+    )
+    ACTION_TO_VALIDATE = (
+        "Action 1 — Block attacker at central firewall\n"
+        "Intended effect: contain the attack by blocking "
+        "all inbound traffic from the external attacker "
+        "(198.51.100.45) at the central firewall "
+        "(Server 1) so they can no longer reach the DMZ "
+        "web server or any other internal host.\n"
+        "Commands:\n"
+        "  iptables -I FORWARD -s 198.51.100.45 -j DROP "
+        "on i2_server1"
     )
     SPECIFICATION = (
         "- PostgreSQL on Server 4 must remain accessible "

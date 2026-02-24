@@ -493,7 +493,7 @@ function OrchestratorAgent() {
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
             conversation_history: stripImagesFromHistory(
-              history.filter((e) => e.type !== 'dt_redeploy')
+              history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
             ),
             images: [...systemDescriptionImages, ...securityAlertsImages],
             model_name: orchestratorModel || undefined,
@@ -546,7 +546,7 @@ function OrchestratorAgent() {
             accumulated += event.delta
             streamingEntry.text = accumulated
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
               return [
                 ...base,
                 ...dtEntries,
@@ -556,7 +556,7 @@ function OrchestratorAgent() {
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
               return [
                 ...base,
                 ...dtEntries,
@@ -567,7 +567,7 @@ function OrchestratorAgent() {
             toolInputAccumulated += event.delta
             streamingEntry.toolInput = toolInputAccumulated
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
               return [
                 ...base,
                 ...dtEntries,
@@ -594,10 +594,10 @@ function OrchestratorAgent() {
               orchestrator_agent_report: event.orchestrator_agent_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
               return [...base, ...dtEntries]
             })
           } else if (event.type === 'context_usage') {
@@ -612,7 +612,7 @@ function OrchestratorAgent() {
             }
             setConversationHistory((prev) => {
               const base = prev.filter(
-                (e) => e !== streamingEntry && e.type !== 'dt_redeploy'
+                (e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
               )
               return [
                 ...base,
@@ -638,7 +638,7 @@ function OrchestratorAgent() {
         }
         entries.push(finalEntry)
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
           return [...base, ...dtEntries, ...entries]
         })
         if (finalEntry.type === 'tool_proposal') {
@@ -665,7 +665,7 @@ function OrchestratorAgent() {
         }
         report = enrichOrchestratorReport(report, history)
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
           return [
             ...base,
             ...dtEntries,
@@ -679,7 +679,7 @@ function OrchestratorAgent() {
         saveReport(report, conversationHistoryRef.current)
       } else {
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
           return [
             ...base,
             ...dtEntries,
@@ -691,7 +691,7 @@ function OrchestratorAgent() {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory((prev) => {
-        const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy')
+        const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
         return [
           ...base,
           ...dtEntries,
@@ -758,7 +758,7 @@ function OrchestratorAgent() {
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages, ...securityAlertsImages],
-          conversation_history: historyForBackend.filter((e) => e.type !== 'dt_redeploy'),
+          conversation_history: historyForBackend.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
           report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
           report_reviewer_model: reportReviewerModel || undefined,
@@ -1011,7 +1011,7 @@ function OrchestratorAgent() {
         security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
         images: [...systemDescriptionImages, ...securityAlertsImages],
-        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy'),
+        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
         report_manager_model: reportManagerModel || undefined,
         report_agent_model: reportAgentModel || undefined,
         report_reviewer_model: reportReviewerModel || undefined,

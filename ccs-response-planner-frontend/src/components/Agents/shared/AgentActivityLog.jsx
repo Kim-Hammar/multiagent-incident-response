@@ -34,7 +34,8 @@ const ORCHESTRATOR_TOOLS = new Set([
   'run_report_manager',
   'run_plan_manager',
   'produce_orchestrator_agent_report',
-  'run_host_analyzers'
+  'run_host_analyzers',
+  'run_action_validators'
 ])
 
 const TOOL_LABELS = {
@@ -51,7 +52,8 @@ const TOOL_LABELS = {
   produce_pentest_report: 'pentest report',
   produce_host_analysis: 'host analysis report',
   produce_action_validation: 'action validation report',
-  run_host_analyzers: 'parallel host analysis'
+  run_host_analyzers: 'parallel host analysis',
+  run_action_validators: 'parallel action validation'
 }
 
 /**
@@ -409,6 +411,30 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
+  if (toolName === 'run_action_validators') {
+    const actions = args?.actions || []
+    return (
+      <div className="ia-orchestrator-args">
+        <div className="ia-orchestrator-note">
+          <i className="fa fa-check-circle" aria-hidden="true" />
+          <span>
+            Validating {actions.length} action{actions.length !== 1 ? 's' : ''} in parallel
+          </span>
+        </div>
+        {actions.length > 0 && (
+          <div style={{ marginTop: '6px' }}>
+            {actions.map((a, i) => (
+              <div key={i} className="ia-orchestrator-verdict-row">
+                <span className="ia-proposal-arg-label">{a.action_name}:</span>
+                <span className="ia-proposal-arg-value">{a.action_description}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (toolName === 'run_report_manager') {
     return (
       <div className="ia-orchestrator-args">
@@ -623,6 +649,24 @@ function renderSubAgentReport(toolName, result) {
         {Object.entries(analyses).map(([hostId, analysis]) => (
           <CollapsibleSection key={hostId} label={`Analysis of host ${hostId}`} icon="fa-server">
             <HostAnalysisBody report={analysis} />
+          </CollapsibleSection>
+        ))}
+      </div>
+    )
+  }
+  if (toolName === 'run_action_validators' && result.action_validations) {
+    const validations = result.action_validations
+    return (
+      <div style={{ marginTop: '10px' }}>
+        {Object.entries(validations).map(([actionId, validation]) => (
+          <CollapsibleSection key={actionId} label={`Validation of ${actionId}`} icon="fa-check-circle">
+            {validation.error ? (
+              <div className="text-danger">{validation.error}</div>
+            ) : (
+              <CopyablePre text={JSON.stringify(validation, null, 2)}>
+                {JSON.stringify(validation, null, 2)}
+              </CopyablePre>
+            )}
           </CollapsibleSection>
         ))}
       </div>
@@ -1423,6 +1467,38 @@ function AgentActivityLog({
             )
           }
 
+          if (entry.type === 'sandbox_start') {
+            return (
+              <div
+                key={index}
+                className={`card ia-entry ${entry.done ? 'ia-result-entry' : 'ia-streaming-entry'}`}
+              >
+                <div className="card-body" style={{ padding: '10px 14px' }}>
+                  <div className="ia-thinking-header">
+                    {entry.done ? (
+                      <i
+                        className="fa fa-check-circle"
+                        style={{ color: '#38a169' }}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <div className="spinner-border spinner-border-sm" role="status">
+                        <span className="sr-only">Loading...</span>
+                      </div>
+                    )}
+                    <i
+                      className="fa fa-terminal"
+                      style={{ marginLeft: '6px' }}
+                      aria-hidden="true"
+                    />
+                    <span className="ia-thinking-title">{entry.message}</span>
+                    {!entry.done && <ElapsedTimer startTime={entry._startTime} />}
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
           if (entry.type === 'streaming') {
             const isStale = livenessStatus === 'stale'
             const isError = livenessStatus === 'error'
@@ -1668,7 +1744,7 @@ function AgentActivityLog({
                           </button>
                         )}
                       </div>
-                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' ? (
+                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' || entry.tool_name === 'run_action_validators' ? (
                         <ParallelSubAgentLog
                           hosts={entry._parallelHosts}
                           subEvents={entry.subEvents}
@@ -1791,7 +1867,7 @@ function AgentActivityLog({
                   </div>
                   {isExpanded && (
                     <>
-                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' ? (
+                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' || entry.tool_name === 'run_action_validators' ? (
                         <ParallelSubAgentLog
                           hosts={entry._parallelHosts}
                           subEvents={entry.subEvents}

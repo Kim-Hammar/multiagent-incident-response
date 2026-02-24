@@ -258,7 +258,7 @@ function CodeReviewerAgent() {
             specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
             code_report: codeReport,
-            conversation_history: history.filter((e) => e.type !== 'dt_redeploy'),
+            conversation_history: history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
             images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             compaction_model: compactionModel || undefined,
@@ -349,7 +349,7 @@ function CodeReviewerAgent() {
               review_report: event.review_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail') {
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {

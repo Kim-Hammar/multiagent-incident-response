@@ -135,8 +135,6 @@ class ActionValidatorAgent:
     def step_stream(
         self,
         system_description: str,
-        code_report_formatted: str,
-        planner_report_formatted: str,
         action_to_validate: str,
         operator_feedback: str,
         conversation_history: list[dict[str, Any]],
@@ -157,8 +155,6 @@ class ActionValidatorAgent:
         - ``{"type": "error", "message": "..."}`` on failure
 
         :param system_description: description of the target system
-        :param code_report_formatted: pre-formatted code report text
-        :param planner_report_formatted: pre-formatted planner report
         :param action_to_validate: the specific action to validate
         :param operator_feedback: operator notes/feedback
         :param conversation_history: the full conversation so far
@@ -176,12 +172,6 @@ class ActionValidatorAgent:
         system_prompt = build_system_prompt(
             system_description=(
                 system_description or "N/A"
-            ),
-            code_report_formatted=(
-                code_report_formatted or "N/A"
-            ),
-            planner_report_formatted=(
-                planner_report_formatted or "N/A"
             ),
             action_to_validate=(
                 action_to_validate or "N/A"
@@ -534,14 +524,6 @@ class ActionValidatorAgent:
             r"^```(?:json)?\s*\n?", "", text.strip(),
         )
         cleaned = re.sub(r"\n?```\s*$", "", cleaned)
-        default_recovery = {
-            "is_attack_contained": False,
-            "is_attack_assessed": False,
-            "is_forensic_evidence_preserved": False,
-            "is_attack_evicted": False,
-            "is_system_hardened": False,
-            "are_services_restored": False,
-        }
         try:
             parsed = json.loads(cleaned)
             return {
@@ -557,14 +539,6 @@ class ActionValidatorAgent:
                     "commands_executed": [],
                     "command_results": [],
                     "outcome": "Action failed",
-                    "recovery_state_before": (
-                        default_recovery
-                    ),
-                    "recovery_state_after": (
-                        default_recovery
-                    ),
-                    "service_state": [],
-                    "step_cost": 21.0,
                     "executive_summary": text,
                     "recommendations": [],
                 },

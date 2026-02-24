@@ -95,6 +95,11 @@ def test_step_returns_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -105,6 +110,7 @@ def test_step_returns_400_missing_fields(
 def test_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -141,6 +147,11 @@ def test_step_streams_tool_proposal(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -151,6 +162,7 @@ def test_step_streams_tool_proposal(
 def test_step_streams_assessment(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -195,6 +207,11 @@ def test_step_streams_assessment(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -205,6 +222,7 @@ def test_step_streams_assessment(
 def test_step_streams_error_on_failure(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -233,6 +251,11 @@ def test_step_streams_error_on_failure(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -243,6 +266,7 @@ def test_step_streams_error_on_failure(
 def test_step_uses_session_id_as_job_id(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -792,6 +816,11 @@ def test_code_manager_step_returns_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -802,6 +831,7 @@ def test_code_manager_step_returns_400_missing_fields(
 def test_code_manager_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -837,6 +867,11 @@ def test_code_manager_step_streams_tool_proposal(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -847,6 +882,7 @@ def test_code_manager_step_streams_tool_proposal(
 def test_code_manager_step_streams_orchestrator_report(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -1044,6 +1080,11 @@ def test_plan_manager_step_returns_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -1054,6 +1095,7 @@ def test_plan_manager_step_returns_400_missing_fields(
 def test_plan_manager_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -1089,6 +1131,11 @@ def test_plan_manager_step_streams_tool_proposal(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -1099,6 +1146,7 @@ def test_plan_manager_step_streams_tool_proposal(
 def test_plan_manager_step_streams_report(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -1300,6 +1348,11 @@ def test_report_manager_step_returns_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -1310,6 +1363,7 @@ def test_report_manager_step_returns_400_missing_fields(
 def test_report_manager_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -1345,6 +1399,11 @@ def test_report_manager_step_streams_tool_proposal(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -1355,6 +1414,7 @@ def test_report_manager_step_streams_tool_proposal(
 def test_report_manager_step_streams_report(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -1553,6 +1613,11 @@ def test_report_review_step_returns_400_missing_report(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -1563,6 +1628,7 @@ def test_report_review_step_returns_400_missing_report(
 def test_report_review_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -1600,6 +1666,11 @@ def test_report_review_step_streams_tool_proposal(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -1610,6 +1681,7 @@ def test_report_review_step_streams_tool_proposal(
 def test_report_review_step_streams_report_review(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
@@ -1804,6 +1876,11 @@ def test_orchestrator_step_returns_400_missing_fields(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
+    ".routes._start_sandbox",
+    return_value=iter([]),
+)
+@patch(
+    "ccs_response_planner_backend.rest_api.resources.agents"
     ".routes._redeploy_dt",
     return_value=iter([]),
 )
@@ -1814,6 +1891,7 @@ def test_orchestrator_step_returns_400_missing_fields(
 def test_orchestrator_step_streams_report(
     mock_agent_cls: MagicMock,
     _mock_redeploy: MagicMock,
+    _mock_sandbox: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
