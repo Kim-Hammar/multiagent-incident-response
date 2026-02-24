@@ -21,6 +21,7 @@ import JobsTab from './shared/JobsTab.jsx'
 import { useAgentSession } from './shared/useAgentSession.js'
 import { cleanConversationHistory, stripForBackend } from './shared/conversationUtils.js'
 import { pollJobEvents } from './shared/pollJobEvents.js'
+import { processDtEvent } from './shared/dtEventHandler.js'
 
 /**
  * PlannerAgent component — drives the Planner agent loop with
@@ -45,6 +46,7 @@ function PlannerAgent() {
   const [autopilot, setAutopilot] = useState(true)
   const [hasNewActivity, setHasNewActivity] = useState(false)
   const [contextUsage, setContextUsage] = useState(null)
+  const [dtStatus, setDtStatus] = useState(null)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
@@ -150,8 +152,8 @@ function PlannerAgent() {
     setContextUsageRef(contextUsage)
   }, [contextUsage])
   useEffect(() => {
-    setUiStateRef({ running, executingTool })
-  }, [running, executingTool])
+    setUiStateRef({ running, executingTool, dtStatus })
+  }, [running, executingTool, dtStatus])
 
   const handlePaste = (event) => {
     const items = event.clipboardData?.items
@@ -269,6 +271,7 @@ function PlannerAgent() {
     }
     const streamingEntry = { role: 'model', type: 'streaming', text: '' }
     const compactionEntries = []
+    const dtEntries = []
     setConversationHistory([...history, streamingEntry])
     const controller = new AbortController()
     abortControllerRef.current = controller
@@ -288,11 +291,13 @@ function PlannerAgent() {
             specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
             code_report: codeReport,
-            conversation_history: stripForBackend(history).map((e) =>
-              e.type === 'tool_result' && e.tool_name === 'rl_train' && e.result?.progress_data
-                ? { ...e, result: { ...e.result, progress_data: undefined } }
-                : e
-            ),
+            conversation_history: stripForBackend(history)
+              .filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+              .map((e) =>
+                e.type === 'tool_result' && e.tool_name === 'rl_train' && e.result?.progress_data
+                  ? { ...e, result: { ...e.result, progress_data: undefined } }
+                  : e
+              ),
             images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
@@ -313,6 +318,7 @@ function PlannerAgent() {
           setConversationHistory([
             ...history,
             ...compactionEntries,
+            ...dtEntries,
             { role: 'system', type: 'error', message: msg }
           ])
           return
@@ -343,14 +349,16 @@ function PlannerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'tool_input_delta') {
             toolInputAccumulated += event.delta
@@ -358,8 +366,12 @@ function PlannerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
+          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+            processDtEvent(event, dtEntries, setDtStatus)
+            setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'tool_proposal') {
             console.log('[PlannerAgent] callStep received tool_proposal: tool=%s', event.tool_name)
             finalEntry = {
@@ -395,7 +407,8 @@ function PlannerAgent() {
             setConversationHistory([
               ...history,
               ...compactionEntries,
-              { ...streamingEntry, text: accumulated }
+              ...dtEntries,
+              ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
           } else if (event.type === 'error') {
             throw new Error(event.message || 'Agent stream error')
@@ -403,6 +416,7 @@ function PlannerAgent() {
         }
       })
 
+      setDtStatus(null)
       if (finalEntry) {
         const entries = []
         const reasoningText = finalEntry.thinking_trace || accumulated
@@ -410,7 +424,7 @@ function PlannerAgent() {
           entries.push({ role: 'model', type: 'reasoning', text: reasoningText })
         }
         entries.push(finalEntry)
-        const updated = [...history, ...compactionEntries, ...entries]
+        const updated = [...history, ...compactionEntries, ...dtEntries, ...entries]
         setConversationHistory(updated)
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
@@ -437,6 +451,7 @@ function PlannerAgent() {
         const fallbackHistory = [
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           { role: 'model', type: 'planner_report', planner_report: report }
         ]
         setConversationHistory(fallbackHistory)
@@ -445,6 +460,7 @@ function PlannerAgent() {
         setConversationHistory([
           ...history,
           ...compactionEntries,
+          ...dtEntries,
           { role: 'system', type: 'error', message: 'Agent returned an empty response.' }
         ])
       }
@@ -454,6 +470,7 @@ function PlannerAgent() {
       setConversationHistory([
         ...history,
         ...compactionEntries,
+        ...dtEntries,
         { role: 'system', type: 'error', message: err.message, errorDetail: err.errorDetail }
       ])
     } finally {
@@ -552,6 +569,7 @@ function PlannerAgent() {
         }
       }
       clearTimeout(safetyTimer)
+      if (pollAborted && !abortControllerRef.current) return
 
       console.log(
         '[PlannerAgent] rl_train resume poll %s. episodes=%d, hasResult=%s, hasDone=%s',
@@ -759,6 +777,7 @@ function PlannerAgent() {
           }
         }
         clearTimeout(safetyTimer)
+        if (pollAborted && !abortControllerRef.current) return
 
         console.log(
           '[PlannerAgent] rl_train pollJobEvents %s. episodes=%d, hasResult=%s, hasDone=%s',
@@ -1242,6 +1261,7 @@ function PlannerAgent() {
           onStop={handleStop}
           onViewPrompt={getPromptText}
           modelName={selectedModel}
+          dtStatus={dtStatus}
           livenessStatus={livenessStatus}
           lastHeartbeatTime={lastHeartbeatTime}
           heartbeatStatus={heartbeatStatus}

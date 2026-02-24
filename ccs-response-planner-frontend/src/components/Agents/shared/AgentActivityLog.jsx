@@ -896,6 +896,46 @@ function renderSearchToolResult(toolName, result) {
 }
 
 /**
+ * Accumulate streaming deltas into display-ready entries.
+ * Consecutive `thinking_delta` events merge into a single `reasoning` entry,
+ * consecutive `text_delta` events merge into a single `text` entry.
+ * Other event types pass through unchanged with `_startTime` set from `_ts`.
+ */
+function accumulateSubEvents(events) {
+  const result = []
+  for (const ev of events) {
+    if (ev.type === 'thinking_delta') {
+      const last = result[result.length - 1]
+      if (last && last.type === 'reasoning') {
+        last.text += ev.text || ''
+      } else {
+        result.push({
+          ...ev,
+          type: 'reasoning',
+          text: ev.text || '',
+          _startTime: ev._ts || Date.now()
+        })
+      }
+    } else if (ev.type === 'text_delta') {
+      const last = result[result.length - 1]
+      if (last && last.type === 'text') {
+        last.text += ev.text || ''
+      } else {
+        result.push({
+          ...ev,
+          type: 'text',
+          text: ev.text || '',
+          _startTime: ev._ts || Date.now()
+        })
+      }
+    } else {
+      result.push({ ...ev, _startTime: ev._ts || ev._startTime })
+    }
+  }
+  return result
+}
+
+/**
  * Render parallel sub-agent events grouped by agent_id.
  * Each agent gets its own CollapsibleSection with a status indicator.
  */
@@ -933,7 +973,8 @@ function ParallelSubAgentLog({
         const promptEv = [...events].reverse().find((e) => e.type === 'prompt')
         const ctxEv = [...events].reverse().find((e) => e.type === 'context_usage')
         const modelEv = [...events].reverse().find((e) => e.type === 'model_name')
-        const displayEvents = events.filter(
+        const accumulated = accumulateSubEvents(events)
+        const displayEvents = accumulated.filter(
           (e) => e.type !== 'prompt' && e.type !== 'context_usage' && e.type !== 'model_name'
         )
         return (

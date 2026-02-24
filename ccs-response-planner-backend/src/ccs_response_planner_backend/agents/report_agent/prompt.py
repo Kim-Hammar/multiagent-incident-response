@@ -89,9 +89,10 @@ Commands run non-interactively — use flags like \
 `DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
 for any command that might prompt for input.
    - **dt_python_exec**: `code` — Python 3 source code to execute.
-   - **run_host_analyzers**: `hosts` — array of objects, each with \
-`host_id` (container name, e.g. `i1_server_1`) and `host_description` \
-(brief description of why this host is relevant and what to look for).
+   - **run_host_analyzers**: `hosts` — array of objects (max 5 at a time), \
+each with `host_id` (container name, e.g. `i1_server_1`) and \
+`host_description` (brief description of why this host is relevant and \
+what to look for). Do NOT pass more than 5 hosts in a single call.
 
 3. **Before each tool call**, briefly explain your rationale in text, then \
 immediately make the function call in the same response.

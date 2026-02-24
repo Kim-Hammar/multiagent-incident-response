@@ -20,25 +20,35 @@ sets the environment state, computes the action mask (so already-completed \
 actions are excluded), and returns the recommended action with name, \
 description, and shell commands. If you pass a wrong-sized vector, the \
 tool returns an error with the expected dimension count.
-4. Collect all recommended actions from the policy until no valid actions \
+4. Collect recommended actions from the policy until no valid actions \
 remain or 30 actions have been queried.
-5. Call `run_action_validators` with the complete action list. Each action \
+5. You do NOT need to validate every action. Select the actions that are \
+most critical to the recovery (e.g. containment, eviction) and any \
+actions whose outcome you are uncertain about (e.g. complex multi-step \
+commands, actions with potential side effects). Skip actions that are \
+straightforward and low-risk (e.g. simple log collection).
+6. Call `run_action_validators` with the selected action list. Each action \
 will be validated in parallel by a dedicated ActionValidatorAgent sub-agent \
 on the digital twin.
-6. After receiving results, aggregate the findings and call \
+7. After receiving results, aggregate the findings and call \
 `produce_validation_report` with the complete per-action results."""
 SEQUENCE_MODE_INSTRUCTIONS = """\1. Carefully read the Planner Agent Report's Action Sequence above. Identify \
 the ordered list of response actions to apply.
-2. Prepare the full list of actions with their names and descriptions \
+2. You do NOT need to validate every action. Select the actions that are \
+most critical to the recovery (e.g. containment, eviction) and any \
+actions whose outcome you are uncertain about (e.g. complex multi-step \
+commands, actions with potential side effects). Skip actions that are \
+straightforward and low-risk (e.g. simple log collection).
+3. Prepare the selected actions with their names and descriptions \
 (including all shell commands and intended effects for each action).
-3. Call `run_action_validators` with the complete action list. Each action \
+4. Call `run_action_validators` with the selected action list. Each action \
 will be validated in parallel by a dedicated ActionValidatorAgent sub-agent \
 on the digital twin. Wait for all results.
-4. After receiving the parallel validation results, aggregate the findings: \
+5. After receiving the parallel validation results, aggregate the findings: \
 review each action's outcome, recovery state, service state, and step cost. \
 Compute the **actual_total_cost** by summing all per-step costs. Compare \
 this with the `expected_total_cost` from the Planner Agent report.
-5. Call `produce_validation_report` with the complete aggregated results."""
+6. Call `produce_validation_report` with the complete aggregated results."""
 QUERY_POLICY_TOOL_DOC = """\
 - **query_policy**: Pass the current state vector (per-host recovery flags \
 + specification dimensions, as defined in the Code Agent Report) and \
@@ -66,10 +76,10 @@ after each action.
 ## Example
 
 Input: A response plan with 8 actions and specification commands. \
-Solution: For each action in the plan, call `dt_exec` to apply the \
-commands → re-run specification commands to check service state → assess \
-recovery progress and compute the step cost → after all actions, call \
-`produce_validation_report` with the complete results.
+Solution: Identify the most critical actions and any you are uncertain \
+about → call `run_action_validators` with those selected actions → \
+after receiving results, call `produce_validation_report` with the \
+complete findings.
 
 ## Incident Context
 
@@ -118,11 +128,12 @@ Commands run non-interactively — use flags like \
 `DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
 for any command that might prompt for input.
 {query_policy_tool_doc}\
-- **run_action_validators**: Validate multiple actions in parallel. Pass a \
-list of actions (each with action_name and action_description including \
-commands and intended effect). Each action is validated by a dedicated \
-sub-agent on the digital twin. Use this to validate all actions from the \
-response plan simultaneously instead of applying them one by one yourself.
+- **run_action_validators**: Validate multiple actions in parallel (max 5 \
+at a time). Pass a list of actions (each with action_name and \
+action_description including commands and intended effect). Each action is \
+validated by a dedicated sub-agent on the digital twin. Use this to \
+validate your selected actions simultaneously instead of applying them \
+one by one yourself. Do NOT pass more than 5 actions in a single call.
 - **produce_validation_report**: Call this ONLY after applying all response \
 actions and gathering all results.
 

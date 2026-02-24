@@ -326,6 +326,24 @@ class JobManager:
                 ),
             }
 
+    def has_running_jobs(
+        self,
+        exclude: str | None = None,
+    ) -> bool:
+        """
+        Check whether any job is currently running.
+
+        :param exclude: optional job_id to exclude from the check
+        :return: True if at least one other job is running
+        """
+        with self._lock:
+            for jid, job in self._jobs.items():
+                if jid == exclude:
+                    continue
+                if not job.done:
+                    return True
+        return False
+
     def cancel_job(self, job_id: str) -> bool:
         """
         Set the cancelled flag on a running job.

@@ -361,7 +361,13 @@ function ValidationAgent() {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'policy_loaded') {
-            setDtStatus(event.message)
+            for (const e of dtEntries) {
+              if (!e.done) {
+                e.done = true
+              }
+            }
+            setDtStatus(null)
+            setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
             setContextUsage(event)
           } else if (event.type === 'context_compaction') {

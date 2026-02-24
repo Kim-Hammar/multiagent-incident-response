@@ -205,18 +205,63 @@ def _sanitize_for_json(obj: Any) -> Any:
     return obj
 
 
-def _redeploy_dt() -> Generator[dict[str, str], None, None]:
+def _redeploy_dt(
+    job_id: str | None = None,
+) -> Generator[dict[str, str], None, None]:
     """
     Stop and redeploy the digital twin for a fresh state.
+
+    When *job_id* is given and other jobs are still running,
+    the current digital twin is reused (if deployed) or
+    deployed without stopping first, so a concurrent agent's
+    DT is not torn down mid-execution.
 
     Yields ``dt_progress`` event dicts that can be streamed to
     the frontend as NDJSON.
 
+    :param job_id: optional job id of the calling job
     :return: a generator of progress event dicts
     """
     config = DatabaseFacade.get_digital_twin_config()
     if config is None:
         config = DIGITAL_TWIN.DEFAULT_CONFIG
+
+    if job_id and job_manager.has_running_jobs(
+        exclude=job_id,
+    ):
+        status = DockerManager.status(config=config)
+        if status.get("deployed"):
+            yield {
+                "type": "dt_progress",
+                "phase": "ready",
+                "message": "Reusing current digital twin",
+            }
+            return
+        # DT not deployed — deploy without stopping
+        yield {
+            "type": "dt_progress",
+            "phase": "deploy",
+            "message": "Deploying digital twin...",
+        }
+        for item in DockerManager.deploy(config):
+            msg = item.get("message", "")
+            if item.get("type") == "progress" and msg:
+                logger.info(
+                    "DT deploy (reuse): %s", msg,
+                )
+                yield {
+                    "type": "dt_progress_detail",
+                    "phase": "deploy",
+                    "message": msg,
+                }
+        yield {
+            "type": "dt_progress",
+            "phase": "ready",
+            "message": "Digital twin ready",
+        }
+        return
+
+    # No other jobs running — normal stop + redeploy
     yield {
         "type": "dt_progress",
         "phase": "stop",
@@ -742,7 +787,7 @@ def agents_report_step() -> tuple[Response, int]:
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
@@ -994,7 +1039,7 @@ def agents_validation_step() -> tuple[Response, int]:
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
 
             has_policy = False
@@ -1314,7 +1359,7 @@ def agents_code_step() -> tuple[Response, int]:
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
@@ -1542,7 +1587,7 @@ def agents_code_review_step() -> tuple[Response, int]:
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
@@ -1789,7 +1834,7 @@ def agents_report_review_step() -> (
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
@@ -2052,7 +2097,7 @@ def agents_report_manager_step() -> (
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
             agent = ReportManagerAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
@@ -2372,7 +2417,7 @@ def agents_code_manager_step() -> (
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
             agent = CodeManagerAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
@@ -2653,6 +2698,7 @@ def agents_planner_step() -> tuple[Response, int]:
         """
         try:
             if not conversation_history:
+                yield from _start_sandbox()
                 env_code = (code_report or {}).get(
                     "generated_code", "",
                 )
@@ -2661,6 +2707,7 @@ def agents_planner_step() -> tuple[Response, int]:
                         _write_env_to_sandbox(env_code)
                         yield {
                             "type": "dt_progress",
+                            "phase": "ready",
                             "message": (
                                 "Env code written to "
                                 "sandbox"
@@ -2909,7 +2956,7 @@ def agents_plan_manager_step() -> (
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             agent = PlanManagerAgent()
             agent._last_prompt_tokens = (
@@ -3155,7 +3202,7 @@ def agents_plan_manager_tool() -> (
                         conv_history,
                     )
                 ):
-                    yield from _redeploy_dt()
+                    yield from _redeploy_dt(job_id)
                 agent = PlanManagerAgent()
                 yield from agent.execute_tool_stream(
                     tool_name, tool_args,
@@ -3260,7 +3307,7 @@ def agents_orchestrator_step() -> (
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             agent = OrchestratorAgent()
             agent._last_prompt_tokens = (
@@ -3841,7 +3888,7 @@ def agents_pentest_step() -> tuple[Response, int]:
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
 
             dt_config = (
@@ -4066,7 +4113,7 @@ def agents_host_analyzer_step() -> tuple[Response, int]:
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
 
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
@@ -4315,7 +4362,7 @@ def agents_action_validator_step() -> tuple[
         """
         try:
             if not conversation_history:
-                yield from _redeploy_dt()
+                yield from _redeploy_dt(job_id)
 
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
