@@ -799,6 +799,8 @@ function PlanManagerAgent() {
                   lastToolCall._promptImages = event.event.images || []
                 } else if (event.event.type === 'context_usage') {
                   lastToolCall._contextUsage = event.event
+                } else if (event.event.type === 'parallel_start') {
+                  lastToolCall._parallelHosts = event.event.hosts
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                   handleNestedSubEvent(lastToolCall.subEvents, event.event)
@@ -809,11 +811,13 @@ function PlanManagerAgent() {
                 .reverse()
                 .find((e) => e.type === 'tool_call')
               if (lastCall) lastCall._completed = true
+              const streamSubs = event.subEvents || []
               streamEntry.subEvents.push({
                 type: 'tool_result',
                 tool_name: event.tool_name,
                 result: event.result,
-                subEvents: event.subEvents || []
+                subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+                _parallelHosts: lastCall?._parallelHosts
               })
             } else {
               if (!event._startTime) event._startTime = Date.now()
@@ -1066,6 +1070,8 @@ function PlanManagerAgent() {
                 lastToolCall._promptImages = event.event.images || []
               } else if (event.event.type === 'context_usage') {
                 lastToolCall._contextUsage = event.event
+              } else if (event.event.type === 'parallel_start') {
+                lastToolCall._parallelHosts = event.event.hosts
               } else {
                 if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                 handleNestedSubEvent(lastToolCall.subEvents, event.event)
@@ -1076,11 +1082,13 @@ function PlanManagerAgent() {
               .reverse()
               .find((e) => e.type === 'tool_call')
             if (lastCall) lastCall._completed = true
+            const streamSubs = event.subEvents || []
             streamEntry.subEvents.push({
               type: 'tool_result',
               tool_name: event.tool_name,
               result: event.result,
-              subEvents: event.subEvents || []
+              subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+              _parallelHosts: lastCall?._parallelHosts
             })
           } else {
             if (!event._startTime) event._startTime = Date.now()

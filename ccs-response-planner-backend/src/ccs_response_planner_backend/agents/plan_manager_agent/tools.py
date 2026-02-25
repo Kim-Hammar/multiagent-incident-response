@@ -486,8 +486,11 @@ def _run_sub_agent_loop(
                     raise
                 except Exception as e:
                     tool_result = {"error": str(e)}
+                inner = tool_result.get("result")
                 sub_result = _truncate_result(
-                    tool_result,
+                    inner
+                    if isinstance(inner, dict)
+                    else tool_result,
                 )
                 yield {
                     "type": "sub_event",
@@ -1146,11 +1149,9 @@ def run_validation_agent_stream(
     )
 
     yield {
-        "type": "output_chunk",
-        "text": (
-            "[ValidationAgent] Redeploying digital "
-            "twin for fresh state...\n"
-        ),
+        "type": "dt_progress",
+        "phase": "stop",
+        "message": "Stopping digital twin...",
     }
     config = DatabaseFacade.get_digital_twin_config()
     if config is None:
@@ -1159,15 +1160,29 @@ def run_validation_agent_stream(
         msg = item.get("message", "")
         if item.get("type") == "progress" and msg:
             logger.info("DT redeploy (stop): %s", msg)
+            yield {
+                "type": "dt_progress_detail",
+                "phase": "stop",
+                "message": msg,
+            }
+    yield {
+        "type": "dt_progress",
+        "phase": "deploy",
+        "message": "Deploying fresh digital twin...",
+    }
     for item in DockerManager.deploy(config):
         msg = item.get("message", "")
         if item.get("type") == "progress" and msg:
             logger.info("DT redeploy (deploy): %s", msg)
+            yield {
+                "type": "dt_progress_detail",
+                "phase": "deploy",
+                "message": msg,
+            }
     yield {
-        "type": "output_chunk",
-        "text": (
-            "[ValidationAgent] Digital twin ready.\n"
-        ),
+        "type": "dt_progress",
+        "phase": "ready",
+        "message": "Digital twin ready",
     }
 
     planner_report = context.get(
