@@ -424,8 +424,19 @@ def _run_sub_agent_loop(
                             done_result = tool_event.get(
                                 "result",
                             )
+                            done_meta = {
+                                k: v
+                                for k, v in
+                                tool_event.items()
+                                if k not in (
+                                    "type", "result",
+                                )
+                            }
                             if done_result is not None:
-                                tool_result = done_result
+                                tool_result = {
+                                    "result": done_result,
+                                    "done": done_meta,
+                                }
                             else:
                                 tool_result = {
                                     k: v
