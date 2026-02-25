@@ -410,6 +410,18 @@ def _run_sub_agent_loop(
                         te_type = tool_event.get("type")
                         if te_type == "sub_event":
                             inner = tool_event["event"]
+                            aid = tool_event.get(
+                                "agent_id",
+                            )
+                            alabel = tool_event.get(
+                                "agent_label",
+                            )
+                            if aid:
+                                inner["agent_id"] = aid
+                            if alabel:
+                                inner["agent_label"] = (
+                                    alabel
+                                )
                             yield {
                                 "type": "sub_event",
                                 "event": {
@@ -796,6 +808,18 @@ def run_code_manager_stream(
                         te_type = tool_event.get("type")
                         if te_type == "sub_event":
                             inner = tool_event["event"]
+                            aid = tool_event.get(
+                                "agent_id",
+                            )
+                            alabel = tool_event.get(
+                                "agent_label",
+                            )
+                            if aid:
+                                inner["agent_id"] = aid
+                            if alabel:
+                                inner["agent_label"] = (
+                                    alabel
+                                )
                             yield {
                                 "type": "sub_event",
                                 "event": {

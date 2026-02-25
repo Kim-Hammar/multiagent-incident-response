@@ -65,6 +65,8 @@ function handleNestedSubEvent(subEvents, innerEvent) {
         lastToolCall._promptImages = innerEvent.event.images || []
       } else if (innerEvent.event.type === 'context_usage') {
         lastToolCall._contextUsage = innerEvent.event
+      } else if (innerEvent.event.type === 'parallel_start') {
+        lastToolCall._parallelHosts = innerEvent.event.hosts
       } else {
         if (!lastToolCall.subEvents) lastToolCall.subEvents = []
         handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)
@@ -1220,15 +1222,21 @@ function PlanManagerAgent() {
 
   const isAgentBusy = running || executingTool
 
-  const renderFinalReport = (entry, index, isExpanded) => (
-    <PlanManagerReport
-      key={index}
-      entry={entry}
-      index={index}
-      isExpanded={isExpanded}
-      toggleEntry={toggleEntry}
-    />
-  )
+  const renderFinalReport = (entry, index, isExpanded) => {
+    const enrichedEntry = {
+      ...entry,
+      plan_manager_report: enrichReport(entry.plan_manager_report || {}, conversationHistory)
+    }
+    return (
+      <PlanManagerReport
+        key={index}
+        entry={enrichedEntry}
+        index={index}
+        isExpanded={isExpanded}
+        toggleEntry={toggleEntry}
+      />
+    )
+  }
 
   const renderToolResult = (entry) => {
     if (entry.tool_name === 'run_code_manager' && entry.result) {

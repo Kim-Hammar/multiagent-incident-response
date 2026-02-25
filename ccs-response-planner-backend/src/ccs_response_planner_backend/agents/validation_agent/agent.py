@@ -668,6 +668,9 @@ class ValidationAgent:
 
         :param tool_name: the name of the streaming tool
         :param tool_args: the arguments to pass to the tool
+        :param context: optional context dict forwarded to
+            streaming tools that accept it (e.g.
+            ``run_action_validators``)
         :return: a generator yielding event dicts
         """
         fn = STREAMING_TOOL_DISPATCH.get(tool_name)
@@ -679,7 +682,17 @@ class ValidationAgent:
             }
             return
         try:
-            yield from fn(**tool_args)
+            import inspect
+            sig = inspect.signature(fn)
+            if (
+                context is not None
+                and "context" in sig.parameters
+            ):
+                yield from fn(
+                    **tool_args, context=context,
+                )
+            else:
+                yield from fn(**tool_args)
         except Exception as e:
             yield {
                 "type": "error",
