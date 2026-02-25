@@ -13,7 +13,9 @@ import {
   IncidentReviewBody,
   ValidationReportBody,
   PlanManagerReportBody,
-  HostAnalysisBody
+  HostAnalysisBody,
+  ActionValidationBody,
+  ACTION_OUTCOME_STYLES
 } from './ReportBodies.jsx'
 import PlannerAgentReport from '../PlannerAgentReport.jsx'
 import CopyablePre from './CopyablePre.jsx'
@@ -663,9 +665,7 @@ function renderSubAgentReport(toolName, result) {
             {validation.error ? (
               <div className="text-danger">{validation.error}</div>
             ) : (
-              <CopyablePre text={JSON.stringify(validation, null, 2)}>
-                {JSON.stringify(validation, null, 2)}
-              </CopyablePre>
+              <ActionValidationBody report={validation} />
             )}
           </CollapsibleSection>
         ))}
@@ -1092,6 +1092,50 @@ function SubAgentLog({
       {subEvents.map((ev, i) => {
         if (RL_STREAMING_TYPES.has(ev.type)) return null
         const isLast = active && i === lastIndex
+        if (ev.type === 'dt_redeploy') {
+          const hasDetails = ev.details && ev.details.length > 0
+          const isOpen = expanded[i] ?? !ev.done
+          return (
+            <div key={i} className="ia-sub-entry ia-sub-dt-redeploy">
+              <div
+                className="ia-sub-entry-header"
+                style={{ cursor: hasDetails ? 'pointer' : 'default' }}
+                onClick={() => hasDetails && toggle(i, !isOpen)}
+              >
+                {ev.done ? (
+                  <i
+                    className="fa fa-check-circle"
+                    style={{ color: '#38a169' }}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <div className="spinner-border spinner-border-sm" role="status">
+                    <span className="sr-only">Loading...</span>
+                  </div>
+                )}
+                <i className="fa fa-server" style={{ marginLeft: '6px' }} aria-hidden="true" />
+                <span>{ev.message}</span>
+                {!ev.done && <ElapsedTimer startTime={ev._startTime} />}
+                {hasDetails && (
+                  <i
+                    className={`fa fa-chevron-${isOpen ? 'up' : 'down'}`}
+                    style={{ marginLeft: 'auto', opacity: 0.5 }}
+                    aria-hidden="true"
+                  />
+                )}
+              </div>
+              {isOpen && hasDetails && (
+                <div style={{ marginTop: '8px', fontSize: '0.85em', opacity: 0.8 }}>
+                  {ev.details.map((line, j) => (
+                    <div key={j} style={{ fontFamily: 'monospace', padding: '1px 0' }}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        }
         if (ev.type === 'reasoning') {
           const isOpen = !!expanded[i]
           return (
@@ -1393,6 +1437,32 @@ function SubAgentLog({
                     <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
                   </div>
                   {isOpen && <HostAnalysisBody report={a} />}
+                </div>
+              </div>
+            )
+          }
+          if (ev.action_validation) {
+            const a = ev.action_validation
+            const isOpen = !!expanded[i]
+            return (
+              <div key={i} className="card ia-entry border-dark" style={{ marginTop: '8px' }}>
+                <div className="card-body">
+                  <div className="ia-result-header" onClick={() => toggle(i)}>
+                    <span className="badge badge-dark">Action Validation</span>
+                    <span className="ia-tool-name">
+                      {a.action_name || 'Action Validation Report'}
+                    </span>
+                    {a.outcome && (
+                      <span
+                        className={`badge badge-${ACTION_OUTCOME_STYLES[a.outcome] || 'secondary'}`}
+                        style={{ marginLeft: '8px' }}
+                      >
+                        {a.outcome}
+                      </span>
+                    )}
+                    <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
+                  </div>
+                  {isOpen && <ActionValidationBody report={a} />}
                 </div>
               </div>
             )

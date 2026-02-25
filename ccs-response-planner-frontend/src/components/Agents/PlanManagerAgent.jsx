@@ -751,6 +751,27 @@ function PlanManagerAgent() {
             setLivenessStatus('alive')
           },
           onStale: () => setLivenessStatus('stale'),
+          onDtProgress: (event) => {
+            if (event.type === 'dt_progress') {
+              for (const e of streamEntry.subEvents) {
+                if (e.type === 'dt_redeploy' && !e.done) e.done = true
+              }
+              streamEntry.subEvents.push({
+                type: 'dt_redeploy',
+                phase: event.phase,
+                message: event.message,
+                done: event.phase === 'ready',
+                details: [],
+                _startTime: Date.now()
+              })
+            } else if (event.type === 'dt_progress_detail') {
+              const target = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'dt_redeploy' && e.phase === event.phase)
+              if (target) target.details = [...(target.details || []), event.message]
+            }
+            setConversationHistory([...base])
+          },
           onChunk: (text) => {
             streamEntry.output += text
             setConversationHistory([...base])
@@ -1022,6 +1043,27 @@ function PlanManagerAgent() {
           setLivenessStatus('alive')
         },
         onStale: () => setLivenessStatus('stale'),
+        onDtProgress: (event) => {
+          if (event.type === 'dt_progress') {
+            for (const e of streamEntry.subEvents) {
+              if (e.type === 'dt_redeploy' && !e.done) e.done = true
+            }
+            streamEntry.subEvents.push({
+              type: 'dt_redeploy',
+              phase: event.phase,
+              message: event.message,
+              done: event.phase === 'ready',
+              details: [],
+              _startTime: Date.now()
+            })
+          } else if (event.type === 'dt_progress_detail') {
+            const target = [...streamEntry.subEvents]
+              .reverse()
+              .find((e) => e.type === 'dt_redeploy' && e.phase === event.phase)
+            if (target) target.details = [...(target.details || []), event.message]
+          }
+          setConversationHistory((prev) => [...prev])
+        },
         onChunk: (text) => {
           streamEntry.output += text
           setConversationHistory((prev) => [...prev])
