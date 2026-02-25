@@ -667,6 +667,43 @@ function ReportManagerAgent() {
               setConversationHistory([...base])
               return
             }
+            if (event.type === 'nested_event') {
+              const lastToolCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call' && !e._completed)
+              if (lastToolCall) {
+                const inner = event.event || {}
+                if (inner.type === 'parallel_start') {
+                  lastToolCall._parallelHosts = inner.hosts
+                } else {
+                  if (!lastToolCall.subEvents) lastToolCall.subEvents = []
+                  if (!inner._startTime) inner._startTime = Date.now()
+                  lastToolCall.subEvents.push(inner)
+                }
+              }
+              setConversationHistory([...base])
+              return
+            }
+            if (event.type === 'tool_result') {
+              const lastCall = [...streamEntry.subEvents]
+                .reverse()
+                .find((e) => e.type === 'tool_call')
+              if (lastCall) lastCall._completed = true
+              const entry = {
+                type: 'tool_result',
+                tool_name: event.tool_name,
+                result: event.result,
+                _startTime: Date.now()
+              }
+              const callSubs = lastCall?.subEvents || []
+              if (callSubs.length > 0) {
+                entry.subEvents = callSubs
+                entry._parallelHosts = lastCall?._parallelHosts
+              }
+              streamEntry.subEvents.push(entry)
+              setConversationHistory([...base])
+              return
+            }
             if (event.type === 'thinking_delta') {
               const last = streamEntry.subEvents[streamEntry.subEvents.length - 1]
               if (last && last.type === 'reasoning') {

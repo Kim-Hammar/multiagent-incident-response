@@ -1218,18 +1218,31 @@ function SubAgentLog({
                         ))}
                   </div>
                   {ev.subEvents?.length > 0 && (
-                    <SubAgentLog
-                      subEvents={ev.subEvents}
-                      agentLabel={toolLabel(ev.tool_name)}
-                      active={isLast}
-                      modelName={ev._modelName}
-                      onViewPrompt={onViewPrompt}
-                      onViewContext={onViewContext}
-                      contextUsage={ev._contextUsage}
-                      livenessStatus={livenessStatus}
-                      heartbeatStatus={heartbeatStatus}
-                      lastHeartbeatTime={lastHeartbeatTime}
-                    />
+                    ev._parallelHosts || ev.tool_name === 'run_host_analyzers' || ev.tool_name === 'run_action_validators' ? (
+                      <ParallelSubAgentLog
+                        hosts={ev._parallelHosts}
+                        subEvents={ev.subEvents}
+                        active={isLast}
+                        onViewPrompt={onViewPrompt}
+                        onViewContext={onViewContext}
+                        livenessStatus={livenessStatus}
+                        heartbeatStatus={heartbeatStatus}
+                        lastHeartbeatTime={lastHeartbeatTime}
+                      />
+                    ) : (
+                      <SubAgentLog
+                        subEvents={ev.subEvents}
+                        agentLabel={toolLabel(ev.tool_name)}
+                        active={isLast}
+                        modelName={ev._modelName}
+                        onViewPrompt={onViewPrompt}
+                        onViewContext={onViewContext}
+                        contextUsage={ev._contextUsage}
+                        livenessStatus={livenessStatus}
+                        heartbeatStatus={heartbeatStatus}
+                        lastHeartbeatTime={lastHeartbeatTime}
+                      />
+                    )
                   )}
                 </>
               )}
@@ -1312,13 +1325,23 @@ function SubAgentLog({
                     </>
                   )}
                   {ev.subEvents?.length > 0 && (
-                    <SubAgentLog
-                      subEvents={ev.subEvents}
-                      agentLabel={toolLabel(ev.tool_name)}
-                      active={false}
-                      onViewPrompt={onViewPrompt}
-                      onViewContext={onViewContext}
-                    />
+                    ev._parallelHosts || ev.tool_name === 'run_host_analyzers' || ev.tool_name === 'run_action_validators' ? (
+                      <ParallelSubAgentLog
+                        hosts={ev._parallelHosts}
+                        subEvents={ev.subEvents}
+                        active={false}
+                        onViewPrompt={onViewPrompt}
+                        onViewContext={onViewContext}
+                      />
+                    ) : (
+                      <SubAgentLog
+                        subEvents={ev.subEvents}
+                        agentLabel={toolLabel(ev.tool_name)}
+                        active={false}
+                        onViewPrompt={onViewPrompt}
+                        onViewContext={onViewContext}
+                      />
+                    )
                   )}
                 </>
               )}

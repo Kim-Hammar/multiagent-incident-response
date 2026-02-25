@@ -559,7 +559,12 @@ class ReportAgent:
             }
             return
         try:
-            yield from fn(**tool_args)
+            if context is not None:
+                yield from fn(
+                    context=context, **tool_args,
+                )
+            else:
+                yield from fn(**tool_args)
         except Exception as e:
             yield {
                 "type": "error",

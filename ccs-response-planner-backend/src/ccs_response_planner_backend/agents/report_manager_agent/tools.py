@@ -18,6 +18,9 @@ from ccs_response_planner_backend.agents.stream_timeout import (
 from ccs_response_planner_backend.agents.report_agent.agent import (
     ReportAgent,
 )
+from ccs_response_planner_backend.agents.report_agent.tools import (
+    STREAMING_TOOL_DISPATCH as REPORT_STREAMING_DISPATCH,
+)
 from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
     ReportReviewerAgent,
 )
@@ -196,13 +199,6 @@ def run_report_agent_stream(
                     "delta", "",
                 )
             elif etype == "text":
-                yield {
-                    "type": "sub_event",
-                    "event": {
-                        "type": "text_delta",
-                        "text": event.get("delta", ""),
-                    },
-                }
                 step_reasoning += event.get(
                     "delta", "",
                 )
@@ -308,16 +304,57 @@ def run_report_agent_stream(
                     "approved": True,
                 })
                 try:
-                    result = agent.execute_tool(
-                        tool_name, tool_args,
-                    )
-                    tool_result = result.get(
-                        "result", {},
-                    )
-                    if result.get("error"):
-                        tool_result = {
-                            "error": result["error"],
-                        }
+                    if tool_name in REPORT_STREAMING_DISPATCH:
+                        tool_result = {}
+                        for sevt in agent.execute_tool_stream(
+                            tool_name, tool_args,
+                            context=context,
+                        ):
+                            sevt_type = sevt.get("type")
+                            if sevt_type == "done":
+                                tool_result = sevt.get(
+                                    "result", {},
+                                )
+                            elif sevt_type == "error":
+                                tool_result = {
+                                    "error": sevt.get(
+                                        "message", "",
+                                    ),
+                                }
+                            elif sevt_type == "sub_event":
+                                inner = dict(
+                                    sevt.get("event", {}),
+                                )
+                                if sevt.get("agent_id"):
+                                    inner["agent_id"] = (
+                                        sevt["agent_id"]
+                                    )
+                                if sevt.get("agent_label"):
+                                    inner["agent_label"] = (
+                                        sevt["agent_label"]
+                                    )
+                                yield {
+                                    "type": "sub_event",
+                                    "event": {
+                                        "type": (
+                                            "nested_event"
+                                        ),
+                                        "event": inner,
+                                    },
+                                }
+                            elif sevt_type == "output_chunk":
+                                yield sevt
+                    else:
+                        result = agent.execute_tool(
+                            tool_name, tool_args,
+                        )
+                        tool_result = result.get(
+                            "result", {},
+                        )
+                        if result.get("error"):
+                            tool_result = {
+                                "error": result["error"],
+                            }
                 except Exception as e:
                     tool_result = {"error": str(e)}
                 conversation_history.append({
@@ -522,13 +559,6 @@ def run_report_reviewer_agent_stream(
                     "delta", "",
                 )
             elif etype == "text":
-                yield {
-                    "type": "sub_event",
-                    "event": {
-                        "type": "text_delta",
-                        "text": event.get("delta", ""),
-                    },
-                }
                 step_reasoning += event.get(
                     "delta", "",
                 )
