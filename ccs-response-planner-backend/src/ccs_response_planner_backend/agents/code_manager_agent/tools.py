@@ -166,6 +166,12 @@ def run_code_agent_stream(
             "dt_enabled": context.get(
                 "dt_enabled", True,
             ),
+            "report_manager_enabled": context.get(
+                "report_manager_enabled", True,
+            ),
+            "security_alerts": context.get(
+                "security_alerts", "",
+            ),
         }
         for event in _timeout_step_stream(
             agent, ca_kwargs, step_start,
@@ -486,6 +492,12 @@ def run_code_reviewer_agent_stream(
             ),
             "dt_enabled": context.get(
                 "dt_enabled", True,
+            ),
+            "report_manager_enabled": context.get(
+                "report_manager_enabled", True,
+            ),
+            "security_alerts": context.get(
+                "security_alerts", "",
             ),
         }
         for event in _timeout_step_stream(

@@ -98,8 +98,7 @@ have been used.
 ### System Description
 {system_description}
 
-### Incident Report
-{incident_report}
+{incident_context_section}
 
 ### Specification Commands
 The specification defines the operational constraints that the \
@@ -243,8 +242,7 @@ have been used.
 ### System Description
 {system_description}
 
-### Incident Report
-{incident_report}
+{incident_context_section}
 
 ### Specification Commands
 The specification defines the operational constraints that the \

@@ -30,6 +30,9 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_table,
     format_network_connectivity,
 )
+from ccs_response_planner_backend.agents.incident_context import (
+    build_incident_context_section,
+)
 from ccs_response_planner_backend.agents.validation_agent.prompt import (
     build_system_prompt,
 )
@@ -364,6 +367,8 @@ class ValidationAgent:
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
         dt_enabled: bool = True,
+        report_manager_enabled: bool = True,
+        security_alerts: str = "",
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -391,6 +396,10 @@ class ValidationAgent:
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
         :param dt_enabled: whether the digital twin is enabled
+        :param report_manager_enabled: whether the report manager
+            produced a structured incident report (default True)
+        :param security_alerts: raw security alerts (used when
+            report_manager_enabled is False)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -409,10 +418,19 @@ class ValidationAgent:
             dt_container_table = DT_DISABLED_NOTICE
             dt_network_connectivity = DT_DISABLED_NOTICE
 
+        incident_context_section = (
+            build_incident_context_section(
+                report_manager_enabled=report_manager_enabled,
+                incident_report=incident_report,
+                security_alerts=security_alerts,
+            )
+        )
         system_prompt = build_system_prompt(
             has_policy=has_policy,
             system_description=system_description or "N/A",
-            incident_report=incident_report or "N/A",
+            incident_context_section=(
+                incident_context_section
+            ),
             specification=specification or "N/A",
             planner_report_formatted=(
                 self._format_planner_report(

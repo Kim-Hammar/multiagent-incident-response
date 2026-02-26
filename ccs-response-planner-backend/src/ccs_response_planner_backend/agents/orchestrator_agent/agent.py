@@ -51,19 +51,24 @@ THINKING_BUDGET = 16384
 
 def _build_initial_message(
     images: list[str] | None = None,
+    text: str | None = None,
 ) -> dict[str, Any]:
     """
     Build the initial user message, optionally including images.
 
     :param images: optional list of base64 data-URL image strings
+    :param text: optional custom text for the initial message
     :return: a Gemini-compatible content dict
     """
-    parts: list[dict[str, Any]] = [{"text": (
+    default_text = (
         "Please orchestrate the full end-to-end "
         "incident response pipeline. Start by "
         "running the ReportManager to produce a "
         "reviewed incident assessment."
-    )}]
+    )
+    parts: list[dict[str, Any]] = [
+        {"text": text or default_text}
+    ]
     for data_url in (images or []):
         if "," not in data_url:
             continue
@@ -143,6 +148,7 @@ class OrchestratorAgent:
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
         pentest_enabled: bool = True,
+        report_manager_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the orchestrator agent loop by one step.
@@ -166,6 +172,8 @@ class OrchestratorAgent:
             triggers compaction (default 0.8)
         :param pentest_enabled: whether the pentest agent is
             enabled (default True)
+        :param report_manager_enabled: whether the report manager
+            is enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -176,6 +184,7 @@ class OrchestratorAgent:
             operator_feedback=operator_feedback,
             max_iterations=max_iterations,
             pentest_enabled=pentest_enabled,
+            report_manager_enabled=report_manager_enabled,
         )
 
         yield {
@@ -207,6 +216,7 @@ class OrchestratorAgent:
         has_pentested = (
             self._has_pentested(conversation_history)
             or not pentest_enabled
+            or not report_manager_enabled
         )
         if has_planned:
             declarations = ALL_DECLARATIONS
@@ -215,11 +225,32 @@ class OrchestratorAgent:
         else:
             declarations = ITERATING_DECLARATIONS
 
-        if not pentest_enabled:
+        if not pentest_enabled or not report_manager_enabled:
             declarations = [
                 d for d in declarations
                 if d.name != "run_pentest_agent"
             ]
+        if not report_manager_enabled:
+            declarations = [
+                d for d in declarations
+                if d.name != "run_report_manager"
+            ]
+
+        if not report_manager_enabled:
+            _initial_text = (
+                "Please orchestrate the incident "
+                "response pipeline. Start by running "
+                "the PlanManager to produce a response "
+                "plan directly from the security alerts."
+            )
+        else:
+            _initial_text = (
+                "Please orchestrate the full "
+                "end-to-end incident response "
+                "pipeline. Start by running the "
+                "ReportManager to produce a "
+                "reviewed incident assessment."
+            )
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(
@@ -227,13 +258,8 @@ class OrchestratorAgent:
                 tool_declarations=declarations,
                 history=conversation_history,
                 initial_user_parts=[{
-                    "type": "text", "text": (
-                        "Please orchestrate the full "
-                        "end-to-end incident response "
-                        "pipeline. Start by running the "
-                        "ReportManager to produce a "
-                        "reviewed incident assessment."
-                    ),
+                    "type": "text",
+                    "text": _initial_text,
                 }],
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type=(
@@ -262,7 +288,9 @@ class OrchestratorAgent:
             images if not conversation_history else None
         )
         contents = (
-            [_build_initial_message(initial_images)]
+            [_build_initial_message(
+                initial_images, _initial_text,
+            )]
             + self._build_contents(
                 conversation_history,
             )

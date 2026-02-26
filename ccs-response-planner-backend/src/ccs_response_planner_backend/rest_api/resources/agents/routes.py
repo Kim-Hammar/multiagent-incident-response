@@ -3443,6 +3443,9 @@ def agents_orchestrator_step() -> (
             pentest_enabled = body.get(
                 "pentest_enabled", True,
             )
+            report_manager_enabled = body.get(
+                "report_manager_enabled", True,
+            )
             yield from agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
@@ -3458,6 +3461,9 @@ def agents_orchestrator_step() -> (
                     compaction_threshold
                 ),
                 pentest_enabled=pentest_enabled,
+                report_manager_enabled=(
+                    report_manager_enabled
+                ),
             )
         except Exception as e:
             yield {
@@ -3499,6 +3505,9 @@ def agents_orchestrator_prompt() -> (
         ),
         pentest_enabled=body.get(
             "pentest_enabled", True,
+        ),
+        report_manager_enabled=body.get(
+            "report_manager_enabled", True,
         ),
     )
     return jsonify({"prompt": prompt}), 200
@@ -3636,6 +3645,9 @@ def agents_orchestrator_tool() -> (
             ),
             "code_model_enabled": body.get(
                 "code_model_enabled", True,
+            ),
+            "report_manager_enabled": body.get(
+                "report_manager_enabled", True,
             ),
         }
         conv_history = body.get(

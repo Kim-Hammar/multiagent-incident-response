@@ -28,6 +28,9 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     filter_dt_declarations,
     format_container_list,
 )
+from ccs_response_planner_backend.agents.incident_context import (
+    build_incident_context_section,
+)
 from ccs_response_planner_backend.agents.code_reviewer_agent.prompt import (
     SYSTEM_PROMPT_TEMPLATE,
 )
@@ -253,6 +256,8 @@ class CodeReviewerAgent:
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
         dt_enabled: bool = True,
+        report_manager_enabled: bool = True,
+        security_alerts: str = "",
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -278,6 +283,10 @@ class CodeReviewerAgent:
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
         :param dt_enabled: whether the digital twin is enabled
+        :param report_manager_enabled: whether the report manager
+            produced a structured incident report (default True)
+        :param security_alerts: raw security alerts (used when
+            report_manager_enabled is False)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -291,9 +300,18 @@ class CodeReviewerAgent:
         formatted_report = self._format_code_report(
             code_report or {},
         )
+        incident_context_section = (
+            build_incident_context_section(
+                report_manager_enabled=report_manager_enabled,
+                incident_report=incident_report,
+                security_alerts=security_alerts,
+            )
+        )
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
-            incident_report=incident_report or "N/A",
+            incident_context_section=(
+                incident_context_section
+            ),
             specification=specification or "N/A",
             operator_feedback=operator_feedback or "N/A",
             code_report_formatted=formatted_report,

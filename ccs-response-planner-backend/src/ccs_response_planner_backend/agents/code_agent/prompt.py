@@ -36,8 +36,7 @@ validate → once passing, call `produce_code_report`.
 ### System Description
 {system_description}
 
-### Incident Report
-{incident_report}
+{incident_context_section}
 
 ### Specification Commands
 The specification defines the operational constraints that the \

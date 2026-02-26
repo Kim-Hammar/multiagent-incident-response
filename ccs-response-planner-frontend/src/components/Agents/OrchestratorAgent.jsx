@@ -248,6 +248,7 @@ function OrchestratorAgent() {
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [validatorEnabled, setValidatorEnabled] = useState(true)
+  const [reportManagerEnabled, setReportManagerEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
@@ -317,6 +318,7 @@ function OrchestratorAgent() {
       infoToolsEnabled,
       reportReviewerEnabled,
       codeReviewerEnabled,
+      reportManagerEnabled,
       validatorEnabled,
       pentestEnabled,
       codeModelEnabled
@@ -356,6 +358,7 @@ function OrchestratorAgent() {
         if (cfg.reportReviewerEnabled != null) setReportReviewerEnabled(cfg.reportReviewerEnabled)
         if (cfg.codeReviewerEnabled != null) setCodeReviewerEnabled(cfg.codeReviewerEnabled)
         if (cfg.validatorEnabled != null) setValidatorEnabled(cfg.validatorEnabled)
+        if (cfg.reportManagerEnabled != null) setReportManagerEnabled(cfg.reportManagerEnabled)
         if (cfg.pentestEnabled != null) setPentestEnabled(cfg.pentestEnabled)
         if (cfg.codeModelEnabled != null) setCodeModelEnabled(cfg.codeModelEnabled)
       }
@@ -372,6 +375,9 @@ function OrchestratorAgent() {
     }
   })
 
+  useEffect(() => {
+    if (!reportManagerEnabled) setPentestEnabled(false)
+  }, [reportManagerEnabled])
   useEffect(() => {
     setPendingProposalRef(pendingProposal)
   }, [pendingProposal])
@@ -538,6 +544,7 @@ function OrchestratorAgent() {
             info_tools_enabled: infoToolsEnabled,
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
+            report_manager_enabled: reportManagerEnabled,
             validator_enabled: validatorEnabled,
             pentest_enabled: pentestEnabled,
             code_model_enabled: codeModelEnabled
@@ -815,6 +822,7 @@ function OrchestratorAgent() {
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current,
+          report_manager_enabled: reportManagerEnabled,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
           validator_enabled: validatorEnabled,
@@ -1073,6 +1081,7 @@ function OrchestratorAgent() {
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current,
+        report_manager_enabled: reportManagerEnabled,
         report_reviewer_enabled: reportReviewerEnabled,
         code_reviewer_enabled: codeReviewerEnabled,
         validator_enabled: validatorEnabled,
@@ -1197,6 +1206,7 @@ function OrchestratorAgent() {
         system_description: systemDescription,
         security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
+        report_manager_enabled: reportManagerEnabled,
         pentest_enabled: pentestEnabled
       })
     })
@@ -1557,10 +1567,27 @@ function OrchestratorAgent() {
             <input
               className="form-check-input"
               type="checkbox"
+              id="oa-report-manager-enabled"
+              checked={reportManagerEnabled}
+              onChange={(e) => setReportManagerEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-report-manager-enabled">
+              Report Manager enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the orchestrator skips report generation and attack path validation;
+                the plan manager works directly from the raw security alerts)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
               id="oa-pentest-enabled"
               checked={pentestEnabled}
               onChange={(e) => setPentestEnabled(e.target.checked)}
-              disabled={isAgentBusy}
+              disabled={isAgentBusy || !reportManagerEnabled}
             />
             <label className="form-check-label" htmlFor="oa-pentest-enabled">
               Pentest Agent enabled{' '}

@@ -670,6 +670,12 @@ def run_code_manager_stream(
         "compaction_threshold": context.get(
             "code_manager_compaction", 0.8,
         ),
+        "report_manager_enabled": context.get(
+            "report_manager_enabled", True,
+        ),
+        "security_alerts": context.get(
+            "security_alerts", "",
+        ),
     }
     cm_context_base = {
         k: v for k, v in context.items()
@@ -1116,6 +1122,12 @@ def run_planner_agent_stream(
         "code_model_enabled": context.get(
             "code_model_enabled", True,
         ),
+        "report_manager_enabled": context.get(
+            "report_manager_enabled", True,
+        ),
+        "security_alerts": context.get(
+            "security_alerts", "",
+        ),
     }
 
     planner_report: dict[str, Any] | None = None
@@ -1295,6 +1307,12 @@ def run_validation_agent_stream(
         ),
         "dt_enabled": context.get(
             "dt_enabled", True,
+        ),
+        "report_manager_enabled": context.get(
+            "report_manager_enabled", True,
+        ),
+        "security_alerts": context.get(
+            "security_alerts", "",
         ),
     }
 

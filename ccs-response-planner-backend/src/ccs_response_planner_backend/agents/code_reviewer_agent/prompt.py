@@ -27,8 +27,7 @@ Solution: Think about what an experienced IR operator would do differently \
 ### System Description
 {system_description}
 
-### Incident Report
-{incident_report}
+{incident_context_section}
 
 ### Specification Commands
 The specification defines the operational constraints that the \

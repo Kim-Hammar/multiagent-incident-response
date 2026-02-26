@@ -26,6 +26,9 @@ from ccs_response_planner_backend.agents.context_utils import (
     compact_tool_result,
     maybe_compact_context,
 )
+from ccs_response_planner_backend.agents.incident_context import (
+    build_incident_context_section,
+)
 from ccs_response_planner_backend.agents.plan_manager_agent.prompt import (
     DIRECT_PLAN_PROMPT_TEMPLATE,
     SYSTEM_PROMPT_TEMPLATE,
@@ -151,6 +154,8 @@ class PlanManagerAgent:
         compaction_threshold: float = 0.8,
         validator_enabled: bool = True,
         code_model_enabled: bool = True,
+        report_manager_enabled: bool = True,
+        security_alerts: str = "",
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the plan manager agent loop by one step.
@@ -177,10 +182,21 @@ class PlanManagerAgent:
             is enabled (default True)
         :param code_model_enabled: whether the code model
             (MDP + RL) pipeline is enabled (default True)
+        :param report_manager_enabled: whether the report manager
+            produced a structured incident report (default True)
+        :param security_alerts: raw security alerts (used when
+            report_manager_enabled is False)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
+        incident_context_section = (
+            build_incident_context_section(
+                report_manager_enabled=report_manager_enabled,
+                incident_report=incident_report,
+                security_alerts=security_alerts,
+            )
+        )
         prompt_template = (
             SYSTEM_PROMPT_TEMPLATE
             if code_model_enabled
@@ -190,8 +206,8 @@ class PlanManagerAgent:
             system_description=(
                 system_description or "N/A"
             ),
-            incident_report=(
-                incident_report or "N/A"
+            incident_context_section=(
+                incident_context_section
             ),
             specification=specification or "N/A",
             operator_feedback=(

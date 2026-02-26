@@ -236,6 +236,7 @@ function ResponsePlanner() {
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [validatorEnabled, setValidatorEnabled] = useState(true)
+  const [reportManagerEnabled, setReportManagerEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
@@ -353,6 +354,10 @@ function ResponsePlanner() {
       handleApprove()
     }
   }, [autopilot, pendingProposal])
+
+  useEffect(() => {
+    if (!reportManagerEnabled) setPentestEnabled(false)
+  }, [reportManagerEnabled])
 
   useEffect(() => {
     const nearBottom =
@@ -486,6 +491,7 @@ function ResponsePlanner() {
         setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
         setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
         setValidatorEnabled(config.validatorEnabled ?? true)
+        setReportManagerEnabled(config.reportManagerEnabled ?? true)
         setPentestEnabled(config.pentestEnabled ?? true)
         setCodeModelEnabled(config.codeModelEnabled ?? true)
         const uiState = session.ui_state || {}
@@ -860,6 +866,7 @@ function ResponsePlanner() {
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
             validator_enabled: validatorEnabled,
+            report_manager_enabled: reportManagerEnabled,
             pentest_enabled: pentestEnabled,
             code_model_enabled: codeModelEnabled
           })
@@ -1320,6 +1327,7 @@ function ResponsePlanner() {
             infoToolsEnabled,
             reportReviewerEnabled,
             codeReviewerEnabled,
+            reportManagerEnabled,
             validatorEnabled,
             pentestEnabled,
             codeModelEnabled
@@ -1404,6 +1412,7 @@ function ResponsePlanner() {
           info_tools_enabled: infoToolsEnabled,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
+          report_manager_enabled: reportManagerEnabled,
           validator_enabled: validatorEnabled,
           pentest_enabled: pentestEnabled,
           code_model_enabled: codeModelEnabled
@@ -1550,6 +1559,7 @@ function ResponsePlanner() {
           incident_id: selectedIncidentId,
           dt_enabled: dtEnabled,
           info_tools_enabled: infoToolsEnabled,
+          report_manager_enabled: reportManagerEnabled,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
           validator_enabled: validatorEnabled,
@@ -1675,6 +1685,7 @@ function ResponsePlanner() {
         system_description: systemDescription,
         security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
+        report_manager_enabled: reportManagerEnabled,
         pentest_enabled: pentestEnabled
       })
     })
@@ -1975,10 +1986,27 @@ function ResponsePlanner() {
             <input
               className="form-check-input"
               type="checkbox"
+              id="rp-report-manager-enabled"
+              checked={reportManagerEnabled}
+              onChange={(e) => setReportManagerEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="rp-report-manager-enabled">
+              Report Manager enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the orchestrator skips report generation and attack path validation;
+                the plan manager works directly from the raw security alerts)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
               id="rp-pentest-enabled"
               checked={pentestEnabled}
               onChange={(e) => setPentestEnabled(e.target.checked)}
-              disabled={isAgentBusy}
+              disabled={isAgentBusy || !reportManagerEnabled}
             />
             <label className="form-check-label" htmlFor="rp-pentest-enabled">
               Pentest Agent enabled{' '}

@@ -1108,14 +1108,20 @@ def run_plan_manager_stream(
         DIGITAL_TWIN,
     )
 
+    report_manager_enabled = context.get(
+        "report_manager_enabled", True,
+    )
     raw_assessment = context.get("assessment", {})
     assessment = {
         k: v for k, v in raw_assessment.items()
         if k != "attack_path_image"
     }
-    incident_report = json.dumps(
-        assessment, indent=2, default=str,
-    )
+    if report_manager_enabled:
+        incident_report = json.dumps(
+            assessment, indent=2, default=str,
+        )
+    else:
+        incident_report = ""
     dt_config = context.get("dt_config")
     if dt_config is None:
         dt_config = (
@@ -1158,6 +1164,10 @@ def run_plan_manager_stream(
         "conversation_history": conversation_history,
         "code_model_enabled": context.get(
             "code_model_enabled", True,
+        ),
+        "report_manager_enabled": report_manager_enabled,
+        "security_alerts": context.get(
+            "security_alerts", "",
         ),
     }
     # Strip images and attack_path_image from the plan
@@ -1202,6 +1212,10 @@ def run_plan_manager_stream(
         ),
         "incident_report": incident_report,
         "specification": specification,
+        "report_manager_enabled": report_manager_enabled,
+        "security_alerts": context.get(
+            "security_alerts", "",
+        ),
     }
 
     plan_manager_report: dict[str, Any] = {}

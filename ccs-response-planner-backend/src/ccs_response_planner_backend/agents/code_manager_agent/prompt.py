@@ -90,8 +90,7 @@ final decision is yours.
 ### System Description
 {system_description}
 
-### Incident Report
-{incident_report}
+{incident_context_section}
 
 ### Specification Commands
 Shell commands that verify operational constraints (exit 0 = \

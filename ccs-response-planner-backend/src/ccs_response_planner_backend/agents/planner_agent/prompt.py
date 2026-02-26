@@ -29,8 +29,7 @@ analyze convergence and the learned action sequence → call \
 ### System Description
 {system_description}
 
-### Incident Report
-{incident_report}
+{incident_context_section}
 
 ### Specification Commands
 The specification defines the operational constraints that the \
@@ -456,8 +455,7 @@ recovery phases (containment, assessment, preservation, eviction, hardening, res
 ### System Description
 {system_description}
 
-### Incident Report
-{incident_report}
+{incident_context_section}
 
 ### Specification Commands
 The specification defines the operational constraints that the \
