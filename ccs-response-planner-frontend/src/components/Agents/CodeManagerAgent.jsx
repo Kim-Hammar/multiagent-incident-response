@@ -99,6 +99,7 @@ function CodeManagerAgent() {
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
+  const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -152,6 +153,7 @@ function CodeManagerAgent() {
       setAutopilot(config.autopilot ?? true)
       setDtEnabled(config.dtEnabled ?? true)
       setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
+      setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -328,7 +330,8 @@ function CodeManagerAgent() {
             max_iterations: maxIterations,
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
-            report_reviewer_enabled: reportReviewerEnabled
+            report_reviewer_enabled: reportReviewerEnabled,
+            code_reviewer_enabled: codeReviewerEnabled
           })
         })
         if (res.status === 401) {
@@ -548,7 +551,8 @@ function CodeManagerAgent() {
         maxIterations,
         autopilot,
         dtEnabled,
-        reportReviewerEnabled
+        reportReviewerEnabled,
+        codeReviewerEnabled
       }
     )
     callStep([])
@@ -596,7 +600,8 @@ function CodeManagerAgent() {
           conversation_history: stripForBackend(latestHistory),
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
-          session_id: sessionIdRef.current
+          session_id: sessionIdRef.current,
+          code_reviewer_enabled: codeReviewerEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_CODE_MANAGER_TOOL_URL,
@@ -833,7 +838,8 @@ function CodeManagerAgent() {
         conversation_history: stripForBackend(latestHistory),
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
-        session_id: sessionIdRef.current
+        session_id: sessionIdRef.current,
+        code_reviewer_enabled: codeReviewerEnabled
       }
       const { result } = await executeStreamingTool({
         url: API_AGENTS_CODE_MANAGER_TOOL_URL,
@@ -1381,6 +1387,23 @@ function CodeManagerAgent() {
               <span className="ia-hint">
                 (when disabled, the orchestrator invokes the report agent directly, skipping the
                 review process)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="cm-code-reviewer-enabled"
+              checked={codeReviewerEnabled}
+              onChange={(e) => setCodeReviewerEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="cm-code-reviewer-enabled">
+              Code Reviewer enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the plan manager invokes the code agent directly, skipping code
+                review)
               </span>
             </label>
           </div>

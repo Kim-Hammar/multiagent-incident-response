@@ -143,6 +143,7 @@ class CodeManagerAgent:
         validation_feedback: str = "",
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        code_reviewer_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the orchestrator agent loop by one step.
@@ -166,6 +167,8 @@ class CodeManagerAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param code_reviewer_enabled: whether the code reviewer
+            is enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -227,11 +230,20 @@ class CodeManagerAgent:
             ):
                 yield ev
 
+        has_reviewed = (
+            self._has_reviewed(conversation_history)
+            or not code_reviewer_enabled
+        )
         declarations = (
             ALL_DECLARATIONS
-            if self._has_reviewed(conversation_history)
+            if has_reviewed
             else ITERATING_DECLARATIONS
         )
+        if not code_reviewer_enabled:
+            declarations = [
+                d for d in declarations
+                if d.name != "run_code_reviewer_agent"
+            ]
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(

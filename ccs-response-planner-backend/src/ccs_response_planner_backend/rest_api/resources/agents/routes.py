@@ -82,6 +82,7 @@ from ccs_response_planner_backend.agents.plan_manager_agent.prompt import (
 from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PLAN_MANAGER_STREAMING_DISPATCH,
     TOOL_DISPATCH as PLAN_MANAGER_TOOL_DISPATCH,
+    run_code_agent_direct_stream,
 )
 from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
     ReportReviewerAgent,
@@ -2430,6 +2431,9 @@ def agents_code_manager_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+    code_reviewer_enabled = body.get(
+        "code_reviewer_enabled", True,
+    )
 
     def on_complete(
         events: list[dict[str, Any]],
@@ -2474,6 +2478,9 @@ def agents_code_manager_step() -> (
                 compaction_model=compaction_model,
                 compaction_threshold=(
                     compaction_threshold
+                ),
+                code_reviewer_enabled=(
+                    code_reviewer_enabled
                 ),
             )
         except Exception as e:
@@ -2578,6 +2585,9 @@ def agents_code_manager_tool() -> (
             ),
             "compaction_threshold": body.get(
                 "compaction_threshold", 0.8,
+            ),
+            "code_reviewer_enabled": body.get(
+                "code_reviewer_enabled", True,
             ),
         }
         if tool_name == "run_code_reviewer_agent":
@@ -3137,6 +3147,9 @@ def agents_plan_manager_tool() -> (
             "compaction_threshold": body.get(
                 "compaction_threshold", 0.8,
             ),
+            "code_reviewer_enabled": body.get(
+                "code_reviewer_enabled", True,
+            ),
         }
         conv_history = body.get(
             "conversation_history", [],
@@ -3241,11 +3254,26 @@ def agents_plan_manager_tool() -> (
                     )
                 ):
                     yield from _redeploy_dt(job_id)
-                agent = PlanManagerAgent()
-                yield from agent.execute_tool_stream(
-                    tool_name, tool_args,
-                    context=context,
-                )
+                if (
+                    tool_name == "run_code_manager"
+                    and not context.get(
+                        "code_reviewer_enabled",
+                        True,
+                    )
+                ):
+                    yield from (
+                        run_code_agent_direct_stream(
+                            context=context,
+                        )
+                    )
+                else:
+                    agent = PlanManagerAgent()
+                    yield from (
+                        agent.execute_tool_stream(
+                            tool_name, tool_args,
+                            context=context,
+                        )
+                    )
             except Exception as e:
                 yield {
                     "type": "error",
@@ -3541,6 +3569,9 @@ def agents_orchestrator_tool() -> (
             ),
             "report_reviewer_enabled": body.get(
                 "report_reviewer_enabled", True,
+            ),
+            "code_reviewer_enabled": body.get(
+                "code_reviewer_enabled", True,
             ),
             "pentest_enabled": body.get(
                 "pentest_enabled", True,

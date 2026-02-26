@@ -28,6 +28,7 @@ from ccs_response_planner_backend.agents.plan_manager_agent.agent import (
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PM_STREAMING_DISPATCH,
+    run_code_agent_direct_stream,
 )
 from ccs_response_planner_backend.agents.pentest_agent.agent import (
     PentestAgent,
@@ -1352,12 +1353,26 @@ def run_plan_manager_stream(
                 collected: list[dict[str, Any]] = []
                 tool_result: dict[str, Any] = {}
                 try:
-                    for tool_event in (
-                        agent.execute_tool_stream(
-                            tool_name, tool_args,
-                            context=pm_context,
+                    if (
+                        tool_name == "run_code_manager"
+                        and not pm_context.get(
+                            "code_reviewer_enabled",
+                            True,
                         )
                     ):
+                        tool_stream = (
+                            run_code_agent_direct_stream(
+                                context=pm_context,
+                            )
+                        )
+                    else:
+                        tool_stream = (
+                            agent.execute_tool_stream(
+                                tool_name, tool_args,
+                                context=pm_context,
+                            )
+                        )
+                    for tool_event in tool_stream:
                         te_type = tool_event.get("type")
                         if te_type == "sub_event":
                             inner = tool_event["event"]

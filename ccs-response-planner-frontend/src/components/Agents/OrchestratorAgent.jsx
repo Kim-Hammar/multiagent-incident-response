@@ -245,6 +245,7 @@ function OrchestratorAgent() {
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
+  const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
@@ -311,6 +312,7 @@ function OrchestratorAgent() {
       autopilot,
       dtEnabled,
       reportReviewerEnabled,
+      codeReviewerEnabled,
       pentestEnabled
     },
     onRestore: (session) => {
@@ -345,6 +347,7 @@ function OrchestratorAgent() {
         if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
         if (cfg.dtEnabled != null) setDtEnabled(cfg.dtEnabled)
         if (cfg.reportReviewerEnabled != null) setReportReviewerEnabled(cfg.reportReviewerEnabled)
+        if (cfg.codeReviewerEnabled != null) setCodeReviewerEnabled(cfg.codeReviewerEnabled)
         if (cfg.pentestEnabled != null) setPentestEnabled(cfg.pentestEnabled)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
@@ -524,6 +527,7 @@ function OrchestratorAgent() {
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
             report_reviewer_enabled: reportReviewerEnabled,
+            code_reviewer_enabled: codeReviewerEnabled,
             pentest_enabled: pentestEnabled
           })
         })
@@ -800,6 +804,7 @@ function OrchestratorAgent() {
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current,
           report_reviewer_enabled: reportReviewerEnabled,
+          code_reviewer_enabled: codeReviewerEnabled,
           pentest_enabled: pentestEnabled
         }
         const { result } = await executeStreamingTool({
@@ -1055,6 +1060,7 @@ function OrchestratorAgent() {
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current,
         report_reviewer_enabled: reportReviewerEnabled,
+        code_reviewer_enabled: codeReviewerEnabled,
         pentest_enabled: pentestEnabled
       }
       const { result } = await executeStreamingTool({
@@ -1528,6 +1534,23 @@ function OrchestratorAgent() {
               Pentest Agent enabled{' '}
               <span className="ia-hint">
                 (when disabled, the orchestrator skips attack path validation via the pentest agent)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="oa-code-reviewer-enabled"
+              checked={codeReviewerEnabled}
+              onChange={(e) => setCodeReviewerEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-code-reviewer-enabled">
+              Code Reviewer enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the plan manager invokes the code agent directly, skipping code
+                review)
               </span>
             </label>
           </div>
