@@ -237,6 +237,7 @@ function ResponsePlanner() {
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [validatorEnabled, setValidatorEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
+  const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const sessionIdRef = useRef(null)
@@ -486,6 +487,7 @@ function ResponsePlanner() {
         setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
         setValidatorEnabled(config.validatorEnabled ?? true)
         setPentestEnabled(config.pentestEnabled ?? true)
+        setCodeModelEnabled(config.codeModelEnabled ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
         let jobEventCount = -1
@@ -858,7 +860,8 @@ function ResponsePlanner() {
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
             validator_enabled: validatorEnabled,
-            pentest_enabled: pentestEnabled
+            pentest_enabled: pentestEnabled,
+            code_model_enabled: codeModelEnabled
           })
         })
         if (res.status === 401) {
@@ -1318,7 +1321,8 @@ function ResponsePlanner() {
             reportReviewerEnabled,
             codeReviewerEnabled,
             validatorEnabled,
-            pentestEnabled
+            pentestEnabled,
+            codeModelEnabled
           }
         })
       })
@@ -1401,7 +1405,8 @@ function ResponsePlanner() {
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
           validator_enabled: validatorEnabled,
-          pentest_enabled: pentestEnabled
+          pentest_enabled: pentestEnabled,
+          code_model_enabled: codeModelEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1548,7 +1553,8 @@ function ResponsePlanner() {
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
           validator_enabled: validatorEnabled,
-          pentest_enabled: pentestEnabled
+          pentest_enabled: pentestEnabled,
+          code_model_enabled: codeModelEnabled
         })
       })
       if (res.status === 401) {
@@ -1995,6 +2001,23 @@ function ResponsePlanner() {
               <span className="ia-hint">
                 (when disabled, the plan manager invokes the code agent directly, skipping code
                 review)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="rp-code-model-enabled"
+              checked={codeModelEnabled}
+              onChange={(e) => setCodeModelEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="rp-code-model-enabled">
+              Code Model enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the plan manager skips MDP code generation and RL training; the
+                planner agent produces a response plan directly from the incident report)
               </span>
             </label>
           </div>

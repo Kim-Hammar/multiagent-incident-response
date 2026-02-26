@@ -1156,6 +1156,9 @@ def run_plan_manager_stream(
             "plan_manager_compaction", 0.8,
         ),
         "conversation_history": conversation_history,
+        "code_model_enabled": context.get(
+            "code_model_enabled", True,
+        ),
     }
     # Strip images and attack_path_image from the plan
     # manager context — it works with the text-based
@@ -1193,6 +1196,9 @@ def run_plan_manager_stream(
         "dt_enabled": context.get("dt_enabled", True),
         "validator_enabled": context.get(
             "validator_enabled", True,
+        ),
+        "code_model_enabled": context.get(
+            "code_model_enabled", True,
         ),
         "incident_report": incident_report,
         "specification": specification,

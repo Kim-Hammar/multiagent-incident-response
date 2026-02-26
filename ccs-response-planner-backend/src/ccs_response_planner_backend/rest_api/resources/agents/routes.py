@@ -2995,6 +2995,9 @@ def agents_plan_manager_step() -> (
     validator_enabled = body.get(
         "validator_enabled", True,
     )
+    code_model_enabled = body.get(
+        "code_model_enabled", True,
+    )
 
     def on_complete(
         events: list[dict[str, Any]],
@@ -3043,6 +3046,9 @@ def agents_plan_manager_step() -> (
                 ),
                 validator_enabled=(
                     validator_enabled
+                ),
+                code_model_enabled=(
+                    code_model_enabled
                 ),
             )
         except Exception as e:
@@ -3171,6 +3177,9 @@ def agents_plan_manager_tool() -> (
             ),
             "validator_enabled": body.get(
                 "validator_enabled", True,
+            ),
+            "code_model_enabled": body.get(
+                "code_model_enabled", True,
             ),
         }
         conv_history = body.get(
@@ -3624,6 +3633,9 @@ def agents_orchestrator_tool() -> (
             ),
             "pentest_enabled": body.get(
                 "pentest_enabled", True,
+            ),
+            "code_model_enabled": body.get(
+                "code_model_enabled", True,
             ),
         }
         conv_history = body.get(

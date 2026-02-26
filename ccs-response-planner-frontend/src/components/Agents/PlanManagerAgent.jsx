@@ -254,6 +254,7 @@ function PlanManagerAgent() {
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [validatorEnabled, setValidatorEnabled] = useState(true)
+  const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
@@ -316,6 +317,7 @@ function PlanManagerAgent() {
       setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
       setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
       setValidatorEnabled(config.validatorEnabled ?? true)
+      setCodeModelEnabled(config.codeModelEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -482,7 +484,8 @@ function PlanManagerAgent() {
             dt_enabled: dtEnabled,
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
-            validator_enabled: validatorEnabled
+            validator_enabled: validatorEnabled,
+            code_model_enabled: codeModelEnabled
           })
         })
         if (res.status === 401) {
@@ -702,7 +705,8 @@ function PlanManagerAgent() {
         dtEnabled,
         reportReviewerEnabled,
         codeReviewerEnabled,
-        validatorEnabled
+        validatorEnabled,
+        codeModelEnabled
       }
     )
     callStep([])
@@ -754,7 +758,8 @@ function PlanManagerAgent() {
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current,
           code_reviewer_enabled: codeReviewerEnabled,
-          validator_enabled: validatorEnabled
+          validator_enabled: validatorEnabled,
+          code_model_enabled: codeModelEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_PLAN_MANAGER_TOOL_URL,
@@ -1047,7 +1052,8 @@ function PlanManagerAgent() {
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current,
         code_reviewer_enabled: codeReviewerEnabled,
-        validator_enabled: validatorEnabled
+        validator_enabled: validatorEnabled,
+        code_model_enabled: codeModelEnabled
       }
       const { result } = await executeStreamingTool({
         url: API_AGENTS_PLAN_MANAGER_TOOL_URL,
@@ -1714,6 +1720,23 @@ function PlanManagerAgent() {
               <span className="ia-hint">
                 (when disabled, the plan manager invokes the code agent directly, skipping code
                 review)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="pm-code-model-enabled"
+              checked={codeModelEnabled}
+              onChange={(e) => setCodeModelEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="pm-code-model-enabled">
+              Code Model enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the plan manager skips MDP code generation and RL training; the
+                planner agent produces a response plan directly from the incident report)
               </span>
             </label>
           </div>

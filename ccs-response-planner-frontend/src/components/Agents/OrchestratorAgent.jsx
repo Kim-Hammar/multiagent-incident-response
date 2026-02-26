@@ -249,6 +249,7 @@ function OrchestratorAgent() {
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [validatorEnabled, setValidatorEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
+  const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
@@ -317,7 +318,8 @@ function OrchestratorAgent() {
       reportReviewerEnabled,
       codeReviewerEnabled,
       validatorEnabled,
-      pentestEnabled
+      pentestEnabled,
+      codeModelEnabled
     },
     onRestore: (session) => {
       if (session.incident_inputs) {
@@ -355,6 +357,7 @@ function OrchestratorAgent() {
         if (cfg.codeReviewerEnabled != null) setCodeReviewerEnabled(cfg.codeReviewerEnabled)
         if (cfg.validatorEnabled != null) setValidatorEnabled(cfg.validatorEnabled)
         if (cfg.pentestEnabled != null) setPentestEnabled(cfg.pentestEnabled)
+        if (cfg.codeModelEnabled != null) setCodeModelEnabled(cfg.codeModelEnabled)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
       if (session.incident_id) setSelectedIncidentId(session.incident_id)
@@ -536,7 +539,8 @@ function OrchestratorAgent() {
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
             validator_enabled: validatorEnabled,
-            pentest_enabled: pentestEnabled
+            pentest_enabled: pentestEnabled,
+            code_model_enabled: codeModelEnabled
           })
         })
         if (res.status === 401) {
@@ -814,7 +818,8 @@ function OrchestratorAgent() {
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
           validator_enabled: validatorEnabled,
-          pentest_enabled: pentestEnabled
+          pentest_enabled: pentestEnabled,
+          code_model_enabled: codeModelEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1071,7 +1076,8 @@ function OrchestratorAgent() {
         report_reviewer_enabled: reportReviewerEnabled,
         code_reviewer_enabled: codeReviewerEnabled,
         validator_enabled: validatorEnabled,
-        pentest_enabled: pentestEnabled
+        pentest_enabled: pentestEnabled,
+        code_model_enabled: codeModelEnabled
       }
       const { result } = await executeStreamingTool({
         url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1577,6 +1583,23 @@ function OrchestratorAgent() {
               <span className="ia-hint">
                 (when disabled, the plan manager invokes the code agent directly, skipping code
                 review)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="oa-code-model-enabled"
+              checked={codeModelEnabled}
+              onChange={(e) => setCodeModelEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-code-model-enabled">
+              Code Model enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the plan manager skips MDP code generation and RL training; the
+                planner agent produces a response plan directly from the incident report)
               </span>
             </label>
           </div>

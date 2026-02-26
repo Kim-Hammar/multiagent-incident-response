@@ -1113,6 +1113,9 @@ def run_planner_agent_stream(
         "compaction_threshold": context.get(
             "planner_agent_compaction", 0.8,
         ),
+        "code_model_enabled": context.get(
+            "code_model_enabled", True,
+        ),
     }
 
     planner_report: dict[str, Any] | None = None

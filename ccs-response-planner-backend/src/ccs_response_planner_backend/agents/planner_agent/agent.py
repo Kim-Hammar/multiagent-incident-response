@@ -26,9 +26,11 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.planner_agent.prompt import (
+    DIRECT_PLAN_PROMPT_TEMPLATE,
     SYSTEM_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.agents.planner_agent.tool_declarations import (
+    DIRECT_PLAN_DECLARATIONS,
     ITERATING_DECLARATIONS,
     POST_TRAINING_DECLARATIONS,
 )
@@ -47,19 +49,24 @@ REPORT_TOOL_NAME = "produce_planner_report"
 
 def _build_initial_message(
     images: list[str] | None = None,
+    text: str | None = None,
 ) -> dict[str, Any]:
     """
     Build the initial user message, optionally including images.
 
     :param images: optional list of base64 data-URL image strings
+    :param text: optional custom text for the initial message
     :return: a Gemini-compatible content dict
     """
-    parts: list[dict[str, Any]] = [{"text": (
+    default_text = (
         "Please analyze the provided Gymnasium MDP "
         "environment, train an RL policy on it, and "
         "produce an incident response plan based on "
         "the learned policy."
-    )}]
+    )
+    parts: list[dict[str, Any]] = [
+        {"text": text or default_text}
+    ]
     for data_url in (images or []):
         if "," not in data_url:
             continue
@@ -309,6 +316,7 @@ class PlannerAgent:
         ) = None,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        code_model_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -334,25 +342,55 @@ class PlannerAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param code_model_enabled: whether the code model
+            (MDP + RL) pipeline is enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        formatted_report = self._format_code_report(
-            code_report or {},
-        )
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            system_description=system_description or "N/A",
-            incident_report=incident_report or "N/A",
-            specification=specification or "N/A",
-            operator_feedback=operator_feedback or "N/A",
-            code_report_formatted=formatted_report,
-            time_limit_minutes=time_limit_minutes,
-            revision_context=self._format_revision_context(
-                prev_planner_report,
-                prev_validation_report,
-            ),
-        )
+        if code_model_enabled:
+            formatted_report = self._format_code_report(
+                code_report or {},
+            )
+            system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+                system_description=(
+                    system_description or "N/A"
+                ),
+                incident_report=(
+                    incident_report or "N/A"
+                ),
+                specification=specification or "N/A",
+                operator_feedback=(
+                    operator_feedback or "N/A"
+                ),
+                code_report_formatted=formatted_report,
+                time_limit_minutes=time_limit_minutes,
+                revision_context=(
+                    self._format_revision_context(
+                        prev_planner_report,
+                        prev_validation_report,
+                    )
+                ),
+            )
+        else:
+            system_prompt = DIRECT_PLAN_PROMPT_TEMPLATE.format(
+                system_description=(
+                    system_description or "N/A"
+                ),
+                incident_report=(
+                    incident_report or "N/A"
+                ),
+                specification=specification or "N/A",
+                operator_feedback=(
+                    operator_feedback or "N/A"
+                ),
+                revision_context=(
+                    self._format_revision_context(
+                        prev_planner_report,
+                        prev_validation_report,
+                    )
+                ),
+            )
         yield {
             "type": "system_prompt",
             "text": system_prompt,
@@ -376,12 +414,18 @@ class PlannerAgent:
             ):
                 yield ev
 
-        has_trained = self._has_trained(conversation_history)
-        declarations = (
-            POST_TRAINING_DECLARATIONS
-            if has_trained
-            else ITERATING_DECLARATIONS
-        )
+        if code_model_enabled:
+            has_trained = self._has_trained(
+                conversation_history,
+            )
+            declarations = (
+                POST_TRAINING_DECLARATIONS
+                if has_trained
+                else ITERATING_DECLARATIONS
+            )
+        else:
+            has_trained = False
+            declarations = DIRECT_PLAN_DECLARATIONS
         decl_names = [d.name for d in declarations]
         logger.info(
             "step_stream: has_trained=%s, "
@@ -390,20 +434,27 @@ class PlannerAgent:
             len(conversation_history),
         )
 
+        initial_user_text = (
+            "Please analyze the provided "
+            "Gymnasium MDP environment, "
+            "train an RL policy on it, "
+            "and produce an incident "
+            "response plan based on the "
+            "learned policy."
+        ) if code_model_enabled else (
+            "Please analyze the incident report "
+            "and produce a response plan with a "
+            "concrete sequence of response actions."
+        )
+
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(
                 system_prompt=system_prompt,
                 tool_declarations=declarations,
                 history=conversation_history,
                 initial_user_parts=[{
-                    "type": "text", "text": (
-                        "Please analyze the provided "
-                        "Gymnasium MDP environment, "
-                        "train an RL policy on it, "
-                        "and produce an incident "
-                        "response plan based on the "
-                        "learned policy."
-                    ),
+                    "type": "text",
+                    "text": initial_user_text,
                 }],
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type="planner_report",
@@ -428,7 +479,9 @@ class PlannerAgent:
             images if not conversation_history else None
         )
         contents = (
-            [_build_initial_message(initial_images)]
+            [_build_initial_message(
+                initial_images, initial_user_text,
+            )]
             + self._build_contents(conversation_history)
         )
 

@@ -27,10 +27,13 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.prompt import (
+    DIRECT_PLAN_PROMPT_TEMPLATE,
     SYSTEM_PROMPT_TEMPLATE,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.tool_declarations import (
     ALL_DECLARATIONS,
+    DIRECT_PLAN_ALL_DECLARATIONS,
+    DIRECT_PLAN_ITERATING_DECLARATIONS,
     ITERATING_DECLARATIONS,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
@@ -50,18 +53,23 @@ THINKING_BUDGET = 16384
 
 def _build_initial_message(
     images: list[str] | None = None,
+    text: str | None = None,
 ) -> dict[str, Any]:
     """
     Build the initial user message, optionally including images.
 
     :param images: optional list of base64 data-URL image strings
+    :param text: optional custom text for the initial message
     :return: a Gemini-compatible content dict
     """
-    parts: list[dict[str, Any]] = [{"text": (
+    default_text = (
         "Please orchestrate the full incident response "
         "pipeline. Start by running the CodeManager to "
         "generate the MDP environment code."
-    )}]
+    )
+    parts: list[dict[str, Any]] = [
+        {"text": text or default_text}
+    ]
     for data_url in (images or []):
         if "," not in data_url:
             continue
@@ -142,6 +150,7 @@ class PlanManagerAgent:
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
         validator_enabled: bool = True,
+        code_model_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the plan manager agent loop by one step.
@@ -166,11 +175,18 @@ class PlanManagerAgent:
             triggers compaction (default 0.8)
         :param validator_enabled: whether the validation agent
             is enabled (default True)
+        :param code_model_enabled: whether the code model
+            (MDP + RL) pipeline is enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        prompt_template = (
+            SYSTEM_PROMPT_TEMPLATE
+            if code_model_enabled
+            else DIRECT_PLAN_PROMPT_TEMPLATE
+        )
+        system_prompt = prompt_template.format(
             system_description=(
                 system_description or "N/A"
             ),
@@ -211,16 +227,35 @@ class PlanManagerAgent:
             self._has_validated(conversation_history)
             or not validator_enabled
         )
-        declarations = (
-            ALL_DECLARATIONS
-            if has_validated
-            else ITERATING_DECLARATIONS
-        )
+        if code_model_enabled:
+            declarations = (
+                ALL_DECLARATIONS
+                if has_validated
+                else ITERATING_DECLARATIONS
+            )
+        else:
+            declarations = (
+                DIRECT_PLAN_ALL_DECLARATIONS
+                if has_validated
+                else DIRECT_PLAN_ITERATING_DECLARATIONS
+            )
         if not validator_enabled:
             declarations = [
                 d for d in declarations
                 if d.name != "run_validation_agent"
             ]
+
+        initial_user_text = (
+            "Please orchestrate the full "
+            "incident response pipeline. "
+            "Start by running the "
+            "CodeManager to generate the "
+            "MDP environment code."
+        ) if code_model_enabled else (
+            "Please invoke the planner agent "
+            "to directly produce a response "
+            "plan based on the incident report."
+        )
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(
@@ -228,13 +263,8 @@ class PlanManagerAgent:
                 tool_declarations=declarations,
                 history=conversation_history,
                 initial_user_parts=[{
-                    "type": "text", "text": (
-                        "Please orchestrate the full "
-                        "incident response pipeline. "
-                        "Start by running the "
-                        "CodeManager to generate the "
-                        "MDP environment code."
-                    ),
+                    "type": "text",
+                    "text": initial_user_text,
                 }],
                 final_tool_name=REPORT_TOOL_NAME,
                 final_event_type=(
@@ -263,7 +293,9 @@ class PlanManagerAgent:
             images if not conversation_history else None
         )
         contents = (
-            [_build_initial_message(initial_images)]
+            [_build_initial_message(
+                initial_images, initial_user_text,
+            )]
             + self._build_contents(conversation_history)
         )
 
