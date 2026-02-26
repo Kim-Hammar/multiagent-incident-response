@@ -40,7 +40,7 @@ from ccs_response_planner_backend.agents.code_manager_agent.tools import (
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-3-pro-preview"
+MODEL_NAME = "gemini-3.1-pro-preview"
 CONTEXT_LIMIT = 1_048_576
 
 REPORT_TOOL_NAME = "produce_orchestrator_report"

@@ -38,7 +38,7 @@ from ccs_response_planner_backend.agents.code_agent.tools import (
     TOOL_DISPATCH,
 )
 
-MODEL_NAME = "gemini-3-pro-preview"
+MODEL_NAME = "gemini-3.1-pro-preview"
 CONTEXT_LIMIT = 1_048_576
 
 REPORT_TOOL_NAME = "produce_code_report"

@@ -110,7 +110,7 @@ function SubAgentsTab({
 
   const modelOptions = (
     <>
-      <option value="">Default (Gemini 3 Pro)</option>
+      <option value="">Default (Gemini 3.1 Pro)</option>
       {models.map((m) => (
         <option key={m.name} value={m.name}>
           {m.display_name}
