@@ -10,6 +10,7 @@ structured review. The goal of the review is to identify errors, gaps, and \
 unsubstantiated claims so the report can be improved before it is used for \
 response planning. \
 Before producing a solution or invoking a tool, think step-by-step about the best approach.{review_iteration_note}
+{info_tools_notice}\
 
 ## Example
 

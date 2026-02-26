@@ -594,6 +594,9 @@ def _run_single_host_analyzer(
                     "host_analyzer_model",
                 ),
                 "dt_config": context.get("dt_config"),
+                "info_tools_enabled": context.get(
+                    "info_tools_enabled", True,
+                ),
             }
 
             with semaphore:

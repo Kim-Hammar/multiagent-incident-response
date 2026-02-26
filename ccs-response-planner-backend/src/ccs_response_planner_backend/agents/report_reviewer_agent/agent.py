@@ -26,6 +26,8 @@ from ccs_response_planner_backend.agents.context_utils import (
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     DT_DISABLED_NOTICE,
+    INFO_TOOLS_DISABLED_NOTICE,
+    filter_info_tool_declarations,
     format_container_list,
     format_container_table,
     format_network_connectivity,
@@ -242,6 +244,7 @@ class ReportReviewerAgent:
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
         dt_enabled: bool = True,
+        info_tools_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -266,6 +269,8 @@ class ReportReviewerAgent:
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
         :param dt_enabled: whether the digital twin is enabled
+        :param info_tools_enabled: whether external info tools
+            are enabled
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -283,6 +288,11 @@ class ReportReviewerAgent:
             dt_container_list = DT_DISABLED_NOTICE
             dt_container_table = DT_DISABLED_NOTICE
             dt_network_connectivity = DT_DISABLED_NOTICE
+
+        info_tools_notice = (
+            "" if info_tools_enabled
+            else INFO_TOOLS_DISABLED_NOTICE + "\n\n"
+        )
 
         formatted_report = self._format_incident_report(
             incident_report or {},
@@ -304,6 +314,7 @@ class ReportReviewerAgent:
                     review_iteration,
                 )
             ),
+            info_tools_notice=info_tools_notice,
         )
         yield {
             "type": "system_prompt",
@@ -332,6 +343,9 @@ class ReportReviewerAgent:
             ALL_DECLARATIONS
             if self._has_used_tool(conversation_history)
             else ITERATING_DECLARATIONS
+        )
+        declarations = filter_info_tool_declarations(
+            declarations, info_tools_enabled,
         )
 
         if is_anthropic_model(effective_model):

@@ -793,6 +793,9 @@ def agents_report_step() -> tuple[Response, int]:
             dt_enabled = body.get(
                 "dt_enabled", True,
             )
+            info_tools_enabled = body.get(
+                "info_tools_enabled", True,
+            )
             if (
                 not conversation_history
                 and dt_enabled
@@ -818,6 +821,7 @@ def agents_report_step() -> tuple[Response, int]:
                 compaction_model=compaction_model,
                 compaction_threshold=compaction_threshold,
                 dt_enabled=dt_enabled,
+                info_tools_enabled=info_tools_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -1868,6 +1872,9 @@ def agents_report_review_step() -> (
             dt_enabled = body.get(
                 "dt_enabled", True,
             )
+            info_tools_enabled = body.get(
+                "info_tools_enabled", True,
+            )
             if (
                 not conversation_history
                 and dt_enabled
@@ -1901,6 +1908,9 @@ def agents_report_review_step() -> (
                     compaction_threshold
                 ),
                 dt_enabled=dt_enabled,
+                info_tools_enabled=(
+                    info_tools_enabled
+                ),
             )
         except Exception as e:
             yield {
@@ -2257,6 +2267,9 @@ def agents_report_manager_tool() -> (
             ),
             "compaction_threshold": body.get(
                 "compaction_threshold", 0.8,
+            ),
+            "info_tools_enabled": body.get(
+                "info_tools_enabled", True,
             ),
         }
         if tool_name == (
@@ -3597,6 +3610,9 @@ def agents_orchestrator_tool() -> (
             "dt_enabled": body.get(
                 "dt_enabled", True,
             ),
+            "info_tools_enabled": body.get(
+                "info_tools_enabled", True,
+            ),
             "report_reviewer_enabled": body.get(
                 "report_reviewer_enabled", True,
             ),
@@ -4313,6 +4329,9 @@ def agents_host_analyzer_step() -> tuple[Response, int]:
             dt_enabled = body.get(
                 "dt_enabled", True,
             )
+            info_tools_enabled = body.get(
+                "info_tools_enabled", True,
+            )
             if (
                 not conversation_history
                 and dt_enabled
@@ -4345,6 +4364,9 @@ def agents_host_analyzer_step() -> tuple[Response, int]:
                     compaction_threshold
                 ),
                 dt_enabled=dt_enabled,
+                info_tools_enabled=(
+                    info_tools_enabled
+                ),
             )
         except Exception as e:
             yield _make_error_event(e)

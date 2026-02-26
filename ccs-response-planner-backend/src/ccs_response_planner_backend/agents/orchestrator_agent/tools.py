@@ -336,6 +336,9 @@ def run_report_manager_stream(
         ),
         "dt_config": context.get("dt_config"),
         "dt_enabled": context.get("dt_enabled", True),
+        "info_tools_enabled": context.get(
+            "info_tools_enabled", True,
+        ),
     }
 
     report_manager_report: dict[str, Any] = {}

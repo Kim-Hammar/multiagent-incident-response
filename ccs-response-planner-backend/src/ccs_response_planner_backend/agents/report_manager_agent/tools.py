@@ -174,6 +174,9 @@ def run_report_agent_stream(
             "dt_enabled": context.get(
                 "dt_enabled", True,
             ),
+            "info_tools_enabled": context.get(
+                "info_tools_enabled", True,
+            ),
         }
         for event in _timeout_step_stream(
             agent, ra_kwargs, step_start,
@@ -536,6 +539,9 @@ def run_report_reviewer_agent_stream(
             ),
             "dt_enabled": context.get(
                 "dt_enabled", True,
+            ),
+            "info_tools_enabled": context.get(
+                "info_tools_enabled", True,
             ),
         }
         for event in _timeout_step_stream(

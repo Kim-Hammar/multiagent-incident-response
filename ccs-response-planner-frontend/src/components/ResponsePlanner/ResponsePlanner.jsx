@@ -232,6 +232,7 @@ function ResponsePlanner() {
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [dtEnabled, setDtEnabled] = useState(true)
+  const [infoToolsEnabled, setInfoToolsEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [validatorEnabled, setValidatorEnabled] = useState(true)
@@ -480,6 +481,7 @@ function ResponsePlanner() {
         setPlannerTimeLimitMinutes(config.plannerTimeLimitMinutes || 10)
         setAutopilot(config.autopilot ?? true)
         setDtEnabled(config.dtEnabled ?? true)
+        setInfoToolsEnabled(config.infoToolsEnabled ?? true)
         setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
         setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
         setValidatorEnabled(config.validatorEnabled ?? true)
@@ -852,6 +854,7 @@ function ResponsePlanner() {
             compaction_model: compactionModel || undefined,
             compaction_threshold: orchestratorCompaction / 100,
             dt_enabled: dtEnabled,
+            info_tools_enabled: infoToolsEnabled,
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
             validator_enabled: validatorEnabled,
@@ -1311,6 +1314,7 @@ function ResponsePlanner() {
             plannerTimeLimitMinutes,
             autopilot,
             dtEnabled,
+            infoToolsEnabled,
             reportReviewerEnabled,
             codeReviewerEnabled,
             validatorEnabled,
@@ -1393,6 +1397,7 @@ function ResponsePlanner() {
           planner_agent_compaction: plannerAgentCompaction / 100,
           validation_agent_compaction: validationAgentCompaction / 100,
           dt_enabled: dtEnabled,
+          info_tools_enabled: infoToolsEnabled,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
           validator_enabled: validatorEnabled,
@@ -1539,6 +1544,7 @@ function ResponsePlanner() {
           tool_args: proposal.tool_args,
           incident_id: selectedIncidentId,
           dt_enabled: dtEnabled,
+          info_tools_enabled: infoToolsEnabled,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
           validator_enabled: validatorEnabled,
@@ -1923,6 +1929,22 @@ function ResponsePlanner() {
                 Digital Twin enabled{' '}
                 <span className="ia-hint">
                   (when disabled, agents cannot interact with the digital twin)
+                </span>
+              </label>
+            </div>
+            <div className="form-check">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="rp-info-tools-enabled"
+                checked={infoToolsEnabled}
+                onChange={(e) => setInfoToolsEnabled(e.target.checked)}
+                disabled={isAgentBusy}
+              />
+              <label className="form-check-label" htmlFor="rp-info-tools-enabled">
+                Information Tools enabled{' '}
+                <span className="ia-hint">
+                  (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
                 </span>
               </label>
             </div>

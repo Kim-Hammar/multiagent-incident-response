@@ -9,6 +9,7 @@ tools, then produce a structured incident assessment. \
 Before producing a solution or invoking a tool, think step-by-step about the best approach.
 
 {revision_notice}\
+{info_tools_notice}\
 
 ## Example
 

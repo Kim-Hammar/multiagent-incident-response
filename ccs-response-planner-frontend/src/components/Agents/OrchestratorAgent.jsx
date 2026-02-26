@@ -244,6 +244,7 @@ function OrchestratorAgent() {
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
+  const [infoToolsEnabled, setInfoToolsEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
   const [validatorEnabled, setValidatorEnabled] = useState(true)
@@ -312,6 +313,7 @@ function OrchestratorAgent() {
       plannerTimeLimitMinutes,
       autopilot,
       dtEnabled,
+      infoToolsEnabled,
       reportReviewerEnabled,
       codeReviewerEnabled,
       validatorEnabled,
@@ -348,6 +350,7 @@ function OrchestratorAgent() {
           setPlannerTimeLimitMinutes(cfg.plannerTimeLimitMinutes)
         if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
         if (cfg.dtEnabled != null) setDtEnabled(cfg.dtEnabled)
+        if (cfg.infoToolsEnabled != null) setInfoToolsEnabled(cfg.infoToolsEnabled)
         if (cfg.reportReviewerEnabled != null) setReportReviewerEnabled(cfg.reportReviewerEnabled)
         if (cfg.codeReviewerEnabled != null) setCodeReviewerEnabled(cfg.codeReviewerEnabled)
         if (cfg.validatorEnabled != null) setValidatorEnabled(cfg.validatorEnabled)
@@ -529,6 +532,7 @@ function OrchestratorAgent() {
             compaction_threshold: compactionThreshold / 100,
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
+            info_tools_enabled: infoToolsEnabled,
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
             validator_enabled: validatorEnabled,
@@ -1507,6 +1511,22 @@ function OrchestratorAgent() {
               Digital Twin enabled{' '}
               <span className="ia-hint">
                 (when disabled, agents cannot interact with the digital twin)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="oa-info-tools-enabled"
+              checked={infoToolsEnabled}
+              onChange={(e) => setInfoToolsEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-info-tools-enabled">
+              Information Tools enabled{' '}
+              <span className="ia-hint">
+                (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
               </span>
             </label>
           </div>

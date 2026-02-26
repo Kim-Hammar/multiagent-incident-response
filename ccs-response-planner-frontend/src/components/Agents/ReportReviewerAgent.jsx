@@ -50,6 +50,7 @@ function ReportReviewerAgent() {
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
+  const [infoToolsEnabled, setInfoToolsEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -102,6 +103,7 @@ function ReportReviewerAgent() {
       setCompactionThreshold(config.compactionThreshold || 80)
       setAutopilot(config.autopilot ?? true)
       setDtEnabled(config.dtEnabled ?? true)
+      setInfoToolsEnabled(config.infoToolsEnabled ?? true)
       setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
@@ -279,6 +281,7 @@ function ReportReviewerAgent() {
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
+            info_tools_enabled: infoToolsEnabled,
             report_reviewer_enabled: reportReviewerEnabled
           })
         })
@@ -486,6 +489,7 @@ function ReportReviewerAgent() {
         compactionThreshold,
         autopilot,
         dtEnabled,
+        infoToolsEnabled,
         reportReviewerEnabled
       }
     )
@@ -992,6 +996,22 @@ function ReportReviewerAgent() {
               Digital Twin enabled{' '}
               <span className="ia-hint">
                 (when disabled, agents cannot interact with the digital twin)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="rr-info-tools-enabled"
+              checked={infoToolsEnabled}
+              onChange={(e) => setInfoToolsEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="rr-info-tools-enabled">
+              Information Tools enabled{' '}
+              <span className="ia-hint">
+                (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
               </span>
             </label>
           </div>

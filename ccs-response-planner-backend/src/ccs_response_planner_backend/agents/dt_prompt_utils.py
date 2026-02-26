@@ -9,6 +9,22 @@ DT_DISABLED_NOTICE = (
 )
 DT_TOOL_NAMES = {"dt_exec", "dt_restart", "dt_python_exec"}
 
+INFO_TOOL_NAMES = {
+    "tavily_search", "nvd_search", "mitre_search",
+    "virustotal_scan", "abuseipdb_check", "otx_search",
+}
+
+INFO_TOOLS_DISABLED_NOTICE = (
+    "**IMPORTANT: External information retrieval tools "
+    "are NOT available for this session.** The following "
+    "tools are disabled: tavily_search, nvd_search, "
+    "mitre_search, virustotal_scan, abuseipdb_check, "
+    "otx_search. Base your analysis solely on the "
+    "digital twin investigation and the information "
+    "provided in the incident context. Do NOT attempt "
+    "to call any of these tools."
+)
+
 
 def filter_dt_declarations(
     declarations: list[Any],
@@ -26,6 +42,27 @@ def filter_dt_declarations(
     return [
         d for d in declarations
         if d.name not in DT_TOOL_NAMES
+    ]
+
+
+def filter_info_tool_declarations(
+    declarations: list[Any],
+    info_tools_enabled: bool = True,
+) -> list[Any]:
+    """
+    Remove information-tool declarations when info tools
+    are disabled.
+
+    :param declarations: list of tool declaration objects
+    :param info_tools_enabled: whether external info tools
+        are enabled
+    :return: filtered list of declarations
+    """
+    if info_tools_enabled:
+        return declarations
+    return [
+        d for d in declarations
+        if d.name not in INFO_TOOL_NAMES
     ]
 
 

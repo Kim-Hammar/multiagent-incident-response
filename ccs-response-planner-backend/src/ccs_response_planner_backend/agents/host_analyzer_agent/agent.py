@@ -26,7 +26,9 @@ from ccs_response_planner_backend.agents.context_utils import (
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     DT_DISABLED_NOTICE,
+    INFO_TOOLS_DISABLED_NOTICE,
     filter_dt_declarations,
+    filter_info_tool_declarations,
     format_container_list,
     format_container_table,
     format_network_connectivity,
@@ -149,6 +151,7 @@ class HostAnalyzerAgent:
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
         dt_enabled: bool = True,
+        info_tools_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -172,6 +175,8 @@ class HostAnalyzerAgent:
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
         :param dt_enabled: whether the digital twin is enabled
+        :param info_tools_enabled: whether external info tools
+            are enabled
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -190,6 +195,11 @@ class HostAnalyzerAgent:
             dt_container_table = DT_DISABLED_NOTICE
             dt_network_connectivity = DT_DISABLED_NOTICE
 
+        info_tools_notice = (
+            "" if info_tools_enabled
+            else INFO_TOOLS_DISABLED_NOTICE + "\n\n"
+        )
+
         system_prompt = build_system_prompt(
             system_description=(
                 system_description or "N/A"
@@ -204,6 +214,7 @@ class HostAnalyzerAgent:
             dt_container_list=dt_container_list,
             dt_container_table=dt_container_table,
             dt_network_connectivity=dt_network_connectivity,
+            info_tools_notice=info_tools_notice,
         )
         yield {
             "type": "system_prompt",
@@ -237,6 +248,9 @@ class HostAnalyzerAgent:
 
         declarations = filter_dt_declarations(
             TOOL_DECLARATIONS, dt_enabled,
+        )
+        declarations = filter_info_tool_declarations(
+            declarations, info_tools_enabled,
         )
 
         if is_anthropic_model(effective_model):

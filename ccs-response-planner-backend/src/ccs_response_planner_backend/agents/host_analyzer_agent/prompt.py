@@ -28,6 +28,7 @@ managing the incident (e.g., additional constraints or priorities), \
 instructions from an upstream orchestrator agent, or both. \
 Treat all feedback here as actionable context for your task.
 {operator_feedback}
+{info_tools_notice}\
 
 ### Host to Analyze
 {host_description}
