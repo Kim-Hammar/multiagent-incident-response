@@ -1179,6 +1179,15 @@ function ReportManagerAgent() {
             className={`nav-link${activeTab === 'config' ? ' active' : ''}`}
             onClick={() => setActiveTab('config')}
           >
+            Incident description
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link${activeTab === 'configuration' ? ' active' : ''}`}
+            onClick={() => setActiveTab('configuration')}
+          >
             Configuration
           </button>
         </li>
@@ -1325,6 +1334,8 @@ function ReportManagerAgent() {
           </div>
         </div>
       )}
+
+      {activeTab === 'configuration' && <div />}
 
       {activeTab === 'agents' && (
         <AgentConfigTable

@@ -1807,6 +1807,15 @@ function ResponsePlanner() {
         <li className="nav-item">
           <button
             type="button"
+            className={`nav-link${activeTab === 'configuration' ? ' active' : ''}`}
+            onClick={() => setActiveTab('configuration')}
+          >
+            Configuration
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
             className={`nav-link${activeTab === 'subagents' ? ' active' : ''}`}
             onClick={() => setActiveTab('subagents')}
           >
@@ -1867,6 +1876,8 @@ function ResponsePlanner() {
             setAutopilot={setAutopilot}
           />
         )}
+
+        {activeTab === 'configuration' && <div />}
 
         {activeTab === 'subagents' && (
           <SubAgentsTab
