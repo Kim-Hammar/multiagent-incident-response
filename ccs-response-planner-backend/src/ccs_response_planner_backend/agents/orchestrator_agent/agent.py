@@ -27,7 +27,7 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.orchestrator_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.orchestrator_agent.tool_declarations import (
     ALL_DECLARATIONS,
@@ -142,6 +142,7 @@ class OrchestratorAgent:
         max_iterations: int = 1,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        pentest_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the orchestrator agent loop by one step.
@@ -163,21 +164,18 @@ class OrchestratorAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param pentest_enabled: whether the pentest agent is
+            enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            system_description=(
-                system_description or "N/A"
-            ),
-            security_alerts=(
-                security_alerts or "N/A"
-            ),
-            operator_feedback=(
-                operator_feedback or "N/A"
-            ),
+        system_prompt = build_system_prompt(
+            system_description=system_description,
+            security_alerts=security_alerts,
+            operator_feedback=operator_feedback,
             max_iterations=max_iterations,
+            pentest_enabled=pentest_enabled,
         )
 
         yield {
@@ -206,8 +204,9 @@ class OrchestratorAgent:
         has_planned = self._has_planned(
             conversation_history,
         )
-        has_pentested = self._has_pentested(
-            conversation_history,
+        has_pentested = (
+            self._has_pentested(conversation_history)
+            or not pentest_enabled
         )
         if has_planned:
             declarations = ALL_DECLARATIONS
@@ -215,6 +214,12 @@ class OrchestratorAgent:
             declarations = MID_DECLARATIONS
         else:
             declarations = ITERATING_DECLARATIONS
+
+        if not pentest_enabled:
+            declarations = [
+                d for d in declarations
+                if d.name != "run_pentest_agent"
+            ]
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(

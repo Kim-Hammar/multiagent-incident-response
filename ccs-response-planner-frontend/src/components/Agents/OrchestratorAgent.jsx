@@ -245,6 +245,7 @@ function OrchestratorAgent() {
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
+  const [pentestEnabled, setPentestEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
@@ -309,7 +310,8 @@ function OrchestratorAgent() {
       plannerTimeLimitMinutes,
       autopilot,
       dtEnabled,
-      reportReviewerEnabled
+      reportReviewerEnabled,
+      pentestEnabled
     },
     onRestore: (session) => {
       if (session.incident_inputs) {
@@ -343,6 +345,7 @@ function OrchestratorAgent() {
         if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
         if (cfg.dtEnabled != null) setDtEnabled(cfg.dtEnabled)
         if (cfg.reportReviewerEnabled != null) setReportReviewerEnabled(cfg.reportReviewerEnabled)
+        if (cfg.pentestEnabled != null) setPentestEnabled(cfg.pentestEnabled)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
       if (session.incident_id) setSelectedIncidentId(session.incident_id)
@@ -520,7 +523,8 @@ function OrchestratorAgent() {
             compaction_threshold: compactionThreshold / 100,
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
-            report_reviewer_enabled: reportReviewerEnabled
+            report_reviewer_enabled: reportReviewerEnabled,
+            pentest_enabled: pentestEnabled
           })
         })
         if (res.status === 401) {
@@ -795,7 +799,8 @@ function OrchestratorAgent() {
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current,
-          report_reviewer_enabled: reportReviewerEnabled
+          report_reviewer_enabled: reportReviewerEnabled,
+          pentest_enabled: pentestEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1049,7 +1054,8 @@ function OrchestratorAgent() {
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current,
-        report_reviewer_enabled: reportReviewerEnabled
+        report_reviewer_enabled: reportReviewerEnabled,
+        pentest_enabled: pentestEnabled
       }
       const { result } = await executeStreamingTool({
         url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1168,7 +1174,8 @@ function OrchestratorAgent() {
       body: JSON.stringify({
         system_description: systemDescription,
         security_alerts: securityAlerts,
-        operator_feedback: operatorFeedback
+        operator_feedback: operatorFeedback,
+        pentest_enabled: pentestEnabled
       })
     })
     if (res.status === 401) {
@@ -1508,6 +1515,22 @@ function OrchestratorAgent() {
               </span>
             </label>
           </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="oa-pentest-enabled"
+              checked={pentestEnabled}
+              onChange={(e) => setPentestEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-pentest-enabled">
+              Pentest Agent enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the orchestrator skips attack path validation via the pentest agent)
+              </span>
+            </label>
+          </div>
         </div>
       )}
 
@@ -1519,7 +1542,8 @@ function OrchestratorAgent() {
           getPromptBody={() => ({
             system_description: systemDescription,
             security_alerts: securityAlerts,
-            operator_feedback: operatorFeedback
+            operator_feedback: operatorFeedback,
+            pentest_enabled: pentestEnabled
           })}
           rows={[
             {

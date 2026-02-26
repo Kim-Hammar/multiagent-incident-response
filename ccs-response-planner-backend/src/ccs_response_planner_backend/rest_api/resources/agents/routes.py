@@ -107,7 +107,7 @@ from ccs_response_planner_backend.agents.orchestrator_agent.agent import (
     OrchestratorAgent,
 )
 from ccs_response_planner_backend.agents.orchestrator_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as ORCHESTRATOR_PROMPT_TEMPLATE,
+    build_system_prompt as build_orchestrator_prompt,
 )
 from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
     STREAMING_TOOL_DISPATCH as ORCHESTRATOR_STREAMING_DISPATCH,
@@ -3360,6 +3360,9 @@ def agents_orchestrator_step() -> (
             max_iterations = body.get(
                 "orchestrator_iterations", 1,
             )
+            pentest_enabled = body.get(
+                "pentest_enabled", True,
+            )
             yield from agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
@@ -3374,6 +3377,7 @@ def agents_orchestrator_step() -> (
                 compaction_threshold=(
                     compaction_threshold
                 ),
+                pentest_enabled=pentest_enabled,
             )
         except Exception as e:
             yield {
@@ -3400,18 +3404,21 @@ def agents_orchestrator_prompt() -> (
     :return: a tuple of (JSON response, HTTP status code)
     """
     body = request.get_json(silent=True) or {}
-    prompt = ORCHESTRATOR_PROMPT_TEMPLATE.format(
+    prompt = build_orchestrator_prompt(
         system_description=body.get(
             "system_description", "",
-        ) or "N/A",
+        ),
         security_alerts=body.get(
             "security_alerts", "",
-        ) or "N/A",
+        ),
         operator_feedback=body.get(
             "operator_feedback", "",
-        ) or "N/A",
+        ),
         max_iterations=body.get(
             "orchestrator_iterations", 1,
+        ),
+        pentest_enabled=body.get(
+            "pentest_enabled", True,
         ),
     )
     return jsonify({"prompt": prompt}), 200
@@ -3534,6 +3541,9 @@ def agents_orchestrator_tool() -> (
             ),
             "report_reviewer_enabled": body.get(
                 "report_reviewer_enabled", True,
+            ),
+            "pentest_enabled": body.get(
+                "pentest_enabled", True,
             ),
         }
         conv_history = body.get(

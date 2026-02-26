@@ -233,6 +233,7 @@ function ResponsePlanner() {
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [dtEnabled, setDtEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
+  const [pentestEnabled, setPentestEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const sessionIdRef = useRef(null)
@@ -478,6 +479,7 @@ function ResponsePlanner() {
         setAutopilot(config.autopilot ?? true)
         setDtEnabled(config.dtEnabled ?? true)
         setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
+        setPentestEnabled(config.pentestEnabled ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
         let jobEventCount = -1
@@ -846,7 +848,8 @@ function ResponsePlanner() {
             compaction_model: compactionModel || undefined,
             compaction_threshold: orchestratorCompaction / 100,
             dt_enabled: dtEnabled,
-            report_reviewer_enabled: reportReviewerEnabled
+            report_reviewer_enabled: reportReviewerEnabled,
+            pentest_enabled: pentestEnabled
           })
         })
         if (res.status === 401) {
@@ -1302,7 +1305,8 @@ function ResponsePlanner() {
             plannerTimeLimitMinutes,
             autopilot,
             dtEnabled,
-            reportReviewerEnabled
+            reportReviewerEnabled,
+            pentestEnabled
           }
         })
       })
@@ -1381,7 +1385,8 @@ function ResponsePlanner() {
           planner_agent_compaction: plannerAgentCompaction / 100,
           validation_agent_compaction: validationAgentCompaction / 100,
           dt_enabled: dtEnabled,
-          report_reviewer_enabled: reportReviewerEnabled
+          report_reviewer_enabled: reportReviewerEnabled,
+          pentest_enabled: pentestEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1524,7 +1529,8 @@ function ResponsePlanner() {
           tool_args: proposal.tool_args,
           incident_id: selectedIncidentId,
           dt_enabled: dtEnabled,
-          report_reviewer_enabled: reportReviewerEnabled
+          report_reviewer_enabled: reportReviewerEnabled,
+          pentest_enabled: pentestEnabled
         })
       })
       if (res.status === 401) {
@@ -1644,7 +1650,8 @@ function ResponsePlanner() {
       body: JSON.stringify({
         system_description: systemDescription,
         security_alerts: securityAlerts,
-        operator_feedback: operatorFeedback
+        operator_feedback: operatorFeedback,
+        pentest_enabled: pentestEnabled
       })
     })
     if (res.status === 401) {
@@ -1921,6 +1928,22 @@ function ResponsePlanner() {
               <span className="ia-hint">
                 (when disabled, the orchestrator invokes the report agent directly, skipping the
                 review process)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="rp-pentest-enabled"
+              checked={pentestEnabled}
+              onChange={(e) => setPentestEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="rp-pentest-enabled">
+              Pentest Agent enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the orchestrator skips attack path validation via the pentest agent)
               </span>
             </label>
           </div>
