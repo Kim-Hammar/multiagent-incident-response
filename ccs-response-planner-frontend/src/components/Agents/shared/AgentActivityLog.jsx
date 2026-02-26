@@ -1485,6 +1485,8 @@ function SubAgentLog({
               lastEv.type === 'text' ||
               lastEv.type === 'tool_call' ||
               lastEv.type === 'tool_result' ||
+              lastEv.type === 'dt_redeploy' ||
+              lastEv.type === 'sandbox_start' ||
               RL_STREAMING_TYPES.has(lastEv.type))
           if (lastShowsSpinner) return null
           return (
