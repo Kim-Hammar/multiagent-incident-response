@@ -171,6 +171,9 @@ def run_report_agent_stream(
             "compaction_threshold": context.get(
                 "report_agent_compaction", 0.8,
             ),
+            "dt_enabled": context.get(
+                "dt_enabled", True,
+            ),
         }
         for event in _timeout_step_stream(
             agent, ra_kwargs, step_start,
@@ -530,6 +533,9 @@ def run_report_reviewer_agent_stream(
             ),
             "compaction_threshold": context.get(
                 "report_reviewer_compaction", 0.8,
+            ),
+            "dt_enabled": context.get(
+                "dt_enabled", True,
             ),
         }
         for event in _timeout_step_stream(

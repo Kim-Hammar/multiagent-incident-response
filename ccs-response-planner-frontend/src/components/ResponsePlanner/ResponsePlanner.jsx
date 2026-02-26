@@ -231,6 +231,7 @@ function ResponsePlanner() {
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
+  const [dtEnabled, setDtEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const sessionIdRef = useRef(null)
@@ -474,6 +475,7 @@ function ResponsePlanner() {
         setCodeManagerIterations(config.codeManagerIterations || 1)
         setPlannerTimeLimitMinutes(config.plannerTimeLimitMinutes || 10)
         setAutopilot(config.autopilot ?? true)
+        setDtEnabled(config.dtEnabled ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
         let jobEventCount = -1
@@ -840,7 +842,8 @@ function ResponsePlanner() {
             images: [...systemDescriptionImages, ...securityAlertsImages],
             model_name: orchestratorModel || undefined,
             compaction_model: compactionModel || undefined,
-            compaction_threshold: orchestratorCompaction / 100
+            compaction_threshold: orchestratorCompaction / 100,
+            dt_enabled: dtEnabled
           })
         })
         if (res.status === 401) {
@@ -1294,7 +1297,8 @@ function ResponsePlanner() {
             planManagerIterations,
             codeManagerIterations,
             plannerTimeLimitMinutes,
-            autopilot
+            autopilot,
+            dtEnabled
           }
         })
       })
@@ -1371,7 +1375,8 @@ function ResponsePlanner() {
           code_agent_compaction: codeAgentCompaction / 100,
           code_reviewer_compaction: codeReviewerCompaction / 100,
           planner_agent_compaction: plannerAgentCompaction / 100,
-          validation_agent_compaction: validationAgentCompaction / 100
+          validation_agent_compaction: validationAgentCompaction / 100,
+          dt_enabled: dtEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1512,7 +1517,8 @@ function ResponsePlanner() {
           session_id: sessionIdRef.current,
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
-          incident_id: selectedIncidentId
+          incident_id: selectedIncidentId,
+          dt_enabled: dtEnabled
         })
       })
       if (res.status === 401) {
@@ -1877,7 +1883,26 @@ function ResponsePlanner() {
           />
         )}
 
-        {activeTab === 'configuration' && <div />}
+        {activeTab === 'configuration' && (
+          <div style={{ marginTop: '16px' }}>
+            <div className="form-check">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="rp-dt-enabled"
+                checked={dtEnabled}
+                onChange={(e) => setDtEnabled(e.target.checked)}
+                disabled={isAgentBusy}
+              />
+              <label className="form-check-label" htmlFor="rp-dt-enabled">
+                Digital Twin enabled{' '}
+                <span className="ia-hint">
+                  (when disabled, agents cannot interact with the digital twin)
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'subagents' && (
           <SubAgentsTab

@@ -45,6 +45,7 @@ function ActionValidatorAgent() {
   const [selectedModel, setSelectedModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
+  const [dtEnabled, setDtEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -92,6 +93,7 @@ function ActionValidatorAgent() {
       setCompactionModel(config.compactionModel || '')
       setCompactionThreshold(config.compactionThreshold || 80)
       setAutopilot(config.autopilot ?? true)
+      setDtEnabled(config.dtEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -249,7 +251,8 @@ function ActionValidatorAgent() {
             compaction_model: compactionModel || undefined,
             compaction_threshold: compactionThreshold / 100,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
-            session_id: sessionIdRef.current
+            session_id: sessionIdRef.current,
+            dt_enabled: dtEnabled
           })
         })
         if (res.status === 401) {
@@ -470,7 +473,8 @@ function ActionValidatorAgent() {
         selectedModel,
         compactionModel,
         compactionThreshold,
-        autopilot
+        autopilot,
+        dtEnabled
       }
     )
     callStep([])
@@ -963,7 +967,26 @@ function ActionValidatorAgent() {
         />
       )}
 
-      {activeTab === 'configuration' && <div />}
+      {activeTab === 'configuration' && (
+        <div style={{ marginTop: '16px' }}>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="av-dt-enabled"
+              checked={dtEnabled}
+              onChange={(e) => setDtEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="av-dt-enabled">
+              Digital Twin enabled{' '}
+              <span className="ia-hint">
+                (when disabled, agents cannot interact with the digital twin)
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'agents' && (
         <AgentConfigTable

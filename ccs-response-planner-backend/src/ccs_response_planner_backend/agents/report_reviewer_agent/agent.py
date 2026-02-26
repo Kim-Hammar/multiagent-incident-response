@@ -25,6 +25,7 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    DT_DISABLED_NOTICE,
     format_container_list,
     format_container_table,
     format_network_connectivity,
@@ -240,6 +241,7 @@ class ReportReviewerAgent:
         review_iteration: int = 1,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        dt_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -263,11 +265,25 @@ class ReportReviewerAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param dt_enabled: whether the digital twin is enabled
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        cfg = dt_config or {}
+        if dt_enabled:
+            cfg = dt_config or {}
+            dt_container_list = format_container_list(cfg)
+            dt_container_table = (
+                format_container_table(cfg)
+            )
+            dt_network_connectivity = (
+                format_network_connectivity(cfg)
+            )
+        else:
+            dt_container_list = DT_DISABLED_NOTICE
+            dt_container_table = DT_DISABLED_NOTICE
+            dt_network_connectivity = DT_DISABLED_NOTICE
+
         formatted_report = self._format_incident_report(
             incident_report or {},
         )
@@ -280,13 +296,9 @@ class ReportReviewerAgent:
                 operator_feedback or "N/A"
             ),
             incident_report_formatted=formatted_report,
-            dt_container_list=format_container_list(cfg),
-            dt_container_table=(
-                format_container_table(cfg)
-            ),
-            dt_network_connectivity=(
-                format_network_connectivity(cfg)
-            ),
+            dt_container_list=dt_container_list,
+            dt_container_table=dt_container_table,
+            dt_network_connectivity=dt_network_connectivity,
             review_iteration_note=(
                 self._format_iteration_note(
                     review_iteration,

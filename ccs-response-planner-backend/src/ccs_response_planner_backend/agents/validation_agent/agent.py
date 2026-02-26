@@ -24,6 +24,8 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    DT_DISABLED_NOTICE,
+    filter_dt_declarations,
     format_container_list,
     format_container_table,
     format_network_connectivity,
@@ -361,6 +363,7 @@ class ValidationAgent:
         validation_feedback: dict[str, Any] | None = None,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        dt_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -387,11 +390,25 @@ class ValidationAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param dt_enabled: whether the digital twin is enabled
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        cfg = dt_config or {}
+        if dt_enabled:
+            cfg = dt_config or {}
+            dt_container_list = format_container_list(cfg)
+            dt_container_table = (
+                format_container_table(cfg)
+            )
+            dt_network_connectivity = (
+                format_network_connectivity(cfg)
+            )
+        else:
+            dt_container_list = DT_DISABLED_NOTICE
+            dt_container_table = DT_DISABLED_NOTICE
+            dt_network_connectivity = DT_DISABLED_NOTICE
+
         system_prompt = build_system_prompt(
             has_policy=has_policy,
             system_description=system_description or "N/A",
@@ -412,13 +429,9 @@ class ValidationAgent:
                     validation_feedback or {},
                 )
             ),
-            dt_container_list=format_container_list(cfg),
-            dt_container_table=(
-                format_container_table(cfg)
-            ),
-            dt_network_connectivity=(
-                format_network_connectivity(cfg)
-            ),
+            dt_container_list=dt_container_list,
+            dt_container_table=dt_container_table,
+            dt_network_connectivity=dt_network_connectivity,
         )
         yield {
             "type": "system_prompt",
@@ -443,9 +456,10 @@ class ValidationAgent:
             ):
                 yield ev
 
-        declarations = (
+        declarations = filter_dt_declarations(
             TOOL_DECLARATIONS_WITH_POLICY
-            if has_policy else TOOL_DECLARATIONS
+            if has_policy else TOOL_DECLARATIONS,
+            dt_enabled,
         )
 
         if is_anthropic_model(effective_model):

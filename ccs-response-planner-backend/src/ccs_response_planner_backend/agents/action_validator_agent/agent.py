@@ -24,6 +24,8 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    DT_DISABLED_NOTICE,
+    filter_dt_declarations,
     format_container_list,
     format_container_table,
     format_network_connectivity,
@@ -143,6 +145,7 @@ class ActionValidatorAgent:
         dt_config: dict[str, Any] | None = None,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        dt_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -164,11 +167,25 @@ class ActionValidatorAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param dt_enabled: whether the digital twin is enabled
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
 
-        cfg = dt_config or {}
+        if dt_enabled:
+            cfg = dt_config or {}
+            dt_container_list = format_container_list(cfg)
+            dt_container_table = (
+                format_container_table(cfg)
+            )
+            dt_network_connectivity = (
+                format_network_connectivity(cfg)
+            )
+        else:
+            dt_container_list = DT_DISABLED_NOTICE
+            dt_container_table = DT_DISABLED_NOTICE
+            dt_network_connectivity = DT_DISABLED_NOTICE
+
         system_prompt = build_system_prompt(
             system_description=(
                 system_description or "N/A"
@@ -179,13 +196,9 @@ class ActionValidatorAgent:
             operator_feedback=(
                 operator_feedback or "N/A"
             ),
-            dt_container_list=format_container_list(cfg),
-            dt_container_table=(
-                format_container_table(cfg)
-            ),
-            dt_network_connectivity=(
-                format_network_connectivity(cfg)
-            ),
+            dt_container_list=dt_container_list,
+            dt_container_table=dt_container_table,
+            dt_network_connectivity=dt_network_connectivity,
         )
         yield {
             "type": "system_prompt",
@@ -218,10 +231,14 @@ class ActionValidatorAgent:
             "report."
         )
 
+        declarations = filter_dt_declarations(
+            TOOL_DECLARATIONS, dt_enabled,
+        )
+
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(
                 system_prompt=system_prompt,
-                tool_declarations=TOOL_DECLARATIONS,
+                tool_declarations=declarations,
                 history=conversation_history,
                 initial_user_parts=[{
                     "type": "text",
@@ -245,7 +262,9 @@ class ActionValidatorAgent:
             return
 
         client = self._create_client()
-        config = self._make_config(system_prompt)
+        config = self._make_config(
+            system_prompt, declarations,
+        )
 
         initial_images = (
             images if not conversation_history else None

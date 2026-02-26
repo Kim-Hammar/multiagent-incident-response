@@ -4,6 +4,30 @@ from a DT configuration dict.
 """
 from typing import Any
 
+DT_DISABLED_NOTICE = (
+    "Digital twin is not available for this session."
+)
+DT_TOOL_NAMES = {"dt_exec", "dt_restart", "dt_python_exec"}
+
+
+def filter_dt_declarations(
+    declarations: list[Any],
+    dt_enabled: bool = True,
+) -> list[Any]:
+    """
+    Remove digital-twin tool declarations when DT is disabled.
+
+    :param declarations: list of tool declaration objects
+    :param dt_enabled: whether the digital twin is enabled
+    :return: filtered list of declarations
+    """
+    if dt_enabled:
+        return declarations
+    return [
+        d for d in declarations
+        if d.name not in DT_TOOL_NAMES
+    ]
+
 
 def format_container_list(config: dict[str, Any]) -> str:
     """

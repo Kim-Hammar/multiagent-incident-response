@@ -251,6 +251,7 @@ def run_report_manager_stream(
             "reviewer_agent_model",
         ),
         "dt_config": context.get("dt_config"),
+        "dt_enabled": context.get("dt_enabled", True),
     }
 
     report_manager_report: dict[str, Any] = {}
@@ -667,6 +668,9 @@ def run_pentest_agent_stream(
             "pentest_agent_compaction", 0.8,
         ),
         "conversation_history": conversation_history,
+        "dt_enabled": context.get(
+            "dt_enabled", True,
+        ),
     }
 
     pentest_report: dict[str, Any] = {}
@@ -1099,6 +1103,7 @@ def run_plan_manager_stream(
             "rl_time_limit_minutes", 5,
         ),
         "dt_config": dt_config,
+        "dt_enabled": context.get("dt_enabled", True),
         "incident_report": incident_report,
         "specification": specification,
     }

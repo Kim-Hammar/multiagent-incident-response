@@ -632,6 +632,7 @@ def run_code_manager_stream(
             "reviewer_agent_model",
         ),
         "dt_config": context.get("dt_config"),
+        "dt_enabled": context.get("dt_enabled", True),
     }
 
     code_report: dict[str, Any] = {}
@@ -1148,42 +1149,50 @@ def run_validation_agent_stream(
         DIGITAL_TWIN,
     )
 
-    yield {
-        "type": "dt_progress",
-        "phase": "stop",
-        "message": "Stopping digital twin...",
-    }
-    config = DatabaseFacade.get_digital_twin_config()
-    if config is None:
-        config = DIGITAL_TWIN.DEFAULT_CONFIG
-    for item in DockerManager.stop():
-        msg = item.get("message", "")
-        if item.get("type") == "progress" and msg:
-            logger.info("DT redeploy (stop): %s", msg)
-            yield {
-                "type": "dt_progress_detail",
-                "phase": "stop",
-                "message": msg,
-            }
-    yield {
-        "type": "dt_progress",
-        "phase": "deploy",
-        "message": "Deploying fresh digital twin...",
-    }
-    for item in DockerManager.deploy(config):
-        msg = item.get("message", "")
-        if item.get("type") == "progress" and msg:
-            logger.info("DT redeploy (deploy): %s", msg)
-            yield {
-                "type": "dt_progress_detail",
-                "phase": "deploy",
-                "message": msg,
-            }
-    yield {
-        "type": "dt_progress",
-        "phase": "ready",
-        "message": "Digital twin ready",
-    }
+    dt_enabled = context.get("dt_enabled", True)
+    if dt_enabled:
+        yield {
+            "type": "dt_progress",
+            "phase": "stop",
+            "message": "Stopping digital twin...",
+        }
+        config = DatabaseFacade.get_digital_twin_config()
+        if config is None:
+            config = DIGITAL_TWIN.DEFAULT_CONFIG
+        for item in DockerManager.stop():
+            msg = item.get("message", "")
+            if item.get("type") == "progress" and msg:
+                logger.info(
+                    "DT redeploy (stop): %s", msg,
+                )
+                yield {
+                    "type": "dt_progress_detail",
+                    "phase": "stop",
+                    "message": msg,
+                }
+        yield {
+            "type": "dt_progress",
+            "phase": "deploy",
+            "message": (
+                "Deploying fresh digital twin..."
+            ),
+        }
+        for item in DockerManager.deploy(config):
+            msg = item.get("message", "")
+            if item.get("type") == "progress" and msg:
+                logger.info(
+                    "DT redeploy (deploy): %s", msg,
+                )
+                yield {
+                    "type": "dt_progress_detail",
+                    "phase": "deploy",
+                    "message": msg,
+                }
+        yield {
+            "type": "dt_progress",
+            "phase": "ready",
+            "message": "Digital twin ready",
+        }
 
     planner_report = context.get(
         "planner_report", {},
@@ -1225,6 +1234,9 @@ def run_validation_agent_stream(
         ),
         "compaction_threshold": context.get(
             "validation_agent_compaction", 0.8,
+        ),
+        "dt_enabled": context.get(
+            "dt_enabled", True,
         ),
     }
 

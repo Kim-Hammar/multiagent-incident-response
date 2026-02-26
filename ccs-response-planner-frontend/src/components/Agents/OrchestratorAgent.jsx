@@ -243,6 +243,7 @@ function OrchestratorAgent() {
   const [validationAgentModel, setValidationAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
+  const [dtEnabled, setDtEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
@@ -305,7 +306,8 @@ function OrchestratorAgent() {
       planManagerIterations,
       codeManagerIterations,
       plannerTimeLimitMinutes,
-      autopilot
+      autopilot,
+      dtEnabled
     },
     onRestore: (session) => {
       if (session.incident_inputs) {
@@ -337,6 +339,7 @@ function OrchestratorAgent() {
         if (cfg.plannerTimeLimitMinutes != null)
           setPlannerTimeLimitMinutes(cfg.plannerTimeLimitMinutes)
         if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
+        if (cfg.dtEnabled != null) setDtEnabled(cfg.dtEnabled)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
       if (session.incident_id) setSelectedIncidentId(session.incident_id)
@@ -512,7 +515,8 @@ function OrchestratorAgent() {
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
             compaction_model: compactionModel || undefined,
             compaction_threshold: compactionThreshold / 100,
-            session_id: sessionIdRef.current
+            session_id: sessionIdRef.current,
+            dt_enabled: dtEnabled
           })
         })
         if (res.status === 401) {
@@ -1463,7 +1467,26 @@ function OrchestratorAgent() {
         </div>
       )}
 
-      {activeTab === 'configuration' && <div />}
+      {activeTab === 'configuration' && (
+        <div style={{ marginTop: '16px' }}>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="oa-dt-enabled"
+              checked={dtEnabled}
+              onChange={(e) => setDtEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-dt-enabled">
+              Digital Twin enabled{' '}
+              <span className="ia-hint">
+                (when disabled, agents cannot interact with the digital twin)
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'agents' && (
         <AgentConfigTable

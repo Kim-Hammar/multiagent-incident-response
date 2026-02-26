@@ -788,7 +788,13 @@ def agents_report_step() -> tuple[Response, int]:
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             dt_config = (
@@ -809,6 +815,7 @@ def agents_report_step() -> tuple[Response, int]:
                 dt_config=dt_config,
                 compaction_model=compaction_model,
                 compaction_threshold=compaction_threshold,
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -1040,7 +1047,13 @@ def agents_validation_step() -> tuple[Response, int]:
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
 
@@ -1111,6 +1124,7 @@ def agents_validation_step() -> tuple[Response, int]:
                 compaction_threshold=(
                     compaction_threshold
                 ),
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -1360,7 +1374,13 @@ def agents_code_step() -> tuple[Response, int]:
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             dt_config = (
@@ -1382,6 +1402,7 @@ def agents_code_step() -> tuple[Response, int]:
                 dt_config=dt_config,
                 compaction_model=compaction_model,
                 compaction_threshold=compaction_threshold,
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -1588,7 +1609,13 @@ def agents_code_review_step() -> tuple[Response, int]:
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             dt_config = (
@@ -1611,6 +1638,7 @@ def agents_code_review_step() -> tuple[Response, int]:
                 dt_config=dt_config,
                 compaction_model=compaction_model,
                 compaction_threshold=compaction_threshold,
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -1835,7 +1863,13 @@ def agents_report_review_step() -> (
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
             dt_config = (
                 DatabaseFacade.get_digital_twin_config()
@@ -1864,6 +1898,7 @@ def agents_report_review_step() -> (
                 compaction_threshold=(
                     compaction_threshold
                 ),
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield {
@@ -3308,7 +3343,13 @@ def agents_orchestrator_step() -> (
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
             agent = OrchestratorAgent()
@@ -3486,6 +3527,9 @@ def agents_orchestrator_tool() -> (
             ),
             "validation_agent_compaction": body.get(
                 "validation_agent_compaction", 0.8,
+            ),
+            "dt_enabled": body.get(
+                "dt_enabled", True,
             ),
         }
         conv_history = body.get(
@@ -3938,7 +3982,13 @@ def agents_pentest_step() -> tuple[Response, int]:
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
                 yield from _start_sandbox()
 
@@ -3963,6 +4013,7 @@ def agents_pentest_step() -> tuple[Response, int]:
                 compaction_threshold=(
                     compaction_threshold
                 ),
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -4168,7 +4219,13 @@ def agents_host_analyzer_step() -> tuple[Response, int]:
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
 
             dt_config = (
@@ -4196,6 +4253,7 @@ def agents_host_analyzer_step() -> tuple[Response, int]:
                 compaction_threshold=(
                     compaction_threshold
                 ),
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -4417,7 +4475,13 @@ def agents_action_validator_step() -> tuple[
         :return: a generator of event dicts
         """
         try:
-            if not conversation_history:
+            dt_enabled = body.get(
+                "dt_enabled", True,
+            )
+            if (
+                not conversation_history
+                and dt_enabled
+            ):
                 yield from _redeploy_dt(job_id)
 
             dt_config = (
@@ -4446,6 +4510,7 @@ def agents_action_validator_step() -> tuple[
                 compaction_threshold=(
                     compaction_threshold
                 ),
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)

@@ -24,6 +24,8 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    DT_DISABLED_NOTICE,
+    filter_dt_declarations,
     format_container_list,
 )
 from ccs_response_planner_backend.agents.code_agent.prompt import (
@@ -142,6 +144,7 @@ class CodeAgent:
         is_revision: bool = False,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        dt_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -165,6 +168,7 @@ class CodeAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param dt_enabled: whether the digital twin is enabled
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -187,13 +191,18 @@ class CodeAgent:
         else:
             revision_notice = ""
 
-        cfg = dt_config or {}
+        if dt_enabled:
+            cfg = dt_config or {}
+            dt_container_list = format_container_list(cfg)
+        else:
+            dt_container_list = DT_DISABLED_NOTICE
+
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             system_description=system_description or "N/A",
             incident_report=incident_report or "N/A",
             specification=specification or "N/A",
             operator_feedback=operator_feedback or "N/A",
-            dt_container_list=format_container_list(cfg),
+            dt_container_list=dt_container_list,
             revision_notice=revision_notice,
         )
         yield {
@@ -224,11 +233,12 @@ class CodeAgent:
             if e.get("type") == "tool_result"
             and e.get("tool_name") == "gym_verify"
         )
-        declarations = (
+        declarations = filter_dt_declarations(
             ALL_DECLARATIONS
             if self._gym_verify_passed(conversation_history)
             or gym_verify_count >= 3
-            else ITERATING_DECLARATIONS
+            else ITERATING_DECLARATIONS,
+            dt_enabled,
         )
 
         if is_anthropic_model(effective_model):

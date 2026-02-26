@@ -250,6 +250,7 @@ function PlanManagerAgent() {
   const [validationAgentModel, setValidationAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
+  const [dtEnabled, setDtEnabled] = useState(true)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
@@ -308,6 +309,7 @@ function PlanManagerAgent() {
       setCodeManagerIterations(config.codeManagerIterations || 1)
       setPlannerTimeLimitMinutes(config.plannerTimeLimitMinutes || 10)
       setAutopilot(config.autopilot ?? true)
+      setDtEnabled(config.dtEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -470,7 +472,8 @@ function PlanManagerAgent() {
             compaction_model: compactionModel || undefined,
             compaction_threshold: compactionThreshold / 100,
             max_iterations: maxIterations,
-            session_id: sessionIdRef.current
+            session_id: sessionIdRef.current,
+            dt_enabled: dtEnabled
           })
         })
         if (res.status === 401) {
@@ -686,7 +689,8 @@ function PlanManagerAgent() {
         maxIterations,
         codeManagerIterations,
         plannerTimeLimitMinutes,
-        autopilot
+        autopilot,
+        dtEnabled
       }
     )
     callStep([])
@@ -1645,7 +1649,26 @@ function PlanManagerAgent() {
         </div>
       )}
 
-      {activeTab === 'configuration' && <div />}
+      {activeTab === 'configuration' && (
+        <div style={{ marginTop: '16px' }}>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="pm-dt-enabled"
+              checked={dtEnabled}
+              onChange={(e) => setDtEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="pm-dt-enabled">
+              Digital Twin enabled{' '}
+              <span className="ia-hint">
+                (when disabled, agents cannot interact with the digital twin)
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'agents' && (
         <AgentConfigTable
