@@ -141,6 +141,7 @@ class PlanManagerAgent:
         max_iterations: int = 2,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        validator_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the plan manager agent loop by one step.
@@ -163,6 +164,8 @@ class PlanManagerAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param validator_enabled: whether the validation agent
+            is enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -204,11 +207,20 @@ class PlanManagerAgent:
             ):
                 yield ev
 
+        has_validated = (
+            self._has_validated(conversation_history)
+            or not validator_enabled
+        )
         declarations = (
             ALL_DECLARATIONS
-            if self._has_validated(conversation_history)
+            if has_validated
             else ITERATING_DECLARATIONS
         )
+        if not validator_enabled:
+            declarations = [
+                d for d in declarations
+                if d.name != "run_validation_agent"
+            ]
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(

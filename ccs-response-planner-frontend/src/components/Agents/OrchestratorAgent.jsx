@@ -246,6 +246,7 @@ function OrchestratorAgent() {
   const [dtEnabled, setDtEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
+  const [validatorEnabled, setValidatorEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
@@ -313,6 +314,7 @@ function OrchestratorAgent() {
       dtEnabled,
       reportReviewerEnabled,
       codeReviewerEnabled,
+      validatorEnabled,
       pentestEnabled
     },
     onRestore: (session) => {
@@ -348,6 +350,7 @@ function OrchestratorAgent() {
         if (cfg.dtEnabled != null) setDtEnabled(cfg.dtEnabled)
         if (cfg.reportReviewerEnabled != null) setReportReviewerEnabled(cfg.reportReviewerEnabled)
         if (cfg.codeReviewerEnabled != null) setCodeReviewerEnabled(cfg.codeReviewerEnabled)
+        if (cfg.validatorEnabled != null) setValidatorEnabled(cfg.validatorEnabled)
         if (cfg.pentestEnabled != null) setPentestEnabled(cfg.pentestEnabled)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
@@ -528,6 +531,7 @@ function OrchestratorAgent() {
             dt_enabled: dtEnabled,
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
+            validator_enabled: validatorEnabled,
             pentest_enabled: pentestEnabled
           })
         })
@@ -805,6 +809,7 @@ function OrchestratorAgent() {
           session_id: sessionIdRef.current,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
+          validator_enabled: validatorEnabled,
           pentest_enabled: pentestEnabled
         }
         const { result } = await executeStreamingTool({
@@ -1061,6 +1066,7 @@ function OrchestratorAgent() {
         session_id: sessionIdRef.current,
         report_reviewer_enabled: reportReviewerEnabled,
         code_reviewer_enabled: codeReviewerEnabled,
+        validator_enabled: validatorEnabled,
         pentest_enabled: pentestEnabled
       }
       const { result } = await executeStreamingTool({
@@ -1551,6 +1557,22 @@ function OrchestratorAgent() {
               <span className="ia-hint">
                 (when disabled, the plan manager invokes the code agent directly, skipping code
                 review)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="oa-validator-enabled"
+              checked={validatorEnabled}
+              onChange={(e) => setValidatorEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-validator-enabled">
+              Validator Agent enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the plan manager skips validation and returns the plan directly)
               </span>
             </label>
           </div>

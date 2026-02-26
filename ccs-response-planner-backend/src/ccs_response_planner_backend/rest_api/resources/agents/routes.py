@@ -2979,6 +2979,9 @@ def agents_plan_manager_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
+    validator_enabled = body.get(
+        "validator_enabled", True,
+    )
 
     def on_complete(
         events: list[dict[str, Any]],
@@ -3024,6 +3027,9 @@ def agents_plan_manager_step() -> (
                 compaction_model=compaction_model,
                 compaction_threshold=(
                     compaction_threshold
+                ),
+                validator_enabled=(
+                    validator_enabled
                 ),
             )
         except Exception as e:
@@ -3150,6 +3156,9 @@ def agents_plan_manager_tool() -> (
             "code_reviewer_enabled": body.get(
                 "code_reviewer_enabled", True,
             ),
+            "validator_enabled": body.get(
+                "validator_enabled", True,
+            ),
         }
         conv_history = body.get(
             "conversation_history", [],
@@ -3266,6 +3275,27 @@ def agents_plan_manager_tool() -> (
                             context=context,
                         )
                     )
+                elif (
+                    tool_name
+                    == "run_validation_agent"
+                    and not context.get(
+                        "validator_enabled",
+                        True,
+                    )
+                ):
+                    yield {
+                        "type": "done",
+                        "result": {
+                            "validation_report": {
+                                "overall_verdict":
+                                    "skipped",
+                                "executive_summary":
+                                    "Validation "
+                                    "skipped by "
+                                    "user",
+                            },
+                        },
+                    }
                 else:
                     agent = PlanManagerAgent()
                     yield from (
@@ -3572,6 +3602,9 @@ def agents_orchestrator_tool() -> (
             ),
             "code_reviewer_enabled": body.get(
                 "code_reviewer_enabled", True,
+            ),
+            "validator_enabled": body.get(
+                "validator_enabled", True,
             ),
             "pentest_enabled": body.get(
                 "pentest_enabled", True,

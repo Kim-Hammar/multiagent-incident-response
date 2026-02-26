@@ -234,6 +234,7 @@ function ResponsePlanner() {
   const [dtEnabled, setDtEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
+  const [validatorEnabled, setValidatorEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -481,6 +482,7 @@ function ResponsePlanner() {
         setDtEnabled(config.dtEnabled ?? true)
         setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
         setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
+        setValidatorEnabled(config.validatorEnabled ?? true)
         setPentestEnabled(config.pentestEnabled ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
@@ -852,6 +854,7 @@ function ResponsePlanner() {
             dt_enabled: dtEnabled,
             report_reviewer_enabled: reportReviewerEnabled,
             code_reviewer_enabled: codeReviewerEnabled,
+            validator_enabled: validatorEnabled,
             pentest_enabled: pentestEnabled
           })
         })
@@ -1310,6 +1313,7 @@ function ResponsePlanner() {
             dtEnabled,
             reportReviewerEnabled,
             codeReviewerEnabled,
+            validatorEnabled,
             pentestEnabled
           }
         })
@@ -1391,6 +1395,7 @@ function ResponsePlanner() {
           dt_enabled: dtEnabled,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
+          validator_enabled: validatorEnabled,
           pentest_enabled: pentestEnabled
         }
         const { result } = await executeStreamingTool({
@@ -1536,6 +1541,7 @@ function ResponsePlanner() {
           dt_enabled: dtEnabled,
           report_reviewer_enabled: reportReviewerEnabled,
           code_reviewer_enabled: codeReviewerEnabled,
+          validator_enabled: validatorEnabled,
           pentest_enabled: pentestEnabled
         })
       })
@@ -1967,6 +1973,22 @@ function ResponsePlanner() {
               <span className="ia-hint">
                 (when disabled, the plan manager invokes the code agent directly, skipping code
                 review)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="rp-validator-enabled"
+              checked={validatorEnabled}
+              onChange={(e) => setValidatorEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="rp-validator-enabled">
+              Validator Agent enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the plan manager skips validation and returns the plan directly)
               </span>
             </label>
           </div>

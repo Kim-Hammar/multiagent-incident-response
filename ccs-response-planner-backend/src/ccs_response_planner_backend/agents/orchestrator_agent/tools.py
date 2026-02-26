@@ -1188,6 +1188,9 @@ def run_plan_manager_stream(
         ),
         "dt_config": dt_config,
         "dt_enabled": context.get("dt_enabled", True),
+        "validator_enabled": context.get(
+            "validator_enabled", True,
+        ),
         "incident_report": incident_report,
         "specification": specification,
     }
@@ -1365,6 +1368,27 @@ def run_plan_manager_stream(
                                 context=pm_context,
                             )
                         )
+                    elif (
+                        tool_name
+                        == "run_validation_agent"
+                        and not pm_context.get(
+                            "validator_enabled",
+                            True,
+                        )
+                    ):
+                        tool_stream = iter([{
+                            "type": "done",
+                            "result": {
+                                "validation_report": {
+                                    "overall_verdict":
+                                        "skipped",
+                                    "executive_summary":
+                                        "Validation "
+                                        "skipped by "
+                                        "user",
+                                },
+                            },
+                        }])
                     else:
                         tool_stream = (
                             agent.execute_tool_stream(
