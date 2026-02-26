@@ -52,6 +52,7 @@ function PlannerAgent() {
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
+  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [trainingData, setTrainingData] = useState([])
   const [trainingMeta, setTrainingMeta] = useState({
@@ -115,6 +116,7 @@ function PlannerAgent() {
       setCompactionThreshold(config.compactionThreshold || 80)
       setAutopilot(config.autopilot ?? true)
       setDtEnabled(config.dtEnabled ?? true)
+      setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -307,7 +309,8 @@ function PlannerAgent() {
             compaction_threshold: compactionThreshold / 100,
             time_limit_minutes: timeLimitMinutes,
             session_id: sessionIdRef.current,
-            dt_enabled: dtEnabled
+            dt_enabled: dtEnabled,
+            report_reviewer_enabled: reportReviewerEnabled
           })
         })
         if (res.status === 401) {
@@ -659,7 +662,8 @@ function PlannerAgent() {
         compactionModel,
         compactionThreshold,
         autopilot,
-        dtEnabled
+        dtEnabled,
+        reportReviewerEnabled
       }
     )
     callStep([])
@@ -1225,6 +1229,23 @@ function PlannerAgent() {
               Digital Twin enabled{' '}
               <span className="ia-hint">
                 (when disabled, agents cannot interact with the digital twin)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="pl-report-reviewer"
+              checked={reportReviewerEnabled}
+              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="pl-report-reviewer">
+              Report Reviewer enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the orchestrator invokes the report agent directly, skipping the
+                review process)
               </span>
             </label>
           </div>

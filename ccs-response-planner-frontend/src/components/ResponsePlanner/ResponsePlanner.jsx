@@ -232,6 +232,7 @@ function ResponsePlanner() {
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [dtEnabled, setDtEnabled] = useState(true)
+  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const sessionIdRef = useRef(null)
@@ -476,6 +477,7 @@ function ResponsePlanner() {
         setPlannerTimeLimitMinutes(config.plannerTimeLimitMinutes || 10)
         setAutopilot(config.autopilot ?? true)
         setDtEnabled(config.dtEnabled ?? true)
+        setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
         let jobEventCount = -1
@@ -843,7 +845,8 @@ function ResponsePlanner() {
             model_name: orchestratorModel || undefined,
             compaction_model: compactionModel || undefined,
             compaction_threshold: orchestratorCompaction / 100,
-            dt_enabled: dtEnabled
+            dt_enabled: dtEnabled,
+            report_reviewer_enabled: reportReviewerEnabled
           })
         })
         if (res.status === 401) {
@@ -1298,7 +1301,8 @@ function ResponsePlanner() {
             codeManagerIterations,
             plannerTimeLimitMinutes,
             autopilot,
-            dtEnabled
+            dtEnabled,
+            reportReviewerEnabled
           }
         })
       })
@@ -1376,7 +1380,8 @@ function ResponsePlanner() {
           code_reviewer_compaction: codeReviewerCompaction / 100,
           planner_agent_compaction: plannerAgentCompaction / 100,
           validation_agent_compaction: validationAgentCompaction / 100,
-          dt_enabled: dtEnabled
+          dt_enabled: dtEnabled,
+          report_reviewer_enabled: reportReviewerEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1518,7 +1523,8 @@ function ResponsePlanner() {
           tool_name: proposal.tool_name,
           tool_args: proposal.tool_args,
           incident_id: selectedIncidentId,
-          dt_enabled: dtEnabled
+          dt_enabled: dtEnabled,
+          report_reviewer_enabled: reportReviewerEnabled
         })
       })
       if (res.status === 401) {
@@ -1901,6 +1907,23 @@ function ResponsePlanner() {
                 </span>
               </label>
             </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="rp-report-reviewer"
+              checked={reportReviewerEnabled}
+              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="rp-report-reviewer">
+              Report Reviewer enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the orchestrator invokes the report agent directly, skipping the
+                review process)
+              </span>
+            </label>
+          </div>
           </div>
         )}
 

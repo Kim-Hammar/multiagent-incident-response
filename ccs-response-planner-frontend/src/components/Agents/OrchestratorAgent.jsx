@@ -244,6 +244,7 @@ function OrchestratorAgent() {
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
+  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
@@ -307,7 +308,8 @@ function OrchestratorAgent() {
       codeManagerIterations,
       plannerTimeLimitMinutes,
       autopilot,
-      dtEnabled
+      dtEnabled,
+      reportReviewerEnabled
     },
     onRestore: (session) => {
       if (session.incident_inputs) {
@@ -340,6 +342,7 @@ function OrchestratorAgent() {
           setPlannerTimeLimitMinutes(cfg.plannerTimeLimitMinutes)
         if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
         if (cfg.dtEnabled != null) setDtEnabled(cfg.dtEnabled)
+        if (cfg.reportReviewerEnabled != null) setReportReviewerEnabled(cfg.reportReviewerEnabled)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
       if (session.incident_id) setSelectedIncidentId(session.incident_id)
@@ -516,7 +519,8 @@ function OrchestratorAgent() {
             compaction_model: compactionModel || undefined,
             compaction_threshold: compactionThreshold / 100,
             session_id: sessionIdRef.current,
-            dt_enabled: dtEnabled
+            dt_enabled: dtEnabled,
+            report_reviewer_enabled: reportReviewerEnabled
           })
         })
         if (res.status === 401) {
@@ -790,7 +794,8 @@ function OrchestratorAgent() {
           planner_time_limit_minutes: plannerTimeLimitMinutes,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
-          session_id: sessionIdRef.current
+          session_id: sessionIdRef.current,
+          report_reviewer_enabled: reportReviewerEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1043,7 +1048,8 @@ function OrchestratorAgent() {
         planner_time_limit_minutes: plannerTimeLimitMinutes,
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
-        session_id: sessionIdRef.current
+        session_id: sessionIdRef.current,
+        report_reviewer_enabled: reportReviewerEnabled
       }
       const { result } = await executeStreamingTool({
         url: API_AGENTS_ORCHESTRATOR_TOOL_URL,
@@ -1482,6 +1488,23 @@ function OrchestratorAgent() {
               Digital Twin enabled{' '}
               <span className="ia-hint">
                 (when disabled, agents cannot interact with the digital twin)
+              </span>
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="oa-report-reviewer"
+              checked={reportReviewerEnabled}
+              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
+              disabled={isAgentBusy}
+            />
+            <label className="form-check-label" htmlFor="oa-report-reviewer">
+              Report Reviewer enabled{' '}
+              <span className="ia-hint">
+                (when disabled, the orchestrator invokes the report agent directly, skipping the
+                review process)
               </span>
             </label>
           </div>
