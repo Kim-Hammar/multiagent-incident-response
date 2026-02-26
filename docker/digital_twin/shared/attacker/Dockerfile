@@ -29,10 +29,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     traceroute \
     procps \
     git \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir impacket
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Metasploit Framework — provides ready-made exploits for known CVEs
+RUN mkdir -p /opt/metasploit && \
+    curl -fsSL https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb \
+      -o /tmp/msfinstall && \
+    chmod +x /tmp/msfinstall && \
+    /tmp/msfinstall && \
+    rm -f /tmp/msfinstall
 
 CMD ["sleep", "infinity"]

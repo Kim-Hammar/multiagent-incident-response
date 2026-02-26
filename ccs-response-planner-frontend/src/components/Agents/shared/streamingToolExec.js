@@ -17,6 +17,7 @@ export const STREAMING_TOOLS = new Set([
   'run_report_agent',
   'run_report_reviewer_agent',
   'run_report_manager',
+  'run_pentest_agent',
   'run_plan_manager',
   'run_host_analyzers',
   'run_action_validators'

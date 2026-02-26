@@ -141,7 +141,9 @@ from ccs_response_planner_backend.agents.action_validator_agent.tools import (
     STREAMING_TOOL_DISPATCH as ACTION_VALIDATOR_STREAMING_DISPATCH,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
+    format_attacker_info,
     format_container_list,
+    format_container_list_with_attacker,
     format_container_table,
     format_network_connectivity,
 )
@@ -3313,6 +3315,9 @@ def agents_orchestrator_step() -> (
             agent._last_prompt_tokens = (
                 last_prompt_tokens
             )
+            max_iterations = body.get(
+                "orchestrator_iterations", 1,
+            )
             yield from agent.step_stream(
                 system_description=system_description,
                 security_alerts=security_alerts,
@@ -3322,6 +3327,7 @@ def agents_orchestrator_step() -> (
                 ),
                 images=images,
                 model_name=model_name,
+                max_iterations=max_iterations,
                 compaction_model=compaction_model,
                 compaction_threshold=(
                     compaction_threshold
@@ -3362,6 +3368,9 @@ def agents_orchestrator_prompt() -> (
         operator_feedback=body.get(
             "operator_feedback", "",
         ) or "N/A",
+        max_iterations=body.get(
+            "orchestrator_iterations", 1,
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -3479,10 +3488,52 @@ def agents_orchestrator_tool() -> (
                 "validation_agent_compaction", 0.8,
             ),
         }
-        if tool_name == "run_plan_manager":
-            conv_history = body.get(
-                "conversation_history", [],
-            )
+        conv_history = body.get(
+            "conversation_history", [],
+        )
+        context["pentest_agent_model"] = body.get(
+            "pentest_agent_model",
+        )
+        context["pentest_agent_compaction"] = body.get(
+            "pentest_agent_compaction", 0.8,
+        )
+
+        if tool_name == "run_report_manager":
+            validation_fb = ""
+            for entry in reversed(conv_history):
+                if (
+                    entry.get("type")
+                    == "tool_result"
+                    and entry.get("tool_name")
+                    == "run_pentest_agent"
+                ):
+                    pr = entry.get(
+                        "result", {},
+                    ).get("pentest_report", {})
+                    verdict = pr.get(
+                        "overall_verdict", "",
+                    )
+                    summary = pr.get(
+                        "executive_summary", "",
+                    )
+                    if verdict and verdict != (
+                        "Attack path validated"
+                    ):
+                        validation_fb = (
+                            f"Pentest verdict: "
+                            f"{verdict}\n\n"
+                            f"{summary}"
+                        )
+                    break
+            if validation_fb:
+                context["validation_feedback"] = (
+                    validation_fb
+                )
+
+        if tool_name in (
+            "run_pentest_agent",
+            "run_plan_manager",
+        ):
             assessment: dict[str, Any] = {}
             for entry in reversed(conv_history):
                 if (
@@ -3942,8 +3993,13 @@ def agents_pentest_prompt() -> tuple[Response, int]:
         attack_path=body.get(
             "attack_path", "",
         ) or "N/A",
-        dt_container_list=format_container_list(
+        attacker_info=format_attacker_info(
             dt_config,
+        ),
+        dt_container_list=(
+            format_container_list_with_attacker(
+                dt_config,
+            )
         ),
         dt_container_table=format_container_table(
             dt_config,

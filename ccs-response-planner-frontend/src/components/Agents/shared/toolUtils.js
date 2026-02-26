@@ -23,6 +23,7 @@ export const TOOL_LABELS = {
   produce_plan_manager_report: { label: 'Plan Manager Report', icon: 'fa-flag-checkered' },
   generate_attack_image: { label: 'Attack Path Image', icon: 'fa-image' },
   run_host_analyzers: { label: 'Parallel Host Analysis', icon: 'fa-server' },
+  run_pentest_agent: { label: 'Pentest Agent', icon: 'fa-crosshairs' },
   context_compaction: { label: 'Context Compaction', icon: 'fa-compress' }
 }
 

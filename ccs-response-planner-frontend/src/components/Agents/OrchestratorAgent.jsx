@@ -35,7 +35,8 @@ import {
   CodeReportBody,
   ValidationReportBody,
   PlannerReportInline,
-  PlanManagerReportBody
+  PlanManagerReportBody,
+  PentestReportBody
 } from './shared/ReportBodies.jsx'
 /**
  * Extract rich sub-agent data from conversation history and merge it into
@@ -46,6 +47,10 @@ function enrichOrchestratorReport(report, history) {
     [...history]
       .reverse()
       .find((e) => e.type === 'tool_result' && e.tool_name === 'run_report_manager')?.result || {}
+  const ptResult =
+    [...history]
+      .reverse()
+      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_pentest_agent')?.result || {}
   const pmResult =
     [...history]
       .reverse()
@@ -57,6 +62,7 @@ function enrichOrchestratorReport(report, history) {
   return {
     ...report,
     assessment,
+    pentest_report: ptResult.pentest_report || {},
     code_report: pmResult.code_report || {},
     planner_report: pmResult.planner_report || {},
     validation_report: pmResult.validation_report || {},
@@ -150,6 +156,12 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Incident Assessment</div>
                 <AssessmentBody report={report.assessment} />
+              </div>
+            )}
+            {report.pentest_report && Object.keys(report.pentest_report).length > 0 && (
+              <div className="ia-assessment-section">
+                <div className="ia-assessment-label">Attack Path Validation</div>
+                <PentestReportBody report={report.pentest_report} />
               </div>
             )}
             {report.code_report && Object.keys(report.code_report).length > 0 && (

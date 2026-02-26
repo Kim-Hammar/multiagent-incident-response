@@ -32,6 +32,7 @@ from ccs_response_planner_backend.agents.orchestrator_agent.prompt import (
 from ccs_response_planner_backend.agents.orchestrator_agent.tool_declarations import (
     ALL_DECLARATIONS,
     ITERATING_DECLARATIONS,
+    MID_DECLARATIONS,
 )
 from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
     STREAMING_TOOL_DISPATCH,
@@ -138,6 +139,7 @@ class OrchestratorAgent:
         conversation_history: list[dict[str, Any]],
         images: list[str] | None = None,
         model_name: str | None = None,
+        max_iterations: int = 1,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
     ) -> Generator[dict[str, Any], None, None]:
@@ -157,6 +159,7 @@ class OrchestratorAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM name override
+        :param max_iterations: max assessment-pentest cycles
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
@@ -174,6 +177,7 @@ class OrchestratorAgent:
             operator_feedback=(
                 operator_feedback or "N/A"
             ),
+            max_iterations=max_iterations,
         )
 
         yield {
@@ -199,11 +203,18 @@ class OrchestratorAgent:
             ):
                 yield ev
 
-        declarations = (
-            ALL_DECLARATIONS
-            if self._has_planned(conversation_history)
-            else ITERATING_DECLARATIONS
+        has_planned = self._has_planned(
+            conversation_history,
         )
+        has_pentested = self._has_pentested(
+            conversation_history,
+        )
+        if has_planned:
+            declarations = ALL_DECLARATIONS
+        elif has_pentested:
+            declarations = MID_DECLARATIONS
+        else:
+            declarations = ITERATING_DECLARATIONS
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(
@@ -380,6 +391,27 @@ class OrchestratorAgent:
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
                 == "run_plan_manager"
+            ):
+                return True
+        return False
+
+    @staticmethod
+    def _has_pentested(
+        history: list[dict[str, Any]],
+    ) -> bool:
+        """
+        Check whether the conversation history contains a
+        run_pentest_agent tool_result (gates the
+        run_plan_manager declaration).
+
+        :param history: the conversation history list
+        :return: True if a pentest agent result exists
+        """
+        for entry in history:
+            if (
+                entry.get("type") == "tool_result"
+                and entry.get("tool_name")
+                == "run_pentest_agent"
             ):
                 return True
         return False
@@ -637,6 +669,20 @@ class OrchestratorAgent:
                     ),
                 },
             }
+        if tool_name == "run_pentest_agent":
+            report = result.get(
+                "pentest_report", {},
+            )
+            return {
+                "pentest_report": {
+                    "overall_verdict": report.get(
+                        "overall_verdict", "",
+                    ),
+                    "executive_summary": report.get(
+                        "executive_summary", "",
+                    ),
+                },
+            }
         if tool_name == "run_plan_manager":
             report = result.get(
                 "plan_manager_report", {},
@@ -778,9 +824,7 @@ class OrchestratorAgent:
                                 "Tool result received."
                                 " Analyze this result,"
                                 " then decide the next"
-                                " step: run the plan"
-                                " manager, or produce"
-                                " the final report."
+                                " step in the pipeline."
                             ),
                         },
                     ],

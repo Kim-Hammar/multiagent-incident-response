@@ -1065,6 +1065,124 @@ function HostAnalysisBody({ report: a }) {
   )
 }
 
+/* ── Pentest report body (from PentestAgent results) ───────── */
+
+const PENTEST_VERDICT_MAP = {
+  'Attack path validated': 'success',
+  'Attack path partially validated': 'warning',
+  'Attack path not feasible': 'danger'
+}
+
+function PentestReportBody({ report: r }) {
+  const steps = r.attack_path_steps || []
+  const hosts = r.hosts_compromised || []
+  const commands = r.reproduction_commands || []
+  const recommendations = r.defensive_recommendations || []
+  return (
+    <div style={{ marginTop: '10px' }}>
+      {r.overall_verdict && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Overall Verdict</div>
+          <span
+            className={`badge badge-${PENTEST_VERDICT_MAP[r.overall_verdict] || 'secondary'}`}
+            style={{ fontSize: '14px', padding: '6px 12px' }}
+          >
+            {r.overall_verdict}
+          </span>
+        </div>
+      )}
+      {r.executive_summary && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Executive Summary</div>
+          <p className="ia-assessment-body mb-0">{r.executive_summary}</p>
+        </div>
+      )}
+      {steps.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Attack Path Steps ({steps.length})</div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="ia-ioc-table" style={{ minWidth: '600px' }}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Step</th>
+                  <th>Status</th>
+                  <th>Evidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                {steps.map((s, i) => (
+                  <tr key={i}>
+                    <td>{i + 1}</td>
+                    <td>{s.description || s.step || ''}</td>
+                    <td>
+                      <span
+                        className={`badge badge-${s.success || s.status === 'success' ? 'success' : 'danger'}`}
+                      >
+                        {s.status || (s.success ? 'success' : 'failed')}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '12px' }}>
+                      {s.evidence || s.output || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {hosts.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Hosts Compromised</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {hosts.map((h, i) => (
+              <span
+                key={i}
+                className="badge badge-danger"
+                style={{ fontSize: '12px', padding: '5px 8px' }}
+              >
+                <i className="fa fa-server" aria-hidden="true" style={{ marginRight: '4px' }} />
+                {typeof h === 'string' ? h : h.hostname || h.host || JSON.stringify(h)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {commands.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Reproduction Commands</div>
+          <CopyablePre
+            text={commands.join('\n')}
+            style={{
+              background: '#f5f5f5',
+              padding: '12px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              maxHeight: '300px',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word'
+            }}
+          >
+            {commands.join('\n')}
+          </CopyablePre>
+        </div>
+      )}
+      {recommendations.length > 0 && (
+        <div className="ia-assessment-section">
+          <div className="ia-assessment-label">Defensive Recommendations</div>
+          <ul style={{ marginBottom: 0 }}>
+            {recommendations.map((rec, i) => (
+              <li key={i}>{rec}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const ACTION_OUTCOME_STYLES = {
   'Action validated': 'success',
   'Action partially validated': 'warning',
@@ -1171,6 +1289,7 @@ export {
   ValidationReportBody,
   PlanManagerReportBody,
   PlannerReportInline,
+  PentestReportBody,
   HostAnalysisBody,
   ActionValidationBody,
   ACTION_OUTCOME_STYLES,

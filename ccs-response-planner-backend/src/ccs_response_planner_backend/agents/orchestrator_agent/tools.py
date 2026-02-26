@@ -28,6 +28,12 @@ from ccs_response_planner_backend.agents.plan_manager_agent.agent import (
 from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PM_STREAMING_DISPATCH,
 )
+from ccs_response_planner_backend.agents.pentest_agent.agent import (
+    PentestAgent,
+)
+from ccs_response_planner_backend.agents.pentest_agent.tools import (
+    STREAMING_TOOL_DISPATCH as PT_STREAMING_DISPATCH,
+)
 from ccs_response_planner_backend.db.database_facade import (
     DatabaseFacade,
 )
@@ -207,6 +213,9 @@ def run_report_manager_stream(
     """
     agent = ReportManagerAgent()
     conversation_history: list[dict[str, Any]] = []
+    validation_feedback = context.get(
+        "validation_feedback", "",
+    )
     step_kwargs: dict[str, Any] = {
         "system_description": context.get(
             "system_description", "",
@@ -224,6 +233,7 @@ def run_report_manager_stream(
         "max_iterations": context.get(
             "report_manager_iterations", 2,
         ),
+        "validation_feedback": validation_feedback,
         "compaction_model": context.get(
             "compaction_model",
         ),
@@ -608,6 +618,380 @@ def run_report_manager_stream(
     yield {
         "type": "done",
         "result": done_result,
+    }
+
+
+def run_pentest_agent_stream(
+    context: dict[str, Any],
+) -> Generator[dict[str, Any], None, None]:
+    """
+    Run the PentestAgent sub-agent to completion.
+
+    Extracts the attack path from the assessment in context
+    and runs the PentestAgent loop, auto-approving tool calls
+    (dt_exec, dt_restart) and streaming progress events.
+
+    :param context: dict with assessment, system_description,
+        dt_config, pentest_agent_model, username
+    :return: generator yielding event dicts
+    """
+    agent = PentestAgent()
+    conversation_history: list[dict[str, Any]] = []
+
+    assessment = context.get("assessment", {})
+    attack_path = ""
+    if isinstance(assessment, dict):
+        attack_path = assessment.get(
+            "attack_vector_analysis", "",
+        )
+        if not attack_path:
+            attack_path = json.dumps(
+                assessment, indent=2, default=str,
+            )
+
+    system_description = context.get(
+        "system_description", "",
+    )
+    dt_config = context.get("dt_config")
+    step_kwargs: dict[str, Any] = {
+        "system_description": system_description,
+        "attack_path": attack_path,
+        "model_name": context.get(
+            "pentest_agent_model",
+        ),
+        "dt_config": dt_config,
+        "compaction_model": context.get(
+            "compaction_model",
+        ),
+        "compaction_threshold": context.get(
+            "pentest_agent_compaction", 0.8,
+        ),
+        "conversation_history": conversation_history,
+    }
+
+    pentest_report: dict[str, Any] = {}
+
+    for step_num in range(MAX_INNER_STEPS):
+        yield {
+            "type": "output_chunk",
+            "text": (
+                f"[PentestAgent] Step "
+                f"{step_num + 1}...\n"
+            ),
+        }
+
+        pending_tool = None
+        step_reasoning = ""
+        step_start = time.monotonic()
+        for event in _timeout_step_stream(
+            agent, step_kwargs, step_start,
+            step_num, "PentestAgent",
+        ):
+            etype = event.get("type")
+
+            if etype == "system_prompt":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "prompt",
+                        "text": event.get("text", ""),
+                        "images": event.get(
+                            "images", [],
+                        ),
+                    },
+                }
+            elif etype == "thinking":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "thinking_delta",
+                        "text": event.get("delta", ""),
+                    },
+                }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
+            elif etype == "text":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "text_delta",
+                        "text": event.get("delta", ""),
+                    },
+                }
+                step_reasoning += event.get(
+                    "delta", "",
+                )
+            elif etype == "pentest_report":
+                pentest_report = event.get(
+                    "pentest_report", {},
+                )
+                yield {
+                    "type": "sub_event",
+                    "event": {"type": "report"},
+                }
+                yield {
+                    "type": "output_chunk",
+                    "text": (
+                        "[PentestAgent] Report "
+                        "produced.\n"
+                    ),
+                }
+            elif etype == "context_usage":
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "context_usage",
+                        "prompt_tokens": event.get(
+                            "prompt_tokens", 0,
+                        ),
+                        "candidates_tokens": event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        "total_tokens": event.get(
+                            "total_tokens", 0,
+                        ),
+                        "context_limit": event.get(
+                            "context_limit", 0,
+                        ),
+                    },
+                }
+            elif etype == "context_compaction":
+                yield {
+                    "type": "sub_event",
+                    "event": event,
+                }
+            elif etype == "tool_proposal":
+                pending_tool = event
+
+        if step_reasoning:
+            conversation_history.append({
+                "role": "model",
+                "type": "reasoning",
+                "text": step_reasoning,
+            })
+
+        if pentest_report:
+            break
+
+        if pending_tool:
+            tool_name = pending_tool.get(
+                "tool_name", "",
+            )
+            tool_args = pending_tool.get(
+                "tool_args", {},
+            )
+            yield {
+                "type": "sub_event",
+                "event": {
+                    "type": "tool_call",
+                    "tool_name": tool_name,
+                    "tool_args": tool_args,
+                },
+            }
+            yield {
+                "type": "output_chunk",
+                "text": (
+                    f"[PentestAgent] Running tool: "
+                    f"{tool_name}...\n"
+                ),
+            }
+            conversation_history.append({
+                "role": "model",
+                "type": "tool_proposal",
+                "tool_name": tool_name,
+                "tool_args": tool_args,
+                "rationale": pending_tool.get(
+                    "rationale", "",
+                ),
+                "_model_parts": pending_tool.get(
+                    "_model_parts",
+                ),
+                "_anthropic_content": pending_tool.get(
+                    "_anthropic_content",
+                ),
+                "_tool_use_id": pending_tool.get(
+                    "_tool_use_id",
+                ),
+                "_vendor": pending_tool.get(
+                    "_vendor",
+                ),
+            })
+            conversation_history.append({
+                "role": "user",
+                "type": "tool_approval",
+                "tool_name": tool_name,
+                "approved": True,
+            })
+
+            if tool_name in PT_STREAMING_DISPATCH:
+                collected: list[dict[str, Any]] = []
+                tool_result: dict[str, Any] = {}
+                try:
+                    for tool_event in (
+                        agent.execute_tool_stream(
+                            tool_name, tool_args,
+                        )
+                    ):
+                        te_type = tool_event.get("type")
+                        if te_type == "sub_event":
+                            inner = tool_event["event"]
+                            yield {
+                                "type": "sub_event",
+                                "event": {
+                                    "type": (
+                                        "nested_event"
+                                    ),
+                                    "event": inner,
+                                },
+                            }
+                            collected.append(inner)
+                        elif te_type == "output_chunk":
+                            yield tool_event
+                        elif te_type == "done":
+                            done_result = (
+                                tool_event.get("result")
+                            )
+                            if done_result is not None:
+                                tool_result = (
+                                    done_result
+                                )
+                            else:
+                                tool_result = {
+                                    k: v
+                                    for k, v in
+                                    tool_event.items()
+                                    if k != "type"
+                                }
+                            if tool_event.get("error"):
+                                tool_result["error"] = (
+                                    tool_event["error"]
+                                )
+                            if tool_event.get("stderr"):
+                                tool_result["stderr"] = (
+                                    tool_event["stderr"]
+                                )
+                        elif te_type == "error":
+                            tool_result["error"] = (
+                                tool_event.get(
+                                    "message",
+                                    "error",
+                                )
+                            )
+                            collected.append(
+                                tool_event,
+                            )
+                except (
+                    TimeoutError, AgentTimeoutError,
+                    OSError,
+                ):
+                    raise
+                except Exception as e:
+                    tool_result = {"error": str(e)}
+
+                sub_result = _truncate_result(
+                    tool_result,
+                )
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "tool_result",
+                        "tool_name": tool_name,
+                        "result": sub_result,
+                    },
+                }
+                processed_sub = (
+                    _process_collected_events(collected)
+                )
+                tool_hist_entry: dict[str, Any] = {
+                    "role": "tool",
+                    "type": "tool_result",
+                    "tool_name": tool_name,
+                    "result": tool_result,
+                }
+                if processed_sub:
+                    tool_hist_entry["subEvents"] = (
+                        processed_sub
+                    )
+                conversation_history.append(
+                    tool_hist_entry
+                )
+            else:
+                try:
+                    result_obj = agent.execute_tool(
+                        tool_name, tool_args,
+                    )
+                    tool_result = result_obj.get(
+                        "result", {},
+                    )
+                    if result_obj.get("error"):
+                        tool_result = {
+                            "error": result_obj["error"],
+                        }
+                except (
+                    TimeoutError, AgentTimeoutError,
+                    OSError,
+                ):
+                    raise
+                except Exception as e:
+                    tool_result = {"error": str(e)}
+                conversation_history.append({
+                    "role": "tool",
+                    "type": "tool_result",
+                    "tool_name": tool_name,
+                    "result": tool_result,
+                })
+                sub_result = _truncate_result(
+                    tool_result,
+                )
+                yield {
+                    "type": "sub_event",
+                    "event": {
+                        "type": "tool_result",
+                        "tool_name": tool_name,
+                        "result": sub_result,
+                    },
+                }
+
+    if not pentest_report:
+        pentest_report = {
+            "executive_summary": (
+                "PentestAgent did not complete within "
+                "the step limit."
+            ),
+            "overall_verdict": "Attack path not feasible",
+            "attack_path_steps": [],
+            "hosts_compromised": [],
+            "reproduction_commands": [],
+            "defensive_recommendations": [],
+        }
+
+    filtered_history = [
+        {k: v for k, v in e.items()
+         if k not in _INTERNAL_KEYS}
+        for e in conversation_history
+        if e.get("type") not in _FINAL_REPORT_TYPES
+    ]
+    try:
+        DatabaseFacade.save_agent_report(
+            agent_type="pentest",
+            report=pentest_report,
+            username=context.get(
+                "username", "system",
+            ),
+            incident_id=context.get("incident_id"),
+            conversation_history=filtered_history,
+        )
+    except Exception as e:
+        logger.warning(
+            "Failed to save pentest report: %s", e,
+        )
+
+    yield {
+        "type": "done",
+        "result": {
+            "pentest_report": pentest_report,
+        },
     }
 
 
@@ -1143,6 +1527,9 @@ STREAMING_TOOL_DISPATCH: dict[
 ] = {
     "run_report_manager": (
         run_report_manager_stream
+    ),
+    "run_pentest_agent": (
+        run_pentest_agent_stream
     ),
     "run_plan_manager": run_plan_manager_stream,
 }

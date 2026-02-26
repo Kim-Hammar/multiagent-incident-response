@@ -13,6 +13,7 @@ import {
   IncidentReviewBody,
   ValidationReportBody,
   PlanManagerReportBody,
+  PentestReportBody,
   HostAnalysisBody,
   ActionValidationBody,
   ACTION_OUTCOME_STYLES
@@ -34,6 +35,7 @@ const ORCHESTRATOR_TOOLS = new Set([
   'run_report_reviewer_agent',
   'produce_report_manager_report',
   'run_report_manager',
+  'run_pentest_agent',
   'run_plan_manager',
   'produce_orchestrator_agent_report',
   'run_host_analyzers',
@@ -448,6 +450,17 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
+  if (toolName === 'run_pentest_agent') {
+    return (
+      <div className="ia-orchestrator-args">
+        <div className="ia-orchestrator-note">
+          <i className="fa fa-info-circle" aria-hidden="true" />
+          <span>Attack path validation against digital twin</span>
+        </div>
+      </div>
+    )
+  }
+
   if (toolName === 'run_plan_manager') {
     return (
       <div className="ia-orchestrator-args">
@@ -640,6 +653,9 @@ function renderSubAgentReport(toolName, result) {
         )}
       </div>
     )
+  }
+  if (toolName === 'run_pentest_agent' && result.pentest_report) {
+    return <PentestReportBody report={result.pentest_report} />
   }
   if (toolName === 'run_plan_manager' && result.plan_manager_report) {
     return <PlanManagerReportBody result={result} />

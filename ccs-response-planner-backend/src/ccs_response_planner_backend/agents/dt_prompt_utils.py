@@ -78,6 +78,99 @@ def format_container_table(
     return "\n".join(lines)
 
 
+def format_attacker_info(
+    config: dict[str, Any],
+) -> str:
+    """
+    Build a description of the attacker container(s).
+
+    Returns the attacker container ID, IPs, and directly
+    reachable hosts so the pentest agent knows its entrypoint.
+
+    :param config: the digital twin configuration dict
+    :return: a human-readable attacker info string, or "N/A"
+    """
+    hosts = config.get("hosts", [])
+    networks = config.get("networks", [])
+    links = config.get("links", [])
+    hosts_map: dict[str, dict[str, Any]] = {
+        h["id"]: h for h in hosts
+    }
+
+    attackers = [
+        h for h in hosts
+        if "attacker" in h.get("id", "")
+    ]
+    if not attackers:
+        return "N/A"
+
+    parts: list[str] = []
+    for atk in attackers:
+        aid = atk["id"]
+        ips = ", ".join(
+            atk.get("ip_addresses", {}).values(),
+        )
+        zone = _zone_label(
+            atk.get("ip_addresses", {}), networks,
+        )
+        desc = atk.get("description", "Attacker host")
+
+        reachable: list[str] = []
+        for link in links:
+            src = link.get("source", "")
+            tgt = link.get("target", "")
+            if src == aid and tgt != aid:
+                peer = hosts_map.get(tgt, {})
+                peer_name = peer.get("name", tgt)
+                peer_ips = ", ".join(
+                    peer.get(
+                        "ip_addresses", {},
+                    ).values(),
+                )
+                reachable.append(
+                    f"{peer_name} ({tgt}, {peer_ips})"
+                )
+            elif tgt == aid and src != aid:
+                peer = hosts_map.get(src, {})
+                peer_name = peer.get("name", src)
+                peer_ips = ", ".join(
+                    peer.get(
+                        "ip_addresses", {},
+                    ).values(),
+                )
+                reachable.append(
+                    f"{peer_name} ({src}, {peer_ips})"
+                )
+
+        info = (
+            f"**{aid}** — {desc}\n"
+            f"  - Zone: {zone}\n"
+            f"  - IP(s): {ips}\n"
+        )
+        if reachable:
+            info += (
+                f"  - Directly reachable hosts: "
+                f"{', '.join(reachable)}\n"
+            )
+        parts.append(info)
+
+    return "\n".join(parts)
+
+
+def format_container_list_with_attacker(
+    config: dict[str, Any],
+) -> str:
+    """
+    Build a comma-separated list of all container IDs
+    including the attacker.
+
+    :param config: the digital twin configuration dict
+    :return: e.g. ``"i1_attacker, i1_gateway, ..."``
+    """
+    hosts = config.get("hosts", [])
+    return ", ".join(h["id"] for h in hosts)
+
+
 def format_network_connectivity(
     config: dict[str, Any],
 ) -> str:

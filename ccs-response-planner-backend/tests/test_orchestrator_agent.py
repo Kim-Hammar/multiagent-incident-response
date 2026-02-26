@@ -11,6 +11,7 @@ from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
 from ccs_response_planner_backend.agents.orchestrator_agent.tool_declarations import (  # noqa: E501
     ALL_DECLARATIONS,
     ITERATING_DECLARATIONS,
+    MID_DECLARATIONS,
 )
 
 
@@ -24,12 +25,13 @@ def test_tool_dispatch_is_empty() -> None:
     assert len(TOOL_DISPATCH) == 0
 
 
-def test_streaming_dispatch_has_two_tools() -> None:
+def test_streaming_dispatch_has_three_tools() -> None:
     """
-    STREAMING_TOOL_DISPATCH must contain both sub-agent tools.
+    STREAMING_TOOL_DISPATCH must contain all sub-agent tools.
     """
     expected = {
         "run_report_manager",
+        "run_pentest_agent",
         "run_plan_manager",
     }
     assert set(STREAMING_TOOL_DISPATCH.keys()) == expected
@@ -40,24 +42,40 @@ def test_streaming_dispatch_has_two_tools() -> None:
 
 def test_iterating_declarations_count() -> None:
     """
-    ITERATING_DECLARATIONS has exactly 2 tools.
+    ITERATING_DECLARATIONS has exactly 2 tools
+    (report_manager + pentest_agent).
     """
     assert len(ITERATING_DECLARATIONS) == 2
     names = {d.name for d in ITERATING_DECLARATIONS}
     assert names == {
         "run_report_manager",
+        "run_pentest_agent",
+    }
+
+
+def test_mid_declarations_count() -> None:
+    """
+    MID_DECLARATIONS has exactly 3 tools
+    (report_manager + pentest_agent + plan_manager).
+    """
+    assert len(MID_DECLARATIONS) == 3
+    names = {d.name for d in MID_DECLARATIONS}
+    assert names == {
+        "run_report_manager",
+        "run_pentest_agent",
         "run_plan_manager",
     }
 
 
 def test_all_declarations_count() -> None:
     """
-    ALL_DECLARATIONS has exactly 3 tools.
+    ALL_DECLARATIONS has exactly 4 tools.
     """
-    assert len(ALL_DECLARATIONS) == 3
+    assert len(ALL_DECLARATIONS) == 4
     names = {d.name for d in ALL_DECLARATIONS}
     assert names == {
         "run_report_manager",
+        "run_pentest_agent",
         "run_plan_manager",
         "produce_orchestrator_agent_report",
     }
@@ -104,6 +122,57 @@ def test_has_planned_true_with_plan_manager_result() -> None:
         },
     ]
     assert OrchestratorAgent._has_planned(history) is True
+
+
+# ── _has_pentested gating ────────────────────────────────────
+
+
+def test_has_pentested_false_when_empty() -> None:
+    """
+    _has_pentested returns False when history is empty.
+    """
+    assert (
+        OrchestratorAgent._has_pentested([]) is False
+    )
+
+
+def test_has_pentested_false_without_pentest_result() -> None:
+    """
+    _has_pentested returns False when no pentest result exists.
+    """
+    history = [
+        {
+            "type": "tool_result",
+            "tool_name": "run_report_manager",
+            "result": {},
+        },
+    ]
+    assert (
+        OrchestratorAgent._has_pentested(history)
+        is False
+    )
+
+
+def test_has_pentested_true_with_pentest_result() -> None:
+    """
+    _has_pentested returns True when pentest result exists.
+    """
+    history = [
+        {
+            "type": "tool_result",
+            "tool_name": "run_report_manager",
+            "result": {},
+        },
+        {
+            "type": "tool_result",
+            "tool_name": "run_pentest_agent",
+            "result": {},
+        },
+    ]
+    assert (
+        OrchestratorAgent._has_pentested(history)
+        is True
+    )
 
 
 # ── _parse_orchestrator_agent_report ──────────────────────────
@@ -454,6 +523,43 @@ def test_summarize_plan_manager_result() -> None:
     report = summary["plan_manager_report"]
     assert report["executive_summary"] == "Plan OK"
     assert report["final_verdict"] == "pass"
+
+
+def test_summarize_pentest_agent_result() -> None:
+    """
+    _summarize_tool_result keeps only verdict and
+    executive_summary for pentest results.
+    """
+    result = {
+        "pentest_report": {
+            "overall_verdict": "Attack path validated",
+            "executive_summary": "All steps succeeded",
+            "attack_path_steps": [
+                {"step": "1", "status": "success"},
+                {"step": "2", "status": "success"},
+            ],
+            "hosts_compromised": ["web-server"],
+            "reproduction_commands": [
+                "nmap -sV target",
+            ],
+            "defensive_recommendations": [
+                "Patch CVE-2024-1234",
+            ],
+        },
+    }
+    summary = OrchestratorAgent._summarize_tool_result(
+        "run_pentest_agent", result,
+    )
+    assert "attack_path_steps" not in summary.get(
+        "pentest_report", {},
+    )
+    report = summary["pentest_report"]
+    assert report["overall_verdict"] == (
+        "Attack path validated"
+    )
+    assert report["executive_summary"] == (
+        "All steps succeeded"
+    )
 
 
 def test_summarize_unknown_tool_passes_through() -> None:
