@@ -7,7 +7,10 @@ from typing import Any
 DT_DISABLED_NOTICE = (
     "Digital twin is not available for this session."
 )
-DT_TOOL_NAMES = {"dt_exec", "dt_restart", "dt_python_exec"}
+DT_TOOL_NAMES = {
+    "dt_exec", "dt_restart", "dt_python_exec",
+    "run_host_analyzers",
+}
 
 INFO_TOOL_NAMES = {
     "tavily_search", "nvd_search", "mitre_search",
