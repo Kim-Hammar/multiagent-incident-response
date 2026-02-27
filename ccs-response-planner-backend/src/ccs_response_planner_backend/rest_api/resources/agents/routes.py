@@ -1055,6 +1055,15 @@ def agents_validation_step() -> tuple[Response, int]:
             dt_enabled = body.get(
                 "dt_enabled", True,
             )
+            if not dt_enabled:
+                yield {
+                    "type": "error",
+                    "message": (
+                        "The Validation Agent requires "
+                        "the digital twin to be enabled."
+                    ),
+                }
+                return
             if (
                 not conversation_history
                 and dt_enabled
@@ -2991,6 +3000,9 @@ def agents_plan_manager_step() -> (
     validator_enabled = body.get(
         "validator_enabled", True,
     )
+    dt_enabled = body.get("dt_enabled", True)
+    if not dt_enabled:
+        validator_enabled = False
     code_model_enabled = body.get(
         "code_model_enabled", True,
     )
@@ -3439,6 +3451,8 @@ def agents_orchestrator_step() -> (
             pentest_enabled = body.get(
                 "pentest_enabled", True,
             )
+            if not dt_enabled:
+                pentest_enabled = False
             report_manager_enabled = body.get(
                 "report_manager_enabled", True,
             )
@@ -3646,6 +3660,9 @@ def agents_orchestrator_tool() -> (
                 "report_manager_enabled", True,
             ),
         }
+        if not context.get("dt_enabled", True):
+            context["pentest_enabled"] = False
+            context["validator_enabled"] = False
         conv_history = body.get(
             "conversation_history", [],
         )
@@ -4112,6 +4129,15 @@ def agents_pentest_step() -> tuple[Response, int]:
             dt_enabled = body.get(
                 "dt_enabled", True,
             )
+            if not dt_enabled:
+                yield {
+                    "type": "error",
+                    "message": (
+                        "The Pentest Agent requires the "
+                        "digital twin to be enabled."
+                    ),
+                }
+                return
             if (
                 not conversation_history
                 and dt_enabled
@@ -4611,6 +4637,16 @@ def agents_action_validator_step() -> tuple[
             dt_enabled = body.get(
                 "dt_enabled", True,
             )
+            if not dt_enabled:
+                yield {
+                    "type": "error",
+                    "message": (
+                        "The Action Validator Agent "
+                        "requires the digital twin "
+                        "to be enabled."
+                    ),
+                }
+                return
             if (
                 not conversation_history
                 and dt_enabled
