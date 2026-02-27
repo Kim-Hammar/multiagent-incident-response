@@ -218,6 +218,7 @@ class CodeManagerAgent:
         )
         system_prompt = build_system_prompt(
             dt_enabled=dt_enabled,
+            code_reviewer_enabled=code_reviewer_enabled,
             system_description=system_description or "N/A",
             incident_context_section=(
                 incident_context_section

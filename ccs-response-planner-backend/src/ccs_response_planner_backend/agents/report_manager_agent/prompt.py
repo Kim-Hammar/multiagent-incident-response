@@ -52,6 +52,39 @@ on the incident context provided (no digital twin or external APIs).
 """
 
 # ------------------------------------------------------------------
+# Sub-agent descriptions when reviewer is disabled
+# ------------------------------------------------------------------
+
+_SUBAGENTS_ALL_NO_REVIEWER = """\
+Your sub-agent is:
+1. **ReportAgent** \u2014 generates and revises incident assessment \
+reports. It has access to a digital twin of the affected system \
+(Docker containers) and external APIs for vulnerability lookup.
+"""
+
+_SUBAGENTS_DT_ONLY_NO_REVIEWER = """\
+Your sub-agent is:
+1. **ReportAgent** \u2014 generates and revises incident assessment \
+reports. It has access to a digital twin of the affected system \
+(Docker containers) for hands-on investigation.
+"""
+
+_SUBAGENTS_INFO_ONLY_NO_REVIEWER = """\
+Your sub-agent is:
+1. **ReportAgent** \u2014 generates and revises incident assessment \
+reports. It has access to external APIs for vulnerability and \
+threat intelligence lookup.
+"""
+
+_SUBAGENTS_NONE_NO_REVIEWER = """\
+Your sub-agent is:
+1. **ReportAgent** \u2014 generates and revises incident assessment \
+reports. It relies on the incident context, security alerts, and \
+its security expertise (no digital twin or external APIs are \
+available in this session).
+"""
+
+# ------------------------------------------------------------------
 # Main template body (always included)
 # ------------------------------------------------------------------
 
@@ -204,10 +237,114 @@ the reviewer\u2019s raw output.
 """
 
 
+_TEMPLATE_NO_REVIEWER = """\
+You are a manager agent that is part of an autonomous \
+cyber-security incident response system. \
+Your role is strictly to manage and coordinate the ReportAgent \
+sub-agent \u2014 you are NOT a report writer. You never generate, \
+revise, or improve reports yourself. You only decide when to \
+invoke the ReportAgent and when to finalize. \
+Before producing a solution or invoking a tool, think step-by-step \
+about the best approach.
+
+{subagents_section}\
+
+Your job is to coordinate the ReportAgent to generate the incident \
+assessment report and decide when it is good enough.
+
+## Iterations
+
+You are allowed a maximum of **{max_iterations} iteration(s)** of \
+the generation pipeline. One iteration consists of calling \
+`run_report_agent` (generate/revise). After each generation, if \
+the assessment needs improvement and you still have iterations \
+left, you may start a new iteration by calling `run_report_agent` \
+again with feedback. Once you have used all {max_iterations} \
+iteration(s), or once the assessment is solid, you MUST call \
+`produce_report_manager_report` to finalize.
+
+## Example
+
+Input: Security alerts indicating unauthorized SSH access, with \
+{max_iterations} iteration(s) allowed. \
+Solution (iteration 1): Call `run_report_agent` to generate the \
+initial assessment. If the assessment is solid or \
+{max_iterations} iteration(s) have been used, call \
+`produce_report_manager_report`.
+
+## Incident Context
+
+### System Description
+{system_description}
+
+### Security Alerts
+{security_alerts}
+
+### Feedback
+This field may contain guidance from the human security operator \
+managing the incident (e.g., additional constraints or priorities), \
+revision instructions from an upstream orchestrator agent (e.g., \
+validation findings from a previous pipeline iteration), or both. \
+Treat all feedback here as actionable context for your task.
+{operator_feedback}
+
+### Validation Feedback (from previous pipeline iteration)
+{validation_feedback}
+
+{revision_notice}\
+## Workflow
+
+1. **Generate**: Call `run_report_agent` to have the ReportAgent \
+generate the incident assessment report. On the first iteration, \
+call it with no arguments. On subsequent iterations, pass \
+`previous_assessment` and `review_feedback` so the ReportAgent \
+can revise the assessment.
+
+2. **Report**: Call `produce_report_manager_report` with a brief \
+summary of the orchestration process (including how many iterations \
+were performed) and a summary of the final incident assessment.
+
+## Available Tools
+
+- **run_report_agent**: Invoke the ReportAgent to generate or \
+revise the incident assessment. Optionally provide \
+`previous_assessment` and `review_feedback` for revisions.
+- **produce_report_manager_report**: Produce the final orchestration \
+report when you decide to finalize or the iteration limit is \
+reached.
+
+## CRITICAL RULES
+
+- Before producing a solution or invoking a tool, think step-by-step \
+about the best approach and explain your reasoning.
+- You are a MANAGER, not a writer. You NEVER generate, revise, \
+or draft report content yourself. If revisions are needed, call \
+`run_report_agent` and let it do the work. Do not reason about \
+what specific changes to make to the report \u2014 that is the \
+ReportAgent\u2019s job.
+- You MUST always respond with exactly one tool call. Either call \
+`run_report_agent` or `produce_report_manager_report`.
+- NEVER output plain text without also making a tool call.
+- All reasoning and planning should be done internally in your \
+thinking.
+- **One tool call per response.** If you call multiple tools in a \
+single response, you will only receive the result of the LAST \
+tool call.
+- Do NOT call `produce_report_manager_report` until you have run \
+at least one `run_report_agent` call.
+- Maximum {max_iterations} iteration(s). Once you have used all \
+{max_iterations} iteration(s), call \
+`produce_report_manager_report`.
+- When revising, ALWAYS pass `previous_assessment` and \
+`review_feedback` to `run_report_agent` so it knows what to fix.
+"""
+
+
 def build_system_prompt(
     *,
     dt_enabled: bool = True,
     info_tools_enabled: bool = True,
+    report_reviewer_enabled: bool = True,
     system_description: str = "N/A",
     security_alerts: str = "N/A",
     operator_feedback: str = "N/A",
@@ -220,10 +357,14 @@ def build_system_prompt(
 
     The sub-agent capability descriptions are adjusted based on
     which investigation tools (DT, info tools) are available.
+    When *report_reviewer_enabled* is ``False``, a simplified
+    template is used that omits all reviewer references.
 
     :param dt_enabled: whether digital-twin tools are available
     :param info_tools_enabled: whether external info tools are
         available
+    :param report_reviewer_enabled: whether the report reviewer
+        is enabled (default True)
     :param system_description: description of the target system
     :param security_alerts: security alert data
     :param operator_feedback: operator notes/feedback
@@ -232,16 +373,28 @@ def build_system_prompt(
     :param revision_notice: optional revision iteration notice
     :return: the fully rendered system prompt string
     """
-    if dt_enabled and info_tools_enabled:
-        subagents = _SUBAGENTS_ALL
-    elif dt_enabled:
-        subagents = _SUBAGENTS_DT_ONLY
-    elif info_tools_enabled:
-        subagents = _SUBAGENTS_INFO_ONLY
+    if report_reviewer_enabled:
+        if dt_enabled and info_tools_enabled:
+            subagents = _SUBAGENTS_ALL
+        elif dt_enabled:
+            subagents = _SUBAGENTS_DT_ONLY
+        elif info_tools_enabled:
+            subagents = _SUBAGENTS_INFO_ONLY
+        else:
+            subagents = _SUBAGENTS_NONE
+        template = _TEMPLATE
     else:
-        subagents = _SUBAGENTS_NONE
+        if dt_enabled and info_tools_enabled:
+            subagents = _SUBAGENTS_ALL_NO_REVIEWER
+        elif dt_enabled:
+            subagents = _SUBAGENTS_DT_ONLY_NO_REVIEWER
+        elif info_tools_enabled:
+            subagents = _SUBAGENTS_INFO_ONLY_NO_REVIEWER
+        else:
+            subagents = _SUBAGENTS_NONE_NO_REVIEWER
+        template = _TEMPLATE_NO_REVIEWER
 
-    return _TEMPLATE.format(
+    return template.format(
         subagents_section=subagents,
         system_description=system_description,
         security_alerts=security_alerts,

@@ -21,7 +21,6 @@ from ccs_response_planner_backend.agents.code_manager_agent.agent import (
 )
 from ccs_response_planner_backend.agents.code_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as CM_STREAMING_DISPATCH,
-    run_code_agent_stream,
 )
 from ccs_response_planner_backend.agents.planner_agent.agent import PlannerAgent
 from ccs_response_planner_backend.agents.planner_agent.tools import (
@@ -572,60 +571,6 @@ def _run_sub_agent_loop(
                 }
 
 
-def run_code_agent_direct_stream(
-    context: dict[str, Any],
-) -> Generator[dict[str, Any], None, None]:
-    """
-    Run the CodeAgent directly, bypassing CodeManagerAgent.
-
-    Used when the code reviewer is disabled. Delegates to
-    ``run_code_agent_stream`` and wraps its events with an
-    extra nesting layer so downstream code (summariser,
-    route result extraction, frontend history) works
-    unchanged.
-
-    :param context: dict with system_description,
-        incident_report, specification, operator_feedback,
-        images, code_agent_model, username, dt_config
-    :return: generator yielding event dicts
-    """
-    code_report: dict[str, Any] = {}
-
-    for event in run_code_agent_stream(
-        context=context,
-    ):
-        etype = event.get("type")
-        if etype == "sub_event":
-            yield {
-                "type": "sub_event",
-                "event": {
-                    "type": "nested_event",
-                    "event": event.get("event", {}),
-                },
-            }
-        elif etype == "output_chunk":
-            yield event
-        elif etype == "done":
-            result = event.get("result", {})
-            code_report = result.get(
-                "code_report", {},
-            )
-
-    yield {
-        "type": "done",
-        "result": {
-            "code_report": code_report,
-            "orchestrator_report": {
-                "executive_summary": (
-                    "Direct code generation "
-                    "(review skipped)"
-                ),
-                "code_report_summary": "",
-            },
-        },
-    }
-
-
 def run_code_manager_stream(
     context: dict[str, Any],
     validation_feedback: str = "",
@@ -678,6 +623,9 @@ def run_code_manager_stream(
         ),
         "dt_enabled": context.get(
             "dt_enabled", True,
+        ),
+        "code_reviewer_enabled": context.get(
+            "code_reviewer_enabled", True,
         ),
     }
     cm_context_base = {

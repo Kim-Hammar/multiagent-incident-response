@@ -143,6 +143,7 @@ class ReportManagerAgent:
         compaction_threshold: float = 0.8,
         dt_enabled: bool = True,
         info_tools_enabled: bool = True,
+        report_reviewer_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the orchestrator agent loop by one step.
@@ -168,6 +169,8 @@ class ReportManagerAgent:
         :param dt_enabled: whether the digital twin is enabled
         :param info_tools_enabled: whether external info tools
             are enabled
+        :param report_reviewer_enabled: whether the report
+            reviewer is enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -202,6 +205,9 @@ class ReportManagerAgent:
         system_prompt = build_system_prompt(
             dt_enabled=dt_enabled,
             info_tools_enabled=info_tools_enabled,
+            report_reviewer_enabled=(
+                report_reviewer_enabled
+            ),
             system_description=(
                 system_description or "N/A"
             ),
@@ -240,11 +246,20 @@ class ReportManagerAgent:
             ):
                 yield ev
 
+        has_reviewed = (
+            self._has_reviewed(conversation_history)
+            or not report_reviewer_enabled
+        )
         declarations = (
             ALL_DECLARATIONS
-            if self._has_reviewed(conversation_history)
+            if has_reviewed
             else ITERATING_DECLARATIONS
         )
+        if not report_reviewer_enabled:
+            declarations = [
+                d for d in declarations
+                if d.name != "run_report_reviewer_agent"
+            ]
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(

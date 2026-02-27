@@ -21,14 +21,12 @@ from ccs_response_planner_backend.agents.report_manager_agent.agent import (
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as RM_STREAMING_DISPATCH,
-    run_report_agent_stream,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.agent import (
     PlanManagerAgent,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PM_STREAMING_DISPATCH,
-    run_code_agent_direct_stream,
 )
 from ccs_response_planner_backend.agents.pentest_agent.agent import (
     PentestAgent,
@@ -196,88 +194,6 @@ def _truncate_result(
     return out
 
 
-def run_report_agent_direct_stream(
-    context: dict[str, Any],
-) -> Generator[dict[str, Any], None, None]:
-    """
-    Run the ReportAgent directly, bypassing ReportManagerAgent.
-
-    Used when the report reviewer is disabled. Delegates to
-    ``run_report_agent_stream`` and wraps its events with an
-    extra nesting layer so downstream code (summariser, route
-    assessment extraction, frontend history) works unchanged.
-
-    :param context: dict with system_description,
-        security_alerts, operator_feedback, images,
-        report_agent_model, username, dt_config
-    :return: generator yielding event dicts
-    """
-    validation_fb = context.get(
-        "validation_feedback", "",
-    )
-    if validation_fb:
-        existing = context.get(
-            "operator_feedback", "",
-        )
-        context = {
-            **context,
-            "operator_feedback": (
-                f"{existing}\n\n"
-                f"--- PENTEST FEEDBACK ---\n"
-                f"{validation_fb}\n"
-                f"--- END PENTEST FEEDBACK ---"
-                if existing else validation_fb
-            ),
-        }
-
-    assessment: dict[str, Any] = {}
-    attack_path_img: str | None = None
-
-    for event in run_report_agent_stream(
-        context=context,
-    ):
-        etype = event.get("type")
-        if etype == "sub_event":
-            yield {
-                "type": "sub_event",
-                "event": {
-                    "type": "nested_event",
-                    "event": event.get("event", {}),
-                },
-            }
-        elif etype == "output_chunk":
-            yield event
-        elif etype == "done":
-            result = event.get("result", {})
-            assessment = result.get(
-                "assessment", {},
-            )
-            attack_path_img = result.get(
-                "attack_path_image",
-            )
-
-    done_result: dict[str, Any] = {
-        "report_manager_report": {
-            "executive_summary": (
-                "Direct assessment (review skipped)"
-            ),
-            "iterations": 0,
-            "final_verdict": "approved",
-            "report_summary": "",
-            "review_summary": "",
-        },
-        "assessment": assessment,
-    }
-    if attack_path_img:
-        done_result["attack_path_image"] = (
-            attack_path_img
-        )
-    yield {
-        "type": "done",
-        "result": done_result,
-    }
-
-
 def run_report_manager_stream(
     context: dict[str, Any],
 ) -> Generator[dict[str, Any], None, None]:
@@ -330,6 +246,9 @@ def run_report_manager_stream(
         ),
         "info_tools_enabled": context.get(
             "info_tools_enabled", True,
+        ),
+        "report_reviewer_enabled": context.get(
+            "report_reviewer_enabled", True,
         ),
     }
     rm_context: dict[str, Any] = {
@@ -1389,18 +1308,6 @@ def run_plan_manager_stream(
                 tool_result: dict[str, Any] = {}
                 try:
                     if (
-                        tool_name == "run_code_manager"
-                        and not pm_context.get(
-                            "code_reviewer_enabled",
-                            True,
-                        )
-                    ):
-                        tool_stream = (
-                            run_code_agent_direct_stream(
-                                context=pm_context,
-                            )
-                        )
-                    elif (
                         tool_name
                         == "run_validation_agent"
                         and not pm_context.get(

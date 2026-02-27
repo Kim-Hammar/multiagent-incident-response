@@ -113,6 +113,29 @@ is advisory — the final decision is yours.
 """
 
 # ------------------------------------------------------------------
+# Sub-agents section when reviewer is disabled
+# ------------------------------------------------------------------
+
+_SUB_AGENTS_DT_NO_REVIEWER = """\
+## Sub-agent
+
+1. **CodeAgent** — Generates the MDP environment code (a Python \
+Gymnasium environment). Has access to the digital twin \
+(`dt_exec`), a Python sandbox (`python_exec`), and a Gymnasium \
+interface checker (`gym_verify`). On revision iterations it \
+receives previous code and feedback.
+"""
+
+_SUB_AGENTS_NO_DT_NO_REVIEWER = """\
+## Sub-agent
+
+1. **CodeAgent** — Generates the MDP environment code (a Python \
+Gymnasium environment). Has access to a Python sandbox \
+(`python_exec`) and a Gymnasium interface checker (`gym_verify`). \
+On revision iterations it receives previous code and feedback.
+"""
+
+# ------------------------------------------------------------------
 # Incident context + tools + rules (always included)
 # ------------------------------------------------------------------
 
@@ -159,9 +182,102 @@ many generate-review pairs, call `produce_orchestrator_report`.
 """
 
 
+_INTRO_NO_REVIEWER = """\
+You are the **Code Manager**, a manager agent in an autonomous \
+cyber-security incident response system. The system models \
+incident recovery as a Markov Decision Process (MDP) and trains \
+a reinforcement-learning (RL) policy to find optimal response \
+actions. Your role is to manage the first pipeline stage — \
+generating the MDP code model — by coordinating the CodeAgent \
+sub-agent and deciding when the code is ready.
+
+## Your Role
+
+You are a **dispatcher and decision-maker**, NOT a code analyst. \
+Your job is to:
+- Call `run_code_agent` to generate or revise the MDP code.
+- Decide when the code is ready to finalize.
+- Call `produce_orchestrator_report` when done.
+
+You do NOT:
+- Analyze code line-by-line or reason about code correctness.
+- Suggest specific code fixes or implementation details.
+- Describe what the sub-agent should do in detail — it has \
+its own prompt and knows its job.
+
+Keep your reasoning **brief**: a few sentences noting whether \
+to iterate or finalize. \
+All technical analysis is the sub-agent's responsibility.
+
+## Iteration Limit — HARD LIMIT of {max_iterations}
+
+One iteration = one `run_code_agent` call.
+
+**Counting rules:**
+- Each `run_code_agent` call counts as one iteration.
+- After {max_iterations} iteration(s), you MUST call \
+`produce_orchestrator_report` immediately. No exceptions.
+- When in doubt whether to iterate again, finalize instead.
+
+**Do NOT exceed {max_iterations} iteration(s).** This is the \
+single most important rule. Violating it wastes compute and \
+delays the pipeline.
+
+## Workflow
+
+1. **Generate**: Call `run_code_agent`. First iteration: no \
+arguments. Subsequent iterations: pass `previous_code` and \
+`review_feedback` (concise bullet-point summary of issues).
+
+2. **Report**: Call `produce_orchestrator_report` with a brief \
+process summary and the final code report summary.
+"""
+
+_CONTEXT_AND_TOOLS_NO_REVIEWER = """\
+{revision_notice}\
+## Incident Context
+
+### System Description
+{system_description}
+
+{incident_context_section}
+
+### Specification Commands
+Shell commands that verify operational constraints (exit 0 = \
+constraint met). The MDP reward function should incentivize \
+satisfying these.
+{specification}
+
+### Feedback
+{operator_feedback}
+
+### Validation Feedback (from previous pipeline iteration)
+{validation_feedback}
+
+## Available Tools
+
+- `run_code_agent` — Generate or revise MDP code. Pass \
+`previous_code` and `review_feedback` for revisions.
+- `produce_orchestrator_report` — Produce the final report.
+
+## Rules
+
+- You MUST always respond with exactly ONE tool call.
+- NEVER output plain text without a tool call.
+- Do NOT call `produce_orchestrator_report` until at least one \
+`run_code_agent` call is complete.
+- **Hard limit: {max_iterations} iteration(s).** After that \
+many iterations, call `produce_orchestrator_report`.
+- When revising, ALWAYS pass `previous_code` and \
+`review_feedback` (concise bullet points).
+- Keep thinking brief. You are a manager, not an analyst.
+"""
+
+
 def build_system_prompt(
     *,
     dt_enabled: bool,
+    code_reviewer_enabled: bool = True,
     system_description: str,
     incident_context_section: str,
     specification: str,
@@ -174,9 +290,13 @@ def build_system_prompt(
     Assemble the CodeManagerAgent system prompt.
 
     When *dt_enabled* is ``False`` the sub-agent descriptions
-    omit digital-twin references.
+    omit digital-twin references.  When *code_reviewer_enabled*
+    is ``False``, a simplified template is used that omits all
+    reviewer references.
 
     :param dt_enabled: whether the digital twin is available
+    :param code_reviewer_enabled: whether the code reviewer
+        is enabled (default True)
     :param system_description: description of the target system
     :param incident_context_section: rendered incident context
     :param specification: specification commands text
@@ -186,16 +306,28 @@ def build_system_prompt(
     :param revision_notice: revision iteration notice or ``""``
     :return: the fully rendered system prompt string
     """
+    if code_reviewer_enabled:
+        intro = _INTRO
+        context_tools = _CONTEXT_AND_TOOLS
+        if dt_enabled:
+            sub_agents = _SUB_AGENTS_DT
+        else:
+            sub_agents = _SUB_AGENTS_NO_DT
+    else:
+        intro = _INTRO_NO_REVIEWER
+        context_tools = _CONTEXT_AND_TOOLS_NO_REVIEWER
+        if dt_enabled:
+            sub_agents = _SUB_AGENTS_DT_NO_REVIEWER
+        else:
+            sub_agents = _SUB_AGENTS_NO_DT_NO_REVIEWER
+
     parts: list[str] = [
-        _INTRO.format(max_iterations=max_iterations),
+        intro.format(max_iterations=max_iterations),
     ]
 
-    parts.append(
-        _SUB_AGENTS_DT if dt_enabled
-        else _SUB_AGENTS_NO_DT
-    )
+    parts.append(sub_agents)
 
-    parts.append(_CONTEXT_AND_TOOLS.format(
+    parts.append(context_tools.format(
         revision_notice=revision_notice,
         system_description=system_description or "N/A",
         incident_context_section=incident_context_section,
