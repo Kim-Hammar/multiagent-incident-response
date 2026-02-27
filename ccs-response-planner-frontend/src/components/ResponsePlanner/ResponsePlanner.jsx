@@ -31,6 +31,7 @@ import {
 import JobsTab from '../Agents/shared/JobsTab.jsx'
 import ConfigTab from './ConfigTab.jsx'
 import SubAgentsTab from './SubAgentsTab.jsx'
+import ConfigurationTable from '../Agents/shared/ConfigurationTable.jsx'
 import '../Agents/Agents.css'
 import './ResponsePlanner.css'
 
@@ -916,7 +917,11 @@ function ResponsePlanner() {
             }
           }
 
-          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             if (!caughtUp) return
             handleDtEvent(event)
             return
@@ -1126,7 +1131,11 @@ function ResponsePlanner() {
             setConversationHistory((prev) => [...prev])
           }
 
-          if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             if (!caughtUp) return
             handleDtEvent(event)
             return
@@ -1932,140 +1941,81 @@ function ResponsePlanner() {
         )}
 
         {activeTab === 'configuration' && (
-          <div style={{ marginTop: '16px' }}>
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                id="rp-dt-enabled"
-                checked={dtEnabled}
-                onChange={(e) => setDtEnabled(e.target.checked)}
-                disabled={isAgentBusy}
-              />
-              <label className="form-check-label" htmlFor="rp-dt-enabled">
-                Digital Twin enabled{' '}
-                <span className="ia-hint">
-                  (when disabled, agents cannot interact with the digital twin)
-                </span>
-              </label>
-            </div>
-            <div className="form-check">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                id="rp-info-tools-enabled"
-                checked={infoToolsEnabled}
-                onChange={(e) => setInfoToolsEnabled(e.target.checked)}
-                disabled={isAgentBusy}
-              />
-              <label className="form-check-label" htmlFor="rp-info-tools-enabled">
-                Information Tools enabled{' '}
-                <span className="ia-hint">
-                  (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
-                </span>
-              </label>
-            </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rp-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rp-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rp-report-manager-enabled"
-              checked={reportManagerEnabled}
-              onChange={(e) => setReportManagerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rp-report-manager-enabled">
-              Report Manager enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator skips report generation and attack path validation;
-                the plan manager works directly from the raw security alerts)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rp-pentest-enabled"
-              checked={pentestEnabled}
-              onChange={(e) => setPentestEnabled(e.target.checked)}
-              disabled={isAgentBusy || !reportManagerEnabled}
-            />
-            <label className="form-check-label" htmlFor="rp-pentest-enabled">
-              Pentest Agent enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator skips attack path validation via the pentest agent)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rp-code-reviewer-enabled"
-              checked={codeReviewerEnabled}
-              onChange={(e) => setCodeReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rp-code-reviewer-enabled">
-              Code Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager invokes the code agent directly, skipping code
-                review)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rp-code-model-enabled"
-              checked={codeModelEnabled}
-              onChange={(e) => setCodeModelEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rp-code-model-enabled">
-              Code Model enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager skips MDP code generation and RL training; the
-                planner agent produces a response plan directly from the incident report)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rp-validator-enabled"
-              checked={validatorEnabled}
-              onChange={(e) => setValidatorEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rp-validator-enabled">
-              Validator Agent enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager skips validation and returns the plan directly)
-              </span>
-            </label>
-          </div>
-          </div>
+          <ConfigurationTable
+            rows={[
+              {
+                id: 'rp-dt-enabled',
+                label: 'Digital Twin',
+                description: 'When disabled, agents cannot interact with the digital twin',
+                checked: dtEnabled,
+                onChange: setDtEnabled,
+                disabled: isAgentBusy
+              },
+              {
+                id: 'rp-info-tools-enabled',
+                label: 'Information Tools',
+                description:
+                  'External threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily',
+                checked: infoToolsEnabled,
+                onChange: setInfoToolsEnabled,
+                disabled: isAgentBusy
+              },
+              {
+                id: 'rp-report-reviewer',
+                label: 'Report Reviewer',
+                description:
+                  'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+                checked: reportReviewerEnabled,
+                onChange: setReportReviewerEnabled,
+                disabled: isAgentBusy
+              },
+              {
+                id: 'rp-report-manager-enabled',
+                label: 'Report Manager',
+                description:
+                  'When disabled, the orchestrator skips report generation and attack path validation; the plan manager works directly from the raw security alerts',
+                checked: reportManagerEnabled,
+                onChange: setReportManagerEnabled,
+                disabled: isAgentBusy
+              },
+              {
+                id: 'rp-pentest-enabled',
+                label: 'Pentest Agent',
+                description:
+                  'When disabled, the orchestrator skips attack path validation via the pentest agent',
+                checked: pentestEnabled,
+                onChange: setPentestEnabled,
+                disabled: isAgentBusy || !reportManagerEnabled
+              },
+              {
+                id: 'rp-code-reviewer-enabled',
+                label: 'Code Reviewer',
+                description:
+                  'When disabled, the plan manager invokes the code agent directly, skipping code review',
+                checked: codeReviewerEnabled,
+                onChange: setCodeReviewerEnabled,
+                disabled: isAgentBusy
+              },
+              {
+                id: 'rp-code-model-enabled',
+                label: 'Code Model',
+                description:
+                  'When disabled, the plan manager skips MDP code generation and RL training; the planner agent produces a response plan directly from the incident report',
+                checked: codeModelEnabled,
+                onChange: setCodeModelEnabled,
+                disabled: isAgentBusy
+              },
+              {
+                id: 'rp-validator-enabled',
+                label: 'Validator Agent',
+                description:
+                  'When disabled, the plan manager skips validation and returns the plan directly',
+                checked: validatorEnabled,
+                onChange: setValidatorEnabled,
+                disabled: isAgentBusy
+              }
+            ]}
+          />
         )}
 
         {activeTab === 'subagents' && (

@@ -43,7 +43,9 @@ function PromptModal({ show, promptText, promptImages, onClose }) {
               </div>
             </div>
           )}
-          <CopyablePre className="ia-prompt-text" text={promptText}>{promptText}</CopyablePre>
+          <CopyablePre className="ia-prompt-text" text={promptText}>
+            {promptText}
+          </CopyablePre>
         </div>
       </div>
     </div>

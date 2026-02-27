@@ -76,6 +76,12 @@
   font-size: 13px;
 }
 
+/* Configuration table description cells */
+.rp-config-description {
+  color: #6c757d;
+  font-size: 12px;
+}
+
 .rp-iter-suffix {
   font-size: 12px;
   color: #6c757d;

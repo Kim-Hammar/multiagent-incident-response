@@ -77,7 +77,13 @@ export async function pollJobEvents({
         const types = events.map((e) => e.type).join(',')
         console.log(
           '[pollJobEvents] job=%s poll#%d after=%d events=%d types=[%s] done=%s next=%d',
-          jobId, pollCount, nextIndex, events.length, types, done, next_index
+          jobId,
+          pollCount,
+          nextIndex,
+          events.length,
+          types,
+          done,
+          next_index
         )
       }
 
@@ -126,13 +132,20 @@ export async function pollJobEvents({
         if (retries % 5 === 0) {
           console.warn(
             '[pollJobEvents] job=%s retry %d/%d (%s: %s)',
-            jobId, retries, MAX_RETRIES, err.name, err.message
+            jobId,
+            retries,
+            MAX_RETRIES,
+            err.name,
+            err.message
           )
         }
       } else {
         console.error(
           '[pollJobEvents] job=%s fatal error after %d polls: %s: %s',
-          jobId, pollCount, err.name, err.message
+          jobId,
+          pollCount,
+          err.name,
+          err.message
         )
         err._source = 'poll_network'
         throw err

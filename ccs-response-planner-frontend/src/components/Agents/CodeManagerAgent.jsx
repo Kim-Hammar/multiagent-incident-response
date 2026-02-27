@@ -14,6 +14,7 @@ import {
 } from '../Common/constants'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
@@ -416,7 +417,11 @@ function CodeManagerAgent() {
               orchestrator_report: event.orchestrator_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -1217,9 +1222,7 @@ function CodeManagerAgent() {
                           value={cmd.host}
                           onChange={(e) =>
                             setSpecificationCommands((prev) =>
-                              prev.map((c, j) =>
-                                j === i ? { ...c, host: e.target.value } : c
-                              )
+                              prev.map((c, j) => (j === i ? { ...c, host: e.target.value } : c))
                             )
                           }
                           disabled={isAgentBusy}
@@ -1251,9 +1254,7 @@ function CodeManagerAgent() {
                           value={cmd.command}
                           onChange={(e) =>
                             setSpecificationCommands((prev) =>
-                              prev.map((c, j) =>
-                                j === i ? { ...c, command: e.target.value } : c
-                              )
+                              prev.map((c, j) => (j === i ? { ...c, command: e.target.value } : c))
                             )
                           }
                           disabled={isAgentBusy}
@@ -1356,58 +1357,36 @@ function CodeManagerAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="cm-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="cm-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="cm-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="cm-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="cm-code-reviewer-enabled"
-              checked={codeReviewerEnabled}
-              onChange={(e) => setCodeReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="cm-code-reviewer-enabled">
-              Code Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager invokes the code agent directly, skipping code
-                review)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'cm-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'cm-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'cm-code-reviewer-enabled',
+              label: 'Code Reviewer',
+              description:
+                'When disabled, the plan manager invokes the code agent directly, skipping code review',
+              checked: codeReviewerEnabled,
+              onChange: setCodeReviewerEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

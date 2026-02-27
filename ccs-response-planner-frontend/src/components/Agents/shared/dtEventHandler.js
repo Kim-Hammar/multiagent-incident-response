@@ -21,9 +21,7 @@ export function processDtEvent(event, dtEntries, setDtStatus) {
       _startTime: Date.now()
     })
   } else if (event.type === 'dt_progress_detail') {
-    const target = [...dtEntries]
-      .reverse()
-      .find((e) => e.phase === event.phase)
+    const target = [...dtEntries].reverse().find((e) => e.phase === event.phase)
     if (target) {
       target.details = [...(target.details || []), event.message]
     }

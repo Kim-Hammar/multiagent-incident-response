@@ -14,6 +14,7 @@ import {
 } from '../Common/constants'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
@@ -451,7 +452,11 @@ function ReportManagerAgent() {
               report_manager_report: event.report_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -644,7 +649,9 @@ function ReportManagerAgent() {
           images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
           report_agent_model: reportAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
-          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+          conversation_history: latestHistory.filter(
+            (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+          ),
           last_assessment: lastAssessment,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
@@ -924,7 +931,9 @@ function ReportManagerAgent() {
         images: [...systemDescriptionImages, ...securityAlertsImages, ...operatorFeedbackImages],
         report_agent_model: reportAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,
-        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+        conversation_history: latestHistory.filter(
+          (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+        ),
         last_assessment: lastAssessment,
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
@@ -1348,57 +1357,35 @@ function ReportManagerAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rm-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rm-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rm-info-tools-enabled"
-              checked={infoToolsEnabled}
-              onChange={(e) => setInfoToolsEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rm-info-tools-enabled">
-              Information Tools enabled{' '}
-              <span className="ia-hint">
-                (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rm-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rm-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'rm-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'rm-info-tools-enabled',
+              label: 'Information Tools',
+              description: 'External threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily',
+              checked: infoToolsEnabled,
+              onChange: setInfoToolsEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'rm-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

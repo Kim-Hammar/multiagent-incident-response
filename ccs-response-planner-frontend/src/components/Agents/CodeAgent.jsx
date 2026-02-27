@@ -13,6 +13,7 @@ import {
 import CodeAgentConfigTab from './CodeAgentConfigTab.jsx'
 import CodeAgentReport from './CodeAgentReport.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
@@ -259,7 +260,9 @@ function CodeAgent() {
             specification: specification,
             specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
-            conversation_history: history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+            conversation_history: history.filter(
+              (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+            ),
             images: [...systemDescriptionImages],
             model_name: selectedModel || undefined,
             compaction_model: compactionModel || undefined,
@@ -352,7 +355,11 @@ function CodeAgent() {
               code_report: event.code_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -952,41 +959,27 @@ function CodeAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="ca-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="ca-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="ca-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="ca-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'ca-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'ca-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

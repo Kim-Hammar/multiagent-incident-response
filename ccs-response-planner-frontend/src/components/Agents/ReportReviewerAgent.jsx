@@ -13,6 +13,7 @@ import {
 import ReportReviewerConfigTab from './ReportReviewerConfigTab.jsx'
 import ReportReviewerReport from './ReportReviewerReport.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
@@ -269,7 +270,9 @@ function ReportReviewerAgent() {
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
             incident_report: parsedReport,
-            conversation_history: history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+            conversation_history: history.filter(
+              (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+            ),
             images: [
               ...systemDescriptionImages,
               ...securityAlertsImages,
@@ -367,7 +370,11 @@ function ReportReviewerAgent() {
               report_review: event.report_review,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -982,57 +989,35 @@ function ReportReviewerAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rr-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rr-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rr-info-tools-enabled"
-              checked={infoToolsEnabled}
-              onChange={(e) => setInfoToolsEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rr-info-tools-enabled">
-              Information Tools enabled{' '}
-              <span className="ia-hint">
-                (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="rr-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="rr-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'rr-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'rr-info-tools-enabled',
+              label: 'Information Tools',
+              description: 'External threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily',
+              checked: infoToolsEnabled,
+              onChange: setInfoToolsEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'rr-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

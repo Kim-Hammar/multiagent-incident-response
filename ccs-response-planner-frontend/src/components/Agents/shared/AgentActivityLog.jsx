@@ -122,7 +122,9 @@ function renderOrchestratorArgs(toolName, args) {
             label={`Previous Code (${args.previous_code.split('\n').length} lines)`}
             icon="fa-code"
           >
-            <CopyablePre className="ia-arg-code" text={args.previous_code}>{args.previous_code}</CopyablePre>
+            <CopyablePre className="ia-arg-code" text={args.previous_code}>
+              {args.previous_code}
+            </CopyablePre>
           </CollapsibleSection>
         )}
       </div>
@@ -546,7 +548,11 @@ function renderTerminalResult(toolName, result) {
             ))}
           </ul>
         )}
-        {result.error && <CopyablePre className="ia-terminal-output error" text={result.error}>{result.error}</CopyablePre>}
+        {result.error && (
+          <CopyablePre className="ia-terminal-output error" text={result.error}>
+            {result.error}
+          </CopyablePre>
+        )}
       </div>
     )
   }
@@ -566,7 +572,9 @@ function renderTerminalResult(toolName, result) {
         </span>
       </div>
       {result.output != null && result.output !== '' ? (
-        <CopyablePre className="ia-terminal-output" text={result.output}>{result.output}</CopyablePre>
+        <CopyablePre className="ia-terminal-output" text={result.output}>
+          {result.output}
+        </CopyablePre>
       ) : (
         <span className="ia-terminal-empty">(no output)</span>
       )}
@@ -677,7 +685,11 @@ function renderSubAgentReport(toolName, result) {
     return (
       <div style={{ marginTop: '10px' }}>
         {Object.entries(validations).map(([actionId, validation]) => (
-          <CollapsibleSection key={actionId} label={`Validation of ${actionId}`} icon="fa-check-circle">
+          <CollapsibleSection
+            key={actionId}
+            label={`Validation of ${actionId}`}
+            icon="fa-check-circle"
+          >
             {validation.error ? (
               <div className="text-danger">{validation.error}</div>
             ) : (
@@ -722,7 +734,9 @@ function renderSearchToolResult(toolName, result) {
         {items.map((r, i) => (
           <div key={i} className="ia-assessment-section" style={{ marginBottom: '8px' }}>
             <div className="ia-assessment-label" style={{ display: 'flex', alignItems: 'center' }}>
-              <a href={r.url} target="_blank" rel="noopener noreferrer">{r.title || r.url}</a>
+              <a href={r.url} target="_blank" rel="noopener noreferrer">
+                {r.title || r.url}
+              </a>
               {r.score != null && (
                 <span className="badge badge-secondary ml-2" style={{ fontSize: '10px' }}>
                   {Math.round(r.score * 100)}%
@@ -749,7 +763,9 @@ function renderSearchToolResult(toolName, result) {
         {items.map((r, i) => (
           <div key={i} className="ia-assessment-section" style={{ marginBottom: '8px' }}>
             <div className="ia-assessment-label" style={{ display: 'flex', alignItems: 'center' }}>
-              <a href={r.url} target="_blank" rel="noopener noreferrer">{r.id}</a>
+              <a href={r.url} target="_blank" rel="noopener noreferrer">
+                {r.id}
+              </a>
               {r.score != null && (
                 <span
                   className={`badge badge-${r.score >= 9 ? 'danger' : r.score >= 7 ? 'warning' : r.score >= 4 ? 'info' : 'success'} ml-2`}
@@ -815,7 +831,9 @@ function renderSearchToolResult(toolName, result) {
         {r.reputation != null && (
           <div className="ia-assessment-section">
             <div className="ia-assessment-label">Reputation</div>
-            <span className={`badge badge-${r.reputation < 0 ? 'danger' : r.reputation === 0 ? 'secondary' : 'success'}`}>
+            <span
+              className={`badge badge-${r.reputation < 0 ? 'danger' : r.reputation === 0 ? 'secondary' : 'success'}`}
+            >
               {r.reputation}
             </span>
           </div>
@@ -826,7 +844,9 @@ function renderSearchToolResult(toolName, result) {
             <div>
               {Object.entries(stats).map(([k, v]) => (
                 <span key={k} className="mr-2" style={{ fontSize: '12px' }}>
-                  <span className={`badge badge-${k === 'malicious' ? 'danger' : k === 'suspicious' ? 'warning' : k === 'harmless' ? 'success' : 'secondary'}`}>
+                  <span
+                    className={`badge badge-${k === 'malicious' ? 'danger' : k === 'suspicious' ? 'warning' : k === 'harmless' ? 'success' : 'secondary'}`}
+                  >
                     {k}: {v}
                   </span>
                 </span>
@@ -856,7 +876,8 @@ function renderSearchToolResult(toolName, result) {
         {score != null && (
           <div className="ia-assessment-section">
             <div className="ia-assessment-label">Abuse Confidence Score</div>
-            <span className={`badge badge-${score >= 80 ? 'danger' : score >= 40 ? 'warning' : score > 0 ? 'info' : 'success'}`}
+            <span
+              className={`badge badge-${score >= 80 ? 'danger' : score >= 40 ? 'warning' : score > 0 ? 'info' : 'success'}`}
               style={{ fontSize: '14px', padding: '4px 10px' }}
             >
               {score}%
@@ -864,7 +885,9 @@ function renderSearchToolResult(toolName, result) {
           </div>
         )}
         <div style={{ fontSize: '12px', marginTop: '4px' }}>
-          <span className="mr-3">Total reports: <strong>{r.total_reports || 0}</strong></span>
+          <span className="mr-3">
+            Total reports: <strong>{r.total_reports || 0}</strong>
+          </span>
           {r.last_reported_at && <span>Last reported: {r.last_reported_at}</span>}
         </div>
       </div>
@@ -894,7 +917,11 @@ function renderSearchToolResult(toolName, result) {
                 {p.tags && p.tags.length > 0 && (
                   <div style={{ marginTop: '2px' }}>
                     {p.tags.map((t, k) => (
-                      <span key={k} className="badge badge-secondary mr-1" style={{ fontSize: '9px' }}>
+                      <span
+                        key={k}
+                        className="badge badge-secondary mr-1"
+                        style={{ fontSize: '9px' }}
+                      >
                         {t}
                       </span>
                     ))}
@@ -1270,15 +1297,19 @@ function SubAgentLog({
                           <div key={j} className="ia-proposal-arg-row">
                             <span className="ia-proposal-arg-label">{label}:</span>
                             {isCode ? (
-                              <CopyablePre className="ia-arg-code" text={value}>{value}</CopyablePre>
+                              <CopyablePre className="ia-arg-code" text={value}>
+                                {value}
+                              </CopyablePre>
                             ) : (
                               <span className="ia-proposal-arg-value">{value}</span>
                             )}
                           </div>
                         ))}
                   </div>
-                  {ev.subEvents?.length > 0 && (
-                    ev._parallelHosts || ev.tool_name === 'run_host_analyzers' || ev.tool_name === 'run_action_validators' ? (
+                  {ev.subEvents?.length > 0 &&
+                    (ev._parallelHosts ||
+                    ev.tool_name === 'run_host_analyzers' ||
+                    ev.tool_name === 'run_action_validators' ? (
                       <ParallelSubAgentLog
                         hosts={ev._parallelHosts}
                         subEvents={ev.subEvents}
@@ -1302,8 +1333,7 @@ function SubAgentLog({
                         heartbeatStatus={heartbeatStatus}
                         lastHeartbeatTime={lastHeartbeatTime}
                       />
-                    )
-                  )}
+                    ))}
                 </>
               )}
             </div>
@@ -1360,7 +1390,12 @@ function SubAgentLog({
                       <div className="ia-terminal-meta">
                         <span className="badge badge-danger">Training Error</span>
                       </div>
-                      <CopyablePre className="ia-terminal-output error" text={ev.result.stderr || ev.result.error}>{ev.result.stderr || ev.result.error}</CopyablePre>
+                      <CopyablePre
+                        className="ia-terminal-output error"
+                        text={ev.result.stderr || ev.result.error}
+                      >
+                        {ev.result.stderr || ev.result.error}
+                      </CopyablePre>
                     </div>
                   ) : (
                     <>
@@ -1379,13 +1414,20 @@ function SubAgentLog({
                         terminal ||
                         report ||
                         renderSearchToolResult(ev.tool_name, ev.result) || (
-                          <CopyablePre className="ia-result-data mb-0" text={JSON.stringify(ev.result, null, 2)}>{JSON.stringify(ev.result, null, 2)}</CopyablePre>
+                          <CopyablePre
+                            className="ia-result-data mb-0"
+                            text={JSON.stringify(ev.result, null, 2)}
+                          >
+                            {JSON.stringify(ev.result, null, 2)}
+                          </CopyablePre>
                         )
                       )}
                     </>
                   )}
-                  {ev.subEvents?.length > 0 && (
-                    ev._parallelHosts || ev.tool_name === 'run_host_analyzers' || ev.tool_name === 'run_action_validators' ? (
+                  {ev.subEvents?.length > 0 &&
+                    (ev._parallelHosts ||
+                    ev.tool_name === 'run_host_analyzers' ||
+                    ev.tool_name === 'run_action_validators' ? (
                       <ParallelSubAgentLog
                         hosts={ev._parallelHosts}
                         subEvents={ev.subEvents}
@@ -1401,8 +1443,7 @@ function SubAgentLog({
                         onViewPrompt={onViewPrompt}
                         onViewContext={onViewContext}
                       />
-                    )
-                  )}
+                    ))}
                 </>
               )}
             </div>
@@ -1439,9 +1480,7 @@ function SubAgentLog({
                 <div className="card-body">
                   <div className="ia-result-header" onClick={() => toggle(i)}>
                     <span className="badge badge-dark">Host Analysis</span>
-                    <span className="ia-tool-name">
-                      {a.host_name || 'Host Analysis Report'}
-                    </span>
+                    <span className="ia-tool-name">{a.host_name || 'Host Analysis Report'}</span>
                     {a.compromise_status && (
                       <span
                         className={`badge badge-${statusClass[a.compromise_status] || 'secondary'}`}
@@ -1706,7 +1745,9 @@ function AgentActivityLog({
                   )}
                   {entry.toolInput ? (
                     <div className="ia-streaming-trace" ref={streamingTraceRef}>
-                      <CopyablePre className="ia-tool-input-pre" text={entry.toolInput}>{entry.toolInput}</CopyablePre>
+                      <CopyablePre className="ia-tool-input-pre" text={entry.toolInput}>
+                        {entry.toolInput}
+                      </CopyablePre>
                     </div>
                   ) : (
                     entry.text &&
@@ -1779,7 +1820,9 @@ function AgentActivityLog({
                             <div key={i} className="ia-proposal-arg-row">
                               <span className="ia-proposal-arg-label">{label}:</span>
                               {isCode ? (
-                                <CopyablePre className="ia-arg-code" text={value}>{value}</CopyablePre>
+                                <CopyablePre className="ia-arg-code" text={value}>
+                                  {value}
+                                </CopyablePre>
                               ) : (
                                 <span className="ia-proposal-arg-value">{value}</span>
                               )}
@@ -1896,7 +1939,8 @@ function AgentActivityLog({
                           </button>
                         )}
                       </div>
-                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' || entry.tool_name === 'run_action_validators' ? (
+                      {(hasSubEvents && entry.tool_name === 'run_host_analyzers') ||
+                      entry.tool_name === 'run_action_validators' ? (
                         <ParallelSubAgentLog
                           hosts={entry._parallelHosts}
                           subEvents={entry.subEvents}
@@ -1929,7 +1973,13 @@ function AgentActivityLog({
                       ) : (
                         <>
                           {entry.output && (
-                            <CopyablePre className="ia-terminal-output" style={{ maxHeight: '400px', overflow: 'auto' }} text={entry.output}>{entry.output}</CopyablePre>
+                            <CopyablePre
+                              className="ia-terminal-output"
+                              style={{ maxHeight: '400px', overflow: 'auto' }}
+                              text={entry.output}
+                            >
+                              {entry.output}
+                            </CopyablePre>
                           )}
                           {!entry.stopped && (
                             <div className="ia-sub-entry ia-sub-reasoning">
@@ -1983,7 +2033,9 @@ function AgentActivityLog({
                         <div key={i} className="ia-proposal-arg-row">
                           <span className="ia-proposal-arg-label">{label}:</span>
                           {isCode ? (
-                            <CopyablePre className="ia-arg-code" text={value}>{value}</CopyablePre>
+                            <CopyablePre className="ia-arg-code" text={value}>
+                              {value}
+                            </CopyablePre>
                           ) : (
                             <span className="ia-proposal-arg-value">{value}</span>
                           )}
@@ -2019,7 +2071,8 @@ function AgentActivityLog({
                   </div>
                   {isExpanded && (
                     <>
-                      {hasSubEvents && entry.tool_name === 'run_host_analyzers' || entry.tool_name === 'run_action_validators' ? (
+                      {(hasSubEvents && entry.tool_name === 'run_host_analyzers') ||
+                      entry.tool_name === 'run_action_validators' ? (
                         <ParallelSubAgentLog
                           hosts={entry._parallelHosts}
                           subEvents={entry.subEvents}
@@ -2047,7 +2100,12 @@ function AgentActivityLog({
                         renderSubAgentReport(entry.tool_name, displayResult) ||
                         renderSearchToolResult(entry.tool_name, displayResult) || (
                           <>
-                            <CopyablePre className="ia-result-data mb-0" text={JSON.stringify(displayResult, null, 2)}>{JSON.stringify(displayResult, null, 2)}</CopyablePre>
+                            <CopyablePre
+                              className="ia-result-data mb-0"
+                              text={JSON.stringify(displayResult, null, 2)}
+                            >
+                              {JSON.stringify(displayResult, null, 2)}
+                            </CopyablePre>
                             {hasImage && (
                               <img
                                 src={entry.result.image}

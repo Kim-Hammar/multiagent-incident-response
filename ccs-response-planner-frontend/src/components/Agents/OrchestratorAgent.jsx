@@ -21,6 +21,7 @@ import {
 } from '../Common/constants'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
@@ -593,7 +594,10 @@ function OrchestratorAgent() {
             accumulated += event.delta
             streamingEntry.text = accumulated
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+              const base = prev.filter(
+                (e) =>
+                  e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+              )
               return [
                 ...base,
                 ...dtEntries,
@@ -603,7 +607,10 @@ function OrchestratorAgent() {
           } else if (event.type === 'tool_input_started') {
             streamingEntry.generatingTool = event.tool_name
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+              const base = prev.filter(
+                (e) =>
+                  e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+              )
               return [
                 ...base,
                 ...dtEntries,
@@ -614,7 +621,10 @@ function OrchestratorAgent() {
             toolInputAccumulated += event.delta
             streamingEntry.toolInput = toolInputAccumulated
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+              const base = prev.filter(
+                (e) =>
+                  e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+              )
               return [
                 ...base,
                 ...dtEntries,
@@ -641,10 +651,17 @@ function OrchestratorAgent() {
               orchestrator_agent_report: event.orchestrator_agent_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory((prev) => {
-              const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+              const base = prev.filter(
+                (e) =>
+                  e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+              )
               return [...base, ...dtEntries]
             })
           } else if (event.type === 'context_usage') {
@@ -659,7 +676,8 @@ function OrchestratorAgent() {
             }
             setConversationHistory((prev) => {
               const base = prev.filter(
-                (e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+                (e) =>
+                  e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
               )
               return [
                 ...base,
@@ -685,7 +703,9 @@ function OrchestratorAgent() {
         }
         entries.push(finalEntry)
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+          const base = prev.filter(
+            (e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+          )
           return [...base, ...dtEntries, ...entries]
         })
         if (finalEntry.type === 'tool_proposal') {
@@ -712,7 +732,9 @@ function OrchestratorAgent() {
         }
         report = enrichOrchestratorReport(report, history)
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+          const base = prev.filter(
+            (e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+          )
           return [
             ...base,
             ...dtEntries,
@@ -726,7 +748,9 @@ function OrchestratorAgent() {
         saveReport(report, conversationHistoryRef.current)
       } else {
         setConversationHistory((prev) => {
-          const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+          const base = prev.filter(
+            (e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+          )
           return [
             ...base,
             ...dtEntries,
@@ -738,7 +762,9 @@ function OrchestratorAgent() {
       if (err.name === 'AbortError') return
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory((prev) => {
-        const base = prev.filter((e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start')
+        const base = prev.filter(
+          (e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+        )
         return [
           ...base,
           ...dtEntries,
@@ -805,7 +831,9 @@ function OrchestratorAgent() {
           security_alerts: securityAlerts,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages, ...securityAlertsImages],
-          conversation_history: historyForBackend.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+          conversation_history: historyForBackend.filter(
+            (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+          ),
           report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
           report_reviewer_model: reportReviewerModel || undefined,
@@ -1064,7 +1092,9 @@ function OrchestratorAgent() {
         security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
         images: [...systemDescriptionImages, ...securityAlertsImages],
-        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+        conversation_history: latestHistory.filter(
+          (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+        ),
         report_manager_model: reportManagerModel || undefined,
         report_agent_model: reportAgentModel || undefined,
         report_reviewer_model: reportReviewerModel || undefined,
@@ -1513,140 +1543,80 @@ function OrchestratorAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="oa-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-info-tools-enabled"
-              checked={infoToolsEnabled}
-              onChange={(e) => setInfoToolsEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="oa-info-tools-enabled">
-              Information Tools enabled{' '}
-              <span className="ia-hint">
-                (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="oa-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-report-manager-enabled"
-              checked={reportManagerEnabled}
-              onChange={(e) => setReportManagerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="oa-report-manager-enabled">
-              Report Manager enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator skips report generation and attack path validation;
-                the plan manager works directly from the raw security alerts)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-pentest-enabled"
-              checked={pentestEnabled}
-              onChange={(e) => setPentestEnabled(e.target.checked)}
-              disabled={isAgentBusy || !reportManagerEnabled}
-            />
-            <label className="form-check-label" htmlFor="oa-pentest-enabled">
-              Pentest Agent enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator skips attack path validation via the pentest agent)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-code-reviewer-enabled"
-              checked={codeReviewerEnabled}
-              onChange={(e) => setCodeReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="oa-code-reviewer-enabled">
-              Code Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager invokes the code agent directly, skipping code
-                review)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-code-model-enabled"
-              checked={codeModelEnabled}
-              onChange={(e) => setCodeModelEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="oa-code-model-enabled">
-              Code Model enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager skips MDP code generation and RL training; the
-                planner agent produces a response plan directly from the incident report)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="oa-validator-enabled"
-              checked={validatorEnabled}
-              onChange={(e) => setValidatorEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="oa-validator-enabled">
-              Validator Agent enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager skips validation and returns the plan directly)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'oa-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'oa-info-tools-enabled',
+              label: 'Information Tools',
+              description: 'External threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily',
+              checked: infoToolsEnabled,
+              onChange: setInfoToolsEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'oa-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'oa-report-manager-enabled',
+              label: 'Report Manager',
+              description:
+                'When disabled, the orchestrator skips report generation and attack path validation; the plan manager works directly from the raw security alerts',
+              checked: reportManagerEnabled,
+              onChange: setReportManagerEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'oa-pentest-enabled',
+              label: 'Pentest Agent',
+              description:
+                'When disabled, the orchestrator skips attack path validation via the pentest agent',
+              checked: pentestEnabled,
+              onChange: setPentestEnabled,
+              disabled: isAgentBusy || !reportManagerEnabled
+            },
+            {
+              id: 'oa-code-reviewer-enabled',
+              label: 'Code Reviewer',
+              description:
+                'When disabled, the plan manager invokes the code agent directly, skipping code review',
+              checked: codeReviewerEnabled,
+              onChange: setCodeReviewerEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'oa-code-model-enabled',
+              label: 'Code Model',
+              description:
+                'When disabled, the plan manager skips MDP code generation and RL training; the planner agent produces a response plan directly from the incident report',
+              checked: codeModelEnabled,
+              onChange: setCodeModelEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'oa-validator-enabled',
+              label: 'Validator Agent',
+              description:
+                'When disabled, the plan manager skips validation and returns the plan directly',
+              checked: validatorEnabled,
+              onChange: setValidatorEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

@@ -19,6 +19,7 @@ import PlannerAgentReport from './PlannerAgentReport.jsx'
 import ValidationAgentReport from './ValidationAgentReport.jsx'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
@@ -473,7 +474,9 @@ function PlanManagerAgent() {
             specification: specification,
             specification_commands: specificationCommands,
             operator_feedback: operatorFeedback,
-            conversation_history: history.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+            conversation_history: history.filter(
+              (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+            ),
             images: [...systemDescriptionImages],
             model_name: managerModel || undefined,
             last_prompt_tokens: contextUsage?.prompt_tokens || 0,
@@ -570,7 +573,11 @@ function PlanManagerAgent() {
               plan_manager_report: event.plan_manager_report,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -746,7 +753,9 @@ function PlanManagerAgent() {
           specification_commands: specificationCommands,
           operator_feedback: operatorFeedback,
           images: [...systemDescriptionImages],
-          conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+          conversation_history: latestHistory.filter(
+            (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+          ),
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
@@ -1040,7 +1049,9 @@ function PlanManagerAgent() {
         specification_commands: specificationCommands,
         operator_feedback: operatorFeedback,
         images: [...systemDescriptionImages],
-        conversation_history: latestHistory.filter((e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'),
+        conversation_history: latestHistory.filter(
+          (e) => e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+        ),
         code_manager_model: codeManagerModel || undefined,
         code_agent_model: codeAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,
@@ -1672,91 +1683,54 @@ function PlanManagerAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="pm-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="pm-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="pm-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="pm-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="pm-code-reviewer-enabled"
-              checked={codeReviewerEnabled}
-              onChange={(e) => setCodeReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="pm-code-reviewer-enabled">
-              Code Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager invokes the code agent directly, skipping code
-                review)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="pm-code-model-enabled"
-              checked={codeModelEnabled}
-              onChange={(e) => setCodeModelEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="pm-code-model-enabled">
-              Code Model enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager skips MDP code generation and RL training; the
-                planner agent produces a response plan directly from the incident report)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="pm-validator-enabled"
-              checked={validatorEnabled}
-              onChange={(e) => setValidatorEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="pm-validator-enabled">
-              Validator Agent enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the plan manager skips validation and returns the plan directly)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'pm-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'pm-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'pm-code-reviewer-enabled',
+              label: 'Code Reviewer',
+              description:
+                'When disabled, the plan manager invokes the code agent directly, skipping code review',
+              checked: codeReviewerEnabled,
+              onChange: setCodeReviewerEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'pm-code-model-enabled',
+              label: 'Code Model',
+              description:
+                'When disabled, the plan manager skips MDP code generation and RL training; the planner agent produces a response plan directly from the incident report',
+              checked: codeModelEnabled,
+              onChange: setCodeModelEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'pm-validator-enabled',
+              label: 'Validator Agent',
+              description:
+                'When disabled, the plan manager skips validation and returns the plan directly',
+              checked: validatorEnabled,
+              onChange: setValidatorEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

@@ -13,6 +13,7 @@ import {
 import ReportAgentConfigTab from './ReportAgentConfigTab.jsx'
 import ReportAgentReport from './ReportAgentReport.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
 import AgentHistoryTab from './shared/AgentHistoryTab.jsx'
 import JobsTab from './shared/JobsTab.jsx'
@@ -424,7 +425,11 @@ function ReportAgent() {
               assessment: event.assessment,
               thinking_trace: event.thinking_trace || ''
             }
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'context_usage') {
@@ -712,7 +717,8 @@ function ReportAgent() {
           )
           if (streamingEntry) {
             if (streamingEntry.subEvents) resultEntry.subEvents = streamingEntry.subEvents
-            if (streamingEntry._parallelHosts) resultEntry._parallelHosts = streamingEntry._parallelHosts
+            if (streamingEntry._parallelHosts)
+              resultEntry._parallelHosts = streamingEntry._parallelHosts
           }
           const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
           updated = [...stripped, resultEntry]
@@ -900,7 +906,8 @@ function ReportAgent() {
         )
         if (streamingEntry) {
           if (streamingEntry.subEvents) resultEntry.subEvents = streamingEntry.subEvents
-          if (streamingEntry._parallelHosts) resultEntry._parallelHosts = streamingEntry._parallelHosts
+          if (streamingEntry._parallelHosts)
+            resultEntry._parallelHosts = streamingEntry._parallelHosts
         }
         const stripped = prev.filter((e) => e.type !== 'streaming' && e.type !== 'tool_streaming')
         updated = [...stripped, resultEntry]
@@ -1145,57 +1152,35 @@ function ReportAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="ra-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="ra-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="ra-info-tools-enabled"
-              checked={infoToolsEnabled}
-              onChange={(e) => setInfoToolsEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="ra-info-tools-enabled">
-              Information Tools enabled{' '}
-              <span className="ia-hint">
-                (external threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="ra-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="ra-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'ra-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'ra-info-tools-enabled',
+              label: 'Information Tools',
+              description: 'External threat intel: NVD, MITRE, VirusTotal, AbuseIPDB, OTX, Tavily',
+              checked: infoToolsEnabled,
+              onChange: setInfoToolsEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'ra-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

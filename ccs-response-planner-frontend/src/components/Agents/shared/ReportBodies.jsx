@@ -1122,9 +1122,7 @@ function PentestReportBody({ report: r }) {
                         {s.status || (s.success ? 'success' : 'failed')}
                       </span>
                     </td>
-                    <td style={{ fontSize: '12px' }}>
-                      {s.evidence || s.output || '-'}
-                    </td>
+                    <td style={{ fontSize: '12px' }}>{s.evidence || s.output || '-'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -12,6 +12,7 @@ import {
 } from '../Common/constants'
 import PlannerAgentConfigTab from './PlannerAgentConfigTab.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
+import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import PlannerAgentReport from './PlannerAgentReport.jsx'
 import RewardChart from './RewardChart.jsx'
 import RlTrainResult from './RlTrainResult.jsx'
@@ -193,10 +194,7 @@ function PlannerAgent() {
 
   useEffect(() => {
     if (autopilot && pendingProposal && isSourceTabRef.current) {
-      console.log(
-        '[PlannerAgent] Autopilot auto-approving: tool=%s',
-        pendingProposal.tool_name
-      )
+      console.log('[PlannerAgent] Autopilot auto-approving: tool=%s', pendingProposal.tool_name)
       handleApprove()
     }
   }, [autopilot, pendingProposal])
@@ -375,7 +373,11 @@ function PlannerAgent() {
               ...dtEntries,
               ...(dtEntries.some((e) => !e.done) ? [] : [{ ...streamingEntry, text: accumulated }])
             ])
-          } else if (event.type === 'dt_progress' || event.type === 'dt_progress_detail' || event.type === 'sandbox_progress') {
+          } else if (
+            event.type === 'dt_progress' ||
+            event.type === 'dt_progress_detail' ||
+            event.type === 'sandbox_progress'
+          ) {
             processDtEvent(event, dtEntries, setDtStatus)
             setConversationHistory([...history, ...compactionEntries, ...dtEntries])
           } else if (event.type === 'tool_proposal') {
@@ -588,7 +590,10 @@ function PlannerAgent() {
       const runId = ++runIdCounterRef.current
       trainingRunsRef.current[runId] = {
         data: [...progressEvents],
-        meta: { algorithm: toolArgs.algorithm || '', hyperparameters: toolArgs.hyperparameters || '' }
+        meta: {
+          algorithm: toolArgs.algorithm || '',
+          hyperparameters: toolArgs.hyperparameters || ''
+        }
       }
       const toolResult = {
         progress_episodes: progressEvents.length,
@@ -762,7 +767,8 @@ function PlannerAgent() {
               } else if (event.type === 'done' || event.type === 'timeout') {
                 console.log(
                   '[PlannerAgent] rl_train: %s event received, exit_code=%s',
-                  event.type, event.exit_code
+                  event.type,
+                  event.exit_code
                 )
                 doneEvent = event
                 if (event.policy_data) setPolicyData(event.policy_data)
@@ -778,7 +784,8 @@ function PlannerAgent() {
             pollAborted = true
             console.warn(
               '[PlannerAgent] rl_train poll aborted. episodes=%d, hasResult=%s',
-              progressEvents.length, !!resultEvent
+              progressEvents.length,
+              !!resultEvent
             )
           } else {
             throw pollErr
@@ -790,7 +797,9 @@ function PlannerAgent() {
         console.log(
           '[PlannerAgent] rl_train pollJobEvents %s. episodes=%d, hasResult=%s, hasDone=%s',
           pollAborted ? 'ABORTED' : 'returned',
-          progressEvents.length, !!resultEvent, !!doneEvent
+          progressEvents.length,
+          !!resultEvent,
+          !!doneEvent
         )
         setTrainingStartTime(null)
         const runId = ++runIdCounterRef.current
@@ -824,7 +833,8 @@ function PlannerAgent() {
           updated = [...stripped, approvalEntry, resultEntry]
           console.log(
             '[PlannerAgent] rl_train result added to history (runId=%d). Calling callStep. history length=%d',
-            runId, updated.length
+            runId,
+            updated.length
           )
           return updated
         })
@@ -1215,41 +1225,27 @@ function PlannerAgent() {
       )}
 
       {activeTab === 'configuration' && (
-        <div style={{ marginTop: '16px' }}>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="pl-dt-enabled"
-              checked={dtEnabled}
-              onChange={(e) => setDtEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="pl-dt-enabled">
-              Digital Twin enabled{' '}
-              <span className="ia-hint">
-                (when disabled, agents cannot interact with the digital twin)
-              </span>
-            </label>
-          </div>
-          <div className="form-check">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="pl-report-reviewer"
-              checked={reportReviewerEnabled}
-              onChange={(e) => setReportReviewerEnabled(e.target.checked)}
-              disabled={isAgentBusy}
-            />
-            <label className="form-check-label" htmlFor="pl-report-reviewer">
-              Report Reviewer enabled{' '}
-              <span className="ia-hint">
-                (when disabled, the orchestrator invokes the report agent directly, skipping the
-                review process)
-              </span>
-            </label>
-          </div>
-        </div>
+        <ConfigurationTable
+          rows={[
+            {
+              id: 'pl-dt-enabled',
+              label: 'Digital Twin',
+              description: 'When disabled, agents cannot interact with the digital twin',
+              checked: dtEnabled,
+              onChange: setDtEnabled,
+              disabled: isAgentBusy
+            },
+            {
+              id: 'pl-report-reviewer',
+              label: 'Report Reviewer',
+              description:
+                'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
+              checked: reportReviewerEnabled,
+              onChange: setReportReviewerEnabled,
+              disabled: isAgentBusy
+            }
+          ]}
+        />
       )}
 
       {activeTab === 'agents' && (

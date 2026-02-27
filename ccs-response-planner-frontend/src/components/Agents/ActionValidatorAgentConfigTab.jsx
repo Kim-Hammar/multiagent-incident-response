@@ -74,7 +74,7 @@ function ActionValidatorAgentConfigTab({
           disabled={isAgentBusy}
           placeholder={
             'e.g., Action 1 — Block attacker at firewall\n' +
-            'Intended effect: block the attacker\'s access to the internal network\n' +
+            "Intended effect: block the attacker's access to the internal network\n" +
             'Commands:\n' +
             '  iptables -I FORWARD -s 192.168.1.50 -j DROP on i1_firewall'
           }
