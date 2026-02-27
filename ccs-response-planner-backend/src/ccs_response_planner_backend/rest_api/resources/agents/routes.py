@@ -88,7 +88,7 @@ from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
     ReportReviewerAgent,
 )
 from ccs_response_planner_backend.agents.report_reviewer_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as REPORT_REVIEW_PROMPT_TEMPLATE,
+    build_system_prompt as build_report_review_prompt,
 )
 from ccs_response_planner_backend.agents.report_reviewer_agent.tools import (
     STREAMING_TOOL_DISPATCH as REPORT_REVIEW_STREAMING_DISPATCH,
@@ -98,7 +98,7 @@ from ccs_response_planner_backend.agents.report_manager_agent.agent import (
     ReportManagerAgent,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as REPORT_MANAGER_PROMPT_TEMPLATE,
+    build_system_prompt as build_report_manager_prompt,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as REPORT_MANAGER_STREAMING_DISPATCH,
@@ -1953,7 +1953,7 @@ def agents_report_review_prompt() -> (
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
     )
-    prompt = REPORT_REVIEW_PROMPT_TEMPLATE.format(
+    prompt = build_report_review_prompt(
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
@@ -1973,7 +1973,6 @@ def agents_report_review_prompt() -> (
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
         ),
-        review_iteration_note="",
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -2191,7 +2190,7 @@ def agents_report_manager_prompt() -> (
     """
     body = request.get_json(silent=True) or {}
     max_iterations = body.get("max_iterations", 2)
-    prompt = REPORT_MANAGER_PROMPT_TEMPLATE.format(
+    prompt = build_report_manager_prompt(
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
@@ -2202,8 +2201,6 @@ def agents_report_manager_prompt() -> (
             "operator_feedback", "",
         ) or "N/A",
         max_iterations=max_iterations,
-        validation_feedback="N/A",
-        revision_notice="",
     )
     return jsonify({"prompt": prompt}), 200
 

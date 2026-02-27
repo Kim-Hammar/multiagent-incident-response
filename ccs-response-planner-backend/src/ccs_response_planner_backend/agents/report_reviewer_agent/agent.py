@@ -25,15 +25,14 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
-    DT_DISABLED_NOTICE,
-    INFO_TOOLS_DISABLED_NOTICE,
+    filter_dt_declarations,
     filter_info_tool_declarations,
     format_container_list,
     format_container_table,
     format_network_connectivity,
 )
 from ccs_response_planner_backend.agents.report_reviewer_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.report_reviewer_agent.tool_declarations import (
     ALL_DECLARATIONS,
@@ -275,29 +274,13 @@ class ReportReviewerAgent:
         """
         effective_model = model_name or MODEL_NAME
 
-        if dt_enabled:
-            cfg = dt_config or {}
-            dt_container_list = format_container_list(cfg)
-            dt_container_table = (
-                format_container_table(cfg)
-            )
-            dt_network_connectivity = (
-                format_network_connectivity(cfg)
-            )
-        else:
-            dt_container_list = DT_DISABLED_NOTICE
-            dt_container_table = DT_DISABLED_NOTICE
-            dt_network_connectivity = DT_DISABLED_NOTICE
-
-        info_tools_notice = (
-            "" if info_tools_enabled
-            else INFO_TOOLS_DISABLED_NOTICE + "\n\n"
-        )
-
+        cfg = dt_config or {}
         formatted_report = self._format_incident_report(
             incident_report or {},
         )
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        prompt_kwargs: dict[str, Any] = dict(
+            dt_enabled=dt_enabled,
+            info_tools_enabled=info_tools_enabled,
             system_description=(
                 system_description or "N/A"
             ),
@@ -306,15 +289,26 @@ class ReportReviewerAgent:
                 operator_feedback or "N/A"
             ),
             incident_report_formatted=formatted_report,
-            dt_container_list=dt_container_list,
-            dt_container_table=dt_container_table,
-            dt_network_connectivity=dt_network_connectivity,
             review_iteration_note=(
                 self._format_iteration_note(
                     review_iteration,
                 )
             ),
-            info_tools_notice=info_tools_notice,
+        )
+        if dt_enabled:
+            prompt_kwargs.update(
+                dt_container_list=(
+                    format_container_list(cfg)
+                ),
+                dt_container_table=(
+                    format_container_table(cfg)
+                ),
+                dt_network_connectivity=(
+                    format_network_connectivity(cfg)
+                ),
+            )
+        system_prompt = build_system_prompt(
+            **prompt_kwargs,
         )
         yield {
             "type": "system_prompt",
@@ -343,6 +337,9 @@ class ReportReviewerAgent:
             ALL_DECLARATIONS
             if self._has_used_tool(conversation_history)
             else ITERATING_DECLARATIONS
+        )
+        declarations = filter_dt_declarations(
+            declarations, dt_enabled,
         )
         declarations = filter_info_tool_declarations(
             declarations, info_tools_enabled,

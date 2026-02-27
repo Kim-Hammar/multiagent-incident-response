@@ -27,7 +27,7 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (
     ALL_DECLARATIONS,
@@ -141,6 +141,8 @@ class ReportManagerAgent:
         validation_feedback: str = "",
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
+        dt_enabled: bool = True,
+        info_tools_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the orchestrator agent loop by one step.
@@ -163,6 +165,9 @@ class ReportManagerAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
+        :param dt_enabled: whether the digital twin is enabled
+        :param info_tools_enabled: whether external info tools
+            are enabled
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -194,7 +199,9 @@ class ReportManagerAgent:
         else:
             revision_notice = ""
 
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        system_prompt = build_system_prompt(
+            dt_enabled=dt_enabled,
+            info_tools_enabled=info_tools_enabled,
             system_description=(
                 system_description or "N/A"
             ),

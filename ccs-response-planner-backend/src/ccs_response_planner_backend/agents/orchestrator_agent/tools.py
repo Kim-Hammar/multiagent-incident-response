@@ -325,6 +325,12 @@ def run_report_manager_stream(
             "report_manager_compaction", 0.8,
         ),
         "conversation_history": conversation_history,
+        "dt_enabled": context.get(
+            "dt_enabled", True,
+        ),
+        "info_tools_enabled": context.get(
+            "info_tools_enabled", True,
+        ),
     }
     rm_context: dict[str, Any] = {
         **context,
