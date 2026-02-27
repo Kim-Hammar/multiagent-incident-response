@@ -24,8 +24,6 @@ from ccs_response_planner_backend.agents.context_utils import (
     maybe_compact_context,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
-    DT_DISABLED_NOTICE,
-    INFO_TOOLS_DISABLED_NOTICE,
     filter_dt_declarations,
     filter_info_tool_declarations,
     format_container_list,
@@ -33,7 +31,7 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_network_connectivity,
 )
 from ccs_response_planner_backend.agents.report_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.report_agent.tool_declarations import (
     TOOL_DECLARATIONS,
@@ -189,7 +187,9 @@ class ReportAgent:
             revision_notice = ""
 
         cfg = dt_config or {}
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        system_prompt = build_system_prompt(
+            dt_enabled=True,
+            info_tools_enabled=True,
             system_description=system_description or "N/A",
             security_alerts=security_alerts or "N/A",
             operator_feedback=operator_feedback or "N/A",
@@ -328,34 +328,33 @@ class ReportAgent:
         else:
             revision_notice = ""
 
-        if dt_enabled:
-            cfg = dt_config or {}
-            dt_container_list = format_container_list(cfg)
-            dt_container_table = (
-                format_container_table(cfg)
-            )
-            dt_network_connectivity = (
-                format_network_connectivity(cfg)
-            )
-        else:
-            dt_container_list = DT_DISABLED_NOTICE
-            dt_container_table = DT_DISABLED_NOTICE
-            dt_network_connectivity = DT_DISABLED_NOTICE
-
-        info_tools_notice = (
-            "" if info_tools_enabled
-            else INFO_TOOLS_DISABLED_NOTICE + "\n\n"
-        )
-
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            system_description=system_description or "N/A",
+        cfg = dt_config or {}
+        prompt_kwargs: dict[str, Any] = dict(
+            dt_enabled=dt_enabled,
+            info_tools_enabled=info_tools_enabled,
+            system_description=(
+                system_description or "N/A"
+            ),
             security_alerts=security_alerts or "N/A",
-            operator_feedback=operator_feedback or "N/A",
-            dt_container_list=dt_container_list,
-            dt_container_table=dt_container_table,
-            dt_network_connectivity=dt_network_connectivity,
+            operator_feedback=(
+                operator_feedback or "N/A"
+            ),
             revision_notice=revision_notice,
-            info_tools_notice=info_tools_notice,
+        )
+        if dt_enabled:
+            prompt_kwargs.update(
+                dt_container_list=(
+                    format_container_list(cfg)
+                ),
+                dt_container_table=(
+                    format_container_table(cfg)
+                ),
+                dt_network_connectivity=(
+                    format_network_connectivity(cfg)
+                ),
+            )
+        system_prompt = build_system_prompt(
+            **prompt_kwargs,
         )
         yield {
             "type": "system_prompt",

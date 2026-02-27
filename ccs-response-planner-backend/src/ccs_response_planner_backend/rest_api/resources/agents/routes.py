@@ -17,7 +17,7 @@ from ccs_response_planner_backend.agents.report_agent.agent import (
     ReportAgent,
 )
 from ccs_response_planner_backend.agents.report_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt as build_report_prompt,
 )
 from ccs_response_planner_backend.agents.report_agent.tools import (
     STREAMING_TOOL_DISPATCH as INFO_STREAMING_DISPATCH,
@@ -845,7 +845,7 @@ def agents_report_prompt() -> tuple[Response, int]:
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
     )
-    prompt = SYSTEM_PROMPT_TEMPLATE.format(
+    prompt = build_report_prompt(
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
@@ -864,7 +864,6 @@ def agents_report_prompt() -> tuple[Response, int]:
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
         ),
-        revision_notice="",
     )
     return jsonify({"prompt": prompt}), 200
 

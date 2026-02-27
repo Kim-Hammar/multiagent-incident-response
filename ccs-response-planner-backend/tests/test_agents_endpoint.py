@@ -12,7 +12,7 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_network_connectivity,
 )
 from ccs_response_planner_backend.agents.report_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt as build_report_prompt,
 )
 from ccs_response_planner_backend.constants.constants import DIGITAL_TWIN
 
@@ -504,7 +504,7 @@ def test_prompt_uses_na_for_empty_fields(
     assert resp.status_code == 200
     data = resp.get_json()
     dt_config = DIGITAL_TWIN.DEFAULT_CONFIG
-    expected = SYSTEM_PROMPT_TEMPLATE.format(
+    expected = build_report_prompt(
         system_description="N/A",
         security_alerts="N/A",
         operator_feedback="N/A",
@@ -513,7 +513,6 @@ def test_prompt_uses_na_for_empty_fields(
         dt_network_connectivity=format_network_connectivity(
             dt_config,
         ),
-        revision_notice="",
     )
     assert data["prompt"] == expected
 
