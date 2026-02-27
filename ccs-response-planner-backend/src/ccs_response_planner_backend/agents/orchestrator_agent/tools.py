@@ -1171,6 +1171,9 @@ def run_plan_manager_stream(
         "code_model_enabled": context.get(
             "code_model_enabled", True,
         ),
+        "validator_enabled": context.get(
+            "validator_enabled", True,
+        ),
         "report_manager_enabled": report_manager_enabled,
         "security_alerts": context.get(
             "security_alerts", "",

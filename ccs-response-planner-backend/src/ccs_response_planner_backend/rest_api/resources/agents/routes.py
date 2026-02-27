@@ -37,7 +37,7 @@ from ccs_response_planner_backend.agents.code_agent.agent import (
     CodeAgent,
 )
 from ccs_response_planner_backend.agents.code_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as CODE_PROMPT_TEMPLATE,
+    build_system_prompt as build_code_prompt,
 )
 from ccs_response_planner_backend.agents.code_agent.tools import (
     STREAMING_TOOL_DISPATCH as CODE_STREAMING_DISPATCH,
@@ -47,7 +47,7 @@ from ccs_response_planner_backend.agents.code_reviewer_agent.agent import (
     CodeReviewerAgent,
 )
 from ccs_response_planner_backend.agents.code_reviewer_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as CODE_REVIEW_PROMPT_TEMPLATE,
+    build_system_prompt as build_code_review_prompt,
 )
 from ccs_response_planner_backend.agents.code_reviewer_agent.tools import (
     STREAMING_TOOL_DISPATCH as CODE_REVIEW_STREAMING_DISPATCH,
@@ -67,7 +67,7 @@ from ccs_response_planner_backend.agents.code_manager_agent.agent import (
     CodeManagerAgent,
 )
 from ccs_response_planner_backend.agents.code_manager_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as CODE_MANAGER_PROMPT_TEMPLATE,
+    build_system_prompt as build_code_manager_prompt,
 )
 from ccs_response_planner_backend.agents.code_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as CODE_MANAGER_STREAMING_DISPATCH,
@@ -77,7 +77,7 @@ from ccs_response_planner_backend.agents.plan_manager_agent.agent import (
     PlanManagerAgent,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE as PLAN_MANAGER_PROMPT_TEMPLATE,
+    build_system_prompt as build_plan_manager_prompt,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PLAN_MANAGER_STREAMING_DISPATCH,
@@ -148,6 +148,9 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list_with_attacker,
     format_container_table,
     format_network_connectivity,
+)
+from ccs_response_planner_backend.agents.incident_context import (
+    build_incident_context_section,
 )
 from ccs_response_planner_backend.constants.constants import (
     API, DIGITAL_TWIN, DOCKER,
@@ -1448,13 +1451,24 @@ def agents_code_prompt() -> tuple[Response, int]:
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
     )
-    prompt = CODE_PROMPT_TEMPLATE.format(
+    dt_enabled = body.get("dt_enabled", True)
+    incident_context_section = (
+        build_incident_context_section(
+            report_manager_enabled=True,
+            incident_report=body.get(
+                "incident_report", "",
+            ),
+            security_alerts="",
+        )
+    )
+    prompt = build_code_prompt(
+        dt_enabled=dt_enabled,
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
-        incident_report=body.get(
-            "incident_report", "",
-        ) or "N/A",
+        incident_context_section=(
+            incident_context_section
+        ),
         specification=specification or "N/A",
         operator_feedback=body.get(
             "operator_feedback", "",
@@ -1695,13 +1709,24 @@ def agents_code_review_prompt() -> tuple[Response, int]:
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
     )
-    prompt = CODE_REVIEW_PROMPT_TEMPLATE.format(
+    dt_enabled = body.get("dt_enabled", True)
+    incident_context_section = (
+        build_incident_context_section(
+            report_manager_enabled=True,
+            incident_report=body.get(
+                "incident_report", "",
+            ),
+            security_alerts="",
+        )
+    )
+    prompt = build_code_review_prompt(
+        dt_enabled=dt_enabled,
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
-        incident_report=body.get(
-            "incident_report", "",
-        ) or "N/A",
+        incident_context_section=(
+            incident_context_section
+        ),
         specification=specification or "N/A",
         operator_feedback=body.get(
             "operator_feedback", "",
@@ -2452,6 +2477,7 @@ def agents_code_manager_step() -> (
     code_reviewer_enabled = body.get(
         "code_reviewer_enabled", True,
     )
+    dt_enabled = body.get("dt_enabled", True)
 
     def on_complete(
         events: list[dict[str, Any]],
@@ -2500,6 +2526,7 @@ def agents_code_manager_step() -> (
                 code_reviewer_enabled=(
                     code_reviewer_enabled
                 ),
+                dt_enabled=dt_enabled,
             )
         except Exception as e:
             yield _make_error_event(e)
@@ -2528,13 +2555,23 @@ def agents_code_manager_prompt() -> tuple[Response, int]:
             ],
             indent=2,
         )
-    prompt = CODE_MANAGER_PROMPT_TEMPLATE.format(
+    incident_context_section = (
+        build_incident_context_section(
+            report_manager_enabled=True,
+            incident_report=body.get(
+                "incident_report", "",
+            ),
+            security_alerts="",
+        )
+    )
+    prompt = build_code_manager_prompt(
+        dt_enabled=body.get("dt_enabled", True),
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
-        incident_report=body.get(
-            "incident_report", "",
-        ) or "N/A",
+        incident_context_section=(
+            incident_context_section
+        ),
         specification=specification or "N/A",
         operator_feedback=body.get(
             "operator_feedback", "",
@@ -3090,13 +3127,25 @@ def agents_plan_manager_prompt() -> (
             ],
             indent=2,
         )
-    prompt = PLAN_MANAGER_PROMPT_TEMPLATE.format(
+    incident_context_section = (
+        build_incident_context_section(
+            report_manager_enabled=True,
+            incident_report=body.get(
+                "incident_report", "",
+            ),
+            security_alerts="",
+        )
+    )
+    prompt = build_plan_manager_prompt(
+        validator_enabled=body.get(
+            "validator_enabled", True,
+        ),
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
-        incident_report=body.get(
-            "incident_report", "",
-        ) or "N/A",
+        incident_context_section=(
+            incident_context_section
+        ),
         specification=specification or "N/A",
         operator_feedback=body.get(
             "operator_feedback", "",
@@ -3188,6 +3237,9 @@ def agents_plan_manager_tool() -> (
             ),
             "code_model_enabled": body.get(
                 "code_model_enabled", True,
+            ),
+            "dt_enabled": body.get(
+                "dt_enabled", True,
             ),
         }
         conv_history = body.get(

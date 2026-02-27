@@ -30,7 +30,7 @@ from ccs_response_planner_backend.agents.incident_context import (
     build_incident_context_section,
 )
 from ccs_response_planner_backend.agents.code_manager_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.code_manager_agent.tool_declarations import (
     ALL_DECLARATIONS,
@@ -147,6 +147,7 @@ class CodeManagerAgent:
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
         code_reviewer_enabled: bool = True,
+        dt_enabled: bool = True,
         report_manager_enabled: bool = True,
         security_alerts: str = "",
     ) -> Generator[dict[str, Any], None, None]:
@@ -174,6 +175,7 @@ class CodeManagerAgent:
             triggers compaction (default 0.8)
         :param code_reviewer_enabled: whether the code reviewer
             is enabled (default True)
+        :param dt_enabled: whether the digital twin is enabled
         :param report_manager_enabled: whether the report manager
             produced a structured incident report (default True)
         :param security_alerts: raw security alerts (used when
@@ -214,7 +216,8 @@ class CodeManagerAgent:
                 security_alerts=security_alerts,
             )
         )
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        system_prompt = build_system_prompt(
+            dt_enabled=dt_enabled,
             system_description=system_description or "N/A",
             incident_context_section=(
                 incident_context_section

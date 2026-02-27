@@ -676,6 +676,9 @@ def run_code_manager_stream(
         "security_alerts": context.get(
             "security_alerts", "",
         ),
+        "dt_enabled": context.get(
+            "dt_enabled", True,
+        ),
     }
     cm_context_base = {
         k: v for k, v in context.items()

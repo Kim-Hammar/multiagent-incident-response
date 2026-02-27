@@ -32,7 +32,7 @@ from ccs_response_planner_backend.agents.incident_context import (
     build_incident_context_section,
 )
 from ccs_response_planner_backend.agents.code_reviewer_agent.prompt import (
-    SYSTEM_PROMPT_TEMPLATE,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.code_reviewer_agent.tool_declarations import (
     ALL_DECLARATIONS,
@@ -307,7 +307,8 @@ class CodeReviewerAgent:
                 security_alerts=security_alerts,
             )
         )
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        system_prompt = build_system_prompt(
+            dt_enabled=dt_enabled,
             system_description=system_description or "N/A",
             incident_context_section=(
                 incident_context_section
@@ -315,12 +316,12 @@ class CodeReviewerAgent:
             specification=specification or "N/A",
             operator_feedback=operator_feedback or "N/A",
             code_report_formatted=formatted_report,
-            dt_container_list=dt_container_list,
             review_iteration_note=(
                 self._format_iteration_note(
                     review_iteration,
                 )
             ),
+            dt_container_list=dt_container_list,
         )
         yield {
             "type": "system_prompt",

@@ -30,8 +30,8 @@ from ccs_response_planner_backend.agents.incident_context import (
     build_incident_context_section,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.prompt import (
-    DIRECT_PLAN_PROMPT_TEMPLATE,
-    SYSTEM_PROMPT_TEMPLATE,
+    build_direct_plan_prompt,
+    build_system_prompt,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.tool_declarations import (
     ALL_DECLARATIONS,
@@ -197,12 +197,13 @@ class PlanManagerAgent:
                 security_alerts=security_alerts,
             )
         )
-        prompt_template = (
-            SYSTEM_PROMPT_TEMPLATE
+        prompt_builder = (
+            build_system_prompt
             if code_model_enabled
-            else DIRECT_PLAN_PROMPT_TEMPLATE
+            else build_direct_plan_prompt
         )
-        system_prompt = prompt_template.format(
+        system_prompt = prompt_builder(
+            validator_enabled=validator_enabled,
             system_description=(
                 system_description or "N/A"
             ),

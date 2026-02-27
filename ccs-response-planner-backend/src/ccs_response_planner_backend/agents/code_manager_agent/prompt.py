@@ -1,8 +1,16 @@
 """
 System prompt template for the CodeManagerAgent.
+
+The prompt is assembled dynamically by ``build_system_prompt`` so that
+digital-twin references in sub-agent descriptions are omitted when
+the DT is disabled.
 """
 
-SYSTEM_PROMPT_TEMPLATE = """\
+# ------------------------------------------------------------------
+# Base sections (always included)
+# ------------------------------------------------------------------
+
+_INTRO = """\
 You are the **Code Manager**, a manager agent in an autonomous \
 cyber-security incident response system. The system models \
 incident recovery as a Markov Decision Process (MDP) and trains \
@@ -37,7 +45,7 @@ One iteration = one `run_code_agent` call + one \
 `run_code_reviewer_agent` call (a generate-review pair).
 
 **Counting rules:**
-- Each `run_code_agent` → `run_code_reviewer_agent` pair \
+- Each `run_code_agent` \u2192 `run_code_reviewer_agent` pair \
 counts as one iteration.
 - After {max_iterations} closed iteration(s), you MUST call \
 `produce_orchestrator_report` immediately. No exceptions.
@@ -71,7 +79,13 @@ revision cycles.
 
 4. **Report**: Call `produce_orchestrator_report` with a brief \
 process summary and the final code report summary.
+"""
 
+# ------------------------------------------------------------------
+# Sub-agents section (DT-conditional)
+# ------------------------------------------------------------------
+
+_SUB_AGENTS_DT = """\
 ## Sub-agents
 
 1. **CodeAgent** — Generates the MDP environment code (a Python \
@@ -83,7 +97,26 @@ receives previous code and review feedback.
 correctness, completeness, and incident alignment. Can test \
 commands on the digital twin. Its verdict is advisory — the \
 final decision is yours.
+"""
 
+_SUB_AGENTS_NO_DT = """\
+## Sub-agents
+
+1. **CodeAgent** — Generates the MDP environment code (a Python \
+Gymnasium environment). Has access to a Python sandbox \
+(`python_exec`) and a Gymnasium interface checker (`gym_verify`). \
+On revision iterations it receives previous code and review \
+feedback.
+2. **CodeReviewerAgent** — Reviews the generated code for \
+correctness, completeness, and incident alignment. Its verdict \
+is advisory — the final decision is yours.
+"""
+
+# ------------------------------------------------------------------
+# Incident context + tools + rules (always included)
+# ------------------------------------------------------------------
+
+_CONTEXT_AND_TOOLS = """\
 {revision_notice}\
 ## Incident Context
 
@@ -124,3 +157,52 @@ many generate-review pairs, call `produce_orchestrator_report`.
 `review_feedback` (concise bullet points, not raw output).
 - Keep thinking brief. You are a manager, not an analyst.
 """
+
+
+def build_system_prompt(
+    *,
+    dt_enabled: bool,
+    system_description: str,
+    incident_context_section: str,
+    specification: str,
+    operator_feedback: str,
+    max_iterations: int,
+    validation_feedback: str,
+    revision_notice: str,
+) -> str:
+    """
+    Assemble the CodeManagerAgent system prompt.
+
+    When *dt_enabled* is ``False`` the sub-agent descriptions
+    omit digital-twin references.
+
+    :param dt_enabled: whether the digital twin is available
+    :param system_description: description of the target system
+    :param incident_context_section: rendered incident context
+    :param specification: specification commands text
+    :param operator_feedback: operator feedback text
+    :param max_iterations: maximum generate-review iterations
+    :param validation_feedback: feedback from validation phase
+    :param revision_notice: revision iteration notice or ``""``
+    :return: the fully rendered system prompt string
+    """
+    parts: list[str] = [
+        _INTRO.format(max_iterations=max_iterations),
+    ]
+
+    parts.append(
+        _SUB_AGENTS_DT if dt_enabled
+        else _SUB_AGENTS_NO_DT
+    )
+
+    parts.append(_CONTEXT_AND_TOOLS.format(
+        revision_notice=revision_notice,
+        system_description=system_description or "N/A",
+        incident_context_section=incident_context_section,
+        specification=specification or "N/A",
+        operator_feedback=operator_feedback or "N/A",
+        max_iterations=max_iterations,
+        validation_feedback=validation_feedback or "N/A",
+    ))
+
+    return "\n".join(parts)
