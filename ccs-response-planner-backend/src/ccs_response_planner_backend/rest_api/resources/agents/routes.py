@@ -114,6 +114,9 @@ from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
     TOOL_DISPATCH as ORCHESTRATOR_TOOL_DISPATCH,
     run_report_agent_direct_stream,
 )
+from ccs_response_planner_backend.agents.execution_stats import (
+    ExecutionStatsCollector,
+)
 from ccs_response_planner_backend.agents.pentest_agent.agent import (
     PentestAgent,
 )
@@ -460,6 +463,7 @@ def _save_step_result(
         accumulated_text = ""
         final_entry: dict[str, Any] | None = None
         context_usage: dict[str, Any] | None = None
+        execution_stats: dict[str, Any] | None = None
         pending_proposal: Any = None
 
         for ev in events:
@@ -488,6 +492,8 @@ def _save_step_result(
                 final_entry = ev
             elif ev_type == "context_usage":
                 context_usage = ev
+            elif ev_type == "_execution_stats":
+                execution_stats = ev.get("stats")
             elif ev_type == "error":
                 final_entry = ev
 
@@ -540,6 +546,10 @@ def _save_step_result(
             update_kwargs["context_usage"] = (
                 context_usage
             )
+        if execution_stats:
+            update_kwargs["execution_stats"] = (
+                execution_stats
+            )
         if pending_proposal:
             update_kwargs["pending_proposal"] = (
                 pending_proposal
@@ -575,9 +585,12 @@ def _save_tool_result(
     """
     try:
         done_event: dict[str, Any] | None = None
+        execution_stats: dict[str, Any] | None = None
         for ev in events:
             if ev.get("type") == "done":
                 done_event = ev
+            elif ev.get("type") == "_execution_stats":
+                execution_stats = ev.get("stats")
 
         session = (
             DatabaseFacade.get_planning_session(
@@ -615,14 +628,21 @@ def _save_tool_result(
                     "result": result,
                 })
 
-        DatabaseFacade.update_planning_session(
-            session_id, username,
-            conversation_history=history,
-            pending_proposal=False,
-            ui_state={
+        tool_update_kwargs: dict[str, Any] = {
+            "conversation_history": history,
+            "pending_proposal": False,
+            "ui_state": {
                 "running": False,
                 "executingTool": None,
             },
+        }
+        if execution_stats:
+            tool_update_kwargs["execution_stats"] = (
+                execution_stats
+            )
+        DatabaseFacade.update_planning_session(
+            session_id, username,
+            **tool_update_kwargs,
         )
     except Exception:
         logger.error(
@@ -3470,6 +3490,21 @@ def agents_orchestrator_step() -> (
 
         :return: a generator of event dicts
         """
+        stats = ExecutionStatsCollector()
+        if session_id:
+            try:
+                sess = (
+                    DatabaseFacade
+                    .get_planning_session(
+                        session_id, username,
+                    )
+                )
+                if sess:
+                    stats.merge(
+                        sess.get("execution_stats"),
+                    )
+            except Exception:
+                pass
         try:
             dt_enabled = body.get(
                 "dt_enabled", True,
@@ -3495,10 +3530,14 @@ def agents_orchestrator_step() -> (
             report_manager_enabled = body.get(
                 "report_manager_enabled", True,
             )
-            yield from agent.step_stream(
-                system_description=system_description,
+            for ev in agent.step_stream(
+                system_description=(
+                    system_description
+                ),
                 security_alerts=security_alerts,
-                operator_feedback=operator_feedback,
+                operator_feedback=(
+                    operator_feedback
+                ),
                 conversation_history=(
                     conversation_history
                 ),
@@ -3513,7 +3552,41 @@ def agents_orchestrator_step() -> (
                 report_manager_enabled=(
                     report_manager_enabled
                 ),
-            )
+            ):
+                ev_type = ev.get("type", "")
+                if ev_type == "context_usage":
+                    stats.record_tokens(
+                        "orchestrator",
+                        ev.get("prompt_tokens", 0),
+                        ev.get(
+                            "candidates_tokens", 0,
+                        ),
+                        ev.get("total_tokens", 0),
+                    )
+                elif ev_type == "tool_proposal":
+                    stats.record_function_call(
+                        "orchestrator",
+                    )
+                elif ev_type == (
+                    "orchestrator_agent_report"
+                ):
+                    report_data = ev.get(
+                        "orchestrator_agent_report",
+                        {},
+                    )
+                    report_data[
+                        "execution_stats"
+                    ] = stats.to_dict()
+                    ev = {
+                        **ev,
+                        "orchestrator_agent_report":
+                            report_data,
+                    }
+                yield ev
+            yield {
+                "type": "_execution_stats",
+                "stats": stats.to_dict(),
+            }
         except Exception as e:
             yield {
                 "type": "error",
@@ -3800,6 +3873,24 @@ def agents_orchestrator_tool() -> (
 
             :return: a generator of event dicts
             """
+            stats = ExecutionStatsCollector()
+            if session_id:
+                try:
+                    sess = (
+                        DatabaseFacade
+                        .get_planning_session(
+                            session_id, username,
+                        )
+                    )
+                    if sess:
+                        stats.merge(
+                            sess.get(
+                                "execution_stats",
+                            ),
+                        )
+                except Exception:
+                    pass
+            context["_stats_collector"] = stats
             try:
                 if (
                     tool_name == "run_report_manager"
@@ -3826,6 +3917,10 @@ def agents_orchestrator_tool() -> (
                     "type": "error",
                     "message": str(e),
                 }
+            yield {
+                "type": "_execution_stats",
+                "stats": stats.to_dict(),
+            }
 
         job_manager.start_job(
             job_id, run, on_complete=on_complete,

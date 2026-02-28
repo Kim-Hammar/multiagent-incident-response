@@ -35,6 +35,9 @@ from ccs_response_planner_backend.agents.pentest_agent.agent import (
 from ccs_response_planner_backend.agents.pentest_agent.tools import (
     STREAMING_TOOL_DISPATCH as PT_STREAMING_DISPATCH,
 )
+from ccs_response_planner_backend.agents.execution_stats import (
+    ExecutionStatsCollector,
+)
 from ccs_response_planner_backend.db.database_facade import (
     DatabaseFacade,
 )
@@ -59,6 +62,25 @@ _INTERNAL_KEYS = {
 
 
 _SKIP_TYPES = {"prompt", "context_usage", "nested_event"}
+
+# Maps tool names to canonical agent names for stats.
+_RM_TOOL_TO_AGENT = {
+    "run_report_agent": "report_agent",
+    "run_report_reviewer_agent": "report_reviewer_agent",
+}
+
+_PM_TOOL_TO_AGENT = {
+    "run_code_manager": "code_manager",
+    "run_planner_agent": "planner_agent",
+    "run_validation_agent": "validation_agent",
+}
+
+_CM_TOOL_TO_AGENT = {
+    "run_code_agent": "code_agent",
+    "run_code_reviewer_agent": "code_reviewer_agent",
+}
+
+_PT_TOOL_TO_AGENT: dict[str, str] = {}
 
 
 def _timeout_step_stream(
@@ -172,6 +194,69 @@ def _process_collected_events(
     return result
 
 
+def _record_inner_stats(
+    inner: dict[str, Any],
+    stats: ExecutionStatsCollector,
+    tool_map: dict[str, str],
+    current_tool: str,
+    collected: list[dict[str, Any]],
+    deep_tool_map: dict[str, str] | None = None,
+) -> None:
+    """
+    Record stats from an inner sub-agent event.
+
+    Called during the tool execution loop for each
+    ``sub_event`` from a streaming tool.  Intercepts
+    ``context_usage`` events and maps them to the correct
+    agent name.
+
+    :param inner: the unwrapped inner event dict
+    :param stats: the stats collector
+    :param tool_map: maps outer tool names to agent names
+    :param current_tool: current outer tool name
+    :param collected: list of previously collected events
+    :param deep_tool_map: optional map for doubly-nested
+        agents (e.g. code_agent inside code_manager)
+    """
+    itype = inner.get("type", "")
+    agent_name = tool_map.get(
+        current_tool, current_tool,
+    )
+    if itype == "context_usage":
+        stats.record_tokens(
+            agent_name,
+            inner.get("prompt_tokens", 0),
+            inner.get("candidates_tokens", 0),
+            inner.get("total_tokens", 0),
+        )
+    elif itype == "tool_call":
+        stats.record_function_call(agent_name)
+    elif itype == "nested_event" and deep_tool_map:
+        deep = inner.get("event", {})
+        deep_type = deep.get("type", "")
+        # Find the most recent inner tool_call to
+        # determine which sub-agent this belongs to.
+        inner_tool = ""
+        for prev in reversed(collected):
+            if prev.get("type") == "tool_call":
+                inner_tool = prev.get(
+                    "tool_name", "",
+                )
+                break
+        deep_agent = deep_tool_map.get(
+            inner_tool, agent_name,
+        )
+        if deep_type == "context_usage":
+            stats.record_tokens(
+                deep_agent,
+                deep.get("prompt_tokens", 0),
+                deep.get("candidates_tokens", 0),
+                deep.get("total_tokens", 0),
+            )
+        elif deep_type == "tool_call":
+            stats.record_function_call(deep_agent)
+
+
 def _truncate_result(
     result: dict[str, Any],
 ) -> dict[str, Any]:
@@ -229,6 +314,10 @@ def run_report_agent_direct_stream(
             ),
         }
 
+    stats: ExecutionStatsCollector | None = context.get(
+        "_stats_collector",
+    )
+
     assessment: dict[str, Any] = {}
     attack_path_img: str | None = None
 
@@ -243,16 +332,29 @@ def run_report_agent_direct_stream(
         },
     }
 
+    ra_start = time.monotonic()
     for event in run_report_agent_stream(
         context=context,
     ):
         etype = event.get("type")
         if etype == "sub_event":
+            inner = event.get("event", {})
+            if stats and inner.get("type") == (
+                "context_usage"
+            ):
+                stats.record_tokens(
+                    "report_agent",
+                    inner.get("prompt_tokens", 0),
+                    inner.get(
+                        "candidates_tokens", 0,
+                    ),
+                    inner.get("total_tokens", 0),
+                )
             yield {
                 "type": "sub_event",
                 "event": {
                     "type": "nested_event",
-                    "event": event.get("event", {}),
+                    "event": inner,
                 },
             }
         elif etype == "output_chunk":
@@ -265,6 +367,11 @@ def run_report_agent_direct_stream(
             attack_path_img = result.get(
                 "attack_path_image",
             )
+    if stats:
+        stats.record_wall_time(
+            "report_agent",
+            time.monotonic() - ra_start,
+        )
 
     # Emit a synthetic tool_result to close the
     # run_report_agent activity panel.
@@ -325,6 +432,11 @@ def run_report_manager_stream(
         reviewer_agent_model, username, dt_config
     :return: generator yielding event dicts
     """
+    stats: ExecutionStatsCollector | None = context.get(
+        "_stats_collector",
+    )
+    rm_start = time.monotonic()
+
     agent = ReportManagerAgent()
     conversation_history: list[dict[str, Any]] = []
     validation_feedback = context.get(
@@ -538,6 +650,15 @@ def run_report_manager_stream(
                     ),
                 }
             elif etype == "context_usage":
+                if stats:
+                    stats.record_tokens(
+                        "report_manager",
+                        event.get("prompt_tokens", 0),
+                        event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        event.get("total_tokens", 0),
+                    )
                 yield {
                     "type": "sub_event",
                     "event": {
@@ -562,6 +683,10 @@ def run_report_manager_stream(
                     "event": event,
                 }
             elif etype == "tool_proposal":
+                if stats:
+                    stats.record_function_call(
+                        "report_manager",
+                    )
                 pending_tool = event
 
         if step_reasoning:
@@ -627,6 +752,7 @@ def run_report_manager_stream(
             if tool_name in RM_STREAMING_DISPATCH:
                 collected: list[dict[str, Any]] = []
                 tool_result: dict[str, Any] = {}
+                rm_tool_start = time.monotonic()
                 try:
                     for tool_event in (
                         agent.execute_tool_stream(
@@ -637,6 +763,13 @@ def run_report_manager_stream(
                         te_type = tool_event.get("type")
                         if te_type == "sub_event":
                             inner = tool_event["event"]
+                            if stats:
+                                _record_inner_stats(
+                                    inner, stats,
+                                    _RM_TOOL_TO_AGENT,
+                                    tool_name,
+                                    collected,
+                                )
                             yield {
                                 "type": "sub_event",
                                 "event": {
@@ -689,6 +822,15 @@ def run_report_manager_stream(
                     raise
                 except Exception as e:
                     tool_result = {"error": str(e)}
+
+                if stats:
+                    rm_agent = _RM_TOOL_TO_AGENT.get(
+                        tool_name, tool_name,
+                    )
+                    stats.record_wall_time(
+                        rm_agent,
+                        time.monotonic() - rm_tool_start,
+                    )
 
                 if tool_name == "run_report_agent":
                     assessment = tool_result.get(
@@ -821,6 +963,12 @@ def run_report_manager_stream(
             "%s", e,
         )
 
+    if stats:
+        stats.record_wall_time(
+            "report_manager",
+            time.monotonic() - rm_start,
+        )
+
     done_result = {
         "report_manager_report": (
             report_manager_report
@@ -830,6 +978,10 @@ def run_report_manager_stream(
     if attack_path_img:
         done_result["attack_path_image"] = (
             attack_path_img
+        )
+    if stats:
+        done_result["_execution_stats"] = (
+            stats.to_dict()
         )
     yield {
         "type": "done",
@@ -851,6 +1003,11 @@ def run_pentest_agent_stream(
         dt_config, pentest_agent_model, username
     :return: generator yielding event dicts
     """
+    stats: ExecutionStatsCollector | None = context.get(
+        "_stats_collector",
+    )
+    pt_start = time.monotonic()
+
     agent = PentestAgent()
     conversation_history: list[dict[str, Any]] = []
 
@@ -957,6 +1114,15 @@ def run_pentest_agent_stream(
                     ),
                 }
             elif etype == "context_usage":
+                if stats:
+                    stats.record_tokens(
+                        "pentest_agent",
+                        event.get("prompt_tokens", 0),
+                        event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        event.get("total_tokens", 0),
+                    )
                 yield {
                     "type": "sub_event",
                     "event": {
@@ -981,6 +1147,10 @@ def run_pentest_agent_stream(
                     "event": event,
                 }
             elif etype == "tool_proposal":
+                if stats:
+                    stats.record_function_call(
+                        "pentest_agent",
+                    )
                 pending_tool = event
 
         if step_reasoning:
@@ -1055,6 +1225,13 @@ def run_pentest_agent_stream(
                         te_type = tool_event.get("type")
                         if te_type == "sub_event":
                             inner = tool_event["event"]
+                            if stats:
+                                _record_inner_stats(
+                                    inner, stats,
+                                    _PT_TOOL_TO_AGENT,
+                                    tool_name,
+                                    collected,
+                                )
                             yield {
                                 "type": "sub_event",
                                 "event": {
@@ -1206,11 +1383,20 @@ def run_pentest_agent_stream(
             "Failed to save pentest report: %s", e,
         )
 
+    if stats:
+        stats.record_wall_time(
+            "pentest_agent",
+            time.monotonic() - pt_start,
+        )
+
+    pt_done: dict[str, Any] = {
+        "pentest_report": pentest_report,
+    }
+    if stats:
+        pt_done["_execution_stats"] = stats.to_dict()
     yield {
         "type": "done",
-        "result": {
-            "pentest_report": pentest_report,
-        },
+        "result": pt_done,
     }
 
 
@@ -1232,6 +1418,11 @@ def run_plan_manager_stream(
         rl_time_limit_minutes, dt_config, username
     :return: generator yielding event dicts
     """
+    stats: ExecutionStatsCollector | None = context.get(
+        "_stats_collector",
+    )
+    pm_start = time.monotonic()
+
     from ccs_response_planner_backend.constants.constants import (
         DIGITAL_TWIN,
     )
@@ -1420,6 +1611,15 @@ def run_plan_manager_stream(
                     ),
                 }
             elif etype == "context_usage":
+                if stats:
+                    stats.record_tokens(
+                        "plan_manager",
+                        event.get("prompt_tokens", 0),
+                        event.get(
+                            "candidates_tokens", 0,
+                        ),
+                        event.get("total_tokens", 0),
+                    )
                 yield {
                     "type": "sub_event",
                     "event": {
@@ -1444,6 +1644,10 @@ def run_plan_manager_stream(
                     "event": event,
                 }
             elif etype == "tool_proposal":
+                if stats:
+                    stats.record_function_call(
+                        "plan_manager",
+                    )
                 pending_tool = event
 
         if step_reasoning:
@@ -1509,6 +1713,12 @@ def run_plan_manager_stream(
             if tool_name in PM_STREAMING_DISPATCH:
                 collected: list[dict[str, Any]] = []
                 tool_result: dict[str, Any] = {}
+                pm_tool_start = time.monotonic()
+                pm_deep_map = (
+                    _CM_TOOL_TO_AGENT
+                    if tool_name == "run_code_manager"
+                    else None
+                )
                 try:
                     if (
                         tool_name
@@ -1542,6 +1752,14 @@ def run_plan_manager_stream(
                         te_type = tool_event.get("type")
                         if te_type == "sub_event":
                             inner = tool_event["event"]
+                            if stats:
+                                _record_inner_stats(
+                                    inner, stats,
+                                    _PM_TOOL_TO_AGENT,
+                                    tool_name,
+                                    collected,
+                                    pm_deep_map,
+                                )
                             yield {
                                 "type": "sub_event",
                                 "event": {
@@ -1594,6 +1812,16 @@ def run_plan_manager_stream(
                     raise
                 except Exception as e:
                     tool_result = {"error": str(e)}
+
+                if stats:
+                    pm_agent = _PM_TOOL_TO_AGENT.get(
+                        tool_name, tool_name,
+                    )
+                    stats.record_wall_time(
+                        pm_agent,
+                        time.monotonic()
+                        - pm_tool_start,
+                    )
 
                 if tool_name == "run_code_manager":
                     code_report = tool_result.get(
@@ -1769,17 +1997,26 @@ def run_plan_manager_stream(
             "%s", e,
         )
 
+    if stats:
+        stats.record_wall_time(
+            "plan_manager",
+            time.monotonic() - pm_start,
+        )
+
+    pm_done: dict[str, Any] = {
+        "plan_manager_report": (
+            plan_manager_report
+        ),
+        "code_report": code_report,
+        "planner_report": planner_report,
+        "validation_report": validation_report,
+        "response_plan": response_plan,
+    }
+    if stats:
+        pm_done["_execution_stats"] = stats.to_dict()
     yield {
         "type": "done",
-        "result": {
-            "plan_manager_report": (
-                plan_manager_report
-            ),
-            "code_report": code_report,
-            "planner_report": planner_report,
-            "validation_report": validation_report,
-            "response_plan": response_plan,
-        },
+        "result": pm_done,
     }
 
 

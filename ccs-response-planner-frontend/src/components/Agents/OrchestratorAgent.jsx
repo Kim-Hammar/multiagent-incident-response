@@ -39,6 +39,7 @@ import {
   PlanManagerReportBody,
   PentestReportBody
 } from './shared/ReportBodies.jsx'
+import ExecutionStatsView from './shared/ExecutionStatsView.jsx'
 /**
  * Extract rich sub-agent data from conversation history and merge it into
  * the orchestrator report so the final view has full details.
@@ -202,6 +203,7 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
                 </pre>
               </div>
             )}
+            {report.execution_stats && <ExecutionStatsView stats={report.execution_stats} />}
           </div>
         )}
       </div>

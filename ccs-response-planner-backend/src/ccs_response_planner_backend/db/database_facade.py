@@ -207,6 +207,11 @@ class DatabaseFacade:
                     ON {DB.PLANNING_SESSIONS_TABLE}
                         (username, agent_type, status)
                 """)
+                cur.execute(f"""
+                    ALTER TABLE {DB.PLANNING_SESSIONS_TABLE}
+                    ADD COLUMN IF NOT EXISTS
+                        execution_stats JSONB
+                """)
             conn.commit()
 
     @staticmethod
@@ -864,7 +869,8 @@ class DatabaseFacade:
                         f"agent_config, context_usage, "
                         f"ui_state, "
                         f"created_at, updated_at, "
-                        f"agent_type "
+                        f"agent_type, "
+                        f"execution_stats "
                         f"FROM "
                         f"{DB.PLANNING_SESSIONS_TABLE} "
                         f"WHERE username = %s "
@@ -883,7 +889,8 @@ class DatabaseFacade:
                         f"agent_config, context_usage, "
                         f"ui_state, "
                         f"created_at, updated_at, "
-                        f"agent_type "
+                        f"agent_type, "
+                        f"execution_stats "
                         f"FROM "
                         f"{DB.PLANNING_SESSIONS_TABLE} "
                         f"WHERE username = %s "
@@ -909,6 +916,7 @@ class DatabaseFacade:
                     "created_at": str(row[9]),
                     "updated_at": str(row[10]),
                     "agent_type": row[11],
+                    "execution_stats": row[12],
                 }
 
     @staticmethod
@@ -935,7 +943,8 @@ class DatabaseFacade:
                     f"agent_config, context_usage, "
                     f"ui_state, "
                     f"created_at, updated_at, "
-                    f"agent_type "
+                    f"agent_type, "
+                    f"execution_stats "
                     f"FROM "
                     f"{DB.PLANNING_SESSIONS_TABLE} "
                     f"WHERE id = %s "
@@ -958,6 +967,7 @@ class DatabaseFacade:
                     "created_at": str(row[9]),
                     "updated_at": str(row[10]),
                     "agent_type": row[11],
+                    "execution_stats": row[12],
                 }
 
     @staticmethod
@@ -1021,7 +1031,8 @@ class DatabaseFacade:
                     f"agent_config, context_usage, "
                     f"ui_state, "
                     f"created_at, updated_at, "
-                    f"agent_type",
+                    f"agent_type, "
+                    f"execution_stats",
                     (
                         username,
                         _sanitize_json(incident_inputs),
@@ -1046,6 +1057,7 @@ class DatabaseFacade:
                 "created_at": str(row[9]),
                 "updated_at": str(row[10]),
                 "agent_type": row[11],
+                "execution_stats": row[12],
             }
 
     @staticmethod
@@ -1057,6 +1069,7 @@ class DatabaseFacade:
         context_usage: Optional[dict[str, Any]] = None,
         status: Optional[str] = None,
         ui_state: Optional[dict[str, Any]] = None,
+        execution_stats: Optional[dict[str, Any]] = None,
     ) -> bool:
         """
         Update a planning session.
@@ -1071,6 +1084,7 @@ class DatabaseFacade:
         :param context_usage: optional context usage stats
         :param status: optional new status
         :param ui_state: optional ephemeral UI state
+        :param execution_stats: optional execution statistics
         :return: True if the session was updated
         """
         with psycopg.connect(
@@ -1110,6 +1124,13 @@ class DatabaseFacade:
                     updates.append("ui_state = %s")
                     params.append(
                         _sanitize_json(ui_state)
+                    )
+                if execution_stats is not None:
+                    updates.append(
+                        "execution_stats = %s"
+                    )
+                    params.append(
+                        _sanitize_json(execution_stats)
                     )
                 if not updates:
                     return False

@@ -28,6 +28,7 @@ import {
   PlanManagerReportBody,
   PentestReportBody
 } from '../Agents/shared/ReportBodies.jsx'
+import ExecutionStatsView from '../Agents/shared/ExecutionStatsView.jsx'
 import JobsTab from '../Agents/shared/JobsTab.jsx'
 import ConfigTab from './ConfigTab.jsx'
 import SubAgentsTab from './SubAgentsTab.jsx'
@@ -169,6 +170,7 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
                 <PlannerReportInline report={report.planner_report} />
               </div>
             )}
+            {report.execution_stats && <ExecutionStatsView stats={report.execution_stats} />}
           </div>
         )}
       </div>
