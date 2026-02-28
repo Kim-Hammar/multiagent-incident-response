@@ -250,7 +250,7 @@ _TOOLS_ALL = """\
 - **otx_search**: Search AlienVault OTX threat intelligence.
 - **dt_exec**: Execute a shell command on a digital-twin container. \
 Valid containers: {dt_container_list}. \
-**Commands are killed after 600 seconds.** Keep commands short and \
+**Commands are killed after 400 seconds.** Keep commands short and \
 targeted. If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
 Commands run non-interactively \u2014 use flags like \
@@ -271,7 +271,7 @@ _TOOLS_DT_ONLY = """\
 
 - **dt_exec**: Execute a shell command on a digital-twin container. \
 Valid containers: {dt_container_list}. \
-**Commands are killed after 600 seconds.** Keep commands short and \
+**Commands are killed after 400 seconds.** Keep commands short and \
 targeted. If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
 Commands run non-interactively \u2014 use flags like \

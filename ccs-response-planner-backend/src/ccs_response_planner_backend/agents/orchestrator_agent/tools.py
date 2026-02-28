@@ -83,6 +83,61 @@ _CM_TOOL_TO_AGENT = {
 _PT_TOOL_TO_AGENT: dict[str, str] = {}
 
 
+def _summarize_assessment(
+    assessment: dict[str, Any],
+) -> str:
+    """
+    Build a concise attack-path summary from an assessment dict.
+
+    Extracts only the fields relevant for pentest validation
+    (incident summary, IOCs, affected assets) so the pentest
+    agent's context stays small when ``attack_vector_analysis``
+    is missing.
+
+    :param assessment: the assessment dict from the report manager
+    :return: a compact summary string
+    """
+    parts: list[str] = []
+    summary = assessment.get("incident_summary", "")
+    if summary:
+        parts.append(f"Incident Summary:\n{summary}")
+    iocs = assessment.get(
+        "indicators_of_compromise", [],
+    )
+    if isinstance(iocs, list) and iocs:
+        lines: list[str] = []
+        for ioc in iocs:
+            if isinstance(ioc, dict):
+                ioc_type = ioc.get("type", "")
+                value = ioc.get("value", "")
+                ctx = ioc.get("context", "")
+                lines.append(
+                    f"  - {ioc_type}: {value}"
+                    + (f" ({ctx})" if ctx else "")
+                )
+        if lines:
+            parts.append(
+                "Indicators of Compromise:\n"
+                + "\n".join(lines)
+            )
+    assets = assessment.get("affected_assets", [])
+    if isinstance(assets, list) and assets:
+        lines = []
+        for asset in assets:
+            if isinstance(asset, dict):
+                name = asset.get("asset", "")
+                impact = asset.get("impact", "")
+                lines.append(f"  - {name}: {impact}")
+        if lines:
+            parts.append(
+                "Affected Assets:\n"
+                + "\n".join(lines)
+            )
+    if not parts:
+        return "No attack path information available."
+    return "\n\n".join(parts)
+
+
 def _timeout_step_stream(
     agent: Any,
     step_kwargs: dict[str, Any],
@@ -1018,8 +1073,8 @@ def run_pentest_agent_stream(
             "attack_vector_analysis", "",
         )
         if not attack_path:
-            attack_path = json.dumps(
-                assessment, indent=2, default=str,
+            attack_path = _summarize_assessment(
+                assessment,
             )
 
     system_description = context.get(

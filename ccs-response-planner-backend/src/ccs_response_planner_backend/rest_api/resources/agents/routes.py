@@ -4183,6 +4183,15 @@ def update_session(
         and pending_proposal is None
     ):
         pending_proposal = False
+    has_fields = (
+        conversation_history is not None
+        or pending_proposal is not None
+        or context_usage is not None
+        or status is not None
+        or ui_state is not None
+    )
+    if not has_fields:
+        return jsonify({"success": True}), 200
     try:
         updated = DatabaseFacade.update_planning_session(
             session_id, g.username,

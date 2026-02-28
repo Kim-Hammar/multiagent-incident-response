@@ -146,7 +146,7 @@ _INFO_TOOL_ARG_ITEMS = """\
 _DT_TOOL_ARG_ITEMS = """\
    - **dt_exec**: `container` is one of {dt_container_list}. \
 `command` is the shell command to run. \
-**Commands are killed after 600 seconds.** Keep commands short and \
+**Commands are killed after 400 seconds.** Keep commands short and \
 targeted. If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
 Commands run non-interactively \u2014 use flags like \

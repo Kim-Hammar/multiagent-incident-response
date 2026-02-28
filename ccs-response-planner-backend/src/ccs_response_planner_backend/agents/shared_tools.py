@@ -10,6 +10,7 @@ Also provides streaming variants (``_exec_stream_on_container``,
 crashed container or redeploy the entire digital twin.
 """
 import logging
+import shlex
 import threading
 from typing import Any, Generator, Optional
 
@@ -70,16 +71,22 @@ def kill_all_active_execs() -> int:
         try:
             info = client.api.exec_inspect(exec_id)
             if info.get("Running"):
-                pid = info.get("Pid", 0)
-                if pid:
-                    kill_id = client.api.exec_create(
-                        container_id,
-                        ["/bin/sh", "-c",
-                         f"kill -9 {pid}"],
-                        stdout=True, stderr=True,
-                    )["Id"]
-                    client.api.exec_start(kill_id)
-                    killed += 1
+                cmd_args = info.get("ProcessConfig", {}).get(
+                    "arguments", [],
+                )
+                pattern = cmd_args[-1] if cmd_args else ""
+                kill_cmd = (
+                    "pkill -9 -f "
+                    f"{shlex.quote(pattern[:100])} "
+                    "2>/dev/null; true"
+                )
+                kill_id = client.api.exec_create(
+                    container_id,
+                    ["/bin/sh", "-c", kill_cmd],
+                    stdout=True, stderr=True,
+                )["Id"]
+                client.api.exec_start(kill_id)
+                killed += 1
         except Exception:
             logger.debug(
                 "Failed to kill exec %s", exec_id,
@@ -98,7 +105,8 @@ _VALID_DT_CONTAINERS = [
 ]
 
 
-_DT_EXEC_TIMEOUT = 600
+_DT_EXEC_TIMEOUT = 400
+_FALLBACK_GRACE = 30
 
 
 def _exec_on_container(
@@ -107,8 +115,9 @@ def _exec_on_container(
     """
     Run a shell command on a digital-twin container.
 
-    The command is killed after ``_DT_EXEC_TIMEOUT`` seconds to
-    prevent long-running commands from blocking the API.
+    The command is wrapped with the shell ``timeout`` utility
+    so that it is killed inside the container's own PID
+    namespace.  A secondary ``thread.join`` acts as a fallback.
 
     :param container: host id (e.g. i1_firewall, i1_server_1)
     :param command: the shell command to run
@@ -117,8 +126,12 @@ def _exec_on_container(
     container_name = f"{DOCKER.CONTAINER_PREFIX}{container}"
     client = docker.from_env()
     ct = client.containers.get(container_name)
+    wrapped_cmd = (
+        f"timeout {_DT_EXEC_TIMEOUT} "
+        f"sh -c {shlex.quote(command)}"
+    )
     exec_id = client.api.exec_create(
-        ct.id, ["/bin/sh", "-c", command],
+        ct.id, ["/bin/sh", "-c", wrapped_cmd],
         stdout=True, stderr=True,
     )["Id"]
     _register_exec(exec_id, ct.id, client)
@@ -133,20 +146,23 @@ def _exec_on_container(
     try:
         thread = threading.Thread(target=_run)
         thread.start()
-        thread.join(timeout=_DT_EXEC_TIMEOUT)
+        thread.join(
+            timeout=_DT_EXEC_TIMEOUT + _FALLBACK_GRACE,
+        )
 
         if thread.is_alive():
             try:
-                info = client.api.exec_inspect(exec_id)
-                pid = info.get("Pid", 0)
-                if pid:
-                    kill_id = client.api.exec_create(
-                        ct.id,
-                        ["/bin/sh", "-c",
-                         f"kill -9 {pid}"],
-                        stdout=True, stderr=True,
-                    )["Id"]
-                    client.api.exec_start(kill_id)
+                kill_cmd = (
+                    "pkill -9 -f "
+                    f"{shlex.quote(command[:100])} "
+                    "2>/dev/null; true"
+                )
+                kill_id = client.api.exec_create(
+                    ct.id,
+                    ["/bin/sh", "-c", kill_cmd],
+                    stdout=True, stderr=True,
+                )["Id"]
+                client.api.exec_start(kill_id)
             except Exception:
                 pass
             thread.join(timeout=5)
@@ -165,6 +181,18 @@ def _exec_on_container(
         exit_code = client.api.exec_inspect(exec_id)[
             "ExitCode"
         ]
+        if exit_code == 124:
+            output = result.get("output", "")
+            return {
+                "container": container,
+                "command": command,
+                "exit_code": -1,
+                "output": (
+                    f"{output}\n\n[TIMEOUT] Command killed "
+                    f"after {_DT_EXEC_TIMEOUT}s. Use short, "
+                    f"targeted commands."
+                ),
+            }
         return {
             "container": container,
             "command": command,
@@ -219,7 +247,7 @@ def dt_exec(
             }
 
 
-_EXEC_STREAM_TIMEOUT = 600
+_EXEC_STREAM_TIMEOUT = 400
 
 
 def _exec_stream_on_container(
@@ -242,8 +270,12 @@ def _exec_stream_on_container(
     :param timeout_seconds: max execution time in seconds
     :return: a generator of event dicts
     """
+    wrapped_cmd = (
+        f"timeout {timeout_seconds} "
+        f"sh -c {shlex.quote(command)}"
+    )
     exec_id = client.api.exec_create(
-        container_id, ["/bin/sh", "-c", command],
+        container_id, ["/bin/sh", "-c", wrapped_cmd],
         stdout=True, stderr=True,
     )["Id"]
     _register_exec(exec_id, container_id, client)
@@ -254,27 +286,31 @@ def _exec_stream_on_container(
 
     def _kill() -> None:
         """
-        Kill the running exec after timeout.
+        Fallback kill: fire only if the shell ``timeout``
+        wrapper did not terminate the process in time.
         """
         timed_out.set()
         try:
-            info = client.api.exec_inspect(exec_id)
-            pid = info.get("Pid", 0)
-            if pid:
-                kill_id = client.api.exec_create(
-                    container_id,
-                    ["/bin/sh", "-c",
-                     f"kill -9 {pid}"],
-                    stdout=True, stderr=True,
-                )["Id"]
-                client.api.exec_start(kill_id)
+            kill_cmd = (
+                "pkill -9 -f "
+                f"{shlex.quote(command[:100])} "
+                "2>/dev/null; true"
+            )
+            kill_id = client.api.exec_create(
+                container_id,
+                ["/bin/sh", "-c", kill_cmd],
+                stdout=True, stderr=True,
+            )["Id"]
+            client.api.exec_start(kill_id)
         except Exception:
             logger.warning(
                 "Failed to kill exec process",
                 exc_info=True,
             )
 
-    timer = threading.Timer(timeout_seconds, _kill)
+    timer = threading.Timer(
+        timeout_seconds + _FALLBACK_GRACE, _kill,
+    )
     timer.start()
 
     full_output = ""
@@ -305,7 +341,13 @@ def _exec_stream_on_container(
         timer.cancel()
         _unregister_exec(exec_id)
 
-    if timed_out.is_set():
+    try:
+        info = client.api.exec_inspect(exec_id)
+        exit_code = info.get("ExitCode", -1)
+    except Exception:
+        exit_code = -1
+
+    if timed_out.is_set() or exit_code == 124:
         timeout_msg = (
             f"\n\n[TIMEOUT] Command killed after "
             f"{timeout_seconds}s."
@@ -315,14 +357,6 @@ def _exec_stream_on_container(
             "type": "output_chunk",
             "text": timeout_msg,
         }
-
-    try:
-        info = client.api.exec_inspect(exec_id)
-        exit_code = info.get("ExitCode", -1)
-    except Exception:
-        exit_code = -1
-
-    if timed_out.is_set():
         exit_code = -1
 
     yield {

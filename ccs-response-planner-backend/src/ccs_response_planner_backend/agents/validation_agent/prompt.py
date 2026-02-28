@@ -120,7 +120,7 @@ action definitions (with shell commands), and transition logic.
 - **dt_exec**: `container` is one of {{dt_container_list}}. \
 `command` is the shell command to run. Use this to \
 apply response actions and check state on DT containers. \
-**Commands are killed after 600 seconds.** Keep commands short and targeted. \
+**Commands are killed after 400 seconds.** Keep commands short and targeted. \
 If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
 Commands run non-interactively — use flags like \

@@ -542,7 +542,7 @@ incident, implemented as Docker containers — not everything is \
 replicated, only the most relevant hosts, services, and network \
 segments. Use this to test whether specific incident response commands \
 work on the target hosts. Valid containers: {dt_container_list}. \
-**Commands are killed after 600 seconds.** Keep commands short and targeted. \
+**Commands are killed after 400 seconds.** Keep commands short and targeted. \
 If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
 Commands run non-interactively — use flags like \
