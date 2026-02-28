@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
 def test_create_tables_executes_eighteen_statements(mock_psycopg: MagicMock) -> None:
     """
-    Verify create_tables issues eighteen SQL statements (six CREATE TABLE,
-    two CREATE INDEX, seven ALTER TABLE, and three UPDATE).
+    Verify create_tables issues nineteen SQL statements (six CREATE TABLE,
+    two CREATE INDEX, eight ALTER TABLE, and three UPDATE).
     """
     mock_conn = MagicMock()
     mock_cur = MagicMock()
@@ -18,7 +18,7 @@ def test_create_tables_executes_eighteen_statements(mock_psycopg: MagicMock) -> 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
 
-    assert mock_cur.execute.call_count == 18
+    assert mock_cur.execute.call_count == 19
 
 
 @patch("ccs_response_planner_backend.db.database_facade.psycopg")
@@ -258,7 +258,7 @@ def test_get_active_planning_session_with_agent_type(
     mock_cur.fetchone.return_value = (
         1, "admin", "active", [], None,
         {}, {}, None, None,
-        "2026-01-01", "2026-01-01", "report",
+        "2026-01-01", "2026-01-01", "report", None,
     )
 
     from ccs_response_planner_backend.db.database_facade import (
@@ -332,7 +332,7 @@ def test_get_planning_session_returns_dict(
     mock_cur.fetchone.return_value = (
         42, "admin", "active", [], None,
         {}, {}, None, None,
-        "2026-01-01", "2026-01-01", "report",
+        "2026-01-01", "2026-01-01", "report", None,
     )
 
     from ccs_response_planner_backend.db.database_facade import (

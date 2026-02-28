@@ -1204,6 +1204,15 @@ def agents_validation_prompt() -> tuple[Response, int]:
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
     )
+    incident_context_section = (
+        build_incident_context_section(
+            report_manager_enabled=True,
+            incident_report=body.get(
+                "incident_report", "",
+            ),
+            security_alerts="",
+        )
+    )
     prompt = build_validation_prompt(
         has_policy=False,
         system_description=body.get(
@@ -1227,6 +1236,9 @@ def agents_validation_prompt() -> tuple[Response, int]:
             )
         ),
         validation_feedback="",
+        incident_context_section=(
+            incident_context_section
+        ),
         dt_container_list=format_container_list(
             dt_config,
         ),

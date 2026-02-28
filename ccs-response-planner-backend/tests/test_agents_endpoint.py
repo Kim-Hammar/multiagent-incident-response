@@ -1925,8 +1925,12 @@ def test_orchestrator_step_streams_report(
         headers=auth_headers,
     )
     events = _get_job_events(client, resp, auth_headers)
-    assert events[-1]["type"] == "orchestrator_agent_report"
-    assert events[-1]["orchestrator_agent_report"][
+    visible = [
+        e for e in events
+        if not e.get("type", "").startswith("_")
+    ]
+    assert visible[-1]["type"] == "orchestrator_agent_report"
+    assert visible[-1]["orchestrator_agent_report"][
         "final_verdict"
     ] == "pass"
 
@@ -1978,7 +1982,11 @@ def test_orchestrator_tool_streams_run_report_manager(
     assert any(
         e["type"] == "output_chunk" for e in events
     )
-    assert events[-1]["type"] == "done"
+    visible = [
+        e for e in events
+        if not e.get("type", "").startswith("_")
+    ]
+    assert visible[-1]["type"] == "done"
 
 
 def test_orchestrator_tool_returns_401_without_token(

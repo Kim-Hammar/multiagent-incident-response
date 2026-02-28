@@ -132,7 +132,7 @@ PRODUCE_REPORT_MANAGER_REPORT_DECL = (
             "cycle has completed (both run_report_agent "
             "and run_report_reviewer_agent)."
         ),
-        parameters=_PRODUCE_REPORT_PARAMS,
+        parameters=_PRODUCE_REPORT_PARAMS,  # type: ignore[arg-type]
     )
 )
 
@@ -144,7 +144,7 @@ PRODUCE_REPORT_NO_REVIEWER_DECL = (
             "Call this after run_report_agent has "
             "completed at least once."
         ),
-        parameters=_PRODUCE_REPORT_PARAMS,
+        parameters=_PRODUCE_REPORT_PARAMS,  # type: ignore[arg-type]
     )
 )
 

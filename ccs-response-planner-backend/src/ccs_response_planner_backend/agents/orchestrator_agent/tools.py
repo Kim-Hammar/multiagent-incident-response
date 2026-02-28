@@ -8,7 +8,7 @@ auto-approving tool calls and yielding progress events.
 import json
 import logging
 import time
-from typing import Any, Callable, Generator
+from typing import Any, Callable, Generator, Iterator
 
 import httpx
 
@@ -783,12 +783,12 @@ def run_report_manager_stream(
                         elif te_type == "output_chunk":
                             yield tool_event
                         elif te_type == "done":
-                            done_result = tool_event.get(
+                            inner_done = tool_event.get(
                                 "result",
                             )
-                            if done_result is not None:
+                            if inner_done is not None:
                                 tool_result = (
-                                    done_result
+                                    inner_done
                                 )
                             else:
                                 tool_result = {
@@ -1719,6 +1719,9 @@ def run_plan_manager_stream(
                     if tool_name == "run_code_manager"
                     else None
                 )
+                tool_stream: Iterator[
+                    dict[str, Any]
+                ]
                 try:
                     if (
                         tool_name
