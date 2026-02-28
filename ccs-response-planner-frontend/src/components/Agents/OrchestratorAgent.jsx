@@ -550,7 +550,8 @@ function OrchestratorAgent() {
             report_manager_enabled: reportManagerEnabled,
             validator_enabled: validatorEnabled,
             pentest_enabled: pentestEnabled,
-            code_model_enabled: codeModelEnabled
+            code_model_enabled: codeModelEnabled,
+            incident_id: selectedIncidentId
           })
         })
         if (res.status === 401) {

@@ -3481,11 +3481,14 @@ def agents_orchestrator_step() -> (
         "compaction_threshold", 0.8,
     )
 
+    incident_id = body.get("incident_id")
+
     def on_complete(
         events: list[dict[str, Any]],
     ) -> None:
         """
-        Auto-save step results to the planning session.
+        Auto-save step results to the planning session
+        and persist the orchestrator report when produced.
 
         :param events: the accumulated job events
         """
@@ -3494,6 +3497,41 @@ def agents_orchestrator_step() -> (
         _save_step_result(
             session_id, username, events,
         )
+        for ev in events:
+            if ev.get("type") != (
+                "orchestrator_agent_report"
+            ):
+                continue
+            report = ev.get(
+                "orchestrator_agent_report", {},
+            )
+            try:
+                sess = (
+                    DatabaseFacade
+                    .get_planning_session(
+                        session_id, username,
+                    )
+                )
+                history = list(
+                    sess.get(
+                        "conversation_history",
+                    ) or []
+                ) if sess else []
+                DatabaseFacade.save_agent_report(
+                    agent_type="orchestrator",
+                    username=username,
+                    report=report,
+                    incident_id=incident_id,
+                    conversation_history=history,
+                    model_name=model_name,
+                )
+            except Exception:
+                logger.error(
+                    "Failed to save orchestrator "
+                    "report for session %s",
+                    session_id, exc_info=True,
+                )
+            break
 
     def run() -> Generator[
         dict[str, Any], None, None
