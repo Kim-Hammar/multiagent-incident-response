@@ -1584,7 +1584,8 @@ function AgentActivityLog({
   renderToolResult,
   livenessStatus,
   lastHeartbeatTime,
-  heartbeatStatus
+  heartbeatStatus,
+  savingHistory
 }) {
   const [promptModalText, setPromptModalText] = useState(null)
   const [promptModalImages, setPromptModalImages] = useState([])
@@ -2237,6 +2238,20 @@ function AgentActivityLog({
               </div>
             </div>
           ))}
+        {savingHistory && (
+          <div className="ia-entry">
+            <div className="ia-entry-header" style={{ cursor: 'default' }}>
+              <div
+                className="spinner-border spinner-border-sm"
+                role="status"
+                style={{ width: '12px', height: '12px', marginRight: '8px' }}
+              >
+                <span className="sr-only">Saving...</span>
+              </div>
+              <span className="ia-thinking-title">Saving to history...</span>
+            </div>
+          </div>
+        )}
         <div ref={logEndRef} />
         {hasNewActivity && (
           <button type="button" className="ia-new-activity-btn" onClick={scrollToBottom}>

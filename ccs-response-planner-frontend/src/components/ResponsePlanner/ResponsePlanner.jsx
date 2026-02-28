@@ -243,6 +243,7 @@ function ResponsePlanner() {
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
+  const [savingHistory, setSavingHistory] = useState(false)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const sessionIdRef = useRef(null)
   const setSessionId = (value) => {
@@ -1725,6 +1726,7 @@ function ResponsePlanner() {
   }
 
   const saveReport = async (report) => {
+    setSavingHistory(true)
     try {
       await fetch(API_AGENTS_REPORTS_URL, {
         method: 'POST',
@@ -1758,6 +1760,8 @@ function ResponsePlanner() {
       }
     } catch {
       /* ignore */
+    } finally {
+      setSavingHistory(false)
     }
   }
 
@@ -2107,6 +2111,7 @@ function ResponsePlanner() {
             livenessStatus={livenessStatus}
             lastHeartbeatTime={lastHeartbeatTime}
             heartbeatStatus={heartbeatStatus}
+            savingHistory={savingHistory}
           />
         </div>
 

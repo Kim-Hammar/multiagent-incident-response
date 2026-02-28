@@ -419,6 +419,11 @@ def run_report_agent_stream(
             "affected_assets": [],
         }
 
+    if attack_path_image is None:
+        attack_path_image = context.get(
+            "prior_attack_path_image",
+        )
+
     if attack_path_image and assessment is not None:
         assessment["attack_path_image"] = (
             attack_path_image

@@ -259,6 +259,7 @@ function OrchestratorAgent() {
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
+  const [savingHistory, setSavingHistory] = useState(false)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
@@ -1268,6 +1269,7 @@ function OrchestratorAgent() {
   }
 
   const saveReport = async (report, historyToSave) => {
+    setSavingHistory(true)
     try {
       await fetch(API_AGENTS_REPORTS_URL, {
         method: 'POST',
@@ -1286,6 +1288,8 @@ function OrchestratorAgent() {
       await fetchHistory()
     } catch {
       /* ignore */
+    } finally {
+      setSavingHistory(false)
     }
   }
 
@@ -1787,6 +1791,7 @@ function OrchestratorAgent() {
           livenessStatus={livenessStatus}
           lastHeartbeatTime={lastHeartbeatTime}
           heartbeatStatus={heartbeatStatus}
+          savingHistory={savingHistory}
         />
       )}
 

@@ -891,9 +891,14 @@ def run_report_manager_stream(
                     assessment = tool_result.get(
                         "assessment", {},
                     )
-                    attack_path_img = tool_result.get(
+                    new_img = tool_result.get(
                         "attack_path_image",
                     )
+                    if new_img is not None:
+                        attack_path_img = new_img
+                    rm_context[
+                        "prior_attack_path_image"
+                    ] = attack_path_img
                     rm_context["last_assessment"] = (
                         assessment
                     )
