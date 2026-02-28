@@ -195,6 +195,119 @@ def _truncate_result(
     return out
 
 
+def run_report_agent_direct_stream(
+    context: dict[str, Any],
+) -> Generator[dict[str, Any], None, None]:
+    """
+    Run the ReportAgent directly, bypassing ReportManagerAgent.
+
+    Used when the report reviewer is disabled. Delegates to
+    ``run_report_agent_stream`` and wraps its events with an
+    extra nesting layer so downstream code (summariser, route
+    assessment extraction, frontend history) works unchanged.
+
+    :param context: dict with system_description,
+        security_alerts, operator_feedback, images,
+        report_agent_model, username, dt_config
+    :return: generator yielding event dicts
+    """
+    validation_fb = context.get(
+        "validation_feedback", "",
+    )
+    if validation_fb:
+        existing = context.get(
+            "operator_feedback", "",
+        )
+        context = {
+            **context,
+            "operator_feedback": (
+                f"{existing}\n\n"
+                f"--- PENTEST FEEDBACK ---\n"
+                f"{validation_fb}\n"
+                f"--- END PENTEST FEEDBACK ---"
+                if existing else validation_fb
+            ),
+        }
+
+    assessment: dict[str, Any] = {}
+    attack_path_img: str | None = None
+
+    # Emit a synthetic tool_call so the frontend creates
+    # an activity panel for run_report_agent.
+    yield {
+        "type": "sub_event",
+        "event": {
+            "type": "tool_call",
+            "tool_name": "run_report_agent",
+            "tool_args": {},
+        },
+    }
+
+    for event in run_report_agent_stream(
+        context=context,
+    ):
+        etype = event.get("type")
+        if etype == "sub_event":
+            yield {
+                "type": "sub_event",
+                "event": {
+                    "type": "nested_event",
+                    "event": event.get("event", {}),
+                },
+            }
+        elif etype == "output_chunk":
+            yield event
+        elif etype == "done":
+            result = event.get("result", {})
+            assessment = result.get(
+                "assessment", {},
+            )
+            attack_path_img = result.get(
+                "attack_path_image",
+            )
+
+    # Emit a synthetic tool_result to close the
+    # run_report_agent activity panel.
+    tool_result_data: dict[str, Any] = {
+        "assessment": assessment,
+    }
+    if attack_path_img:
+        tool_result_data["attack_path_image"] = (
+            attack_path_img
+        )
+    yield {
+        "type": "sub_event",
+        "event": {
+            "type": "tool_result",
+            "tool_name": "run_report_agent",
+            "result": _truncate_result(
+                tool_result_data,
+            ),
+        },
+    }
+
+    done_result: dict[str, Any] = {
+        "report_manager_report": {
+            "executive_summary": (
+                "Direct assessment (review skipped)"
+            ),
+            "iterations": 0,
+            "final_verdict": "approved",
+            "report_summary": "",
+            "review_summary": "",
+        },
+        "assessment": assessment,
+    }
+    if attack_path_img:
+        done_result["attack_path_image"] = (
+            attack_path_img
+        )
+    yield {
+        "type": "done",
+        "result": done_result,
+    }
+
+
 def run_report_manager_stream(
     context: dict[str, Any],
 ) -> Generator[dict[str, Any], None, None]:

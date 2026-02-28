@@ -112,6 +112,7 @@ from ccs_response_planner_backend.agents.orchestrator_agent.prompt import (
 from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
     STREAMING_TOOL_DISPATCH as ORCHESTRATOR_STREAMING_DISPATCH,
     TOOL_DISPATCH as ORCHESTRATOR_TOOL_DISPATCH,
+    run_report_agent_direct_stream,
 )
 from ccs_response_planner_backend.agents.pentest_agent.agent import (
     PentestAgent,
@@ -3800,13 +3801,26 @@ def agents_orchestrator_tool() -> (
             :return: a generator of event dicts
             """
             try:
-                agent = OrchestratorAgent()
-                yield from (
-                    agent.execute_tool_stream(
-                        tool_name, tool_args,
-                        context=context,
+                if (
+                    tool_name == "run_report_manager"
+                    and not context.get(
+                        "report_reviewer_enabled",
+                        True,
                     )
-                )
+                ):
+                    yield from (
+                        run_report_agent_direct_stream(
+                            context=context,
+                        )
+                    )
+                else:
+                    agent = OrchestratorAgent()
+                    yield from (
+                        agent.execute_tool_stream(
+                            tool_name, tool_args,
+                            context=context,
+                        )
+                    )
             except Exception as e:
                 yield {
                     "type": "error",
