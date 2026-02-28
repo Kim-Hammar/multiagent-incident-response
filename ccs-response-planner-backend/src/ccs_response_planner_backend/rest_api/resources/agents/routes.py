@@ -1286,6 +1286,7 @@ def agents_validation_tool() -> tuple[Response, int]:
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             ),
             "incident_id": incident_id,
+            "username": g.username,
             "action_validator_model": body.get(
                 "action_validator_model",
             ),

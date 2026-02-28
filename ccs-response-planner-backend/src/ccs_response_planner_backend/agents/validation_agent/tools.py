@@ -24,12 +24,21 @@ from ccs_response_planner_backend.agents.shared_tools import (
     dt_restart_stream,
 )
 from ccs_response_planner_backend.constants.constants import DOCKER
+from ccs_response_planner_backend.db.database_facade import (
+    DatabaseFacade,
+)
 
 logger = logging.getLogger(__name__)
 
 _CONCURRENCY_LIMIT = 3
 _MAX_INNER_STEPS = 50
 _OUTPUT_LIMIT = 2000
+
+_INTERNAL_KEYS = {
+    "_model_parts", "_anthropic_content",
+    "_tool_use_id", "_vendor",
+}
+_FINAL_REPORT_TYPES = {"action_validation"}
 
 _QUERY_POLICY_SCRIPT = textwrap.dedent("""\
     import json, sys, importlib.util, numpy as np
@@ -538,6 +547,31 @@ def _run_single_action_validator(
                     "step limit."
                 ),
             }
+
+        filtered_history = [
+            {k: v for k, v in e.items()
+             if k not in _INTERNAL_KEYS}
+            for e in conversation_history
+            if e.get("type") not in _FINAL_REPORT_TYPES
+        ]
+        try:
+            DatabaseFacade.save_agent_report(
+                agent_type="action-validator",
+                report=action_validation,
+                username=context.get(
+                    "username", "system",
+                ),
+                incident_id=context.get("incident_id"),
+                conversation_history=filtered_history,
+                model_name=context.get(
+                    "action_validator_model",
+                ),
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to save action-validator "
+                "report for %s: %s", agent_id, e,
+            )
 
         event_queue.put({
             "type": "_agent_done",

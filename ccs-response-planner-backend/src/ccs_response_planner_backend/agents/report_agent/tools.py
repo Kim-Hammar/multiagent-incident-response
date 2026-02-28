@@ -514,6 +514,12 @@ _MAX_INNER_STEPS = 50
 _CONCURRENCY_LIMIT = 3
 _OUTPUT_LIMIT = 2000
 
+_INTERNAL_KEYS = {
+    "_model_parts", "_anthropic_content",
+    "_tool_use_id", "_vendor",
+}
+_FINAL_REPORT_TYPES = {"host_analysis"}
+
 
 def _truncate_sub_result(
     result: dict[str, Any],
@@ -862,6 +868,31 @@ def _run_single_host_analyzer(
                     "limit."
                 ),
             }
+
+        filtered_history = [
+            {k: v for k, v in e.items()
+             if k not in _INTERNAL_KEYS}
+            for e in conversation_history
+            if e.get("type") not in _FINAL_REPORT_TYPES
+        ]
+        try:
+            DatabaseFacade.save_agent_report(
+                agent_type="host-analyzer",
+                report=host_analysis,
+                username=context.get(
+                    "username", "system",
+                ),
+                incident_id=context.get("incident_id"),
+                conversation_history=filtered_history,
+                model_name=context.get(
+                    "host_analyzer_model",
+                ),
+            )
+        except Exception as e:
+            _logger.warning(
+                "Failed to save host-analyzer report "
+                "for %s: %s", agent_id, e,
+            )
 
         event_queue.put({
             "type": "_agent_done",
