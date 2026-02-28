@@ -21,6 +21,7 @@ from ccs_response_planner_backend.agents.report_manager_agent.agent import (
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as RM_STREAMING_DISPATCH,
+    run_report_agent_stream,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.agent import (
     PlanManagerAgent,
@@ -266,9 +267,98 @@ def run_report_manager_stream(
         ),
     }
 
-    report_manager_report: dict[str, Any] = {}
+    report_manager_report: dict[str, Any] | None = None
     assessment: dict[str, Any] = {}
     attack_path_img: str | None = None
+
+    report_reviewer_enabled = context.get(
+        "report_reviewer_enabled", True,
+    )
+    if not report_reviewer_enabled:
+        # Bypass the ReportManager LLM loop — run
+        # ReportAgent directly and produce a synthetic
+        # manager report.  This avoids unnecessary Gemini
+        # API calls that can hang when the reviewer is
+        # disabled.
+        yield {
+            "type": "output_chunk",
+            "text": (
+                "[ReportManager] Reviewer disabled "
+                "— running ReportAgent directly...\n"
+            ),
+        }
+        for event in run_report_agent_stream(
+            context=rm_context,
+        ):
+            etype = event.get("type")
+            if etype == "sub_event":
+                yield event
+            elif etype == "output_chunk":
+                yield event
+            elif etype == "done":
+                result = event.get("result", {})
+                assessment = result.get(
+                    "assessment", {},
+                )
+                attack_path_img = result.get(
+                    "attack_path_image",
+                )
+
+        report_manager_report = {
+            "executive_summary": (
+                "Report generated directly "
+                "(reviewer disabled)."
+            ),
+            "iterations": 1,
+            "final_verdict": "pass",
+            "report_summary": assessment.get(
+                "incident_summary", "",
+            ),
+            "review_summary": (
+                "Reviewer was disabled."
+            ),
+        }
+        saved_assessment = (
+            dict(assessment) if assessment else {}
+        )
+        if attack_path_img:
+            saved_assessment["attack_path_image"] = (
+                attack_path_img
+            )
+        try:
+            DatabaseFacade.save_agent_report(
+                agent_type="report_manager",
+                report={
+                    **report_manager_report,
+                    "final_assessment": (
+                        saved_assessment
+                    ),
+                },
+                username=context.get(
+                    "username", "system",
+                ),
+                incident_id=context.get(
+                    "incident_id",
+                ),
+                conversation_history=[],
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to save report_manager "
+                "report: %s", e,
+            )
+        done_result: dict[str, Any] = {
+            "report_manager_report": (
+                report_manager_report
+            ),
+            "assessment": assessment,
+        }
+        if attack_path_img:
+            done_result["attack_path_image"] = (
+                attack_path_img
+            )
+        yield {"type": "done", "result": done_result}
+        return
 
     for step_num in range(MAX_INNER_STEPS):
         yield {
@@ -368,7 +458,7 @@ def run_report_manager_stream(
                 "text": step_reasoning,
             })
 
-        if report_manager_report:
+        if report_manager_report is not None:
             break
 
         if pending_tool:
@@ -562,7 +652,7 @@ def run_report_manager_stream(
                     },
                 }
 
-    if not report_manager_report:
+    if report_manager_report is None:
         report_manager_report = {
             "executive_summary": (
                 "ReportManager did not complete within "

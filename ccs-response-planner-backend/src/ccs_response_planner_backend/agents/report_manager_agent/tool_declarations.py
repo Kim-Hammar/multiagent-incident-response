@@ -72,6 +72,57 @@ RUN_REPORT_REVIEWER_AGENT_DECL = genai_types.FunctionDeclaration(
     },
 )
 
+_PRODUCE_REPORT_PARAMS = {  # type: ignore[var-annotated]
+    "type": "object",
+    "properties": {
+        "executive_summary": {
+            "type": "string",
+            "description": (
+                "Brief summary of the "
+                "orchestration process and "
+                "outcome (include how many "
+                "generate-review iterations "
+                "were performed)."
+            ),
+        },
+        "iterations": {
+            "type": "integer",
+            "description": (
+                "Number of generate-review "
+                "iterations performed."
+            ),
+        },
+        "final_verdict": {
+            "type": "string",
+            "description": (
+                "Overall verdict: pass, "
+                "fail, or partial."
+            ),
+        },
+        "report_summary": {
+            "type": "string",
+            "description": (
+                "Summary of the final "
+                "incident assessment report."
+            ),
+        },
+        "review_summary": {
+            "type": "string",
+            "description": (
+                "Summary of the final "
+                "review findings."
+            ),
+        },
+    },
+    "required": [
+        "executive_summary",
+        "iterations",
+        "final_verdict",
+        "report_summary",
+        "review_summary",
+    ],
+}
+
 PRODUCE_REPORT_MANAGER_REPORT_DECL = (
     genai_types.FunctionDeclaration(
         name="produce_report_manager_report",
@@ -81,56 +132,19 @@ PRODUCE_REPORT_MANAGER_REPORT_DECL = (
             "cycle has completed (both run_report_agent "
             "and run_report_reviewer_agent)."
         ),
-        parameters={  # type: ignore[arg-type]
-            "type": "object",
-            "properties": {
-                "executive_summary": {
-                    "type": "string",
-                    "description": (
-                        "Brief summary of the "
-                        "orchestration process and "
-                        "outcome (include how many "
-                        "generate-review iterations "
-                        "were performed)."
-                    ),
-                },
-                "iterations": {
-                    "type": "integer",
-                    "description": (
-                        "Number of generate-review "
-                        "iterations performed."
-                    ),
-                },
-                "final_verdict": {
-                    "type": "string",
-                    "description": (
-                        "Overall verdict: pass, "
-                        "fail, or partial."
-                    ),
-                },
-                "report_summary": {
-                    "type": "string",
-                    "description": (
-                        "Summary of the final "
-                        "incident assessment report."
-                    ),
-                },
-                "review_summary": {
-                    "type": "string",
-                    "description": (
-                        "Summary of the final "
-                        "review findings."
-                    ),
-                },
-            },
-            "required": [
-                "executive_summary",
-                "iterations",
-                "final_verdict",
-                "report_summary",
-                "review_summary",
-            ],
-        },
+        parameters=_PRODUCE_REPORT_PARAMS,
+    )
+)
+
+PRODUCE_REPORT_NO_REVIEWER_DECL = (
+    genai_types.FunctionDeclaration(
+        name="produce_report_manager_report",
+        description=(
+            "Produce the final orchestration report. "
+            "Call this after run_report_agent has "
+            "completed at least once."
+        ),
+        parameters=_PRODUCE_REPORT_PARAMS,
     )
 )
 
@@ -143,4 +157,9 @@ ALL_DECLARATIONS = [
     RUN_REPORT_AGENT_DECL,
     RUN_REPORT_REVIEWER_AGENT_DECL,
     PRODUCE_REPORT_MANAGER_REPORT_DECL,
+]
+
+ALL_DECLARATIONS_NO_REVIEWER = [
+    RUN_REPORT_AGENT_DECL,
+    PRODUCE_REPORT_NO_REVIEWER_DECL,
 ]

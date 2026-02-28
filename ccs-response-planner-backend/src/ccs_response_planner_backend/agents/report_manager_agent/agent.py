@@ -31,6 +31,7 @@ from ccs_response_planner_backend.agents.report_manager_agent.prompt import (
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (
     ALL_DECLARATIONS,
+    ALL_DECLARATIONS_NO_REVIEWER,
     ITERATING_DECLARATIONS,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tools import (
@@ -246,20 +247,12 @@ class ReportManagerAgent:
             ):
                 yield ev
 
-        has_reviewed = (
-            self._has_reviewed(conversation_history)
-            or not report_reviewer_enabled
-        )
-        declarations = (
-            ALL_DECLARATIONS
-            if has_reviewed
-            else ITERATING_DECLARATIONS
-        )
         if not report_reviewer_enabled:
-            declarations = [
-                d for d in declarations
-                if d.name != "run_report_reviewer_agent"
-            ]
+            declarations = ALL_DECLARATIONS_NO_REVIEWER
+        elif self._has_reviewed(conversation_history):
+            declarations = ALL_DECLARATIONS
+        else:
+            declarations = ITERATING_DECLARATIONS
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(
