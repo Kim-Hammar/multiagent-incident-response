@@ -259,6 +259,7 @@ function OrchestratorAgent() {
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [reportHistory, setReportHistory] = useState([])
+  const [loadingReportHistory, setLoadingReportHistory] = useState(true)
   const [savingHistory, setSavingHistory] = useState(false)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
@@ -1256,6 +1257,7 @@ function OrchestratorAgent() {
   }
 
   const fetchHistory = async () => {
+    setLoadingReportHistory(true)
     try {
       const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=orchestrator`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1265,6 +1267,8 @@ function OrchestratorAgent() {
       }
     } catch {
       /* ignore */
+    } finally {
+      setLoadingReportHistory(false)
     }
   }
 
@@ -1435,7 +1439,15 @@ function OrchestratorAgent() {
             className={`nav-link${activeTab === 'history' ? ' active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
-            History{reportHistory.length > 0 && ` (${reportHistory.length})`}
+            History
+            {loadingReportHistory && (
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                style={{ width: '10px', height: '10px', marginLeft: '6px' }}
+              />
+            )}
+            {!loadingReportHistory && reportHistory.length > 0 && ` (${reportHistory.length})`}
           </button>
         </li>
         <li className="nav-item">

@@ -52,6 +52,7 @@ function CodeAgent() {
   const [dtEnabled, setDtEnabled] = useState(true)
   const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
+  const [loadingReportHistory, setLoadingReportHistory] = useState(true)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const logEndRef = useRef(null)
   const streamingTraceRef = useRef(null)
@@ -778,6 +779,7 @@ function CodeAgent() {
   }
 
   const fetchHistory = async () => {
+    setLoadingReportHistory(true)
     try {
       const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=code`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -787,6 +789,8 @@ function CodeAgent() {
       }
     } catch {
       /* ignore */
+    } finally {
+      setLoadingReportHistory(false)
     }
   }
 
@@ -922,7 +926,15 @@ function CodeAgent() {
             className={`nav-link${activeTab === 'history' ? ' active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
-            History{reportHistory.length > 0 && ` (${reportHistory.length})`}
+            History
+            {loadingReportHistory && (
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                style={{ width: '10px', height: '10px', marginLeft: '6px' }}
+              />
+            )}
+            {!loadingReportHistory && reportHistory.length > 0 && ` (${reportHistory.length})`}
           </button>
         </li>
         <li className="nav-item">

@@ -4,6 +4,7 @@ Routes and sub-resources for the /agents resource.
 import json
 import logging
 import math
+import time
 import uuid
 from typing import Any, Generator
 
@@ -3547,6 +3548,12 @@ def agents_orchestrator_step() -> (
             report_manager_enabled = body.get(
                 "report_manager_enabled", True,
             )
+            prev_sub_time = sum(
+                a.get("wall_time_seconds", 0)
+                for n, a in stats._agents.items()
+                if n != "orchestrator"
+            )
+            step_start = time.monotonic()
             for ev in agent.step_stream(
                 system_description=(
                     system_description
@@ -3601,6 +3608,22 @@ def agents_orchestrator_step() -> (
                             report_data,
                     }
                 yield ev
+            step_elapsed = (
+                time.monotonic() - step_start
+            )
+            cur_sub_time = sum(
+                a.get("wall_time_seconds", 0)
+                for n, a in stats._agents.items()
+                if n != "orchestrator"
+            )
+            orch_time = max(
+                0.0,
+                step_elapsed
+                - (cur_sub_time - prev_sub_time),
+            )
+            stats.record_wall_time(
+                "orchestrator", orch_time,
+            )
             yield {
                 "type": "_execution_stats",
                 "stats": stats.to_dict(),

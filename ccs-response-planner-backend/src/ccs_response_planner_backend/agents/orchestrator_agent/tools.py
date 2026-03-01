@@ -256,6 +256,7 @@ def _record_inner_stats(
     current_tool: str,
     collected: list[dict[str, Any]],
     deep_tool_map: dict[str, str] | None = None,
+    deep_timers: dict[str, float] | None = None,
 ) -> None:
     """
     Record stats from an inner sub-agent event.
@@ -272,6 +273,8 @@ def _record_inner_stats(
     :param collected: list of previously collected events
     :param deep_tool_map: optional map for doubly-nested
         agents (e.g. code_agent inside code_manager)
+    :param deep_timers: mutable dict tracking start times
+        for doubly-nested tool calls (wall-time tracking)
     """
     itype = inner.get("type", "")
     agent_name = tool_map.get(
@@ -288,6 +291,28 @@ def _record_inner_stats(
         stats.record_function_call(
             agent_name, inner.get("tool_name", ""),
         )
+        if (
+            deep_tool_map
+            and deep_timers is not None
+        ):
+            tn = inner.get("tool_name", "")
+            if tn in deep_tool_map:
+                deep_timers[tn] = time.monotonic()
+    elif (
+        itype == "tool_result"
+        and deep_tool_map
+        and deep_timers is not None
+    ):
+        tn = inner.get("tool_name", "")
+        if tn in deep_timers:
+            deep_agent = deep_tool_map.get(
+                tn, tn,
+            )
+            stats.record_wall_time(
+                deep_agent,
+                time.monotonic()
+                - deep_timers.pop(tn),
+            )
     elif itype == "nested_event" and deep_tool_map:
         deep = inner.get("event", {})
         deep_type = deep.get("type", "")
@@ -1787,6 +1812,11 @@ def run_plan_manager_stream(
                     if tool_name == "run_code_manager"
                     else None
                 )
+                pm_deep_timers: (
+                    dict[str, float] | None
+                ) = (
+                    {} if pm_deep_map else None
+                )
                 tool_stream: Iterator[
                     dict[str, Any]
                 ]
@@ -1830,6 +1860,7 @@ def run_plan_manager_stream(
                                     tool_name,
                                     collected,
                                     pm_deep_map,
+                                    pm_deep_timers,
                                 )
                             yield {
                                 "type": "sub_event",

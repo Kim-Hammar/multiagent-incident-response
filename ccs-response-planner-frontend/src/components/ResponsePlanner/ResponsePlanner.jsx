@@ -243,6 +243,7 @@ function ResponsePlanner() {
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
+  const [loadingReportHistory, setLoadingReportHistory] = useState(true)
   const [savingHistory, setSavingHistory] = useState(false)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const sessionIdRef = useRef(null)
@@ -1713,6 +1714,7 @@ function ResponsePlanner() {
   }
 
   const fetchHistory = async () => {
+    setLoadingReportHistory(true)
     try {
       const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=orchestrator`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1722,6 +1724,8 @@ function ResponsePlanner() {
       }
     } catch {
       /* ignore */
+    } finally {
+      setLoadingReportHistory(false)
     }
   }
 
@@ -1907,7 +1911,15 @@ function ResponsePlanner() {
             className={`nav-link${activeTab === 'history' ? ' active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
-            History{reportHistory.length > 0 && ` (${reportHistory.length})`}
+            History
+            {loadingReportHistory && (
+              <span
+                className="spinner-border spinner-border-sm"
+                role="status"
+                style={{ width: '10px', height: '10px', marginLeft: '6px' }}
+              />
+            )}
+            {!loadingReportHistory && reportHistory.length > 0 && ` (${reportHistory.length})`}
           </button>
         </li>
         <li className="nav-item">
