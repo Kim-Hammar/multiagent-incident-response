@@ -1270,3 +1270,24 @@
   color: #6c757d;
   margin-left: 8px;
 }
+
+.ia-tooltip-wrapper {
+  position: relative;
+  cursor: help;
+}
+
+.ia-tooltip-wrapper[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% + 4px);
+  white-space: nowrap;
+  background: #333;
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 10;
+}

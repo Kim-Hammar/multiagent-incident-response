@@ -65,12 +65,13 @@ function ExecutionStatsView({ stats }) {
               <th>Agent</th>
               <th className="text-right">Prompt Tokens</th>
               <th className="text-right">Output Tokens</th>
-              <th
-                className="text-right"
-                title="Sum of prompt (input) tokens and output tokens"
-                style={{ cursor: 'help' }}
-              >
-                Total Tokens
+              <th className="text-right">
+                <span
+                  className="ia-tooltip-wrapper"
+                  data-tooltip="Sum of prompt (input) tokens and output tokens"
+                >
+                  Total Tokens
+                </span>
               </th>
               <th className="text-right">Function Calls</th>
               <th className="text-right">LLM Calls</th>
