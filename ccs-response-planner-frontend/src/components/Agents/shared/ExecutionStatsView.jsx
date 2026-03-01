@@ -73,7 +73,7 @@ function ExecutionStatsView({ stats }) {
                 Total Tokens
               </th>
               <th className="text-right">Function Calls</th>
-              <th className="text-right">Steps</th>
+              <th className="text-right">LLM Calls</th>
               <th className="text-right">Time</th>
             </tr>
           </thead>
