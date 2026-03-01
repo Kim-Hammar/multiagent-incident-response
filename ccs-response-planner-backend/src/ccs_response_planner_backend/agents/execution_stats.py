@@ -26,6 +26,9 @@ class ExecutionStatsCollector:
         """
         self._agents: dict[str, dict[str, Any]] = {}
         self._pipeline_start: float = time.time()
+        self._pending_tokens: dict[
+            str, dict[str, int]
+        ] = {}
 
     # --------------------------------------------------
     # recording helpers
@@ -49,6 +52,7 @@ class ExecutionStatsCollector:
                 "function_calls": 0,
                 "wall_time_seconds": 0.0,
                 "steps": 0,
+                "tools": {},
             }
         return self._agents[agent_name]
 
@@ -72,17 +76,53 @@ class ExecutionStatsCollector:
         bucket["candidates_tokens"] += candidates_tokens
         bucket["total_tokens"] += total_tokens
         bucket["steps"] += 1
+        self._pending_tokens[agent_name] = {
+            "prompt_tokens": prompt_tokens,
+            "candidates_tokens": candidates_tokens,
+            "total_tokens": total_tokens,
+        }
 
     def record_function_call(
-        self, agent_name: str,
+        self,
+        agent_name: str,
+        tool_name: str = "",
     ) -> None:
         """
         Increment the function-call counter for an agent.
 
+        When *tool_name* is provided the call and any
+        buffered token usage are also attributed to
+        that specific tool.
+
         :param agent_name: canonical agent name
+        :param tool_name: optional tool/function name
         """
         bucket = self._ensure_agent(agent_name)
         bucket["function_calls"] += 1
+        if tool_name:
+            tools = bucket["tools"]
+            if tool_name not in tools:
+                tools[tool_name] = {
+                    "calls": 0,
+                    "prompt_tokens": 0,
+                    "candidates_tokens": 0,
+                    "total_tokens": 0,
+                }
+            entry = tools[tool_name]
+            entry["calls"] += 1
+            pending = self._pending_tokens.pop(
+                agent_name, None,
+            )
+            if pending:
+                entry["prompt_tokens"] += (
+                    pending["prompt_tokens"]
+                )
+                entry["candidates_tokens"] += (
+                    pending["candidates_tokens"]
+                )
+                entry["total_tokens"] += (
+                    pending["total_tokens"]
+                )
 
     def record_wall_time(
         self, agent_name: str, seconds: float,
@@ -133,6 +173,25 @@ class ExecutionStatsCollector:
             bucket["wall_time_seconds"] += (
                 agent_stats.get("wall_time_seconds", 0.0)
             )
+            for tname, tstats in agent_stats.get(
+                "tools", {},
+            ).items():
+                tools = bucket["tools"]
+                if tname not in tools:
+                    tools[tname] = {
+                        "calls": 0,
+                        "prompt_tokens": 0,
+                        "candidates_tokens": 0,
+                        "total_tokens": 0,
+                    }
+                entry = tools[tname]
+                for tkey in (
+                    "calls",
+                    "prompt_tokens",
+                    "candidates_tokens",
+                    "total_tokens",
+                ):
+                    entry[tkey] += tstats.get(tkey, 0)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -164,7 +223,19 @@ class ExecutionStatsCollector:
                 time.time() - self._pipeline_start
             ),
             "agents": {
-                name: dict(stats)
+                name: {
+                    **{
+                        k: v
+                        for k, v in stats.items()
+                        if k != "tools"
+                    },
+                    "tools": {
+                        tn: dict(ts)
+                        for tn, ts in stats.get(
+                            "tools", {},
+                        ).items()
+                    },
+                }
                 for name, stats in self._agents.items()
             },
             "totals": totals,

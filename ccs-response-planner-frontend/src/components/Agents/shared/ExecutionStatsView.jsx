@@ -1,7 +1,9 @@
 /**
  * Renders a table of execution statistics (tokens, function calls, time)
- * for each agent in the orchestrator pipeline.
+ * for each agent in the orchestrator pipeline, with expandable per-tool
+ * breakdown rows.
  */
+import { useState } from 'react'
 
 const AGENT_ORDER = [
   'orchestrator',
@@ -35,6 +37,8 @@ function formatNumber(n) {
 }
 
 function ExecutionStatsView({ stats }) {
+  const [expandedAgents, setExpandedAgents] = useState({})
+
   if (!stats || !stats.agents) return null
 
   const agents = stats.agents
@@ -47,6 +51,10 @@ function ExecutionStatsView({ stats }) {
 
   if (allAgents.length === 0) return null
 
+  const toggleAgent = (name) => {
+    setExpandedAgents((prev) => ({ ...prev, [name]: !prev[name] }))
+  }
+
   return (
     <div className="ia-assessment-section">
       <div className="ia-assessment-label">Execution Statistics</div>
@@ -57,7 +65,13 @@ function ExecutionStatsView({ stats }) {
               <th>Agent</th>
               <th className="text-right">Prompt Tokens</th>
               <th className="text-right">Output Tokens</th>
-              <th className="text-right">Total Tokens</th>
+              <th
+                className="text-right"
+                title="Sum of prompt (input) tokens and output tokens"
+                style={{ cursor: 'help' }}
+              >
+                Total Tokens
+              </th>
               <th className="text-right">Function Calls</th>
               <th className="text-right">Steps</th>
               <th className="text-right">Time</th>
@@ -66,16 +80,57 @@ function ExecutionStatsView({ stats }) {
           <tbody>
             {allAgents.map((name) => {
               const a = agents[name]
+              const tools = a.tools || {}
+              const toolNames = Object.keys(tools).sort()
+              const hasTools = toolNames.length > 0
+              const isExpanded = !!expandedAgents[name]
+
               return (
-                <tr key={name}>
-                  <td>{formatAgentName(name)}</td>
-                  <td className="text-right">{formatNumber(a.prompt_tokens)}</td>
-                  <td className="text-right">{formatNumber(a.candidates_tokens)}</td>
-                  <td className="text-right">{formatNumber(a.total_tokens)}</td>
-                  <td className="text-right">{formatNumber(a.function_calls)}</td>
-                  <td className="text-right">{formatNumber(a.steps)}</td>
-                  <td className="text-right">{formatTime(a.wall_time_seconds)}</td>
-                </tr>
+                <>
+                  <tr
+                    key={name}
+                    onClick={hasTools ? () => toggleAgent(name) : undefined}
+                    style={hasTools ? { cursor: 'pointer' } : undefined}
+                  >
+                    <td>
+                      {hasTools && (
+                        <span style={{ marginRight: '4px', display: 'inline-block', width: '10px' }}>
+                          {isExpanded ? '\u25BC' : '\u25B6'}
+                        </span>
+                      )}
+                      {!hasTools && (
+                        <span style={{ marginRight: '4px', display: 'inline-block', width: '10px' }} />
+                      )}
+                      {formatAgentName(name)}
+                    </td>
+                    <td className="text-right">{formatNumber(a.prompt_tokens)}</td>
+                    <td className="text-right">{formatNumber(a.candidates_tokens)}</td>
+                    <td className="text-right">{formatNumber(a.total_tokens)}</td>
+                    <td className="text-right">{formatNumber(a.function_calls)}</td>
+                    <td className="text-right">{formatNumber(a.steps)}</td>
+                    <td className="text-right">{formatTime(a.wall_time_seconds)}</td>
+                  </tr>
+                  {isExpanded &&
+                    toolNames.map((toolName) => {
+                      const t = tools[toolName]
+                      return (
+                        <tr
+                          key={`${name}-${toolName}`}
+                          style={{ background: '#f8f9fa', fontSize: '11px' }}
+                        >
+                          <td style={{ paddingLeft: '28px' }}>
+                            <code>{toolName}</code>
+                          </td>
+                          <td className="text-right">{formatNumber(t.prompt_tokens)}</td>
+                          <td className="text-right">{formatNumber(t.candidates_tokens)}</td>
+                          <td className="text-right">{formatNumber(t.total_tokens)}</td>
+                          <td className="text-right">{formatNumber(t.calls)}</td>
+                          <td className="text-right">-</td>
+                          <td className="text-right">-</td>
+                        </tr>
+                      )
+                    })}
+                </>
               )
             })}
           </tbody>

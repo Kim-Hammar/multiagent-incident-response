@@ -3583,6 +3583,7 @@ def agents_orchestrator_step() -> (
                 elif ev_type == "tool_proposal":
                     stats.record_function_call(
                         "orchestrator",
+                        ev.get("tool_name", ""),
                     )
                 elif ev_type == (
                     "orchestrator_agent_report"

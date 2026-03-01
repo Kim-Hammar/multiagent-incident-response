@@ -124,10 +124,15 @@ export async function pollJobEvents({
       }
     } catch (err) {
       if (err.name === 'AbortError' && signal?.aborted) throw err
-      if (
-        (err.name === 'TimeoutError' || err.name === 'TypeError' || err.name === 'SyntaxError') &&
-        retries < MAX_RETRIES
-      ) {
+      // AbortSignal.any() + AbortSignal.timeout() may throw
+      // AbortError instead of TimeoutError in some browsers.
+      // Treat it as retryable when the caller's signal is fine.
+      const isRetryable =
+        err.name === 'TimeoutError' ||
+        err.name === 'TypeError' ||
+        err.name === 'SyntaxError' ||
+        (err.name === 'AbortError' && !signal?.aborted)
+      if (isRetryable && retries < MAX_RETRIES) {
         retries++
         if (retries % 5 === 0) {
           console.warn(

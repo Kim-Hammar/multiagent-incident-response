@@ -285,7 +285,9 @@ def _record_inner_stats(
             inner.get("total_tokens", 0),
         )
     elif itype == "tool_call":
-        stats.record_function_call(agent_name)
+        stats.record_function_call(
+            agent_name, inner.get("tool_name", ""),
+        )
     elif itype == "nested_event" and deep_tool_map:
         deep = inner.get("event", {})
         deep_type = deep.get("type", "")
@@ -309,7 +311,10 @@ def _record_inner_stats(
                 deep.get("total_tokens", 0),
             )
         elif deep_type == "tool_call":
-            stats.record_function_call(deep_agent)
+            stats.record_function_call(
+                deep_agent,
+                deep.get("tool_name", ""),
+            )
 
 
 def _truncate_result(
@@ -741,6 +746,7 @@ def run_report_manager_stream(
                 if stats:
                     stats.record_function_call(
                         "report_manager",
+                        event.get("tool_name", ""),
                     )
                 pending_tool = event
 
@@ -1210,6 +1216,7 @@ def run_pentest_agent_stream(
                 if stats:
                     stats.record_function_call(
                         "pentest_agent",
+                        event.get("tool_name", ""),
                     )
                 pending_tool = event
 
@@ -1707,6 +1714,7 @@ def run_plan_manager_stream(
                 if stats:
                     stats.record_function_call(
                         "plan_manager",
+                        event.get("tool_name", ""),
                     )
                 pending_tool = event
 
