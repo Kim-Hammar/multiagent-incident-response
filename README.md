@@ -25,7 +25,7 @@ Incident response refers to the coordinated actions taken to contain, mitigate, 
 This tool implements a novel approach: instead of using the LLM to directly generate response actions from system logs, we use it to generate a **code model** of the response process as Python code. This model allows us to leverage standard planning algorithms (e.g., tree search) to efficiently compute an effective response plan through simulation. The code model is then refined through **in-context learning (ICL)** based on feedback from security operators.
 
 <p align="center">
-<img src="docs/method.png" alt="Method overview" width="600" />
+<img src="ccs-response-planner-frontend/src/components/About/method.png" alt="Method overview" width="600" />
 </p>
 
 ## Configuration
