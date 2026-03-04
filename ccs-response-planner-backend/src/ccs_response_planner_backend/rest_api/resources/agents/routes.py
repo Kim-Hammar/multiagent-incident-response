@@ -226,38 +226,97 @@ def _redeploy_dt(
     deployed without stopping first, so a concurrent agent's
     DT is not torn down mid-execution.
 
+    If Docker is not available the step is skipped with a
+    warning so the agent can continue without the DT.
+
     Yields ``dt_progress`` event dicts that can be streamed to
     the frontend as NDJSON.
 
     :param job_id: optional job id of the calling job
     :return: a generator of progress event dicts
     """
-    config = DatabaseFacade.get_digital_twin_config()
-    if config is None:
-        config = DIGITAL_TWIN.DEFAULT_CONFIG
+    try:
+        config = DatabaseFacade.get_digital_twin_config()
+        if config is None:
+            config = DIGITAL_TWIN.DEFAULT_CONFIG
 
-    if job_id and job_manager.has_running_jobs(
-        exclude=job_id,
-    ):
-        status = DockerManager.status(config=config)
-        if status.get("deployed"):
+        if job_id and job_manager.has_running_jobs(
+            exclude=job_id,
+        ):
+            status = DockerManager.status(
+                config=config,
+            )
+            if status.get("deployed"):
+                yield {
+                    "type": "dt_progress",
+                    "phase": "ready",
+                    "message": (
+                        "Reusing current digital twin"
+                    ),
+                }
+                return
+            # DT not deployed — deploy without stopping
+            yield {
+                "type": "dt_progress",
+                "phase": "deploy",
+                "message": "Deploying digital twin...",
+            }
+            for item in DockerManager.deploy(config):
+                msg = item.get("message", "")
+                if (
+                    item.get("type") == "progress"
+                    and msg
+                ):
+                    logger.info(
+                        "DT deploy (reuse): %s", msg,
+                    )
+                    yield {
+                        "type": "dt_progress_detail",
+                        "phase": "deploy",
+                        "message": msg,
+                    }
             yield {
                 "type": "dt_progress",
                 "phase": "ready",
-                "message": "Reusing current digital twin",
+                "message": "Digital twin ready",
             }
             return
-        # DT not deployed — deploy without stopping
+
+        # No other jobs running — normal stop + redeploy
+        yield {
+            "type": "dt_progress",
+            "phase": "stop",
+            "message": "Stopping digital twin...",
+        }
+        for item in DockerManager.stop():
+            msg = item.get("message", "")
+            if (
+                item.get("type") == "progress"
+                and msg
+            ):
+                logger.info(
+                    "DT redeploy (stop): %s", msg,
+                )
+                yield {
+                    "type": "dt_progress_detail",
+                    "phase": "stop",
+                    "message": msg,
+                }
         yield {
             "type": "dt_progress",
             "phase": "deploy",
-            "message": "Deploying digital twin...",
+            "message": (
+                "Deploying fresh digital twin..."
+            ),
         }
         for item in DockerManager.deploy(config):
             msg = item.get("message", "")
-            if item.get("type") == "progress" and msg:
+            if (
+                item.get("type") == "progress"
+                and msg
+            ):
                 logger.info(
-                    "DT deploy (reuse): %s", msg,
+                    "DT redeploy (deploy): %s", msg,
                 )
                 yield {
                     "type": "dt_progress_detail",
@@ -269,42 +328,18 @@ def _redeploy_dt(
             "phase": "ready",
             "message": "Digital twin ready",
         }
-        return
-
-    # No other jobs running — normal stop + redeploy
-    yield {
-        "type": "dt_progress",
-        "phase": "stop",
-        "message": "Stopping digital twin...",
-    }
-    for item in DockerManager.stop():
-        msg = item.get("message", "")
-        if item.get("type") == "progress" and msg:
-            logger.info("DT redeploy (stop): %s", msg)
-            yield {
-                "type": "dt_progress_detail",
-                "phase": "stop",
-                "message": msg,
-            }
-    yield {
-        "type": "dt_progress",
-        "phase": "deploy",
-        "message": "Deploying fresh digital twin...",
-    }
-    for item in DockerManager.deploy(config):
-        msg = item.get("message", "")
-        if item.get("type") == "progress" and msg:
-            logger.info("DT redeploy (deploy): %s", msg)
-            yield {
-                "type": "dt_progress_detail",
-                "phase": "deploy",
-                "message": msg,
-            }
-    yield {
-        "type": "dt_progress",
-        "phase": "ready",
-        "message": "Digital twin ready",
-    }
+    except Exception as exc:
+        logger.warning(
+            "Digital twin unavailable: %s", exc,
+        )
+        yield {
+            "type": "dt_progress",
+            "phase": "skipped",
+            "message": (
+                "Docker not available — continuing "
+                "without digital twin"
+            ),
+        }
 
 
 def _start_sandbox() -> Generator[
@@ -313,27 +348,43 @@ def _start_sandbox() -> Generator[
     """
     Ensure the Python sandbox container is running.
 
-    Yields ``sandbox_progress`` event dicts that can be streamed
-    to the frontend as NDJSON.
+    If Docker is not available the step is skipped so the
+    agent can continue without the sandbox.
+
+    Yields ``sandbox_progress`` event dicts that can be
+    streamed to the frontend as NDJSON.
 
     :return: a generator of progress event dicts
     """
-    import docker as docker_lib
-    from ccs_response_planner_backend.agents.planner_agent.tools import (
-        _ensure_python_sandbox,
-    )
-    yield {
-        "type": "sandbox_progress",
-        "phase": "start",
-        "message": "Starting Python sandbox...",
-    }
-    client = docker_lib.from_env()
-    _ensure_python_sandbox(client)
-    yield {
-        "type": "sandbox_progress",
-        "phase": "ready",
-        "message": "Python sandbox ready",
-    }
+    try:
+        import docker as docker_lib
+        from ccs_response_planner_backend.agents.planner_agent.tools import (
+            _ensure_python_sandbox,
+        )
+        yield {
+            "type": "sandbox_progress",
+            "phase": "start",
+            "message": "Starting Python sandbox...",
+        }
+        client = docker_lib.from_env()
+        _ensure_python_sandbox(client)
+        yield {
+            "type": "sandbox_progress",
+            "phase": "ready",
+            "message": "Python sandbox ready",
+        }
+    except Exception as exc:
+        logger.warning(
+            "Python sandbox unavailable: %s", exc,
+        )
+        yield {
+            "type": "sandbox_progress",
+            "phase": "skipped",
+            "message": (
+                "Docker not available — continuing "
+                "without Python sandbox"
+            ),
+        }
 
 
 def _read_policy_from_sandbox() -> bytes | None:

@@ -836,7 +836,7 @@ function ResponsePlanner() {
     sharedHandleDtEvent(event, setConversationHistory, setDtStatus)
   }
 
-  const callStep = async (history, resumeJobId = null, catchUpUntil = 0) => {
+  const callStep = async (history, resumeJobId = null, catchUpUntil = 0, _retried = false) => {
     setRunning(true)
     const controller = new AbortController()
     abortControllerRef.current = controller
@@ -1073,6 +1073,17 @@ function ResponsePlanner() {
     } catch (err) {
       if (err.name === 'AbortError') return
       if (errorOccurred) return
+      // If the job was lost (e.g., server crash cleared in-memory jobs),
+      // retry once by creating a fresh job via POST.
+      if (err.isJobNotFound && !_retried) {
+        console.warn(
+          '[callStep] Job not found, retrying with fresh POST (resumeJobId=%s)',
+          resumeJobId
+        )
+        // Clean up the streaming entry from this failed attempt
+        setConversationHistory((prev) => prev.filter((e) => e !== streamingEntry))
+        return callStep(history, null, 0, true)
+      }
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       errorOccurred = true
       setConversationHistory((prev) => [
@@ -1253,6 +1264,16 @@ function ResponsePlanner() {
       if (err.name === 'AbortError') return
       if (err.status === 401) {
         logout()
+        return
+      }
+      // If the tool job no longer exists (server restart), clean up and
+      // let the user continue from where the session left off.
+      if (err.isJobNotFound) {
+        console.warn('[resumeToolJob] Job %s not found, cleaning up', jobId)
+        streamEntry.stopped = true
+        setExecutingTool(null)
+        setConversationHistory((prev) => prev.filter((e) => e !== streamEntry))
+        setRunning(false)
         return
       }
       setAlert({ type: 'danger', message: `Tool resume error: ${err.message}` })

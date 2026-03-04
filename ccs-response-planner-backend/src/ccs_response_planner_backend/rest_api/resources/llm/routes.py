@@ -59,9 +59,12 @@ def _fetch_gemini_models() -> list[dict[str, Any]]:
 
     :return: a list of model info dicts with vendor field
     """
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return []
     models = []
     client = genai.Client(
-        api_key=os.environ.get("GEMINI_API_KEY", ""),
+        api_key=api_key,
     )
     for m in client.models.list():
         actions = m.supported_actions or []

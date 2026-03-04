@@ -118,6 +118,9 @@ export async function pollJobEvents({
         if (error) {
           const err = new Error(error.message || String(error))
           err.errorDetail = error
+          if (error.error_type === 'JobNotFound') {
+            err.isJobNotFound = true
+          }
           throw err
         }
         return

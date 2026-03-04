@@ -511,7 +511,7 @@ function OrchestratorAgent() {
       return entry
     })
 
-  const callStep = async (history, resumeJobId) => {
+  const callStep = async (history, resumeJobId, _retried = false) => {
     setRunning(true)
     isSourceTabRef.current = true
     if (pollingRef.current) {
@@ -765,6 +765,20 @@ function OrchestratorAgent() {
       }
     } catch (err) {
       if (err.name === 'AbortError') return
+      // If the job was lost (e.g., server crash cleared in-memory jobs),
+      // retry once by creating a fresh job via POST.
+      if (err.isJobNotFound && !_retried) {
+        console.warn(
+          '[callStep] Job not found, retrying with fresh POST (resumeJobId=%s)',
+          resumeJobId
+        )
+        setConversationHistory((prev) =>
+          prev.filter(
+            (e) => e !== streamingEntry && e.type !== 'dt_redeploy' && e.type !== 'sandbox_start'
+          )
+        )
+        return callStep(history, null, true)
+      }
       setAlert({ type: 'danger', message: `Agent error: ${err.message}` })
       setConversationHistory((prev) => {
         const base = prev.filter(
@@ -962,6 +976,14 @@ function OrchestratorAgent() {
         if (err.name === 'AbortError') return
         if (err.status === 401) {
           logout()
+          return
+        }
+        if (err.isJobNotFound) {
+          console.warn('[handleApprove] Tool job not found, cleaning up')
+          streamEntry.stopped = true
+          setExecutingTool(null)
+          setConversationHistory((prev) => prev.filter((e) => e !== streamEntry))
+          setRunning(false)
           return
         }
         setAlert({ type: 'danger', message: `Tool execution error: ${err.message}` })

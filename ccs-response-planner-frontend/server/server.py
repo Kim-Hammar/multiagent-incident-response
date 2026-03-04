@@ -1,7 +1,26 @@
+import faulthandler
 import logging
 import os
 import sys
 import time
+
+# macOS: Python's urllib calls getproxies_macosx_sysconf() and
+# proxy_bypass_macosx_sysconf() which load the SystemConfiguration
+# framework via ctypes.  These C functions are not fork-safe, so
+# when Gunicorn forks a worker they segfault.  Monkey-patching them
+# out makes both `requests` (Docker SDK) and `httpx` (google-genai)
+# fall back to reading HTTP_PROXY / NO_PROXY env vars instead.
+if sys.platform == "darwin":
+    import urllib.request
+    os.environ.setdefault(
+        "OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES",
+    )
+    urllib.request.getproxies_macosx_sysconf = lambda: {}
+    urllib.request.proxy_bypass_macosx_sysconf = (
+        lambda host: False
+    )
+
+faulthandler.enable()
 
 logging.basicConfig(
     level=logging.INFO,

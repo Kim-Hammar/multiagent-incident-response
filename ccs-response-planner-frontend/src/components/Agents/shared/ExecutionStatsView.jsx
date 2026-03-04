@@ -95,12 +95,16 @@ function ExecutionStatsView({ stats }) {
                   >
                     <td>
                       {hasTools && (
-                        <span style={{ marginRight: '4px', display: 'inline-block', width: '10px' }}>
+                        <span
+                          style={{ marginRight: '4px', display: 'inline-block', width: '10px' }}
+                        >
                           {isExpanded ? '\u25BC' : '\u25B6'}
                         </span>
                       )}
                       {!hasTools && (
-                        <span style={{ marginRight: '4px', display: 'inline-block', width: '10px' }} />
+                        <span
+                          style={{ marginRight: '4px', display: 'inline-block', width: '10px' }}
+                        />
                       )}
                       {formatAgentName(name)}
                     </td>
