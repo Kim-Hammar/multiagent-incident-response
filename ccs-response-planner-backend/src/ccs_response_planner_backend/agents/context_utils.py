@@ -6,6 +6,7 @@ import copy
 import json
 import logging
 import os
+import re
 from typing import Any, Generator
 
 
@@ -257,6 +258,13 @@ def _compact_general(
     return result
 
 
+_BASE64_DATA_URL_RE = re.compile(
+    r'"data:[^"]{0,50};base64,[A-Za-z0-9+/=]{100,}"',
+)
+
+_NON_CONTEXT_KEYS = {"subEvents", "attack_path_image"}
+
+
 def estimate_tokens(
     conversation_history: list[dict[str, Any]],
 ) -> int:
@@ -264,12 +272,26 @@ def estimate_tokens(
     Estimate the token count of a conversation history using
     the ~4 characters per token heuristic.
 
+    Fields that never enter the LLM context are stripped
+    before measurement:
+
+    * ``subEvents`` — nested sub-agent traces (UI only)
+    * ``attack_path_image`` — large base64 blobs stripped
+      by ``compact_tool_result`` before they reach the LLM
+    * Any remaining inline base64 data-URL strings longer
+      than 100 characters
+
     :param conversation_history: the conversation history list
     :return: estimated token count
     """
-    return len(json.dumps(
-        conversation_history, default=str,
-    )) // 4
+    stripped = [
+        {k: v for k, v in e.items()
+         if k not in _NON_CONTEXT_KEYS}
+        for e in conversation_history
+    ]
+    raw = json.dumps(stripped, default=str)
+    raw = _BASE64_DATA_URL_RE.sub('"<image>"', raw)
+    return len(raw) // 4
 
 
 def compact_context(
@@ -418,8 +440,20 @@ def maybe_compact_context(
     if len(conversation_history) <= preserve_last_n:
         return
 
-    older = conversation_history[:-preserve_last_n]
-    recent = conversation_history[-preserve_last_n:]
+    split = len(conversation_history) - preserve_last_n
+    # Walk the split point backward so that a
+    # tool_proposal is never separated from its
+    # tool_result — Claude requires every tool_result
+    # to reference a tool_use in a preceding assistant
+    # message.
+    while split > 0 and conversation_history[
+        split
+    ].get("type") in ("tool_approval", "tool_result"):
+        split -= 1
+    if split <= 0:
+        return
+    older = conversation_history[:split]
+    recent = conversation_history[split:]
 
     try:
         summary = compact_context(older, model)
