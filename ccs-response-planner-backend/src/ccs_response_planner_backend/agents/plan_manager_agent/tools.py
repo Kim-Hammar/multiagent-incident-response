@@ -2,7 +2,7 @@
 Tool dispatch for the PlanManagerAgent.
 
 Provides streaming generator functions that run sub-agents
-(CodeManagerAgent, PlannerAgent, ValidationAgent) internally,
+(CodeManagerAgent, PlannerAgent, PlanVerifierAgent) internally,
 auto-approving tool calls and yielding progress events.
 """
 import json
@@ -27,10 +27,10 @@ from ccs_response_planner_backend.agents.planner_agent.tools import (
     STREAMING_TOOL_DISPATCH as PLANNER_STREAMING_DISPATCH,
     TOOL_DISPATCH as PLANNER_TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.agents.validation_agent.agent import (
-    ValidationAgent,
+from ccs_response_planner_backend.agents.plan_verifier_agent.agent import (
+    PlanVerifierAgent,
 )
-from ccs_response_planner_backend.agents.validation_agent.tools import (
+from ccs_response_planner_backend.agents.plan_verifier_agent.tools import (
     STREAMING_TOOL_DISPATCH as VAL_STREAMING_DISPATCH,
     TOOL_DISPATCH as VAL_TOOL_DISPATCH,
 )
@@ -47,7 +47,7 @@ _OUTPUT_LIMIT = 2000
 _FINAL_REPORT_TYPES = {
     "assessment", "report_review", "code_report",
     "review_report", "planner_report",
-    "validation_report", "orchestrator_report",
+    "plan_verifier_report", "orchestrator_report",
     "report_manager_report", "plan_manager_report",
 }
 
@@ -573,18 +573,18 @@ def _run_sub_agent_loop(
 
 def run_code_manager_stream(
     context: dict[str, Any],
-    validation_feedback: str = "",
+    verification_feedback: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """
     Run the CodeManagerAgent sub-agent to completion.
 
-    Runs the full CodeManager loop (CodeAgent + CodeReviewerAgent
+    Runs the full CodeManager loop (CodeAgent + CodeVerifierAgent
     internally), streaming events back. The CodeManager's own
     streaming tools produce nested_event wrappers (3-level nesting).
 
     :param context: dict with system_description, incident_report,
         specification, operator_feedback, images, username
-    :param validation_feedback: feedback from validation to revise
+    :param verification_feedback: feedback from verification to revise
     :return: generator yielding event dicts
     """
     agent = CodeManagerAgent()
@@ -601,7 +601,7 @@ def run_code_manager_stream(
         "operator_feedback": context.get(
             "operator_feedback", "",
         ),
-        "validation_feedback": validation_feedback,
+        "verification_feedback": verification_feedback,
         "conversation_history": [],
         "model_name": context.get(
             "code_manager_model",
@@ -624,8 +624,8 @@ def run_code_manager_stream(
         "dt_enabled": context.get(
             "dt_enabled", True,
         ),
-        "code_reviewer_enabled": context.get(
-            "code_reviewer_enabled", True,
+        "code_verifier_enabled": context.get(
+            "code_verifier_enabled", True,
         ),
     }
     cm_context_base = {
@@ -636,7 +636,7 @@ def run_code_manager_stream(
         **cm_context_base,
         "last_code_report": {},
         "review_count": 0,
-        "validation_feedback": validation_feedback,
+        "verification_feedback": verification_feedback,
         "code_agent_model": context.get(
             "code_agent_model",
         ),
@@ -806,7 +806,7 @@ def run_code_manager_stream(
             if tool_name in CM_STREAMING_DISPATCH:
                 collected: list[dict[str, Any]] = []
                 tool_result: dict[str, Any] = {}
-                if tool_name == "run_code_reviewer_agent":
+                if tool_name == "run_code_verifier_agent":
                     cm_context["review_count"] = (
                         cm_context.get("review_count", 0)
                         + 1
@@ -1061,8 +1061,8 @@ def run_planner_agent_stream(
         "prev_planner_report": context.get(
             "planner_report",
         ),
-        "prev_validation_report": context.get(
-            "validation_report",
+        "prev_plan_verifier_report": context.get(
+            "plan_verifier_report",
         ),
         "compaction_model": context.get(
             "compaction_model",
@@ -1150,11 +1150,11 @@ def run_planner_agent_stream(
     }
 
 
-def run_validation_agent_stream(
+def run_plan_verifier_agent_stream(
     context: dict[str, Any],
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the ValidationAgent sub-agent to completion.
+    Run the PlanVerifierAgent sub-agent to completion.
 
     Requires planner_report, code_report, and response_plan
     in context.
@@ -1229,7 +1229,7 @@ def run_validation_agent_stream(
             indent=2,
         )
 
-    agent = ValidationAgent()
+    agent = PlanVerifierAgent()
     step_kwargs: dict[str, Any] = {
         "system_description": context.get(
             "system_description", "",
@@ -1244,17 +1244,17 @@ def run_validation_agent_stream(
         "has_policy": True,
         "conversation_history": [],
         "model_name": context.get(
-            "validation_agent_model",
+            "plan_verifier_agent_model",
         ),
         "dt_config": context.get("dt_config"),
-        "validation_feedback": context.get(
-            "validation_report",
+        "verification_feedback": context.get(
+            "plan_verifier_report",
         ),
         "compaction_model": context.get(
             "compaction_model",
         ),
         "compaction_threshold": context.get(
-            "validation_agent_compaction", 0.8,
+            "plan_verifier_agent_compaction", 0.8,
         ),
         "dt_enabled": context.get(
             "dt_enabled", True,
@@ -1272,26 +1272,26 @@ def run_validation_agent_stream(
         step_kwargs=step_kwargs,
         agent_streaming_dispatch=VAL_STREAMING_DISPATCH,
         agent_tool_dispatch=VAL_TOOL_DISPATCH,
-        agent_label="ValidationAgent",
-        report_event_type="validation_report",
+        agent_label="PlanVerifierAgent",
+        report_event_type="plan_verifier_report",
         context=context,
         max_steps=150,
     ):
         yield ev
 
     conv = step_kwargs.get("conversation_history", [])
-    validation_report: dict[str, Any] | None = None
+    plan_verifier_report: dict[str, Any] | None = None
     for entry in reversed(conv):
-        if entry.get("type") == "validation_report":
-            validation_report = entry.get(
-                "validation_report", {},
+        if entry.get("type") == "plan_verifier_report":
+            plan_verifier_report = entry.get(
+                "plan_verifier_report", {},
             )
             break
 
-    if validation_report is None:
-        validation_report = {
+    if plan_verifier_report is None:
+        plan_verifier_report = {
             "executive_summary": (
-                "ValidationAgent did not produce a "
+                "PlanVerifierAgent did not produce a "
                 "report within the step limit."
             ),
             "overall_verdict": "major_issues",
@@ -1305,21 +1305,21 @@ def run_validation_agent_stream(
     ]
     try:
         DatabaseFacade.save_agent_report(
-            agent_type="validation",
-            report=validation_report,
+            agent_type="plan_verifier",
+            report=plan_verifier_report,
             username=context.get("username", "system"),
             incident_id=context.get("incident_id"),
             conversation_history=filtered_history,
         )
     except Exception as e:
         logger.warning(
-            "Failed to save validation report: %s", e,
+            "Failed to save plan verifier report: %s", e,
         )
 
     yield {
         "type": "done",
         "result": {
-            "validation_report": validation_report,
+            "plan_verifier_report": plan_verifier_report,
         },
     }
 
@@ -1337,7 +1337,7 @@ STREAMING_TOOL_DISPATCH: dict[
 ] = {
     "run_code_manager": run_code_manager_stream,
     "run_planner_agent": run_planner_agent_stream,
-    "run_validation_agent": (
-        run_validation_agent_stream
+    "run_plan_verifier_agent": (
+        run_plan_verifier_agent_stream
     ),
 }

@@ -51,7 +51,7 @@ _OUTPUT_LIMIT = 2000
 _FINAL_REPORT_TYPES = {
     "assessment", "report_review", "code_report",
     "review_report", "planner_report",
-    "validation_report", "orchestrator_report",
+    "plan_verifier_report", "orchestrator_report",
     "report_manager_report", "plan_manager_report",
 }
 
@@ -66,18 +66,18 @@ _SKIP_TYPES = {"prompt", "context_usage", "nested_event"}
 # Maps tool names to canonical agent names for stats.
 _RM_TOOL_TO_AGENT = {
     "run_report_agent": "report_agent",
-    "run_report_reviewer_agent": "report_reviewer_agent",
+    "run_report_verifier_agent": "report_verifier_agent",
 }
 
 _PM_TOOL_TO_AGENT = {
     "run_code_manager": "code_manager",
     "run_planner_agent": "planner_agent",
-    "run_validation_agent": "validation_agent",
+    "run_plan_verifier_agent": "plan_verifier_agent",
 }
 
 _CM_TOOL_TO_AGENT = {
     "run_code_agent": "code_agent",
-    "run_code_reviewer_agent": "code_reviewer_agent",
+    "run_code_verifier_agent": "code_verifier_agent",
 }
 
 _PT_TOOL_TO_AGENT: dict[str, str] = {}
@@ -371,7 +371,7 @@ def run_report_agent_direct_stream(
     """
     Run the ReportAgent directly, bypassing ReportManagerAgent.
 
-    Used when the report reviewer is disabled. Delegates to
+    Used when the report verifier is disabled. Delegates to
     ``run_report_agent_stream`` and wraps its events with an
     extra nesting layer so downstream code (summariser, route
     assessment extraction, frontend history) works unchanged.
@@ -507,7 +507,7 @@ def run_report_manager_stream(
     Run the ReportManagerAgent sub-agent to completion.
 
     Runs the full ReportManager loop (ReportAgent +
-    ReportReviewerAgent internally), streaming events back.
+    ReportVerifierAgent internally), streaming events back.
     The ReportManager's own streaming tools produce
     nested_event wrappers (3-level nesting).
 
@@ -558,8 +558,8 @@ def run_report_manager_stream(
         "info_tools_enabled": context.get(
             "info_tools_enabled", True,
         ),
-        "report_reviewer_enabled": context.get(
-            "report_reviewer_enabled", True,
+        "report_verifier_enabled": context.get(
+            "report_verifier_enabled", True,
         ),
     }
     rm_context: dict[str, Any] = {
@@ -581,19 +581,19 @@ def run_report_manager_stream(
     assessment: dict[str, Any] = {}
     attack_path_img: str | None = None
 
-    report_reviewer_enabled = context.get(
-        "report_reviewer_enabled", True,
+    report_verifier_enabled = context.get(
+        "report_verifier_enabled", True,
     )
-    if not report_reviewer_enabled:
+    if not report_verifier_enabled:
         # Bypass the ReportManager LLM loop — run
         # ReportAgent directly and produce a synthetic
         # manager report.  This avoids unnecessary Gemini
-        # API calls that can hang when the reviewer is
+        # API calls that can hang when the verifier is
         # disabled.
         yield {
             "type": "output_chunk",
             "text": (
-                "[ReportManager] Reviewer disabled "
+                "[ReportManager] Verifier disabled "
                 "— running ReportAgent directly...\n"
             ),
         }
@@ -617,7 +617,7 @@ def run_report_manager_stream(
         report_manager_report = {
             "executive_summary": (
                 "Report generated directly "
-                "(reviewer disabled)."
+                "(verifier disabled)."
             ),
             "iterations": 1,
             "final_verdict": "pass",
@@ -1506,7 +1506,7 @@ def run_plan_manager_stream(
         operator_feedback, images, plan_manager_model,
         code_manager_model, code_agent_model,
         reviewer_agent_model, planner_agent_model,
-        validation_agent_model, code_manager_iterations,
+        plan_verifier_agent_model, code_manager_iterations,
         rl_time_limit_minutes, dt_config, username
     :return: generator yielding event dicts
     """
@@ -1576,8 +1576,8 @@ def run_plan_manager_stream(
         "code_model_enabled": context.get(
             "code_model_enabled", True,
         ),
-        "validator_enabled": context.get(
-            "validator_enabled", True,
+        "plan_verifier_enabled": context.get(
+            "plan_verifier_enabled", True,
         ),
         "report_manager_enabled": report_manager_enabled,
         "security_alerts": context.get(
@@ -1602,13 +1602,13 @@ def run_plan_manager_stream(
             "code_agent_model",
         ),
         "reviewer_agent_model": context.get(
-            "code_reviewer_agent_model",
+            "code_verifier_agent_model",
         ),
         "planner_agent_model": context.get(
             "planner_agent_model",
         ),
-        "validation_agent_model": context.get(
-            "validation_agent_model",
+        "plan_verifier_agent_model": context.get(
+            "plan_verifier_agent_model",
         ),
         "code_manager_iterations": context.get(
             "code_manager_iterations", 2,
@@ -1618,8 +1618,8 @@ def run_plan_manager_stream(
         ),
         "dt_config": dt_config,
         "dt_enabled": context.get("dt_enabled", True),
-        "validator_enabled": context.get(
-            "validator_enabled", True,
+        "plan_verifier_enabled": context.get(
+            "plan_verifier_enabled", True,
         ),
         "code_model_enabled": context.get(
             "code_model_enabled", True,
@@ -1636,7 +1636,7 @@ def run_plan_manager_stream(
     response_plan = ""
     planner_report: dict[str, Any] = {}
     code_report: dict[str, Any] = {}
-    validation_report: dict[str, Any] = {}
+    plan_verifier_report: dict[str, Any] = {}
 
     for step_num in range(MAX_INNER_STEPS):
         yield {
@@ -1823,16 +1823,16 @@ def run_plan_manager_stream(
                 try:
                     if (
                         tool_name
-                        == "run_validation_agent"
+                        == "run_plan_verifier_agent"
                         and not pm_context.get(
-                            "validator_enabled",
+                            "plan_verifier_enabled",
                             True,
                         )
                     ):
                         tool_stream = iter([{
                             "type": "done",
                             "result": {
-                                "validation_report": {
+                                "plan_verifier_report": {
                                     "overall_verdict":
                                         "skipped",
                                     "executive_summary":
@@ -1950,15 +1950,15 @@ def run_plan_manager_stream(
                         response_plan
                     )
                 elif tool_name == (
-                    "run_validation_agent"
+                    "run_plan_verifier_agent"
                 ):
-                    validation_report = (
+                    plan_verifier_report = (
                         tool_result.get(
-                            "validation_report", {},
+                            "plan_verifier_report", {},
                         )
                     )
-                    pm_context["validation_report"] = (
-                        validation_report
+                    pm_context["plan_verifier_report"] = (
+                        plan_verifier_report
                     )
 
                 sub_result = _truncate_result(
@@ -2065,16 +2065,16 @@ def run_plan_manager_stream(
                 ).get("code_report", {})
                 break
 
-    if not validation_report:
+    if not plan_verifier_report:
         for entry in reversed(conversation_history):
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_validation_agent"
+                == "run_plan_verifier_agent"
             ):
-                validation_report = entry.get(
+                plan_verifier_report = entry.get(
                     "result", {},
-                ).get("validation_report", {})
+                ).get("plan_verifier_report", {})
                 break
 
     filtered_history = [
@@ -2111,7 +2111,7 @@ def run_plan_manager_stream(
         ),
         "code_report": code_report,
         "planner_report": planner_report,
-        "validation_report": validation_report,
+        "plan_verifier_report": plan_verifier_report,
         "response_plan": response_plan,
     }
     if stats:

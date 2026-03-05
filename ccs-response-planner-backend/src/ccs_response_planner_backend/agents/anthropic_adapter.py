@@ -281,7 +281,7 @@ def build_messages(
 
         elif entry_type in (
             "assessment", "report",
-            "validation_report", "code_report",
+            "plan_verifier_report", "code_report",
             "review_report", "planner_report",
         ):
             data = entry.get(entry_type, {})

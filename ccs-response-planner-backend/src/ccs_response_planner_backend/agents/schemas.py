@@ -80,7 +80,7 @@ class CodeReport(BaseModel):
     verification_checks: list[VerificationCheck]
 
 
-# ── Code Reviewer Agent ────────────────────────────────────────
+# ── Code Verifier Agent ────────────────────────────────────────
 
 
 class ReviewFinding(BaseModel):
@@ -119,7 +119,7 @@ class CommandIssue(BaseModel):
 
 class ReviewReport(BaseModel):
     """
-    Report produced by the code_reviewer_agent.
+    Report produced by the code_verifier_agent.
     """
 
     executive_summary: str
@@ -176,7 +176,7 @@ class PlannerReport(BaseModel):
     risks: list[str]
 
 
-# ── Validation Agent ───────────────────────────────────────────
+# ── Plan Verifier Agent ────────────────────────────────────────
 
 
 class ActionResult(BaseModel):
@@ -193,9 +193,9 @@ class ActionResult(BaseModel):
     actual_step_cost: float
 
 
-class ValidationReport(BaseModel):
+class PlanVerifierReport(BaseModel):
     """
-    Report produced by the validation_agent.
+    Report produced by the plan_verifier_agent.
     """
 
     executive_summary: str
@@ -243,12 +243,12 @@ class InformationReport(BaseModel):
     affected_assets: list[AffectedAsset]
 
 
-# ── Report Reviewer Agent ─────────────────────────────────────
+# ── Report Verifier Agent ─────────────────────────────────────
 
 
-class ReportReviewFinding(BaseModel):
+class ReportVerificationFinding(BaseModel):
     """
-    A specific issue found during report review.
+    A specific issue found during report verification.
     """
 
     category: str
@@ -279,13 +279,13 @@ class EvidenceGap(BaseModel):
     suggestion: str
 
 
-class ReportReviewReport(BaseModel):
+class ReportVerificationReport(BaseModel):
     """
-    Report produced by the report_reviewer_agent.
+    Report produced by the report_verifier_agent.
     """
 
     executive_summary: str
-    findings: list[ReportReviewFinding]
+    findings: list[ReportVerificationFinding]
     missing_elements: list[MissingElement]
     evidence_gaps: list[EvidenceGap]
     strengths: list[str]
@@ -320,7 +320,7 @@ class PlanManagerReport(BaseModel):
     final_verdict: str
     code_manager_summary: str
     planner_agent_summary: str
-    validation_summary: str
+    verification_summary: str
 
 
 # ── Orchestrator Agent ────────────────────────────────────────
@@ -418,7 +418,7 @@ class HostAnalysisReport(BaseModel):
     executive_summary: str
 
 
-# ── Action Validator Agent ───────────────────────────────────
+# ── Action Verifier Agent ───────────────────────────────────
 
 
 class CommandResult(BaseModel):
@@ -432,9 +432,9 @@ class CommandResult(BaseModel):
     output: str
 
 
-class ActionValidationReport(BaseModel):
+class ActionVerificationReport(BaseModel):
     """
-    Report produced by the action_validator_agent.
+    Report produced by the action_verifier_agent.
     """
 
     action_name: str
@@ -454,16 +454,16 @@ class ActionValidationReport(BaseModel):
 
 REPORT_MODELS: dict[str, type[BaseModel]] = {
     "code_agent": CodeReport,
-    "code_reviewer_agent": ReviewReport,
+    "code_verifier_agent": ReviewReport,
     "code_manager_agent": OrchestratorReport,
     "planner_agent": PlannerReport,
-    "validation_agent": ValidationReport,
+    "plan_verifier_agent": PlanVerifierReport,
     "report_agent": InformationReport,
     "plan_manager_agent": PlanManagerReport,
-    "report_reviewer_agent": ReportReviewReport,
+    "report_verifier_agent": ReportVerificationReport,
     "report_manager_agent": ReportManagerReport,
     "orchestrator_agent": OrchestratorAgentReport,
     "pentest_agent": PentestReport,
     "host_analyzer_agent": HostAnalysisReport,
-    "action_validator_agent": ActionValidationReport,
+    "action_verifier_agent": ActionVerificationReport,
 }

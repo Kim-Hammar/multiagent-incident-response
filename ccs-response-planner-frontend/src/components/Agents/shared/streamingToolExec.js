@@ -1,6 +1,6 @@
 /**
  * Shared helper for dt_exec tool execution
- * and sub-agent streaming tools (run_code_agent, run_code_reviewer_agent).
+ * and sub-agent streaming tools (run_code_agent, run_code_verifier_agent).
  *
  * Uses background job polling instead of NDJSON streaming.
  */
@@ -10,17 +10,17 @@ import { pollJobEvents } from './pollJobEvents.js'
 export const STREAMING_TOOLS = new Set([
   'dt_exec',
   'run_code_agent',
-  'run_code_reviewer_agent',
+  'run_code_verifier_agent',
   'run_code_manager',
   'run_planner_agent',
-  'run_validation_agent',
+  'run_plan_verifier_agent',
   'run_report_agent',
-  'run_report_reviewer_agent',
+  'run_report_verifier_agent',
   'run_report_manager',
   'run_pentest_agent',
   'run_plan_manager',
   'run_host_analyzers',
-  'run_action_validators'
+  'run_action_verifiers'
 ])
 
 /**

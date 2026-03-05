@@ -13,15 +13,15 @@ from ccs_response_planner_backend.agents.schemas import (
     ReviewReport,
     OrchestratorReport,
     PlannerReport,
-    ValidationReport,
+    PlanVerifierReport,
     InformationReport,
     PlanManagerReport,
-    ReportReviewReport,
+    ReportVerificationReport,
     ReportManagerReport,
     OrchestratorAgentReport,
     PentestReport,
     HostAnalysisReport,
-    ActionValidationReport,
+    ActionVerificationReport,
 )
 
 # ── Tool declaration imports ───────────────────────────────────
@@ -29,7 +29,7 @@ from ccs_response_planner_backend.agents.schemas import (
 from ccs_response_planner_backend.agents.code_agent.tool_declarations import (
     PRODUCE_CODE_REPORT_DECL,
 )
-from ccs_response_planner_backend.agents.code_reviewer_agent.tool_declarations import (  # noqa: E501
+from ccs_response_planner_backend.agents.code_verifier_agent.tool_declarations import (  # noqa: E501
     PRODUCE_REVIEW_REPORT_DECL,
 )
 from ccs_response_planner_backend.agents.code_manager_agent.tool_declarations import (  # noqa: E501
@@ -38,8 +38,8 @@ from ccs_response_planner_backend.agents.code_manager_agent.tool_declarations im
 from ccs_response_planner_backend.agents.planner_agent.tool_declarations import (
     PRODUCE_PLANNER_REPORT_DECL as RL_REPORT_DECL,
 )
-from ccs_response_planner_backend.agents.validation_agent.tool_declarations import (  # noqa: E501
-    PRODUCE_REPORT_DECL as VALIDATION_REPORT_DECL,
+from ccs_response_planner_backend.agents.plan_verifier_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_REPORT_DECL as PLAN_VERIFIER_REPORT_DECL,
 )
 from ccs_response_planner_backend.agents.plan_manager_agent.tool_declarations import (  # noqa: E501
     PRODUCE_PLAN_MANAGER_REPORT_DECL,
@@ -47,7 +47,7 @@ from ccs_response_planner_backend.agents.plan_manager_agent.tool_declarations im
 from ccs_response_planner_backend.agents.report_agent.tool_declarations import (  # noqa: E501
     TOOL_DECLARATIONS as INFO_DECLARATIONS,
 )
-from ccs_response_planner_backend.agents.report_reviewer_agent.tool_declarations import (  # noqa: E501
+from ccs_response_planner_backend.agents.report_verifier_agent.tool_declarations import (  # noqa: E501
     PRODUCE_REPORT_REVIEW_DECL,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (  # noqa: E501
@@ -62,8 +62,8 @@ from ccs_response_planner_backend.agents.pentest_agent.tool_declarations import 
 from ccs_response_planner_backend.agents.host_analyzer_agent.tool_declarations import (  # noqa: E501
     PRODUCE_HOST_ANALYSIS_DECL,
 )
-from ccs_response_planner_backend.agents.action_validator_agent.tool_declarations import (  # noqa: E501
-    PRODUCE_ACTION_VALIDATION_DECL,
+from ccs_response_planner_backend.agents.action_verifier_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_ACTION_VERIFICATION_DECL,
 )
 
 
@@ -118,18 +118,18 @@ def _get_model_fields(model_cls):
 
 AGENT_DECL_MODEL = [
     ("code_agent", PRODUCE_CODE_REPORT_DECL, CodeReport),
-    ("code_reviewer_agent", PRODUCE_REVIEW_REPORT_DECL, ReviewReport),
+    ("code_verifier_agent", PRODUCE_REVIEW_REPORT_DECL, ReviewReport),
     ("code_manager_agent", PRODUCE_ORCHESTRATOR_REPORT_DECL, OrchestratorReport),
     ("planner_agent", RL_REPORT_DECL, PlannerReport),
-    ("validation_agent", VALIDATION_REPORT_DECL, ValidationReport),
+    ("plan_verifier_agent", PLAN_VERIFIER_REPORT_DECL, PlanVerifierReport),
     ("report_agent", INFO_REPORT_DECL, InformationReport),
     ("plan_manager_agent", PRODUCE_PLAN_MANAGER_REPORT_DECL, PlanManagerReport),
-    ("report_reviewer_agent", PRODUCE_REPORT_REVIEW_DECL, ReportReviewReport),
+    ("report_verifier_agent", PRODUCE_REPORT_REVIEW_DECL, ReportVerificationReport),
     ("report_manager_agent", PRODUCE_REPORT_MANAGER_REPORT_DECL, ReportManagerReport),
     ("orchestrator_agent", PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL, OrchestratorAgentReport),
     ("pentest_agent", PRODUCE_PENTEST_REPORT_DECL, PentestReport),
     ("host_analyzer_agent", PRODUCE_HOST_ANALYSIS_DECL, HostAnalysisReport),
-    ("action_validator_agent", PRODUCE_ACTION_VALIDATION_DECL, ActionValidationReport),
+    ("action_verifier_agent", PRODUCE_ACTION_VERIFICATION_DECL, ActionVerificationReport),
 ]
 
 
@@ -144,7 +144,7 @@ FALLBACK_DICTS = {
         "verification_result": "",
         "verification_checks": [],
     },
-    "code_reviewer_agent": {
+    "code_verifier_agent": {
         "executive_summary": "fallback",
         "findings": [],
         "missing_actions": [],
@@ -168,7 +168,7 @@ FALLBACK_DICTS = {
         "expected_total_cost": 0,
         "risks": [],
     },
-    "validation_agent": {
+    "plan_verifier_agent": {
         "executive_summary": "fallback",
         "action_results": [],
         "final_recovery_state": {
@@ -199,9 +199,9 @@ FALLBACK_DICTS = {
         "final_verdict": "unknown",
         "code_manager_summary": "",
         "planner_agent_summary": "",
-        "validation_summary": "",
+        "verification_summary": "",
     },
-    "report_reviewer_agent": {
+    "report_verifier_agent": {
         "executive_summary": "fallback",
         "findings": [],
         "missing_elements": [],
@@ -242,7 +242,7 @@ FALLBACK_DICTS = {
         "recommendations": [],
         "executive_summary": "fallback",
     },
-    "action_validator_agent": {
+    "action_verifier_agent": {
         "action_name": "Unknown",
         "action_description": "",
         "commands_executed": [],
@@ -369,11 +369,12 @@ def test_sample_code_report():
     assert report.verification_checks[2].passed is False
 
 
-def test_sample_validation_report():
+def test_sample_plan_verifier_report():
     """
-    A realistic ValidationReport with action results and recovery state.
+    A realistic PlanVerifierReport with action results and recovery
+    state.
     """
-    report = ValidationReport.model_validate({
+    report = PlanVerifierReport.model_validate({
         "executive_summary": "Plan partially validated.",
         "action_results": [
             {
@@ -538,13 +539,13 @@ def test_registry_contains_all_agents():
     """
     assert len(REPORT_MODELS) == 13
     expected = {
-        "code_agent", "code_reviewer_agent", "code_manager_agent",
-        "planner_agent", "validation_agent", "report_agent",
+        "code_agent", "code_verifier_agent", "code_manager_agent",
+        "planner_agent", "plan_verifier_agent", "report_agent",
         "plan_manager_agent",
-        "report_reviewer_agent", "report_manager_agent",
+        "report_verifier_agent", "report_manager_agent",
         "orchestrator_agent",
         "pentest_agent", "host_analyzer_agent",
-        "action_validator_agent",
+        "action_verifier_agent",
     }
     assert set(REPORT_MODELS.keys()) == expected
 
@@ -606,9 +607,9 @@ def test_sample_host_analysis_report():
     assert len(report.indicators_of_compromise) == 1
 
 
-def test_sample_action_validation_report():
+def test_sample_action_verification_report():
     """
-    A realistic ActionValidationReport with before/after recovery state.
+    A realistic ActionVerificationReport with before/after recovery state.
     """
     recovery_before = {
         "is_attack_contained": False,
@@ -626,7 +627,7 @@ def test_sample_action_validation_report():
         "is_system_hardened": False,
         "are_services_restored": True,
     }
-    report = ActionValidationReport.model_validate({
+    report = ActionVerificationReport.model_validate({
         "action_name": "Block attacker at firewall",
         "action_description": "Add iptables DROP rule for attacker IP.",
         "commands_executed": [

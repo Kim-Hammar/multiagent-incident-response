@@ -11,11 +11,11 @@ import {
   ReviewReportBody,
   AssessmentBody,
   IncidentReviewBody,
-  ValidationReportBody,
+  PlanVerifierReportBody,
   PlanManagerReportBody,
   PentestReportBody,
   HostAnalysisBody,
-  ActionValidationBody,
+  ActionVerificationBody,
   ACTION_OUTCOME_STYLES
 } from './ReportBodies.jsx'
 import PlannerAgentReport from '../PlannerAgentReport.jsx'
@@ -25,26 +25,26 @@ const RL_STREAMING_TYPES = new Set(['progress', 'eval_progress', 'started', 'res
 
 const ORCHESTRATOR_TOOLS = new Set([
   'run_code_agent',
-  'run_code_reviewer_agent',
+  'run_code_verifier_agent',
   'produce_orchestrator_report',
   'run_code_manager',
   'run_planner_agent',
-  'run_validation_agent',
+  'run_plan_verifier_agent',
   'produce_plan_manager_report',
   'run_report_agent',
-  'run_report_reviewer_agent',
+  'run_report_verifier_agent',
   'produce_report_manager_report',
   'run_report_manager',
   'run_pentest_agent',
   'run_plan_manager',
   'produce_orchestrator_agent_report',
   'run_host_analyzers',
-  'run_action_validators'
+  'run_action_verifiers'
 ])
 
 const TOOL_LABELS = {
   produce_assessment: 'assessment report',
-  produce_validation_report: 'validation report',
+  produce_plan_verifier_report: 'plan verifier report',
   produce_code_report: 'code report',
   produce_code_review: 'code review',
   produce_plan: 'plan',
@@ -55,9 +55,9 @@ const TOOL_LABELS = {
   produce_plan_manager_report: 'plan manager report',
   produce_pentest_report: 'pentest report',
   produce_host_analysis: 'host analysis report',
-  produce_action_validation: 'action validation report',
+  produce_action_verification: 'action verification report',
   run_host_analyzers: 'parallel host analysis',
-  run_action_validators: 'parallel action validation'
+  run_action_verifiers: 'parallel action verification'
 }
 
 /**
@@ -131,7 +131,7 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
-  if (toolName === 'run_code_reviewer_agent') {
+  if (toolName === 'run_code_verifier_agent') {
     return (
       <div className="ia-orchestrator-args">
         <div className="ia-orchestrator-note">
@@ -208,7 +208,7 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
-  if (toolName === 'run_planner_agent' || toolName === 'run_validation_agent') {
+  if (toolName === 'run_planner_agent' || toolName === 'run_plan_verifier_agent') {
     return (
       <div className="ia-orchestrator-args">
         <div className="ia-orchestrator-note">
@@ -259,10 +259,10 @@ function renderOrchestratorArgs(toolName, args) {
             </div>
           </CollapsibleSection>
         )}
-        {args.validation_summary && (
-          <CollapsibleSection label="Validation Summary" icon="fa-check-circle">
+        {args.verification_summary && (
+          <CollapsibleSection label="Verification Summary" icon="fa-check-circle">
             <div className="ia-arg-markdown">
-              <ReactMarkdown>{args.validation_summary}</ReactMarkdown>
+              <ReactMarkdown>{args.verification_summary}</ReactMarkdown>
             </div>
           </CollapsibleSection>
         )}
@@ -331,7 +331,7 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
-  if (toolName === 'run_report_reviewer_agent') {
+  if (toolName === 'run_report_verifier_agent') {
     return (
       <div className="ia-orchestrator-args">
         <div className="ia-orchestrator-note">
@@ -417,7 +417,7 @@ function renderOrchestratorArgs(toolName, args) {
     )
   }
 
-  if (toolName === 'run_action_validators') {
+  if (toolName === 'run_action_verifiers') {
     const actions = args?.actions || []
     return (
       <div className="ia-orchestrator-args">
@@ -593,7 +593,7 @@ function renderSubAgentReport(toolName, result) {
   if (toolName === 'run_code_agent' && result.code_report) {
     return <CodeReportBody report={result.code_report} />
   }
-  if (toolName === 'run_code_reviewer_agent' && result.review_report) {
+  if (toolName === 'run_code_verifier_agent' && result.review_report) {
     return <ReviewReportBody report={result.review_report} />
   }
   if (toolName === 'run_code_manager' && result.orchestrator_report) {
@@ -625,8 +625,8 @@ function renderSubAgentReport(toolName, result) {
       />
     )
   }
-  if (toolName === 'run_validation_agent' && result.validation_report) {
-    return <ValidationReportBody report={result.validation_report} />
+  if (toolName === 'run_plan_verifier_agent' && result.plan_verifier_report) {
+    return <PlanVerifierReportBody report={result.plan_verifier_report} />
   }
   if (toolName === 'run_report_agent' && result.assessment) {
     const assessment = result.attack_path_image
@@ -634,7 +634,7 @@ function renderSubAgentReport(toolName, result) {
       : result.assessment
     return <AssessmentBody report={assessment} />
   }
-  if (toolName === 'run_report_reviewer_agent' && result.report_review) {
+  if (toolName === 'run_report_verifier_agent' && result.report_review) {
     return <IncidentReviewBody report={result.report_review} />
   }
   if (toolName === 'run_report_manager' && result.report_manager_report) {
@@ -680,20 +680,20 @@ function renderSubAgentReport(toolName, result) {
       </div>
     )
   }
-  if (toolName === 'run_action_validators' && result.action_validations) {
-    const validations = result.action_validations
+  if (toolName === 'run_action_verifiers' && result.action_verifications) {
+    const verifications = result.action_verifications
     return (
       <div style={{ marginTop: '10px' }}>
-        {Object.entries(validations).map(([actionId, validation]) => (
+        {Object.entries(verifications).map(([actionId, verification]) => (
           <CollapsibleSection
             key={actionId}
-            label={`Validation of ${actionId}`}
+            label={`Verification of ${actionId}`}
             icon="fa-check-circle"
           >
-            {validation.error ? (
-              <div className="text-danger">{validation.error}</div>
+            {verification.error ? (
+              <div className="text-danger">{verification.error}</div>
             ) : (
-              <ActionValidationBody report={validation} />
+              <ActionVerificationBody report={verification} />
             )}
           </CollapsibleSection>
         ))}
@@ -1309,7 +1309,7 @@ function SubAgentLog({
                   {ev.subEvents?.length > 0 &&
                     (ev._parallelHosts ||
                     ev.tool_name === 'run_host_analyzers' ||
-                    ev.tool_name === 'run_action_validators' ? (
+                    ev.tool_name === 'run_action_verifiers' ? (
                       <ParallelSubAgentLog
                         hosts={ev._parallelHosts}
                         subEvents={ev.subEvents}
@@ -1427,7 +1427,7 @@ function SubAgentLog({
                   {ev.subEvents?.length > 0 &&
                     (ev._parallelHosts ||
                     ev.tool_name === 'run_host_analyzers' ||
-                    ev.tool_name === 'run_action_validators' ? (
+                    ev.tool_name === 'run_action_verifiers' ? (
                       <ParallelSubAgentLog
                         hosts={ev._parallelHosts}
                         subEvents={ev.subEvents}
@@ -1496,16 +1496,16 @@ function SubAgentLog({
               </div>
             )
           }
-          if (ev.action_validation) {
-            const a = ev.action_validation
+          if (ev.action_verification) {
+            const a = ev.action_verification
             const isOpen = !!expanded[i]
             return (
               <div key={i} className="card ia-entry border-dark" style={{ marginTop: '8px' }}>
                 <div className="card-body">
                   <div className="ia-result-header" onClick={() => toggle(i)}>
-                    <span className="badge badge-dark">Action Validation</span>
+                    <span className="badge badge-dark">Action Verification</span>
                     <span className="ia-tool-name">
-                      {a.action_name || 'Action Validation Report'}
+                      {a.action_name || 'Action Verification Report'}
                     </span>
                     {a.outcome && (
                       <span
@@ -1517,7 +1517,7 @@ function SubAgentLog({
                     )}
                     <span className="ia-toggle-hint">{isOpen ? 'collapse' : 'expand'}</span>
                   </div>
-                  {isOpen && <ActionValidationBody report={a} />}
+                  {isOpen && <ActionVerificationBody report={a} />}
                 </div>
               </div>
             )
@@ -1941,7 +1941,7 @@ function AgentActivityLog({
                         )}
                       </div>
                       {(hasSubEvents && entry.tool_name === 'run_host_analyzers') ||
-                      entry.tool_name === 'run_action_validators' ? (
+                      entry.tool_name === 'run_action_verifiers' ? (
                         <ParallelSubAgentLog
                           hosts={entry._parallelHosts}
                           subEvents={entry.subEvents}
@@ -2073,7 +2073,7 @@ function AgentActivityLog({
                   {isExpanded && (
                     <>
                       {(hasSubEvents && entry.tool_name === 'run_host_analyzers') ||
-                      entry.tool_name === 'run_action_validators' ? (
+                      entry.tool_name === 'run_action_verifiers' ? (
                         <ParallelSubAgentLog
                           hosts={entry._parallelHosts}
                           subEvents={entry.subEvents}

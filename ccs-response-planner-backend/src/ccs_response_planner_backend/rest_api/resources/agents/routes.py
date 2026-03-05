@@ -24,15 +24,15 @@ from ccs_response_planner_backend.agents.report_agent.tools import (
     STREAMING_TOOL_DISPATCH as INFO_STREAMING_DISPATCH,
     TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.agents.validation_agent.agent import (
-    ValidationAgent,
+from ccs_response_planner_backend.agents.plan_verifier_agent.agent import (
+    PlanVerifierAgent,
 )
-from ccs_response_planner_backend.agents.validation_agent.prompt import (
-    build_system_prompt as build_validation_prompt,
+from ccs_response_planner_backend.agents.plan_verifier_agent.prompt import (
+    build_system_prompt as build_plan_verifier_prompt,
 )
-from ccs_response_planner_backend.agents.validation_agent.tools import (
-    STREAMING_TOOL_DISPATCH as VALIDATION_STREAMING_DISPATCH,
-    TOOL_DISPATCH as VALIDATION_TOOL_DISPATCH,
+from ccs_response_planner_backend.agents.plan_verifier_agent.tools import (
+    STREAMING_TOOL_DISPATCH as PLAN_VERIFIER_STREAMING_DISPATCH,
+    TOOL_DISPATCH as PLAN_VERIFIER_TOOL_DISPATCH,
 )
 from ccs_response_planner_backend.agents.code_agent.agent import (
     CodeAgent,
@@ -44,13 +44,13 @@ from ccs_response_planner_backend.agents.code_agent.tools import (
     STREAMING_TOOL_DISPATCH as CODE_STREAMING_DISPATCH,
     TOOL_DISPATCH as CODE_TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.agents.code_reviewer_agent.agent import (
-    CodeReviewerAgent,
+from ccs_response_planner_backend.agents.code_verifier_agent.agent import (
+    CodeVerifierAgent,
 )
-from ccs_response_planner_backend.agents.code_reviewer_agent.prompt import (
+from ccs_response_planner_backend.agents.code_verifier_agent.prompt import (
     build_system_prompt as build_code_review_prompt,
 )
-from ccs_response_planner_backend.agents.code_reviewer_agent.tools import (
+from ccs_response_planner_backend.agents.code_verifier_agent.tools import (
     STREAMING_TOOL_DISPATCH as CODE_REVIEW_STREAMING_DISPATCH,
     TOOL_DISPATCH as CODE_REVIEW_TOOL_DISPATCH,
 )
@@ -84,13 +84,13 @@ from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PLAN_MANAGER_STREAMING_DISPATCH,
     TOOL_DISPATCH as PLAN_MANAGER_TOOL_DISPATCH,
 )
-from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
-    ReportReviewerAgent,
+from ccs_response_planner_backend.agents.report_verifier_agent.agent import (
+    ReportVerifierAgent,
 )
-from ccs_response_planner_backend.agents.report_reviewer_agent.prompt import (
+from ccs_response_planner_backend.agents.report_verifier_agent.prompt import (
     build_system_prompt as build_report_review_prompt,
 )
-from ccs_response_planner_backend.agents.report_reviewer_agent.tools import (
+from ccs_response_planner_backend.agents.report_verifier_agent.tools import (
     STREAMING_TOOL_DISPATCH as REPORT_REVIEW_STREAMING_DISPATCH,
     TOOL_DISPATCH as REPORT_REVIEW_TOOL_DISPATCH,
 )
@@ -136,13 +136,13 @@ from ccs_response_planner_backend.agents.host_analyzer_agent.prompt import (
 from ccs_response_planner_backend.agents.host_analyzer_agent.tools import (
     STREAMING_TOOL_DISPATCH as HOST_ANALYZER_STREAMING_DISPATCH,
 )
-from ccs_response_planner_backend.agents.action_validator_agent.agent import (
-    ActionValidatorAgent,
+from ccs_response_planner_backend.agents.action_verifier_agent.agent import (
+    ActionVerifierAgent,
 )
-from ccs_response_planner_backend.agents.action_validator_agent.prompt import (
-    build_system_prompt as build_action_validator_prompt,
+from ccs_response_planner_backend.agents.action_verifier_agent.prompt import (
+    build_system_prompt as build_action_verifier_prompt,
 )
-from ccs_response_planner_backend.agents.action_validator_agent.tools import (
+from ccs_response_planner_backend.agents.action_verifier_agent.tools import (
     STREAMING_TOOL_DISPATCH as ACTION_VALIDATOR_STREAMING_DISPATCH,
 )
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
@@ -531,7 +531,7 @@ def _save_step_result(
             elif ev_type in (
                 "orchestrator_agent_report",
                 "assessment", "code_report",
-                "validation_report", "report",
+                "plan_verifier_report", "report",
                 "review_report", "planner_report",
                 "report_manager_report",
                 "orchestrator_report",
@@ -539,7 +539,7 @@ def _save_step_result(
                 "report_review",
                 "pentest_report",
                 "host_analysis",
-                "action_validation",
+                "action_verification",
             ):
                 final_entry = ev
             elif ev_type == "context_usage":
@@ -1042,11 +1042,11 @@ def agents_report_tool() -> tuple[Response, int]:
         return jsonify({"error": str(e)}), 500
 
 
-@agents_bp.route("/validation/step", methods=["POST"])
+@agents_bp.route("/plan-verifier/step", methods=["POST"])
 @token_required
-def agents_validation_step() -> tuple[Response, int]:
+def agents_plan_verifier_step() -> tuple[Response, int]:
     """
-    Start a ValidationAgent step as a background job.
+    Start a PlanVerifierAgent step as a background job.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -1121,7 +1121,7 @@ def agents_validation_step() -> tuple[Response, int]:
         dict[str, Any], None, None
     ]:
         """
-        Run the ValidationAgent step in background.
+        Run the PlanVerifierAgent step in background.
 
         :return: a generator of event dicts
         """
@@ -1133,7 +1133,7 @@ def agents_validation_step() -> tuple[Response, int]:
                 yield {
                     "type": "error",
                     "message": (
-                        "The Validation Agent requires "
+                        "The Plan Verifier Agent requires "
                         "the digital twin to be enabled."
                     ),
                 }
@@ -1190,7 +1190,7 @@ def agents_validation_step() -> tuple[Response, int]:
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
-            agent = ValidationAgent()
+            agent = PlanVerifierAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
             )
@@ -1223,11 +1223,11 @@ def agents_validation_step() -> tuple[Response, int]:
     return jsonify({"job_id": job_id}), 202
 
 
-@agents_bp.route("/validation/prompt", methods=["POST"])
+@agents_bp.route("/plan-verifier/prompt", methods=["POST"])
 @token_required
-def agents_validation_prompt() -> tuple[Response, int]:
+def agents_plan_verifier_prompt() -> tuple[Response, int]:
     """
-    Render the ValidationAgent system prompt from the given context.
+    Render the PlanVerifierAgent system prompt from the given context.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -1265,7 +1265,7 @@ def agents_validation_prompt() -> tuple[Response, int]:
             security_alerts="",
         )
     )
-    prompt = build_validation_prompt(
+    prompt = build_plan_verifier_prompt(
         has_policy=False,
         system_description=body.get(
             "system_description", "",
@@ -1278,16 +1278,16 @@ def agents_validation_prompt() -> tuple[Response, int]:
         ) or "N/A",
         specification=specification or "N/A",
         planner_report_formatted=(
-            ValidationAgent._format_planner_report(
+            PlanVerifierAgent._format_planner_report(
                 planner_report or {},
             )
         ),
         code_report_formatted=(
-            ValidationAgent._format_code_report(
+            PlanVerifierAgent._format_code_report(
                 code_report or {},
             )
         ),
-        validation_feedback="",
+        verification_feedback="",
         incident_context_section=(
             incident_context_section
         ),
@@ -1304,11 +1304,11 @@ def agents_validation_prompt() -> tuple[Response, int]:
     return jsonify({"prompt": prompt}), 200
 
 
-@agents_bp.route("/validation/tool", methods=["POST"])
+@agents_bp.route("/plan-verifier/tool", methods=["POST"])
 @token_required
-def agents_validation_tool() -> tuple[Response, int]:
+def agents_plan_verifier_tool() -> tuple[Response, int]:
     """
-    Execute an approved tool call for ValidationAgent.
+    Execute an approved tool call for PlanVerifierAgent.
 
     Streaming tools run as background jobs; other tools
     return a single JSON response.
@@ -1324,7 +1324,7 @@ def agents_validation_tool() -> tuple[Response, int]:
     if tool_name in _DT_TOOLS and incident_id is not None:
         tool_args["incident_id"] = incident_id
 
-    if tool_name == "run_action_validators":
+    if tool_name == "run_action_verifiers":
         tool_args["context"] = {
             "system_description": body.get(
                 "system_description", "",
@@ -1339,12 +1339,12 @@ def agents_validation_tool() -> tuple[Response, int]:
             ),
             "incident_id": incident_id,
             "username": g.username,
-            "action_validator_model": body.get(
-                "action_validator_model",
+            "action_verifier_model": body.get(
+                "action_verifier_model",
             ),
         }
 
-    if tool_name in VALIDATION_STREAMING_DISPATCH:
+    if tool_name in PLAN_VERIFIER_STREAMING_DISPATCH:
         session_id = body.get("session_id")
         username = g.username
         job_id = (
@@ -1377,7 +1377,7 @@ def agents_validation_tool() -> tuple[Response, int]:
             :return: a generator of event dicts
             """
             try:
-                agent = ValidationAgent()
+                agent = PlanVerifierAgent()
                 yield from agent.execute_tool_stream(
                     tool_name, tool_args,
                 )
@@ -1392,12 +1392,12 @@ def agents_validation_tool() -> tuple[Response, int]:
         )
         return jsonify({"job_id": job_id}), 202
 
-    if tool_name not in VALIDATION_TOOL_DISPATCH:
+    if tool_name not in PLAN_VERIFIER_TOOL_DISPATCH:
         return jsonify({
             "error": f"Unknown tool: {tool_name}",
         }), 400
     try:
-        agent = ValidationAgent()
+        agent = PlanVerifierAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:
@@ -1649,7 +1649,7 @@ def agents_code_tool() -> tuple[Response, int]:
 @token_required
 def agents_code_review_step() -> tuple[Response, int]:
     """
-    Start a CodeReviewerAgent step as a background job.
+    Start a CodeVerifierAgent step as a background job.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -1716,7 +1716,7 @@ def agents_code_review_step() -> tuple[Response, int]:
         dict[str, Any], None, None
     ]:
         """
-        Run the CodeReviewerAgent step in background.
+        Run the CodeVerifierAgent step in background.
 
         :return: a generator of event dicts
         """
@@ -1734,7 +1734,7 @@ def agents_code_review_step() -> tuple[Response, int]:
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
-            agent = CodeReviewerAgent()
+            agent = CodeVerifierAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
             )
@@ -1765,7 +1765,7 @@ def agents_code_review_step() -> tuple[Response, int]:
 @token_required
 def agents_code_review_prompt() -> tuple[Response, int]:
     """
-    Render the CodeReviewerAgent system prompt from the given context.
+    Render the CodeVerifierAgent system prompt from the given context.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -1785,7 +1785,7 @@ def agents_code_review_prompt() -> tuple[Response, int]:
         except (json.JSONDecodeError, ValueError):
             code_report = {}
     formatted_report = (
-        CodeReviewerAgent._format_code_report(
+        CodeVerifierAgent._format_code_report(
             code_report or {},
         )
     )
@@ -1828,7 +1828,7 @@ def agents_code_review_prompt() -> tuple[Response, int]:
 @token_required
 def agents_code_review_tool() -> tuple[Response, int]:
     """
-    Execute an approved tool call for CodeReviewerAgent.
+    Execute an approved tool call for CodeVerifierAgent.
 
     Streaming tools run as background jobs; other tools
     return a single JSON response.
@@ -1877,7 +1877,7 @@ def agents_code_review_tool() -> tuple[Response, int]:
             :return: a generator of event dicts
             """
             try:
-                agent = CodeReviewerAgent()
+                agent = CodeVerifierAgent()
                 yield from agent.execute_tool_stream(
                     tool_name, tool_args,
                 )
@@ -1897,7 +1897,7 @@ def agents_code_review_tool() -> tuple[Response, int]:
             "error": f"Unknown tool: {tool_name}",
         }), 400
     try:
-        agent = CodeReviewerAgent()
+        agent = CodeVerifierAgent()
         result = agent.execute_tool(tool_name, tool_args)
         return jsonify(result), 200
     except Exception as e:
@@ -1912,7 +1912,7 @@ def agents_report_review_step() -> (
     tuple[Response, int]
 ):
     """
-    Start a ReportReviewerAgent step as a background job.
+    Start a ReportVerifierAgent step as a background job.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -1981,7 +1981,7 @@ def agents_report_review_step() -> (
         dict[str, Any], None, None
     ]:
         """
-        Run the ReportReviewerAgent step in background.
+        Run the ReportVerifierAgent step in background.
 
         :return: a generator of event dicts
         """
@@ -2001,7 +2001,7 @@ def agents_report_review_step() -> (
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
-            agent = ReportReviewerAgent()
+            agent = ReportVerifierAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
             )
@@ -2049,7 +2049,7 @@ def agents_report_review_prompt() -> (
     tuple[Response, int]
 ):
     """
-    Render the ReportReviewerAgent system prompt.
+    Render the ReportVerifierAgent system prompt.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -2063,7 +2063,7 @@ def agents_report_review_prompt() -> (
         except (json.JSONDecodeError, ValueError):
             incident_report = {}
     formatted_report = (
-        ReportReviewerAgent._format_incident_report(
+        ReportVerifierAgent._format_incident_report(
             incident_report or {},
         )
     )
@@ -2103,7 +2103,7 @@ def agents_report_review_tool() -> (
     tuple[Response, int]
 ):
     """
-    Execute an approved tool call for ReportReviewerAgent.
+    Execute an approved tool call for ReportVerifierAgent.
 
     Streaming tools run as background jobs; other tools
     return a single JSON response.
@@ -2156,7 +2156,7 @@ def agents_report_review_tool() -> (
             :return: a generator of event dicts
             """
             try:
-                agent = ReportReviewerAgent()
+                agent = ReportVerifierAgent()
                 yield from (
                     agent.execute_tool_stream(
                         tool_name, tool_args,
@@ -2178,7 +2178,7 @@ def agents_report_review_tool() -> (
             "error": f"Unknown tool: {tool_name}",
         }), 400
     try:
-        agent = ReportReviewerAgent()
+        agent = ReportVerifierAgent()
         result = agent.execute_tool(
             tool_name, tool_args,
         )
@@ -2334,7 +2334,7 @@ def agents_report_manager_tool() -> (
     Execute an approved tool call for ReportManagerAgent.
 
     Sub-agent tools (run_report_agent,
-    run_report_reviewer_agent) are streaming and require
+    run_report_verifier_agent) are streaming and require
     system context from the request body.
 
     :return: a streaming Response or (JSON, status) tuple
@@ -2387,7 +2387,7 @@ def agents_report_manager_tool() -> (
             ),
         }
         if tool_name == (
-            "run_report_reviewer_agent"
+            "run_report_verifier_agent"
         ):
             last_assessment: dict[str, Any] = (
                 body.get("last_assessment") or {}
@@ -2558,8 +2558,8 @@ def agents_code_manager_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
-    code_reviewer_enabled = body.get(
-        "code_reviewer_enabled", True,
+    code_verifier_enabled = body.get(
+        "code_verifier_enabled", True,
     )
     dt_enabled = body.get("dt_enabled", True)
 
@@ -2607,8 +2607,8 @@ def agents_code_manager_step() -> (
                 compaction_threshold=(
                     compaction_threshold
                 ),
-                code_reviewer_enabled=(
-                    code_reviewer_enabled
+                code_verifier_enabled=(
+                    code_verifier_enabled
                 ),
                 dt_enabled=dt_enabled,
             )
@@ -2661,7 +2661,7 @@ def agents_code_manager_prompt() -> tuple[Response, int]:
             "operator_feedback", "",
         ) or "N/A",
         max_iterations=max_iterations,
-        validation_feedback="N/A",
+        verification_feedback="N/A",
         revision_notice="",
     )
     return jsonify({"prompt": prompt}), 200
@@ -2675,7 +2675,7 @@ def agents_code_manager_tool() -> (
     """
     Execute an approved tool call for CodeManagerAgent.
 
-    Sub-agent tools (run_code_agent, run_code_reviewer_agent)
+    Sub-agent tools (run_code_agent, run_code_verifier_agent)
     are streaming and require system context from the request
     body. For other tools, returns a single JSON response.
 
@@ -2725,11 +2725,11 @@ def agents_code_manager_tool() -> (
             "compaction_threshold": body.get(
                 "compaction_threshold", 0.8,
             ),
-            "code_reviewer_enabled": body.get(
-                "code_reviewer_enabled", True,
+            "code_verifier_enabled": body.get(
+                "code_verifier_enabled", True,
             ),
         }
-        if tool_name == "run_code_reviewer_agent":
+        if tool_name == "run_code_verifier_agent":
             conv_history = body.get(
                 "conversation_history", [],
             )
@@ -3118,12 +3118,12 @@ def agents_plan_manager_step() -> (
     compaction_threshold = body.get(
         "compaction_threshold", 0.8,
     )
-    validator_enabled = body.get(
-        "validator_enabled", True,
+    plan_verifier_enabled = body.get(
+        "plan_verifier_enabled", True,
     )
     dt_enabled = body.get("dt_enabled", True)
     if not dt_enabled:
-        validator_enabled = False
+        plan_verifier_enabled = False
     code_model_enabled = body.get(
         "code_model_enabled", True,
     )
@@ -3173,8 +3173,8 @@ def agents_plan_manager_step() -> (
                 compaction_threshold=(
                     compaction_threshold
                 ),
-                validator_enabled=(
-                    validator_enabled
+                plan_verifier_enabled=(
+                    plan_verifier_enabled
                 ),
                 code_model_enabled=(
                     code_model_enabled
@@ -3221,8 +3221,8 @@ def agents_plan_manager_prompt() -> (
         )
     )
     prompt = build_plan_manager_prompt(
-        validator_enabled=body.get(
-            "validator_enabled", True,
+        plan_verifier_enabled=body.get(
+            "plan_verifier_enabled", True,
         ),
         system_description=body.get(
             "system_description", "",
@@ -3250,7 +3250,7 @@ def agents_plan_manager_tool() -> (
     Execute an approved tool call for PlanManagerAgent.
 
     Sub-agent tools (run_code_manager, run_planner_agent,
-    run_validation_agent) are streaming. Builds context
+    run_plan_verifier_agent) are streaming. Builds context
     from the request body and accumulated reports in the
     conversation history.
 
@@ -3294,8 +3294,8 @@ def agents_plan_manager_tool() -> (
             "planner_agent_model": body.get(
                 "planner_agent_model",
             ),
-            "validation_agent_model": body.get(
-                "validation_agent_model",
+            "plan_verifier_agent_model": body.get(
+                "plan_verifier_agent_model",
             ),
             "code_manager_iterations": body.get(
                 "code_manager_iterations", 3,
@@ -3313,11 +3313,11 @@ def agents_plan_manager_tool() -> (
             "compaction_threshold": body.get(
                 "compaction_threshold", 0.8,
             ),
-            "code_reviewer_enabled": body.get(
-                "code_reviewer_enabled", True,
+            "code_verifier_enabled": body.get(
+                "code_verifier_enabled", True,
             ),
-            "validator_enabled": body.get(
-                "validator_enabled", True,
+            "plan_verifier_enabled": body.get(
+                "plan_verifier_enabled", True,
             ),
             "code_model_enabled": body.get(
                 "code_model_enabled", True,
@@ -3363,12 +3363,12 @@ def agents_plan_manager_tool() -> (
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_validation_agent"
+                == "run_plan_verifier_agent"
             ):
                 result = entry.get("result", {})
-                context["validation_report"] = (
+                context["plan_verifier_report"] = (
                     result.get(
-                        "validation_report", {},
+                        "plan_verifier_report", {},
                     )
                 )
                 break
@@ -3403,7 +3403,7 @@ def agents_plan_manager_tool() -> (
                 if entry.get("type") == "tool_result":
                     return (
                         entry.get("tool_name")
-                        == "run_validation_agent"
+                        == "run_plan_verifier_agent"
                     )
             return False
 
@@ -3423,7 +3423,7 @@ def agents_plan_manager_tool() -> (
             """
             try:
                 if (
-                    tool_name != "run_validation_agent"
+                    tool_name != "run_plan_verifier_agent"
                     and _last_tool_was_validator(
                         conv_history,
                     )
@@ -3431,20 +3431,20 @@ def agents_plan_manager_tool() -> (
                     yield from _redeploy_dt(job_id)
                 if (
                     tool_name
-                    == "run_validation_agent"
+                    == "run_plan_verifier_agent"
                     and not context.get(
-                        "validator_enabled",
+                        "plan_verifier_enabled",
                         True,
                     )
                 ):
                     yield {
                         "type": "done",
                         "result": {
-                            "validation_report": {
+                            "plan_verifier_report": {
                                 "overall_verdict":
                                     "skipped",
                                 "executive_summary":
-                                    "Validation "
+                                    "Verification "
                                     "skipped by "
                                     "user",
                             },
@@ -3784,14 +3784,14 @@ def agents_orchestrator_tool() -> (
             "code_agent_model": body.get(
                 "code_agent_model",
             ),
-            "code_reviewer_agent_model": body.get(
-                "code_reviewer_agent_model",
+            "code_verifier_agent_model": body.get(
+                "code_verifier_agent_model",
             ),
             "planner_agent_model": body.get(
                 "planner_agent_model",
             ),
-            "validation_agent_model": body.get(
-                "validation_agent_model",
+            "plan_verifier_agent_model": body.get(
+                "plan_verifier_agent_model",
             ),
             "report_manager_iterations": body.get(
                 "report_manager_iterations", 3,
@@ -3818,8 +3818,8 @@ def agents_orchestrator_tool() -> (
             "report_agent_compaction": body.get(
                 "report_agent_compaction", 0.8,
             ),
-            "report_reviewer_compaction": body.get(
-                "report_reviewer_compaction", 0.8,
+            "report_verifier_compaction": body.get(
+                "report_verifier_compaction", 0.8,
             ),
             "plan_manager_compaction": body.get(
                 "plan_manager_compaction", 0.8,
@@ -3830,14 +3830,14 @@ def agents_orchestrator_tool() -> (
             "code_agent_compaction": body.get(
                 "code_agent_compaction", 0.8,
             ),
-            "code_reviewer_compaction": body.get(
-                "code_reviewer_compaction", 0.8,
+            "code_verifier_compaction": body.get(
+                "code_verifier_compaction", 0.8,
             ),
             "planner_agent_compaction": body.get(
                 "planner_agent_compaction", 0.8,
             ),
-            "validation_agent_compaction": body.get(
-                "validation_agent_compaction", 0.8,
+            "plan_verifier_agent_compaction": body.get(
+                "plan_verifier_agent_compaction", 0.8,
             ),
             "dt_enabled": body.get(
                 "dt_enabled", True,
@@ -3845,14 +3845,14 @@ def agents_orchestrator_tool() -> (
             "info_tools_enabled": body.get(
                 "info_tools_enabled", True,
             ),
-            "report_reviewer_enabled": body.get(
-                "report_reviewer_enabled", True,
+            "report_verifier_enabled": body.get(
+                "report_verifier_enabled", True,
             ),
-            "code_reviewer_enabled": body.get(
-                "code_reviewer_enabled", True,
+            "code_verifier_enabled": body.get(
+                "code_verifier_enabled", True,
             ),
-            "validator_enabled": body.get(
-                "validator_enabled", True,
+            "plan_verifier_enabled": body.get(
+                "plan_verifier_enabled", True,
             ),
             "pentest_enabled": body.get(
                 "pentest_enabled", True,
@@ -3866,7 +3866,7 @@ def agents_orchestrator_tool() -> (
         }
         if not context.get("dt_enabled", True):
             context["pentest_enabled"] = False
-            context["validator_enabled"] = False
+            context["plan_verifier_enabled"] = False
         conv_history = body.get(
             "conversation_history", [],
         )
@@ -3878,7 +3878,7 @@ def agents_orchestrator_tool() -> (
         )
 
         if tool_name == "run_report_manager":
-            validation_fb = ""
+            verification_fb = ""
             for entry in reversed(conv_history):
                 if (
                     entry.get("type")
@@ -3898,15 +3898,15 @@ def agents_orchestrator_tool() -> (
                     if verdict and verdict != (
                         "Attack path validated"
                     ):
-                        validation_fb = (
+                        verification_fb = (
                             f"Pentest verdict: "
                             f"{verdict}\n\n"
                             f"{summary}"
                         )
                     break
-            if validation_fb:
-                context["validation_feedback"] = (
-                    validation_fb
+            if verification_fb:
+                context["verification_feedback"] = (
+                    verification_fb
                 )
 
         if tool_name in (
@@ -3987,7 +3987,7 @@ def agents_orchestrator_tool() -> (
                 if (
                     tool_name == "run_report_manager"
                     and not context.get(
-                        "report_reviewer_enabled",
+                        "report_verifier_enabled",
                         True,
                     )
                 ):
@@ -4792,14 +4792,14 @@ def agents_host_analyzer_tool() -> tuple[
 
 
 @agents_bp.route(
-    "/action-validator/step", methods=["POST"],
+    "/action-verifier/step", methods=["POST"],
 )
 @token_required
-def agents_action_validator_step() -> tuple[
+def agents_action_verifier_step() -> tuple[
     Response, int
 ]:
     """
-    Start an ActionValidatorAgent step as a background job.
+    Start an ActionVerifierAgent step as a background job.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -4864,7 +4864,7 @@ def agents_action_validator_step() -> tuple[
         dict[str, Any], None, None
     ]:
         """
-        Run the ActionValidatorAgent step in background.
+        Run the ActionVerifierAgent step in background.
 
         :return: a generator of event dicts
         """
@@ -4892,7 +4892,7 @@ def agents_action_validator_step() -> tuple[
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
-            agent = ActionValidatorAgent()
+            agent = ActionVerifierAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
             )
@@ -4926,14 +4926,14 @@ def agents_action_validator_step() -> tuple[
 
 
 @agents_bp.route(
-    "/action-validator/prompt", methods=["POST"],
+    "/action-verifier/prompt", methods=["POST"],
 )
 @token_required
-def agents_action_validator_prompt() -> tuple[
+def agents_action_verifier_prompt() -> tuple[
     Response, int
 ]:
     """
-    Render the ActionValidatorAgent system prompt.
+    Render the ActionVerifierAgent system prompt.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -4942,7 +4942,7 @@ def agents_action_validator_prompt() -> tuple[
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
     )
-    prompt = build_action_validator_prompt(
+    prompt = build_action_verifier_prompt(
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
@@ -4966,14 +4966,14 @@ def agents_action_validator_prompt() -> tuple[
 
 
 @agents_bp.route(
-    "/action-validator/tool", methods=["POST"],
+    "/action-verifier/tool", methods=["POST"],
 )
 @token_required
-def agents_action_validator_tool() -> tuple[
+def agents_action_verifier_tool() -> tuple[
     Response, int
 ]:
     """
-    Execute an approved tool call for ActionValidatorAgent.
+    Execute an approved tool call for ActionVerifierAgent.
 
     Streaming tools run as background jobs; other tools
     return a single JSON response.
@@ -5024,7 +5024,7 @@ def agents_action_validator_tool() -> tuple[
             :return: a generator of event dicts
             """
             try:
-                agent = ActionValidatorAgent()
+                agent = ActionVerifierAgent()
                 yield from agent.execute_tool_stream(
                     tool_name, tool_args,
                 )
@@ -5039,7 +5039,7 @@ def agents_action_validator_tool() -> tuple[
         )
         return jsonify({"job_id": job_id}), 202
 
-    agent = ActionValidatorAgent()
+    agent = ActionVerifierAgent()
     result = agent.execute_tool(
         tool_name, tool_args,
     )

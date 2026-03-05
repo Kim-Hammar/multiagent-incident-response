@@ -62,9 +62,9 @@ class API:
     AGENTS_REPORT_STEP_ROUTE = "/api/agents/report/step"
     AGENTS_REPORT_TOOL_ROUTE = "/api/agents/report/tool"
     AGENTS_REPORT_PROMPT_ROUTE = "/api/agents/report/prompt"
-    AGENTS_VALIDATION_STEP_ROUTE = "/api/agents/validation/step"
-    AGENTS_VALIDATION_TOOL_ROUTE = "/api/agents/validation/tool"
-    AGENTS_VALIDATION_PROMPT_ROUTE = "/api/agents/validation/prompt"
+    AGENTS_PLAN_VERIFIER_STEP_ROUTE = "/api/agents/plan-verifier/step"
+    AGENTS_PLAN_VERIFIER_TOOL_ROUTE = "/api/agents/plan-verifier/tool"
+    AGENTS_PLAN_VERIFIER_PROMPT_ROUTE = "/api/agents/plan-verifier/prompt"
     AGENTS_CODE_STEP_ROUTE = "/api/agents/code/step"
     AGENTS_CODE_TOOL_ROUTE = "/api/agents/code/tool"
     AGENTS_CODE_PROMPT_ROUTE = "/api/agents/code/prompt"
@@ -139,14 +139,14 @@ class API:
     AGENTS_HOST_ANALYZER_PROMPT_ROUTE = (
         "/api/agents/host-analyzer/prompt"
     )
-    AGENTS_ACTION_VALIDATOR_STEP_ROUTE = (
-        "/api/agents/action-validator/step"
+    AGENTS_ACTION_VERIFIER_STEP_ROUTE = (
+        "/api/agents/action-verifier/step"
     )
-    AGENTS_ACTION_VALIDATOR_TOOL_ROUTE = (
-        "/api/agents/action-validator/tool"
+    AGENTS_ACTION_VERIFIER_TOOL_ROUTE = (
+        "/api/agents/action-verifier/tool"
     )
-    AGENTS_ACTION_VALIDATOR_PROMPT_ROUTE = (
-        "/api/agents/action-validator/prompt"
+    AGENTS_ACTION_VERIFIER_PROMPT_ROUTE = (
+        "/api/agents/action-verifier/prompt"
     )
     AGENTS_REPORTS_ROUTE = "/api/agents/reports"
     AGENTS_REPORT_ROUTE = "/api/agents/reports/<int:report_id>"

@@ -51,12 +51,12 @@ _STATUS_MAP: dict[str, str] = {
     "sub_event": "Running sub-agent",
     "assessment": "Producing report",
     "report": "Producing report",
-    "validation_report": "Producing report",
+    "plan_verifier_report": "Producing report",
     "code_report": "Producing report",
     "report_review": "Producing report",
     "planner_report": "Producing report",
     "host_analysis": "Producing report",
-    "action_validation": "Producing report",
+    "action_verification": "Producing report",
     "error": "Error occurred",
 }
 

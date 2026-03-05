@@ -220,7 +220,7 @@ class PlannerAgent:
     @staticmethod
     def _format_revision_context(
         prev_planner_report: dict[str, Any] | None,
-        prev_validation_report: dict[str, Any] | None,
+        prev_plan_verifier_report: dict[str, Any] | None,
     ) -> str:
         """
         Format a brief revision context from previous pipeline
@@ -230,10 +230,10 @@ class PlannerAgent:
         reports), so the prompt section is omitted entirely.
 
         :param prev_planner_report: previous planner report
-        :param prev_validation_report: previous validation report
+        :param prev_plan_verifier_report: previous plan verifier report
         :return: formatted revision context or empty string
         """
-        if not prev_planner_report and not prev_validation_report:
+        if not prev_planner_report and not prev_plan_verifier_report:
             return ""
         sections: list[str] = [
             "## Revision Context\n",
@@ -270,14 +270,14 @@ class PlannerAgent:
                 sections.append(
                     f"**Previous expected cost:** {cost}\n"
                 )
-        if prev_validation_report:
-            verdict = prev_validation_report.get(
+        if prev_plan_verifier_report:
+            verdict = prev_plan_verifier_report.get(
                 "overall_verdict",
-                prev_validation_report.get(
+                prev_plan_verifier_report.get(
                     "overall_result", "",
                 ),
             )
-            val_summary = prev_validation_report.get(
+            val_summary = prev_plan_verifier_report.get(
                 "executive_summary", "",
             )
             if verdict:
@@ -290,7 +290,7 @@ class PlannerAgent:
                     f"**Validation feedback:** "
                     f"{val_summary}\n"
                 )
-            recs = prev_validation_report.get(
+            recs = prev_plan_verifier_report.get(
                 "recommendations", [],
             )
             if recs:
@@ -314,7 +314,7 @@ class PlannerAgent:
         model_name: str | None = None,
         time_limit_minutes: int = 10,
         prev_planner_report: dict[str, Any] | None = None,
-        prev_validation_report: (
+        prev_plan_verifier_report: (
             dict[str, Any] | None
         ) = None,
         compaction_model: str | None = None,
@@ -343,7 +343,7 @@ class PlannerAgent:
         :param model_name: optional LLM name override
         :param time_limit_minutes: RL training time limit
         :param prev_planner_report: previous RL report for revision
-        :param prev_validation_report: previous validation report
+        :param prev_plan_verifier_report: previous plan verifier report
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
@@ -385,7 +385,7 @@ class PlannerAgent:
                 revision_context=(
                     self._format_revision_context(
                         prev_planner_report,
-                        prev_validation_report,
+                        prev_plan_verifier_report,
                     )
                 ),
             )
@@ -404,7 +404,7 @@ class PlannerAgent:
                 revision_context=(
                     self._format_revision_context(
                         prev_planner_report,
-                        prev_validation_report,
+                        prev_plan_verifier_report,
                     )
                 ),
             )

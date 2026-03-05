@@ -1,6 +1,6 @@
 """
 ReportManagerAgent — uses Gemini with function calling to
-orchestrate ReportAgent and ReportReviewerAgent in an automated
+orchestrate ReportAgent and ReportVerifierAgent in an automated
 generate-review-revise loop.
 """
 import base64
@@ -31,7 +31,7 @@ from ccs_response_planner_backend.agents.report_manager_agent.prompt import (
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations import (
     ALL_DECLARATIONS,
-    ALL_DECLARATIONS_NO_REVIEWER,
+    ALL_DECLARATIONS_NO_VERIFIER,
     ITERATING_DECLARATIONS,
 )
 from ccs_response_planner_backend.agents.report_manager_agent.tools import (
@@ -83,7 +83,7 @@ def _build_initial_message(
 class ReportManagerAgent:
     """
     An orchestrator agent that uses Gemini function calling
-    to coordinate ReportAgent and ReportReviewerAgent in an
+    to coordinate ReportAgent and ReportVerifierAgent in an
     automated generate-review-revise loop.
     """
 
@@ -144,7 +144,7 @@ class ReportManagerAgent:
         compaction_threshold: float = 0.8,
         dt_enabled: bool = True,
         info_tools_enabled: bool = True,
-        report_reviewer_enabled: bool = True,
+        report_verifier_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the orchestrator agent loop by one step.
@@ -170,8 +170,8 @@ class ReportManagerAgent:
         :param dt_enabled: whether the digital twin is enabled
         :param info_tools_enabled: whether external info tools
             are enabled
-        :param report_reviewer_enabled: whether the report
-            reviewer is enabled (default True)
+        :param report_verifier_enabled: whether the report
+            verifier is enabled (default True)
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -206,8 +206,8 @@ class ReportManagerAgent:
         system_prompt = build_system_prompt(
             dt_enabled=dt_enabled,
             info_tools_enabled=info_tools_enabled,
-            report_reviewer_enabled=(
-                report_reviewer_enabled
+            report_verifier_enabled=(
+                report_verifier_enabled
             ),
             system_description=(
                 system_description or "N/A"
@@ -247,8 +247,8 @@ class ReportManagerAgent:
             ):
                 yield ev
 
-        if not report_reviewer_enabled:
-            declarations = ALL_DECLARATIONS_NO_REVIEWER
+        if not report_verifier_enabled:
+            declarations = ALL_DECLARATIONS_NO_VERIFIER
         elif self._has_reviewed(conversation_history):
             declarations = ALL_DECLARATIONS
         else:
@@ -415,17 +415,17 @@ class ReportManagerAgent:
     ) -> bool:
         """
         Check whether the conversation history contains a
-        run_report_reviewer_agent tool_result (gates the
+        run_report_verifier_agent tool_result (gates the
         produce_report_manager_report declaration).
 
         :param history: the conversation history list
-        :return: True if a reviewer result exists
+        :return: True if a verifier result exists
         """
         for entry in history:
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_report_reviewer_agent"
+                == "run_report_verifier_agent"
             ):
                 return True
         return False

@@ -71,7 +71,7 @@ function ReportManagerReportView({ entry, index, isExpanded, toggleEntry }) {
 /* ── Main component ───────────────────────────────────────────── */
 
 /**
- * ReportManagerAgent component — orchestrates ReportAgent + ReportReviewerAgent
+ * ReportManagerAgent component — orchestrates ReportAgent + ReportVerifierAgent
  * in an automated generate-review-revise loop to produce high-quality
  * incident assessment reports.
  */
@@ -102,7 +102,7 @@ function ReportManagerAgent() {
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
   const [infoToolsEnabled, setInfoToolsEnabled] = useState(true)
-  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
+  const [reportVerifierEnabled, setReportVerifierEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [loadingReportHistory, setLoadingReportHistory] = useState(true)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -157,7 +157,7 @@ function ReportManagerAgent() {
       setAutopilot(config.autopilot ?? true)
       setDtEnabled(config.dtEnabled ?? true)
       setInfoToolsEnabled(config.infoToolsEnabled ?? true)
-      setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
+      setReportVerifierEnabled(config.reportVerifierEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -297,7 +297,7 @@ function ReportManagerAgent() {
       if (
         !reviewReport &&
         h.type === 'tool_result' &&
-        h.tool_name === 'run_report_reviewer_agent'
+        h.tool_name === 'run_report_verifier_agent'
       ) {
         reviewReport = h.result?.report_review || null
       }
@@ -368,7 +368,7 @@ function ReportManagerAgent() {
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
             info_tools_enabled: infoToolsEnabled,
-            report_reviewer_enabled: reportReviewerEnabled
+            report_verifier_enabled: reportVerifierEnabled
           })
         })
         if (res.status === 401) {
@@ -597,7 +597,7 @@ function ReportManagerAgent() {
         autopilot,
         dtEnabled,
         infoToolsEnabled,
-        reportReviewerEnabled
+        reportVerifierEnabled
       }
     )
     callStep([])
@@ -620,7 +620,7 @@ function ReportManagerAgent() {
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
       const subModel =
-        proposal.tool_name === 'run_report_reviewer_agent' ? reviewerAgentModel : reportAgentModel
+        proposal.tool_name === 'run_report_verifier_agent' ? reviewerAgentModel : reportAgentModel
       const streamEntry = {
         type: 'tool_streaming',
         tool_name: proposal.tool_name,
@@ -634,7 +634,7 @@ function ReportManagerAgent() {
       setConversationHistory(base)
       try {
         let lastAssessment
-        if (proposal.tool_name === 'run_report_reviewer_agent') {
+        if (proposal.tool_name === 'run_report_verifier_agent') {
           for (let i = latestHistory.length - 1; i >= 0; i--) {
             const h = latestHistory[i]
             if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
@@ -761,7 +761,7 @@ function ReportManagerAgent() {
           tool_name: proposal.tool_name,
           result
         }
-        if (proposal.tool_name === 'run_report_reviewer_agent') {
+        if (proposal.tool_name === 'run_report_verifier_agent') {
           for (let i = base.length - 1; i >= 0; i--) {
             const h = base[i]
             if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
@@ -900,7 +900,7 @@ function ReportManagerAgent() {
 
   const resumeToolJob = async (jobId, toolName, startTime) => {
     const subModel =
-      toolName === 'run_report_reviewer_agent' ? reviewerAgentModel : reportAgentModel
+      toolName === 'run_report_verifier_agent' ? reviewerAgentModel : reportAgentModel
     const streamEntry = {
       type: 'tool_streaming',
       tool_name: toolName,
@@ -916,7 +916,7 @@ function ReportManagerAgent() {
     try {
       const latestHistory = conversationHistoryRef.current
       let lastAssessment
-      if (toolName === 'run_report_reviewer_agent') {
+      if (toolName === 'run_report_verifier_agent') {
         for (let i = latestHistory.length - 1; i >= 0; i--) {
           const h = latestHistory[i]
           if (h.type === 'tool_result' && h.tool_name === 'run_report_agent') {
@@ -1151,7 +1151,7 @@ function ReportManagerAgent() {
         : entry.result.assessment
       return <AssessmentBody report={report} />
     }
-    if (entry.tool_name === 'run_report_reviewer_agent' && entry.result?.report_review) {
+    if (entry.tool_name === 'run_report_verifier_agent' && entry.result?.report_review) {
       return (
         <>
           {entry._attackPathImage && (
@@ -1267,7 +1267,7 @@ function ReportManagerAgent() {
         <div style={{ marginTop: '16px' }}>
           <div className="ia-description">
             <p>
-              This agent coordinates the ReportAgent and ReportReviewerAgent in an automated
+              This agent coordinates the ReportAgent and ReportVerifierAgent in an automated
               generate-review-revise loop to produce high-quality incident assessment reports.
             </p>
           </div>
@@ -1389,11 +1389,11 @@ function ReportManagerAgent() {
             },
             {
               id: 'rm-report-reviewer',
-              label: 'Report Reviewer',
+              label: 'Report Verifier',
               description:
                 'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
-              checked: reportReviewerEnabled,
-              onChange: setReportReviewerEnabled,
+              checked: reportVerifierEnabled,
+              onChange: setReportVerifierEnabled,
               disabled: isAgentBusy
             }
           ]}
@@ -1433,7 +1433,7 @@ function ReportManagerAgent() {
               promptUrl: API_AGENTS_REPORT_PROMPT_URL
             },
             {
-              label: 'Report Reviewer',
+              label: 'Report Verifier',
               model: reviewerAgentModel,
               setModel: setReviewerAgentModel,
               promptUrl: API_AGENTS_REPORT_REVIEW_PROMPT_URL

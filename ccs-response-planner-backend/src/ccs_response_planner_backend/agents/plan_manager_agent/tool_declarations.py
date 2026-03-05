@@ -8,18 +8,18 @@ RUN_CODE_MANAGER_DECL = genai_types.FunctionDeclaration(
     description=(
         "Run the CodeManager agent to orchestrate MDP "
         "environment code generation via the CodeAgent "
-        "and CodeReviewerAgent. On revision iterations, "
-        "provide validation_feedback describing the "
+        "and CodeVerifierAgent. On revision iterations, "
+        "provide verification_feedback describing the "
         "issues found during validation so the CodeManager "
         "can revise the MDP code."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
         "properties": {
-            "validation_feedback": {
+            "verification_feedback": {
                 "type": "string",
                 "description": (
-                    "Feedback from the validation phase "
+                    "Feedback from the verification phase "
                     "describing issues to fix in the "
                     "MDP code. Only needed on revision "
                     "iterations."
@@ -45,10 +45,10 @@ RUN_PLANNER_AGENT_DECL = genai_types.FunctionDeclaration(
     },
 )
 
-RUN_VALIDATION_AGENT_DECL = genai_types.FunctionDeclaration(
-    name="run_validation_agent",
+RUN_PLAN_VERIFIER_AGENT_DECL = genai_types.FunctionDeclaration(
+    name="run_plan_verifier_agent",
     description=(
-        "Run the Validation Agent to test the response "
+        "Run the Plan Verifier Agent to test the response "
         "plan on the digital twin. Requires that "
         "run_planner_agent has completed successfully first."
     ),
@@ -64,7 +64,7 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
     description=(
         "Produce the final pipeline report. Call this "
         "ONLY after at least one full pipeline cycle "
-        "(CodeManager + Planner Agent + Validation Agent)."
+        "(CodeManager + Planner Agent + Plan Verifier Agent)."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
@@ -105,10 +105,10 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
                     "phase and computed policy."
                 ),
             },
-            "validation_summary": {
+            "verification_summary": {
                 "type": "string",
                 "description": (
-                    "Summary of the validation "
+                    "Summary of the verification "
                     "phase results."
                 ),
             },
@@ -119,7 +119,7 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
             "final_verdict",
             "code_manager_summary",
             "planner_agent_summary",
-            "validation_summary",
+            "verification_summary",
         ],
     },
 )
@@ -127,23 +127,23 @@ PRODUCE_PLAN_MANAGER_REPORT_DECL = genai_types.FunctionDeclaration(
 ITERATING_DECLARATIONS = [
     RUN_CODE_MANAGER_DECL,
     RUN_PLANNER_AGENT_DECL,
-    RUN_VALIDATION_AGENT_DECL,
+    RUN_PLAN_VERIFIER_AGENT_DECL,
 ]
 
 ALL_DECLARATIONS = [
     RUN_CODE_MANAGER_DECL,
     RUN_PLANNER_AGENT_DECL,
-    RUN_VALIDATION_AGENT_DECL,
+    RUN_PLAN_VERIFIER_AGENT_DECL,
     PRODUCE_PLAN_MANAGER_REPORT_DECL,
 ]
 
 DIRECT_PLAN_ITERATING_DECLARATIONS = [
     RUN_PLANNER_AGENT_DECL,
-    RUN_VALIDATION_AGENT_DECL,
+    RUN_PLAN_VERIFIER_AGENT_DECL,
 ]
 
 DIRECT_PLAN_ALL_DECLARATIONS = [
     RUN_PLANNER_AGENT_DECL,
-    RUN_VALIDATION_AGENT_DECL,
+    RUN_PLAN_VERIFIER_AGENT_DECL,
     PRODUCE_PLAN_MANAGER_REPORT_DECL,
 ]

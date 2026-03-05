@@ -26,11 +26,11 @@ The multi-agent system coordinates 10 specialized agents:
 | `plan_manager` | Orchestrates response plan management |
 | `report` | Generates incident reports from analysis |
 | `report_manager` | Manages report generation workflow |
-| `report_reviewer` | Reviews generated reports for accuracy |
+| `report_verifier` | Verifies generated reports for accuracy |
 | `code` | Generates remediation code |
 | `code_manager` | Manages code generation workflow |
-| `code_reviewer` | Reviews generated code for quality and safety |
-| `validation` | Validates responses and system integrity |
+| `code_verifier` | Verifies generated code for quality and safety |
+| `plan_verifier` | Verifies response plans on the digital twin |
 | `rl` | Reinforcement learning agent for policy optimization |
 
 ## External Integrations

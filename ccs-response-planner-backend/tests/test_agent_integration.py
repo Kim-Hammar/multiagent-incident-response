@@ -380,23 +380,23 @@ class TestPlannerAgentIntegration:
 @skip_no_docker
 @pytest.mark.slow
 @pytest.mark.docker
-class TestValidationAgentIntegration:
-    """Integration test for ValidationAgent."""
+class TestPlanVerifierAgentIntegration:
+    """Integration test for PlanVerifierAgent."""
 
-    def test_produces_validation_report(self):
+    def test_produces_plan_verifier_report(self):
         """
-        ValidationAgent should execute DT commands and produce
-        a validation report.
+        PlanVerifierAgent should execute DT commands and produce
+        a plan verifier report.
         """
-        from ccs_response_planner_backend.agents.validation_agent.agent import (  # noqa: E501
-            ValidationAgent,
+        from ccs_response_planner_backend.agents.plan_verifier_agent.agent import (  # noqa: E501
+            PlanVerifierAgent,
         )
-        from ccs_response_planner_backend.agents.validation_agent.tools import (  # noqa: E501
+        from ccs_response_planner_backend.agents.plan_verifier_agent.tools import (  # noqa: E501
             STREAMING_TOOL_DISPATCH,
             TOOL_DISPATCH,
         )
 
-        agent = ValidationAgent()
+        agent = PlanVerifierAgent()
         events, report = run_agent_loop(
             agent=agent,
             step_kwargs={
@@ -412,12 +412,12 @@ class TestValidationAgentIntegration:
             },
             tool_dispatch=TOOL_DISPATCH,
             streaming_dispatch=STREAMING_TOOL_DISPATCH,
-            report_event_type="validation_report",
+            report_event_type="plan_verifier_report",
         )
         assert report is not None, (
-            "ValidationAgent did not produce a validation report"
+            "PlanVerifierAgent did not produce a plan verifier report"
         )
-        assert "validation_report" in report
+        assert "plan_verifier_report" in report
 
 
 # ===================================================================
@@ -553,7 +553,7 @@ class TestPlanManagerIntegration:
     def test_orchestrates_full_pipeline(self):
         """
         PlanManagerAgent should invoke code_manager, planner_agent, and
-        validation_agent, then produce a plan_manager_report.
+        plan_verifier_agent, then produce a plan_manager_report.
         """
         from ccs_response_planner_backend.agents.plan_manager_agent.agent import (  # noqa: E501
             PlanManagerAgent,
@@ -573,7 +573,7 @@ class TestPlanManagerIntegration:
             "code_agent_model": MODEL,
             "reviewer_agent_model": MODEL,
             "planner_agent_model": MODEL,
-            "validation_agent_model": MODEL,
+            "plan_verifier_agent_model": MODEL,
             "planner_time_limit_minutes": 1,
             "username": "test",
             "dt_config": None,

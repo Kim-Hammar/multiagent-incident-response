@@ -30,7 +30,7 @@ def test_streaming_dispatch_has_two_tools() -> None:
     """
     expected = {
         "run_report_agent",
-        "run_report_reviewer_agent",
+        "run_report_verifier_agent",
     }
     assert set(STREAMING_TOOL_DISPATCH.keys()) == expected
 
@@ -46,7 +46,7 @@ def test_iterating_declarations_count() -> None:
     names = {d.name for d in ITERATING_DECLARATIONS}
     assert names == {
         "run_report_agent",
-        "run_report_reviewer_agent",
+        "run_report_verifier_agent",
     }
 
 
@@ -58,7 +58,7 @@ def test_all_declarations_count() -> None:
     names = {d.name for d in ALL_DECLARATIONS}
     assert names == {
         "run_report_agent",
-        "run_report_reviewer_agent",
+        "run_report_verifier_agent",
         "produce_report_manager_report",
     }
 
@@ -73,9 +73,9 @@ def test_has_reviewed_false_when_empty() -> None:
     assert ReportManagerAgent._has_reviewed([]) is False
 
 
-def test_has_reviewed_false_without_reviewer_result() -> None:
+def test_has_reviewed_false_without_verifier_result() -> None:
     """
-    _has_reviewed returns False when no reviewer result exists.
+    _has_reviewed returns False when no verifier result exists.
     """
     history = [
         {
@@ -87,9 +87,9 @@ def test_has_reviewed_false_without_reviewer_result() -> None:
     assert ReportManagerAgent._has_reviewed(history) is False
 
 
-def test_has_reviewed_true_with_reviewer_result() -> None:
+def test_has_reviewed_true_with_verifier_result() -> None:
     """
-    _has_reviewed returns True when reviewer result exists.
+    _has_reviewed returns True when verifier result exists.
     """
     history = [
         {
@@ -99,7 +99,7 @@ def test_has_reviewed_true_with_reviewer_result() -> None:
         },
         {
             "type": "tool_result",
-            "tool_name": "run_report_reviewer_agent",
+            "tool_name": "run_report_verifier_agent",
             "result": {},
         },
     ]
@@ -286,7 +286,7 @@ def test_step_stream_yields_report_manager_report(
     history = [
         {
             "type": "tool_result",
-            "tool_name": "run_report_reviewer_agent",
+            "tool_name": "run_report_verifier_agent",
             "result": {},
         },
     ]

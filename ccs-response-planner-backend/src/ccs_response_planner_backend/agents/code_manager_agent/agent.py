@@ -1,6 +1,6 @@
 """
 CodeManagerAgent — uses Gemini with function calling to
-orchestrate CodeAgent and CodeReviewerAgent in an automated
+orchestrate CodeAgent and CodeVerifierAgent in an automated
 generate-review-revise loop.
 """
 import base64
@@ -86,7 +86,7 @@ def _build_initial_message(
 class CodeManagerAgent:
     """
     An orchestrator agent that uses Gemini function calling
-    to coordinate CodeAgent and CodeReviewerAgent in an
+    to coordinate CodeAgent and CodeVerifierAgent in an
     automated generate-review-revise loop.
     """
 
@@ -143,10 +143,10 @@ class CodeManagerAgent:
         images: list[str] | None = None,
         model_name: str | None = None,
         max_iterations: int = 2,
-        validation_feedback: str = "",
+        verification_feedback: str = "",
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
-        code_reviewer_enabled: bool = True,
+        code_verifier_enabled: bool = True,
         dt_enabled: bool = True,
         report_manager_enabled: bool = True,
         security_alerts: str = "",
@@ -169,11 +169,11 @@ class CodeManagerAgent:
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM name override
         :param max_iterations: maximum generate-review cycles
-        :param validation_feedback: feedback from validation phase
+        :param verification_feedback: feedback from verification phase
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
-        :param code_reviewer_enabled: whether the code reviewer
+        :param code_verifier_enabled: whether the code verifier
             is enabled (default True)
         :param dt_enabled: whether the digital twin is enabled
         :param report_manager_enabled: whether the report manager
@@ -185,7 +185,7 @@ class CodeManagerAgent:
         effective_model = model_name or MODEL_NAME
 
         is_revision = bool(
-            validation_feedback and validation_feedback.strip()
+            verification_feedback and verification_feedback.strip()
         )
         if is_revision:
             revision_notice = (
@@ -193,17 +193,17 @@ class CodeManagerAgent:
                 "This is a revision round of the full "
                 "pipeline. The previous iteration's response "
                 "plan was tested on the digital twin and the "
-                "Validation Agent found issues that need to "
+                "Plan Verifier Agent found issues that need to "
                 "be addressed. Your primary goal is to "
-                "carefully address the validation findings "
+                "carefully address the verification findings "
                 "— do NOT start from scratch. Focus on "
                 "improving the MDP code model to fix the "
                 "specific issues raised. When you call "
-                "`run_code_agent`, include the validation "
+                "`run_code_agent`, include the verification "
                 "findings in the `review_feedback` argument "
                 "so the CodeAgent knows exactly what to fix. "
-                "The detailed validation feedback is provided "
-                "in the \"Validation Feedback\" section below."
+                "The detailed verification feedback is provided "
+                "in the \"Verification Feedback\" section below."
                 "\n\n"
             )
         else:
@@ -218,7 +218,7 @@ class CodeManagerAgent:
         )
         system_prompt = build_system_prompt(
             dt_enabled=dt_enabled,
-            code_reviewer_enabled=code_reviewer_enabled,
+            code_verifier_enabled=code_verifier_enabled,
             system_description=system_description or "N/A",
             incident_context_section=(
                 incident_context_section
@@ -226,7 +226,7 @@ class CodeManagerAgent:
             specification=specification or "N/A",
             operator_feedback=operator_feedback or "N/A",
             max_iterations=max_iterations,
-            validation_feedback=validation_feedback or "N/A",
+            verification_feedback=verification_feedback or "N/A",
             revision_notice=revision_notice,
         )
         yield {
@@ -254,17 +254,17 @@ class CodeManagerAgent:
 
         has_reviewed = (
             self._has_reviewed(conversation_history)
-            or not code_reviewer_enabled
+            or not code_verifier_enabled
         )
         declarations = (
             ALL_DECLARATIONS
             if has_reviewed
             else ITERATING_DECLARATIONS
         )
-        if not code_reviewer_enabled:
+        if not code_verifier_enabled:
             declarations = [
                 d for d in declarations
-                if d.name != "run_code_reviewer_agent"
+                if d.name != "run_code_verifier_agent"
             ]
 
         if is_anthropic_model(effective_model):
@@ -417,7 +417,7 @@ class CodeManagerAgent:
     ) -> bool:
         """
         Check whether the conversation history contains a
-        run_code_reviewer_agent tool_result (gates the
+        run_code_verifier_agent tool_result (gates the
         produce_orchestrator_report declaration).
 
         :param history: the conversation history list
@@ -427,7 +427,7 @@ class CodeManagerAgent:
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_code_reviewer_agent"
+                == "run_code_verifier_agent"
             ):
                 return True
         return False

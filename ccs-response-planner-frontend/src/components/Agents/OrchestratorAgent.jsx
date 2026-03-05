@@ -14,7 +14,7 @@ import {
   API_AGENTS_CODE_PROMPT_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
   API_AGENTS_PLANNER_PROMPT_URL,
-  API_AGENTS_VALIDATION_PROMPT_URL,
+  API_AGENTS_PLAN_VERIFIER_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
@@ -34,7 +34,7 @@ import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExe
 import {
   AssessmentBody,
   CodeReportBody,
-  ValidationReportBody,
+  PlanVerifierReportBody,
   PlannerReportInline,
   PlanManagerReportBody,
   PentestReportBody
@@ -67,7 +67,7 @@ function enrichOrchestratorReport(report, history) {
     pentest_report: ptResult.pentest_report || {},
     code_report: pmResult.code_report || {},
     planner_report: pmResult.planner_report || {},
-    validation_report: pmResult.validation_report || {},
+    plan_verifier_report: pmResult.plan_verifier_report || {},
     response_plan: pmResult.response_plan || ''
   }
 }
@@ -178,10 +178,10 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
                 <PlannerReportInline report={report.planner_report} />
               </div>
             )}
-            {report.validation_report && Object.keys(report.validation_report).length > 0 && (
+            {report.plan_verifier_report && Object.keys(report.plan_verifier_report).length > 0 && (
               <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Validation Report</div>
-                <ValidationReportBody report={report.validation_report} />
+                <div className="ia-assessment-label">Plan Verifier Report</div>
+                <PlanVerifierReportBody report={report.plan_verifier_report} />
               </div>
             )}
             {report.response_plan && (
@@ -237,20 +237,20 @@ function OrchestratorAgent() {
   const [orchestratorModel, setOrchestratorModel] = useState('')
   const [reportManagerModel, setReportManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
-  const [reportReviewerModel, setReportReviewerModel] = useState('')
+  const [reportVerifierModel, setReportVerifierModel] = useState('')
   const [planManagerModel, setPlanManagerModel] = useState('')
   const [codeManagerModel, setCodeManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
-  const [codeReviewerModel, setCodeReviewerModel] = useState('')
+  const [codeVerifierModel, setCodeVerifierModel] = useState('')
   const [plannerAgentModel, setPlannerAgentModel] = useState('')
-  const [validationAgentModel, setValidationAgentModel] = useState('')
+  const [planVerifierAgentModel, setPlanVerifierAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
   const [infoToolsEnabled, setInfoToolsEnabled] = useState(true)
-  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
-  const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
-  const [validatorEnabled, setValidatorEnabled] = useState(true)
+  const [reportVerifierEnabled, setReportVerifierEnabled] = useState(true)
+  const [codeVerifierEnabled, setCodeVerifierEnabled] = useState(true)
+  const [planVerifierEnabled, setPlanVerifierEnabled] = useState(true)
   const [reportManagerEnabled, setReportManagerEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
@@ -305,13 +305,13 @@ function OrchestratorAgent() {
       orchestratorModel,
       reportManagerModel,
       reportAgentModel,
-      reportReviewerModel,
+      reportVerifierModel,
       planManagerModel,
       codeManagerModel,
       codeAgentModel,
-      codeReviewerModel,
+      codeVerifierModel,
       plannerAgentModel,
-      validationAgentModel,
+      planVerifierAgentModel,
       compactionModel,
       compactionThreshold,
       reportManagerIterations,
@@ -321,10 +321,10 @@ function OrchestratorAgent() {
       autopilot,
       dtEnabled,
       infoToolsEnabled,
-      reportReviewerEnabled,
-      codeReviewerEnabled,
+      reportVerifierEnabled,
+      codeVerifierEnabled,
       reportManagerEnabled,
-      validatorEnabled,
+      planVerifierEnabled,
       pentestEnabled,
       codeModelEnabled
     },
@@ -342,13 +342,14 @@ function OrchestratorAgent() {
         if (cfg.orchestratorModel != null) setOrchestratorModel(cfg.orchestratorModel)
         if (cfg.reportManagerModel != null) setReportManagerModel(cfg.reportManagerModel)
         if (cfg.reportAgentModel != null) setReportAgentModel(cfg.reportAgentModel)
-        if (cfg.reportReviewerModel != null) setReportReviewerModel(cfg.reportReviewerModel)
+        if (cfg.reportVerifierModel != null) setReportVerifierModel(cfg.reportVerifierModel)
         if (cfg.planManagerModel != null) setPlanManagerModel(cfg.planManagerModel)
         if (cfg.codeManagerModel != null) setCodeManagerModel(cfg.codeManagerModel)
         if (cfg.codeAgentModel != null) setCodeAgentModel(cfg.codeAgentModel)
-        if (cfg.codeReviewerModel != null) setCodeReviewerModel(cfg.codeReviewerModel)
+        if (cfg.codeVerifierModel != null) setCodeVerifierModel(cfg.codeVerifierModel)
         if (cfg.plannerAgentModel != null) setPlannerAgentModel(cfg.plannerAgentModel)
-        if (cfg.validationAgentModel != null) setValidationAgentModel(cfg.validationAgentModel)
+        if (cfg.planVerifierAgentModel != null)
+          setPlanVerifierAgentModel(cfg.planVerifierAgentModel)
         if (cfg.compactionModel != null) setCompactionModel(cfg.compactionModel)
         if (cfg.compactionThreshold != null) setCompactionThreshold(cfg.compactionThreshold)
         if (cfg.reportManagerIterations != null)
@@ -360,9 +361,9 @@ function OrchestratorAgent() {
         if (cfg.autopilot != null) setAutopilot(cfg.autopilot)
         if (cfg.dtEnabled != null) setDtEnabled(cfg.dtEnabled)
         if (cfg.infoToolsEnabled != null) setInfoToolsEnabled(cfg.infoToolsEnabled)
-        if (cfg.reportReviewerEnabled != null) setReportReviewerEnabled(cfg.reportReviewerEnabled)
-        if (cfg.codeReviewerEnabled != null) setCodeReviewerEnabled(cfg.codeReviewerEnabled)
-        if (cfg.validatorEnabled != null) setValidatorEnabled(cfg.validatorEnabled)
+        if (cfg.reportVerifierEnabled != null) setReportVerifierEnabled(cfg.reportVerifierEnabled)
+        if (cfg.codeVerifierEnabled != null) setCodeVerifierEnabled(cfg.codeVerifierEnabled)
+        if (cfg.planVerifierEnabled != null) setPlanVerifierEnabled(cfg.planVerifierEnabled)
         if (cfg.reportManagerEnabled != null) setReportManagerEnabled(cfg.reportManagerEnabled)
         if (cfg.pentestEnabled != null) setPentestEnabled(cfg.pentestEnabled)
         if (cfg.codeModelEnabled != null) setCodeModelEnabled(cfg.codeModelEnabled)
@@ -547,10 +548,10 @@ function OrchestratorAgent() {
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
             info_tools_enabled: infoToolsEnabled,
-            report_reviewer_enabled: reportReviewerEnabled,
-            code_reviewer_enabled: codeReviewerEnabled,
+            report_verifier_enabled: reportVerifierEnabled,
+            code_verifier_enabled: codeVerifierEnabled,
             report_manager_enabled: reportManagerEnabled,
-            validator_enabled: validatorEnabled,
+            plan_verifier_enabled: planVerifierEnabled,
             pentest_enabled: pentestEnabled,
             code_model_enabled: codeModelEnabled,
             incident_id: selectedIncidentId
@@ -855,13 +856,13 @@ function OrchestratorAgent() {
           ),
           report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
-          report_reviewer_model: reportReviewerModel || undefined,
+          report_verifier_model: reportVerifierModel || undefined,
           plan_manager_model: planManagerModel || undefined,
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
-          code_reviewer_model: codeReviewerModel || undefined,
+          code_verifier_model: codeVerifierModel || undefined,
           planner_agent_model: plannerAgentModel || undefined,
-          validation_agent_model: validationAgentModel || undefined,
+          plan_verifier_agent_model: planVerifierAgentModel || undefined,
           report_manager_iterations: reportManagerIterations,
           plan_manager_iterations: planManagerIterations,
           code_manager_iterations: codeManagerIterations,
@@ -870,9 +871,9 @@ function OrchestratorAgent() {
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current,
           report_manager_enabled: reportManagerEnabled,
-          report_reviewer_enabled: reportReviewerEnabled,
-          code_reviewer_enabled: codeReviewerEnabled,
-          validator_enabled: validatorEnabled,
+          report_verifier_enabled: reportVerifierEnabled,
+          code_verifier_enabled: codeVerifierEnabled,
+          plan_verifier_enabled: planVerifierEnabled,
           pentest_enabled: pentestEnabled,
           code_model_enabled: codeModelEnabled
         }
@@ -1124,13 +1125,13 @@ function OrchestratorAgent() {
         ),
         report_manager_model: reportManagerModel || undefined,
         report_agent_model: reportAgentModel || undefined,
-        report_reviewer_model: reportReviewerModel || undefined,
+        report_verifier_model: reportVerifierModel || undefined,
         plan_manager_model: planManagerModel || undefined,
         code_manager_model: codeManagerModel || undefined,
         code_agent_model: codeAgentModel || undefined,
-        code_reviewer_model: codeReviewerModel || undefined,
+        code_verifier_model: codeVerifierModel || undefined,
         planner_agent_model: plannerAgentModel || undefined,
-        validation_agent_model: validationAgentModel || undefined,
+        plan_verifier_agent_model: planVerifierAgentModel || undefined,
         report_manager_iterations: reportManagerIterations,
         plan_manager_iterations: planManagerIterations,
         code_manager_iterations: codeManagerIterations,
@@ -1139,9 +1140,9 @@ function OrchestratorAgent() {
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current,
         report_manager_enabled: reportManagerEnabled,
-        report_reviewer_enabled: reportReviewerEnabled,
-        code_reviewer_enabled: codeReviewerEnabled,
-        validator_enabled: validatorEnabled,
+        report_verifier_enabled: reportVerifierEnabled,
+        code_verifier_enabled: codeVerifierEnabled,
+        plan_verifier_enabled: planVerifierEnabled,
         pentest_enabled: pentestEnabled,
         code_model_enabled: codeModelEnabled
       }
@@ -1604,11 +1605,11 @@ function OrchestratorAgent() {
             },
             {
               id: 'oa-report-reviewer',
-              label: 'Report Reviewer',
+              label: 'Report Verifier',
               description:
                 'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
-              checked: reportReviewerEnabled,
-              onChange: setReportReviewerEnabled,
+              checked: reportVerifierEnabled,
+              onChange: setReportVerifierEnabled,
               disabled: isAgentBusy
             },
             {
@@ -1631,11 +1632,11 @@ function OrchestratorAgent() {
             },
             {
               id: 'oa-code-reviewer-enabled',
-              label: 'Code Reviewer',
+              label: 'Code Verifier',
               description:
                 'When disabled, the plan manager invokes the code agent directly, skipping code review',
-              checked: codeReviewerEnabled,
-              onChange: setCodeReviewerEnabled,
+              checked: codeVerifierEnabled,
+              onChange: setCodeVerifierEnabled,
               disabled: isAgentBusy
             },
             {
@@ -1648,12 +1649,12 @@ function OrchestratorAgent() {
               disabled: isAgentBusy
             },
             {
-              id: 'oa-validator-enabled',
-              label: 'Validator Agent',
+              id: 'oa-plan-verifier-enabled',
+              label: 'Plan Verifier Agent',
               description:
-                'When disabled, the plan manager skips validation and returns the plan directly',
-              checked: validatorEnabled,
-              onChange: setValidatorEnabled,
+                'When disabled, the plan manager skips verification and returns the plan directly',
+              checked: planVerifierEnabled,
+              onChange: setPlanVerifierEnabled,
               disabled: isAgentBusy
             }
           ]}
@@ -1706,9 +1707,9 @@ function OrchestratorAgent() {
               setCompaction: null
             },
             {
-              label: 'Report Reviewer',
-              model: reportReviewerModel,
-              setModel: setReportReviewerModel,
+              label: 'Report Verifier',
+              model: reportVerifierModel,
+              setModel: setReportVerifierModel,
               promptUrl: API_AGENTS_REPORT_REVIEW_PROMPT_URL,
               iteration: null,
               compaction: null,
@@ -1754,9 +1755,9 @@ function OrchestratorAgent() {
               setCompaction: null
             },
             {
-              label: 'Code Reviewer',
-              model: codeReviewerModel,
-              setModel: setCodeReviewerModel,
+              label: 'Code Verifier',
+              model: codeVerifierModel,
+              setModel: setCodeVerifierModel,
               promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL,
               iteration: null,
               compaction: null,
@@ -1778,10 +1779,10 @@ function OrchestratorAgent() {
               setCompaction: null
             },
             {
-              label: 'Validation Agent',
-              model: validationAgentModel,
-              setModel: setValidationAgentModel,
-              promptUrl: API_AGENTS_VALIDATION_PROMPT_URL,
+              label: 'Plan Verifier Agent',
+              model: planVerifierAgentModel,
+              setModel: setPlanVerifierAgentModel,
+              promptUrl: API_AGENTS_PLAN_VERIFIER_PROMPT_URL,
               iteration: null,
               compaction: null,
               setCompaction: null

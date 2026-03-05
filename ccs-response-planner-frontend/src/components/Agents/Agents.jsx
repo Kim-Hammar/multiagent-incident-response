@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import ReportAgent from './ReportAgent.jsx'
-import ValidationAgent from './ValidationAgent.jsx'
+import PlanVerifierAgent from './PlanVerifierAgent.jsx'
 import CodeAgent from './CodeAgent.jsx'
-import CodeReviewerAgent from './CodeReviewerAgent.jsx'
+import CodeVerifierAgent from './CodeVerifierAgent.jsx'
 import CodeManagerAgent from './CodeManagerAgent.jsx'
 import PlanManagerAgent from './PlanManagerAgent.jsx'
 import PlannerAgent from './PlannerAgent.jsx'
-import ReportReviewerAgent from './ReportReviewerAgent.jsx'
+import ReportVerifierAgent from './ReportVerifierAgent.jsx'
 import ReportManagerAgent from './ReportManagerAgent.jsx'
 import OrchestratorAgent from './OrchestratorAgent.jsx'
 import PentestAgent from './PentestAgent.jsx'
 import HostAnalyzerAgent from './HostAnalyzerAgent.jsx'
-import ActionValidatorAgent from './ActionValidatorAgent.jsx'
+import ActionVerifierAgent from './ActionVerifierAgent.jsx'
 import './Agents.css'
 
 /**
@@ -43,33 +43,33 @@ function Agents() {
         >
           <option value="orchestrator">Orchestrator Agent</option>
           <option value="report">Report Agent</option>
-          <option value="report-review">Report Reviewer Agent</option>
+          <option value="report-review">Report Verifier Agent</option>
           <option value="report-manager">Report Manager Agent</option>
-          <option value="validation">Validation Agent</option>
+          <option value="plan-verifier">Plan Verifier Agent</option>
           <option value="code">Code Agent</option>
-          <option value="code-review">Code Reviewer Agent</option>
+          <option value="code-review">Code Verifier Agent</option>
           <option value="code-manager">Code Manager Agent</option>
           <option value="plan-manager">Plan Manager Agent</option>
           <option value="planner">Planner Agent</option>
           <option value="pentest">Pentest Agent</option>
           <option value="host-analyzer">Host Analyzer Agent</option>
-          <option value="action-validator">Action Validator Agent</option>
+          <option value="action-verifier">Action Verifier Agent</option>
         </select>
       </div>
 
       {selectedAgent === 'orchestrator' && <OrchestratorAgent />}
       {selectedAgent === 'report' && <ReportAgent />}
-      {selectedAgent === 'report-review' && <ReportReviewerAgent />}
+      {selectedAgent === 'report-review' && <ReportVerifierAgent />}
       {selectedAgent === 'report-manager' && <ReportManagerAgent />}
-      {selectedAgent === 'validation' && <ValidationAgent />}
+      {selectedAgent === 'plan-verifier' && <PlanVerifierAgent />}
       {selectedAgent === 'code' && <CodeAgent />}
-      {selectedAgent === 'code-review' && <CodeReviewerAgent />}
+      {selectedAgent === 'code-review' && <CodeVerifierAgent />}
       {selectedAgent === 'code-manager' && <CodeManagerAgent />}
       {selectedAgent === 'plan-manager' && <PlanManagerAgent />}
       {selectedAgent === 'planner' && <PlannerAgent />}
       {selectedAgent === 'pentest' && <PentestAgent />}
       {selectedAgent === 'host-analyzer' && <HostAnalyzerAgent />}
-      {selectedAgent === 'action-validator' && <ActionValidatorAgent />}
+      {selectedAgent === 'action-verifier' && <ActionVerifierAgent />}
     </div>
   )
 }

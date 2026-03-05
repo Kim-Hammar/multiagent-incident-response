@@ -2,7 +2,7 @@
 Tool dispatch for the ReportManagerAgent.
 
 Provides streaming generator functions that run sub-agents
-(ReportAgent and ReportReviewerAgent) internally, auto-approving
+(ReportAgent and ReportVerifierAgent) internally, auto-approving
 tool calls and yielding progress events.
 """
 import logging
@@ -21,8 +21,8 @@ from ccs_response_planner_backend.agents.report_agent.agent import (
 from ccs_response_planner_backend.agents.report_agent.tools import (
     STREAMING_TOOL_DISPATCH as REPORT_STREAMING_DISPATCH,
 )
-from ccs_response_planner_backend.agents.report_reviewer_agent.agent import (
-    ReportReviewerAgent,
+from ccs_response_planner_backend.agents.report_verifier_agent.agent import (
+    ReportVerifierAgent,
 )
 from ccs_response_planner_backend.db.database_facade import (
     DatabaseFacade,
@@ -37,7 +37,7 @@ _OUTPUT_LIMIT = 2000
 _FINAL_REPORT_TYPES = {
     "assessment", "report_review", "code_report",
     "review_report", "planner_report",
-    "validation_report", "orchestrator_report",
+    "plan_verifier_report", "orchestrator_report",
     "report_manager_report", "plan_manager_report",
 }
 
@@ -467,25 +467,25 @@ def run_report_agent_stream(
     }
 
 
-def run_report_reviewer_agent_stream(
+def run_report_verifier_agent_stream(
     context: dict[str, Any],
     previous_review_summary: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the ReportReviewerAgent sub-agent to completion.
+    Run the ReportVerifierAgent sub-agent to completion.
 
     Auto-approves all sub-agent tool calls. Yields output_chunk
     events for progress, sub_event events for rich UI rendering,
     and a done event with the report_review.
 
     :param context: dict with system_description, security_alerts,
-        operator_feedback, images, reviewer_agent_model, username,
+        operator_feedback, images, verifier_agent_model, username,
         last_assessment, dt_config
     :param previous_review_summary: concise summary of prior
         review findings for re-review iterations
     :return: generator yielding event dicts
     """
-    agent = ReportReviewerAgent()
+    agent = ReportVerifierAgent()
     last_assessment = context.get("last_assessment", {})
     operator_feedback = context.get("operator_feedback", "")
     if previous_review_summary:
@@ -511,7 +511,7 @@ def run_report_reviewer_agent_stream(
         yield {
             "type": "output_chunk",
             "text": (
-                f"[ReportReviewerAgent] Step "
+                f"[ReportVerifierAgent] Step "
                 f"{step_num + 1}...\n"
             ),
         }
@@ -540,7 +540,7 @@ def run_report_reviewer_agent_stream(
                 "compaction_model",
             ),
             "compaction_threshold": context.get(
-                "report_reviewer_compaction", 0.8,
+                "report_verifier_compaction", 0.8,
             ),
             "dt_enabled": context.get(
                 "dt_enabled", True,
@@ -551,7 +551,7 @@ def run_report_reviewer_agent_stream(
         }
         for event in _timeout_step_stream(
             agent, rr_kwargs, step_start,
-            step_num, "ReportReviewerAgent",
+            step_num, "ReportVerifierAgent",
         ):
             etype = event.get("type")
 
@@ -602,7 +602,7 @@ def run_report_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        "[ReportReviewerAgent] Review "
+                        "[ReportVerifierAgent] Review "
                         "report produced.\n"
                     ),
                 }
@@ -644,7 +644,7 @@ def run_report_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[ReportReviewerAgent] Running "
+                        f"[ReportVerifierAgent] Running "
                         f"tool: {tool_name}...\n"
                     ),
                 }
@@ -719,7 +719,7 @@ def run_report_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[ReportReviewerAgent] "
+                        f"[ReportVerifierAgent] "
                         f"{tool_name} result: "
                         f"{str(output)[:500]}\n"
                     ),
@@ -731,7 +731,7 @@ def run_report_reviewer_agent_stream(
     if report_review is None:
         report_review = {
             "executive_summary": (
-                "ReportReviewerAgent did not produce a "
+                "ReportVerifierAgent did not produce a "
                 "report within the step limit."
             ),
             "findings": [],
@@ -749,7 +749,7 @@ def run_report_reviewer_agent_stream(
     ]
     try:
         DatabaseFacade.save_agent_report(
-            agent_type="report_reviewer",
+            agent_type="report_verifier",
             report=report_review,
             username=context.get("username", "system"),
             incident_id=context.get("incident_id"),
@@ -800,7 +800,7 @@ STREAMING_TOOL_DISPATCH: dict[
     ],
 ] = {
     "run_report_agent": run_report_agent_stream,
-    "run_report_reviewer_agent": (
-        run_report_reviewer_agent_stream
+    "run_report_verifier_agent": (
+        run_report_verifier_agent_stream
     ),
 }

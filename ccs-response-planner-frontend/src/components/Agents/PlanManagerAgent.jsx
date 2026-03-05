@@ -10,13 +10,13 @@ import {
   API_AGENTS_CODE_PROMPT_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
   API_AGENTS_PLANNER_PROMPT_URL,
-  API_AGENTS_VALIDATION_PROMPT_URL,
+  API_AGENTS_PLAN_VERIFIER_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
 } from '../Common/constants'
 import PlannerAgentReport from './PlannerAgentReport.jsx'
-import ValidationAgentReport from './ValidationAgentReport.jsx'
+import PlanVerifierAgentReport from './PlanVerifierAgentReport.jsx'
 import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import ConfigurationTable from './shared/ConfigurationTable.jsx'
@@ -110,9 +110,9 @@ function enrichReport(report, history) {
         enriched.response_plan = e.result.response_plan
       }
     }
-    if (e.tool_name === 'run_validation_agent' && !enriched.validation_report) {
-      if (e.result.validation_report && Object.keys(e.result.validation_report).length > 0) {
-        enriched.validation_report = e.result.validation_report
+    if (e.tool_name === 'run_plan_verifier_agent' && !enriched.plan_verifier_report) {
+      if (e.result.plan_verifier_report && Object.keys(e.result.plan_verifier_report).length > 0) {
+        enriched.plan_verifier_report = e.result.plan_verifier_report
       }
     }
   }
@@ -165,7 +165,7 @@ function PlanManagerHistoryReport({ report, reportId, hasConversationHistory, to
   const isMissingSubs =
     !report?.code_report &&
     !report?.planner_report &&
-    !report?.validation_report &&
+    !report?.plan_verifier_report &&
     !report?.response_plan
 
   useEffect(() => {
@@ -221,7 +221,7 @@ function PlanManagerHistoryReport({ report, reportId, hasConversationHistory, to
 
 /**
  * PlanManagerAgent component — orchestrates the full incident response pipeline:
- * CodeManager -> Planner Agent -> Validation Agent with iterative revision.
+ * CodeManager -> Planner Agent -> Plan Verifier Agent with iterative revision.
  */
 function PlanManagerAgent() {
   const { token, logout } = useAuth()
@@ -248,13 +248,13 @@ function PlanManagerAgent() {
   const [codeAgentModel, setCodeAgentModel] = useState('')
   const [reviewerAgentModel, setReviewerAgentModel] = useState('')
   const [plannerAgentModel, setPlannerAgentModel] = useState('')
-  const [validationAgentModel, setValidationAgentModel] = useState('')
+  const [planVerifierAgentModel, setPlanVerifierAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
-  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
-  const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
-  const [validatorEnabled, setValidatorEnabled] = useState(true)
+  const [reportVerifierEnabled, setReportVerifierEnabled] = useState(true)
+  const [codeVerifierEnabled, setCodeVerifierEnabled] = useState(true)
+  const [planVerifierEnabled, setPlanVerifierEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
@@ -308,7 +308,7 @@ function PlanManagerAgent() {
       setCodeAgentModel(config.codeAgentModel || '')
       setReviewerAgentModel(config.reviewerAgentModel || '')
       setPlannerAgentModel(config.plannerAgentModel || '')
-      setValidationAgentModel(config.validationAgentModel || '')
+      setPlanVerifierAgentModel(config.planVerifierAgentModel || '')
       setCompactionModel(config.compactionModel || '')
       setCompactionThreshold(config.compactionThreshold || 80)
       setMaxIterations(config.maxIterations || 1)
@@ -316,9 +316,9 @@ function PlanManagerAgent() {
       setPlannerTimeLimitMinutes(config.plannerTimeLimitMinutes || 10)
       setAutopilot(config.autopilot ?? true)
       setDtEnabled(config.dtEnabled ?? true)
-      setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
-      setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
-      setValidatorEnabled(config.validatorEnabled ?? true)
+      setReportVerifierEnabled(config.reportVerifierEnabled ?? true)
+      setCodeVerifierEnabled(config.codeVerifierEnabled ?? true)
+      setPlanVerifierEnabled(config.planVerifierEnabled ?? true)
       setCodeModelEnabled(config.codeModelEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
@@ -486,9 +486,9 @@ function PlanManagerAgent() {
             max_iterations: maxIterations,
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
-            report_reviewer_enabled: reportReviewerEnabled,
-            code_reviewer_enabled: codeReviewerEnabled,
-            validator_enabled: validatorEnabled,
+            report_verifier_enabled: reportVerifierEnabled,
+            code_verifier_enabled: codeVerifierEnabled,
+            plan_verifier_enabled: planVerifierEnabled,
             code_model_enabled: codeModelEnabled
           })
         })
@@ -630,7 +630,7 @@ function PlanManagerAgent() {
             final_verdict: 'unknown',
             code_manager_summary: '',
             planner_agent_summary: '',
-            validation_summary: ''
+            verification_summary: ''
           }
         }
         const fallbackHistory = [
@@ -703,7 +703,7 @@ function PlanManagerAgent() {
         codeAgentModel,
         reviewerAgentModel,
         plannerAgentModel,
-        validationAgentModel,
+        planVerifierAgentModel,
         compactionModel,
         compactionThreshold,
         maxIterations,
@@ -711,9 +711,9 @@ function PlanManagerAgent() {
         plannerTimeLimitMinutes,
         autopilot,
         dtEnabled,
-        reportReviewerEnabled,
-        codeReviewerEnabled,
-        validatorEnabled,
+        reportVerifierEnabled,
+        codeVerifierEnabled,
+        planVerifierEnabled,
         codeModelEnabled
       }
     )
@@ -761,14 +761,14 @@ function PlanManagerAgent() {
           code_agent_model: codeAgentModel || undefined,
           reviewer_agent_model: reviewerAgentModel || undefined,
           planner_agent_model: plannerAgentModel || undefined,
-          validation_agent_model: validationAgentModel || undefined,
+          plan_verifier_agent_model: planVerifierAgentModel || undefined,
           code_manager_iterations: codeManagerIterations,
           planner_time_limit_minutes: plannerTimeLimitMinutes,
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current,
-          code_reviewer_enabled: codeReviewerEnabled,
-          validator_enabled: validatorEnabled,
+          code_verifier_enabled: codeVerifierEnabled,
+          plan_verifier_enabled: planVerifierEnabled,
           code_model_enabled: codeModelEnabled
         }
         const { result } = await executeStreamingTool({
@@ -1057,14 +1057,14 @@ function PlanManagerAgent() {
         code_agent_model: codeAgentModel || undefined,
         reviewer_agent_model: reviewerAgentModel || undefined,
         planner_agent_model: plannerAgentModel || undefined,
-        validation_agent_model: validationAgentModel || undefined,
+        plan_verifier_agent_model: planVerifierAgentModel || undefined,
         code_manager_iterations: codeManagerIterations,
         planner_time_limit_minutes: plannerTimeLimitMinutes,
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current,
-        code_reviewer_enabled: codeReviewerEnabled,
-        validator_enabled: validatorEnabled,
+        code_verifier_enabled: codeVerifierEnabled,
+        plan_verifier_enabled: planVerifierEnabled,
         code_model_enabled: codeModelEnabled
       }
       const { result } = await executeStreamingTool({
@@ -1377,13 +1377,13 @@ function PlanManagerAgent() {
         </div>
       )
     }
-    if (entry.tool_name === 'run_validation_agent' && entry.result) {
+    if (entry.tool_name === 'run_plan_verifier_agent' && entry.result) {
       const r = entry.result
       return (
         <div style={{ marginTop: '10px' }}>
-          {r.validation_report && (
-            <ValidationAgentReport
-              entry={{ type: 'validation_report', validation_report: r.validation_report }}
+          {r.plan_verifier_report && (
+            <PlanVerifierAgentReport
+              entry={{ type: 'plan_verifier_report', plan_verifier_report: r.plan_verifier_report }}
               index="pm-val"
               isExpanded={true}
               toggleEntry={() => {}}
@@ -1488,8 +1488,8 @@ function PlanManagerAgent() {
           <div className="ia-description">
             <p>
               This agent orchestrates the full incident response pipeline: CodeManager (MDP
-              generation) -&gt; Planner Agent (policy training) -&gt; Validation Agent (digital twin
-              testing). It iteratively revises the pipeline until the response plan passes
+              generation) -&gt; Planner Agent (policy training) -&gt; Plan Verifier Agent (digital
+              twin testing). It iteratively revises the pipeline until the response plan passes
               validation or the iteration limit is reached.
             </p>
           </div>
@@ -1707,20 +1707,20 @@ function PlanManagerAgent() {
             },
             {
               id: 'pm-report-reviewer',
-              label: 'Report Reviewer',
+              label: 'Report Verifier',
               description:
                 'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
-              checked: reportReviewerEnabled,
-              onChange: setReportReviewerEnabled,
+              checked: reportVerifierEnabled,
+              onChange: setReportVerifierEnabled,
               disabled: isAgentBusy
             },
             {
               id: 'pm-code-reviewer-enabled',
-              label: 'Code Reviewer',
+              label: 'Code Verifier',
               description:
                 'When disabled, the plan manager invokes the code agent directly, skipping code review',
-              checked: codeReviewerEnabled,
-              onChange: setCodeReviewerEnabled,
+              checked: codeVerifierEnabled,
+              onChange: setCodeVerifierEnabled,
               disabled: isAgentBusy
             },
             {
@@ -1733,12 +1733,12 @@ function PlanManagerAgent() {
               disabled: isAgentBusy
             },
             {
-              id: 'pm-validator-enabled',
-              label: 'Validator Agent',
+              id: 'pm-plan-verifier-enabled',
+              label: 'Plan Verifier Agent',
               description:
-                'When disabled, the plan manager skips validation and returns the plan directly',
-              checked: validatorEnabled,
-              onChange: setValidatorEnabled,
+                'When disabled, the plan manager skips verification and returns the plan directly',
+              checked: planVerifierEnabled,
+              onChange: setPlanVerifierEnabled,
               disabled: isAgentBusy
             }
           ]}
@@ -1793,7 +1793,7 @@ function PlanManagerAgent() {
               promptUrl: API_AGENTS_CODE_PROMPT_URL
             },
             {
-              label: 'Code Reviewer',
+              label: 'Code Verifier',
               model: reviewerAgentModel,
               setModel: setReviewerAgentModel,
               promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL
@@ -1812,10 +1812,10 @@ function PlanManagerAgent() {
               promptUrl: API_AGENTS_PLANNER_PROMPT_URL
             },
             {
-              label: 'Validation Agent',
-              model: validationAgentModel,
-              setModel: setValidationAgentModel,
-              promptUrl: API_AGENTS_VALIDATION_PROMPT_URL
+              label: 'Plan Verifier Agent',
+              model: planVerifierAgentModel,
+              setModel: setPlanVerifierAgentModel,
+              promptUrl: API_AGENTS_PLAN_VERIFIER_PROMPT_URL
             },
             {
               label: 'Compaction LLM',

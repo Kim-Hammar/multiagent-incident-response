@@ -423,7 +423,7 @@ function AssessmentBody({ report: a }) {
   )
 }
 
-/* ── Incident review body (from ReportReviewerAgent results) ── */
+/* ── Incident review body (from ReportVerifierAgent results) ── */
 
 /**
  * Strip trailing JSON structure that sometimes leaks into LLM field values
@@ -553,7 +553,7 @@ function IncidentReviewBody({ report: r }) {
   )
 }
 
-/* ── Validation report body (from ValidationAgent results) ──── */
+/* ── Plan verifier report body (from PlanVerifierAgent results) ──── */
 
 const RECOVERY_LABELS = {
   is_attack_contained: 'Contained',
@@ -564,7 +564,7 @@ const RECOVERY_LABELS = {
   are_services_restored: 'Restored'
 }
 
-const VALIDATION_VERDICT_MAP = {
+const VERIFICATION_VERDICT_MAP = {
   'Plan fully validated': 'success',
   'Plan partially validated': 'warning',
   'Plan validation failed': 'danger'
@@ -619,12 +619,12 @@ function ServiceStateBadges({ services }) {
   )
 }
 
-function ValidationReportBody({ report: r }) {
+function PlanVerifierReportBody({ report: r }) {
   const actionResults = r.action_results || []
   const recommendations = r.recommendations || []
   const overallResult = r.overall_result || r.overall_verdict || ''
   const verdictStyle =
-    VALIDATION_VERDICT_MAP[overallResult] || VERDICT_STYLES[overallResult] || 'secondary'
+    VERIFICATION_VERDICT_MAP[overallResult] || VERDICT_STYLES[overallResult] || 'secondary'
   return (
     <div style={{ marginTop: '10px' }}>
       {overallResult && (
@@ -789,10 +789,10 @@ function PlanManagerReportBody({ result: r }) {
           <PlannerReportInline report={r.planner_report} />
         </div>
       )}
-      {r.validation_report && Object.keys(r.validation_report).length > 0 && (
+      {r.plan_verifier_report && Object.keys(r.plan_verifier_report).length > 0 && (
         <div className="ia-assessment-section">
-          <div className="ia-assessment-label">Validation Report</div>
-          <ValidationReportBody report={r.validation_report} />
+          <div className="ia-assessment-label">Plan Verifier Report</div>
+          <PlanVerifierReportBody report={r.plan_verifier_report} />
         </div>
       )}
       {r.response_plan && (
@@ -1187,7 +1187,7 @@ const ACTION_OUTCOME_STYLES = {
   'Action failed': 'danger'
 }
 
-function ActionValidationBody({ report: r }) {
+function ActionVerificationBody({ report: r }) {
   const commands = r.commands_executed || []
   const results = r.command_results || []
   const recommendations = r.recommendations || []
@@ -1284,12 +1284,12 @@ export {
   ReviewReportBody,
   AssessmentBody,
   IncidentReviewBody,
-  ValidationReportBody,
+  PlanVerifierReportBody,
   PlanManagerReportBody,
   PlannerReportInline,
   PentestReportBody,
   HostAnalysisBody,
-  ActionValidationBody,
+  ActionVerificationBody,
   ACTION_OUTCOME_STYLES,
   VERDICT_STYLES,
   SEVERITY_STYLES

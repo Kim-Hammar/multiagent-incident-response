@@ -1,4 +1,5 @@
 """Integration tests for the /api/llm endpoint."""
+import os
 from unittest.mock import MagicMock, patch
 
 from flask.testing import FlaskClient
@@ -12,6 +13,7 @@ from flask.testing import FlaskClient
 @patch(
     "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
 )
+@patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"})
 def test_llm_returns_connected_status(
     mock_genai: MagicMock,
     mock_anthropic: MagicMock,
@@ -48,6 +50,7 @@ def test_llm_returns_connected_status(
 @patch(
     "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
 )
+@patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"})
 def test_llm_filters_non_thinking_models(
     mock_genai: MagicMock,
     mock_anthropic: MagicMock,
@@ -95,6 +98,7 @@ def test_llm_filters_non_thinking_models(
 @patch(
     "ccs_response_planner_backend.rest_api.resources.llm.routes.genai"
 )
+@patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"})
 def test_llm_returns_error_status_on_failure(
     mock_genai: MagicMock,
     mock_anthropic: MagicMock,

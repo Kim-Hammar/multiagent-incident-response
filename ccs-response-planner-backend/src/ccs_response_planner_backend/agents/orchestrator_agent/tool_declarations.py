@@ -8,7 +8,7 @@ RUN_REPORT_MANAGER_DECL = genai_types.FunctionDeclaration(
     description=(
         "Run the ReportManager agent to orchestrate "
         "incident assessment generation and review "
-        "via the ReportAgent and ReportReviewerAgent. "
+        "via the ReportAgent and ReportVerifierAgent. "
         "The ReportManager handles the internal "
         "generate-review-revise loop and returns "
         "the final reviewed assessment."

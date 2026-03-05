@@ -70,7 +70,7 @@ function OrchestratorReport({ entry, index, isExpanded, toggleEntry }) {
 }
 
 /**
- * CodeManagerAgent component — orchestrates CodeAgent + CodeReviewerAgent
+ * CodeManagerAgent component — orchestrates CodeAgent + CodeVerifierAgent
  * in an automated generate-review-revise loop.
  */
 function CodeManagerAgent() {
@@ -99,8 +99,8 @@ function CodeManagerAgent() {
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
-  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
-  const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
+  const [reportVerifierEnabled, setReportVerifierEnabled] = useState(true)
+  const [codeVerifierEnabled, setCodeVerifierEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [loadingReportHistory, setLoadingReportHistory] = useState(true)
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
@@ -154,8 +154,8 @@ function CodeManagerAgent() {
       setMaxIterations(config.maxIterations || 1)
       setAutopilot(config.autopilot ?? true)
       setDtEnabled(config.dtEnabled ?? true)
-      setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
-      setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
+      setReportVerifierEnabled(config.reportVerifierEnabled ?? true)
+      setCodeVerifierEnabled(config.codeVerifierEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -332,8 +332,8 @@ function CodeManagerAgent() {
             max_iterations: maxIterations,
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
-            report_reviewer_enabled: reportReviewerEnabled,
-            code_reviewer_enabled: codeReviewerEnabled
+            report_verifier_enabled: reportVerifierEnabled,
+            code_verifier_enabled: codeVerifierEnabled
           })
         })
         if (res.status === 401) {
@@ -557,8 +557,8 @@ function CodeManagerAgent() {
         maxIterations,
         autopilot,
         dtEnabled,
-        reportReviewerEnabled,
-        codeReviewerEnabled
+        reportVerifierEnabled,
+        codeVerifierEnabled
       }
     )
     callStep([])
@@ -581,7 +581,7 @@ function CodeManagerAgent() {
 
     if (STREAMING_TOOLS.has(proposal.tool_name)) {
       const subModel =
-        proposal.tool_name === 'run_code_reviewer_agent' ? reviewerAgentModel : codeAgentModel
+        proposal.tool_name === 'run_code_verifier_agent' ? reviewerAgentModel : codeAgentModel
       const streamEntry = {
         type: 'tool_streaming',
         tool_name: proposal.tool_name,
@@ -607,7 +607,7 @@ function CodeManagerAgent() {
           compaction_model: compactionModel || undefined,
           compaction_threshold: compactionThreshold / 100,
           session_id: sessionIdRef.current,
-          code_reviewer_enabled: codeReviewerEnabled
+          code_verifier_enabled: codeVerifierEnabled
         }
         const { result } = await executeStreamingTool({
           url: API_AGENTS_CODE_MANAGER_TOOL_URL,
@@ -817,7 +817,7 @@ function CodeManagerAgent() {
   }
 
   const resumeToolJob = async (jobId, toolName, startTime) => {
-    const subModel = toolName === 'run_code_reviewer_agent' ? reviewerAgentModel : codeAgentModel
+    const subModel = toolName === 'run_code_verifier_agent' ? reviewerAgentModel : codeAgentModel
     const streamEntry = {
       type: 'tool_streaming',
       tool_name: toolName,
@@ -845,7 +845,7 @@ function CodeManagerAgent() {
         compaction_model: compactionModel || undefined,
         compaction_threshold: compactionThreshold / 100,
         session_id: sessionIdRef.current,
-        code_reviewer_enabled: codeReviewerEnabled
+        code_verifier_enabled: codeVerifierEnabled
       }
       const { result } = await executeStreamingTool({
         url: API_AGENTS_CODE_MANAGER_TOOL_URL,
@@ -1061,7 +1061,7 @@ function CodeManagerAgent() {
       const r = entry.result.code_report
       return <CodeReportBody report={r} />
     }
-    if (entry.tool_name === 'run_code_reviewer_agent' && entry.result?.review_report) {
+    if (entry.tool_name === 'run_code_verifier_agent' && entry.result?.review_report) {
       const r = entry.result.review_report
       return <ReviewReportBody report={r} />
     }
@@ -1160,7 +1160,7 @@ function CodeManagerAgent() {
         <div style={{ marginTop: '16px' }}>
           <div className="ia-description">
             <p>
-              This agent coordinates the CodeAgent and CodeReviewerAgent in an automated
+              This agent coordinates the CodeAgent and CodeVerifierAgent in an automated
               generate-review-revise loop to produce a Gymnasium MDP environment for computing
               optimal incident response policies.
             </p>
@@ -1381,20 +1381,20 @@ function CodeManagerAgent() {
             },
             {
               id: 'cm-report-reviewer',
-              label: 'Report Reviewer',
+              label: 'Report Verifier',
               description:
                 'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
-              checked: reportReviewerEnabled,
-              onChange: setReportReviewerEnabled,
+              checked: reportVerifierEnabled,
+              onChange: setReportVerifierEnabled,
               disabled: isAgentBusy
             },
             {
               id: 'cm-code-reviewer-enabled',
-              label: 'Code Reviewer',
+              label: 'Code Verifier',
               description:
                 'When disabled, the plan manager invokes the code agent directly, skipping code review',
-              checked: codeReviewerEnabled,
-              onChange: setCodeReviewerEnabled,
+              checked: codeVerifierEnabled,
+              onChange: setCodeVerifierEnabled,
               disabled: isAgentBusy
             }
           ]}
@@ -1436,7 +1436,7 @@ function CodeManagerAgent() {
               promptUrl: API_AGENTS_CODE_PROMPT_URL
             },
             {
-              label: 'Code Reviewer',
+              label: 'Code Verifier',
               model: reviewerAgentModel,
               setModel: setReviewerAgentModel,
               promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL

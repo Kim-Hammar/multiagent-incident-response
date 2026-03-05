@@ -15,7 +15,7 @@ Your sub-agents are:
 1. **ReportAgent** \u2014 generates and revises incident assessment \
 reports. It has access to a digital twin of the affected system \
 (Docker containers) and external APIs for vulnerability lookup.
-2. **ReportReviewerAgent** \u2014 reviews the generated assessment for \
+2. **ReportVerifierAgent** \u2014 reviews the generated assessment for \
 accuracy, completeness, and evidence quality. It also has access \
 to the digital twin and external APIs.
 """
@@ -25,7 +25,7 @@ Your sub-agents are:
 1. **ReportAgent** \u2014 generates and revises incident assessment \
 reports. It has access to a digital twin of the affected system \
 (Docker containers) for hands-on investigation.
-2. **ReportReviewerAgent** \u2014 reviews the generated assessment for \
+2. **ReportVerifierAgent** \u2014 reviews the generated assessment for \
 accuracy, completeness, and evidence quality. It also has access \
 to the digital twin.
 """
@@ -35,7 +35,7 @@ Your sub-agents are:
 1. **ReportAgent** \u2014 generates and revises incident assessment \
 reports. It has access to external APIs for vulnerability and \
 threat intelligence lookup.
-2. **ReportReviewerAgent** \u2014 reviews the generated assessment for \
+2. **ReportVerifierAgent** \u2014 reviews the generated assessment for \
 accuracy, completeness, and evidence quality. It also has access \
 to external threat intelligence APIs.
 """
@@ -46,7 +46,7 @@ Your sub-agents are:
 reports. It relies on the incident context, security alerts, and \
 its security expertise (no digital twin or external APIs are \
 available in this session).
-2. **ReportReviewerAgent** \u2014 reviews the generated assessment for \
+2. **ReportVerifierAgent** \u2014 reviews the generated assessment for \
 accuracy, completeness, and evidence quality. It also relies solely \
 on the incident context provided (no digital twin or external APIs).
 """
@@ -55,28 +55,28 @@ on the incident context provided (no digital twin or external APIs).
 # Sub-agent descriptions when reviewer is disabled
 # ------------------------------------------------------------------
 
-_SUBAGENTS_ALL_NO_REVIEWER = """\
+_SUBAGENTS_ALL_NO_VERIFIER = """\
 Your sub-agent is:
 1. **ReportAgent** \u2014 generates and revises incident assessment \
 reports. It has access to a digital twin of the affected system \
 (Docker containers) and external APIs for vulnerability lookup.
 """
 
-_SUBAGENTS_DT_ONLY_NO_REVIEWER = """\
+_SUBAGENTS_DT_ONLY_NO_VERIFIER = """\
 Your sub-agent is:
 1. **ReportAgent** \u2014 generates and revises incident assessment \
 reports. It has access to a digital twin of the affected system \
 (Docker containers) for hands-on investigation.
 """
 
-_SUBAGENTS_INFO_ONLY_NO_REVIEWER = """\
+_SUBAGENTS_INFO_ONLY_NO_VERIFIER = """\
 Your sub-agent is:
 1. **ReportAgent** \u2014 generates and revises incident assessment \
 reports. It has access to external APIs for vulnerability and \
 threat intelligence lookup.
 """
 
-_SUBAGENTS_NONE_NO_REVIEWER = """\
+_SUBAGENTS_NONE_NO_VERIFIER = """\
 Your sub-agent is:
 1. **ReportAgent** \u2014 generates and revises incident assessment \
 reports. It relies on the incident context, security alerts, and \
@@ -109,7 +109,7 @@ enough.
 You are allowed a maximum of **{max_iterations} iteration(s)** of \
 the generate-review loop. One iteration consists of calling \
 `run_report_agent` (generate/revise) followed by \
-`run_report_reviewer_agent` (review) \u2014 that pair counts as one \
+`run_report_verifier_agent` (review) \u2014 that pair counts as one \
 iteration. After each review, if substantive issues remain and you \
 still have iterations left, you may start a new iteration by calling \
 `run_report_agent` again with the review feedback. Once you have \
@@ -126,12 +126,12 @@ does not require a follow-up review.
 Input: Security alerts indicating unauthorized SSH access, with \
 {max_iterations} iteration(s) allowed. \
 Solution (iteration 1): Call `run_report_agent` to generate the \
-initial assessment \u2192 call `run_report_reviewer_agent` to review \
+initial assessment \u2192 call `run_report_verifier_agent` to review \
 it. If the assessment is solid or {max_iterations} iteration(s) have \
 been used, call `produce_report_manager_report`. \
 If substantive issues are found and iterations remain, start a new \
 iteration: call `run_report_agent` with the review feedback \u2192 \
-call `run_report_reviewer_agent` \u2192 assess again.
+call `run_report_verifier_agent` \u2192 assess again.
 
 ## Incident Context
 
@@ -164,8 +164,8 @@ a concise, high-level summary in short bullet points \u2014 only the \
 issues that need fixing and the reviewer\u2019s recommendations. \
 Do NOT paste the raw reviewer output verbatim.
 
-2. **Review**: Call `run_report_reviewer_agent` to have the \
-ReportReviewerAgent review the generated assessment. \
+2. **Review**: Call `run_report_verifier_agent` to have the \
+ReportVerifierAgent review the generated assessment. \
 On re-review iterations (iteration 2+), pass \
 `previous_review_summary` \u2014 a concise summary of the previous \
 review\u2019s findings. This helps the reviewer focus on verifying \
@@ -194,7 +194,7 @@ were performed) and a summary of the final incident assessment.
 - **run_report_agent**: Invoke the ReportAgent to generate or \
 revise the incident assessment. Optionally provide \
 `previous_assessment` and `review_feedback` for revisions.
-- **run_report_reviewer_agent**: Invoke the ReportReviewerAgent to \
+- **run_report_verifier_agent**: Invoke the ReportVerifierAgent to \
 review the most recently generated assessment. Optionally provide \
 `previous_review_summary` for re-review iterations.
 - **produce_report_manager_report**: Produce the final orchestration \
@@ -211,7 +211,7 @@ or draft report content yourself. If revisions are needed, call \
 what specific changes to make to the report \u2014 that is the \
 ReportAgent\u2019s job.
 - You MUST always respond with exactly one tool call. Either call \
-`run_report_agent`, `run_report_reviewer_agent`, or \
+`run_report_agent`, `run_report_verifier_agent`, or \
 `produce_report_manager_report`.
 - NEVER output plain text without also making a tool call.
 - All reasoning and planning should be done internally in your \
@@ -221,10 +221,10 @@ single response, you will only receive the result of the LAST \
 tool call.
 - Do NOT call `produce_report_manager_report` until you have run at \
 least one review cycle (both `run_report_agent` and \
-`run_report_reviewer_agent`).
+`run_report_verifier_agent`).
 - Maximum {max_iterations} iteration(s). Each iteration is one \
 generate + review pair: `run_report_agent` \u2192 \
-`run_report_reviewer_agent`. Once you have used all \
+`run_report_verifier_agent`. Once you have used all \
 {max_iterations} iteration(s), call \
 `produce_report_manager_report`. A final generation-only pass to \
 fix trivial issues from the last review is permitted beyond this \
@@ -237,7 +237,7 @@ the reviewer\u2019s raw output.
 """
 
 
-_TEMPLATE_NO_REVIEWER = """\
+_TEMPLATE_NO_VERIFIER = """\
 You are a manager agent that is part of an autonomous \
 cyber-security incident response system. \
 Your role is strictly to manage and coordinate the ReportAgent \
@@ -344,7 +344,7 @@ def build_system_prompt(
     *,
     dt_enabled: bool = True,
     info_tools_enabled: bool = True,
-    report_reviewer_enabled: bool = True,
+    report_verifier_enabled: bool = True,
     system_description: str = "N/A",
     security_alerts: str = "N/A",
     operator_feedback: str = "N/A",
@@ -357,13 +357,13 @@ def build_system_prompt(
 
     The sub-agent capability descriptions are adjusted based on
     which investigation tools (DT, info tools) are available.
-    When *report_reviewer_enabled* is ``False``, a simplified
+    When *report_verifier_enabled* is ``False``, a simplified
     template is used that omits all reviewer references.
 
     :param dt_enabled: whether digital-twin tools are available
     :param info_tools_enabled: whether external info tools are
         available
-    :param report_reviewer_enabled: whether the report reviewer
+    :param report_verifier_enabled: whether the report verifier
         is enabled (default True)
     :param system_description: description of the target system
     :param security_alerts: security alert data
@@ -373,7 +373,7 @@ def build_system_prompt(
     :param revision_notice: optional revision iteration notice
     :return: the fully rendered system prompt string
     """
-    if report_reviewer_enabled:
+    if report_verifier_enabled:
         if dt_enabled and info_tools_enabled:
             subagents = _SUBAGENTS_ALL
         elif dt_enabled:
@@ -385,14 +385,14 @@ def build_system_prompt(
         template = _TEMPLATE
     else:
         if dt_enabled and info_tools_enabled:
-            subagents = _SUBAGENTS_ALL_NO_REVIEWER
+            subagents = _SUBAGENTS_ALL_NO_VERIFIER
         elif dt_enabled:
-            subagents = _SUBAGENTS_DT_ONLY_NO_REVIEWER
+            subagents = _SUBAGENTS_DT_ONLY_NO_VERIFIER
         elif info_tools_enabled:
-            subagents = _SUBAGENTS_INFO_ONLY_NO_REVIEWER
+            subagents = _SUBAGENTS_INFO_ONLY_NO_VERIFIER
         else:
-            subagents = _SUBAGENTS_NONE_NO_REVIEWER
-        template = _TEMPLATE_NO_REVIEWER
+            subagents = _SUBAGENTS_NONE_NO_VERIFIER
+        template = _TEMPLATE_NO_VERIFIER
 
     return template.format(
         subagents_section=subagents,

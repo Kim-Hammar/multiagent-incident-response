@@ -1,7 +1,7 @@
 """
 PlanManagerAgent — uses Gemini with function calling to
 orchestrate the full incident response pipeline:
-CodeManager -> PlannerAgent -> ValidationAgent.
+CodeManager -> PlannerAgent -> PlanVerifierAgent.
 """
 import base64
 import json
@@ -94,7 +94,7 @@ class PlanManagerAgent:
     """
     A top-level orchestrator agent that uses Gemini function
     calling to coordinate CodeManagerAgent, PlannerAgent, and
-    ValidationAgent in an automated pipeline loop.
+    PlanVerifierAgent in an automated pipeline loop.
     """
 
     def _create_client(self) -> Any:
@@ -152,7 +152,7 @@ class PlanManagerAgent:
         max_iterations: int = 2,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
-        validator_enabled: bool = True,
+        plan_verifier_enabled: bool = True,
         code_model_enabled: bool = True,
         report_manager_enabled: bool = True,
         security_alerts: str = "",
@@ -178,8 +178,8 @@ class PlanManagerAgent:
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
-        :param validator_enabled: whether the validation agent
-            is enabled (default True)
+        :param plan_verifier_enabled: whether the plan verifier
+            agent is enabled (default True)
         :param code_model_enabled: whether the code model
             (MDP + RL) pipeline is enabled (default True)
         :param report_manager_enabled: whether the report manager
@@ -203,7 +203,7 @@ class PlanManagerAgent:
             else build_direct_plan_prompt
         )
         system_prompt = prompt_builder(
-            validator_enabled=validator_enabled,
+            plan_verifier_enabled=plan_verifier_enabled,
             system_description=(
                 system_description or "N/A"
             ),
@@ -242,7 +242,7 @@ class PlanManagerAgent:
 
         has_validated = (
             self._has_validated(conversation_history)
-            or not validator_enabled
+            or not plan_verifier_enabled
         )
         if code_model_enabled:
             declarations = (
@@ -256,10 +256,10 @@ class PlanManagerAgent:
                 if has_validated
                 else DIRECT_PLAN_ITERATING_DECLARATIONS
             )
-        if not validator_enabled:
+        if not plan_verifier_enabled:
             declarations = [
                 d for d in declarations
-                if d.name != "run_validation_agent"
+                if d.name != "run_plan_verifier_agent"
             ]
 
         initial_user_text = (
@@ -431,7 +431,7 @@ class PlanManagerAgent:
     ) -> bool:
         """
         Check whether the conversation history contains a
-        run_validation_agent tool_result (gates the
+        run_plan_verifier_agent tool_result (gates the
         produce_plan_manager_report declaration).
 
         :param history: the conversation history list
@@ -441,7 +441,7 @@ class PlanManagerAgent:
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_validation_agent"
+                == "run_plan_verifier_agent"
             ):
                 return True
         return False
@@ -648,7 +648,7 @@ class PlanManagerAgent:
                     "final_verdict": "unknown",
                     "code_manager_summary": "",
                     "planner_agent_summary": "",
-                    "validation_summary": "",
+                    "verification_summary": "",
                 },
             }
 

@@ -2,7 +2,7 @@
 Tool dispatch for the CodeManagerAgent.
 
 Provides streaming generator functions that run sub-agents
-(CodeAgent and CodeReviewerAgent) internally, auto-approving
+(CodeAgent and CodeVerifierAgent) internally, auto-approving
 tool calls and yielding progress events.
 """
 import logging
@@ -16,8 +16,8 @@ from ccs_response_planner_backend.agents.stream_timeout import (
 )
 
 from ccs_response_planner_backend.agents.code_agent.agent import CodeAgent
-from ccs_response_planner_backend.agents.code_reviewer_agent.agent import (
-    CodeReviewerAgent,
+from ccs_response_planner_backend.agents.code_verifier_agent.agent import (
+    CodeVerifierAgent,
 )
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
 
@@ -30,7 +30,7 @@ _OUTPUT_LIMIT = 2000
 _FINAL_REPORT_TYPES = {
     "assessment", "report_review", "code_report",
     "review_report", "planner_report",
-    "validation_report", "orchestrator_report",
+    "plan_verifier_report", "orchestrator_report",
     "report_manager_report", "plan_manager_report",
 }
 
@@ -390,12 +390,12 @@ def run_code_agent_stream(
     }
 
 
-def run_code_reviewer_agent_stream(
+def run_code_verifier_agent_stream(
     context: dict[str, Any],
     previous_review_summary: str = "",
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the CodeReviewerAgent sub-agent to completion.
+    Run the CodeVerifierAgent sub-agent to completion.
 
     Auto-approves all sub-agent tool calls. Yields output_chunk
     events for progress, sub_event events for rich UI rendering,
@@ -408,7 +408,7 @@ def run_code_reviewer_agent_stream(
         review findings for re-review iterations
     :return: generator yielding event dicts
     """
-    agent = CodeReviewerAgent()
+    agent = CodeVerifierAgent()
     code_report = context.get("last_code_report", {})
     operator_feedback = context.get("operator_feedback", "")
     if previous_review_summary:
@@ -430,25 +430,25 @@ def run_code_reviewer_agent_stream(
             f"{previous_review_summary}\n"
             "--- END PREVIOUS REVIEW CONTEXT ---"
         )
-    validation_feedback = context.get(
-        "validation_feedback", "",
+    verification_feedback = context.get(
+        "verification_feedback", "",
     )
-    if validation_feedback:
+    if verification_feedback:
         operator_feedback += (
-            "\n\n--- VALIDATION CONTEXT ---\n"
+            "\n\n--- VERIFICATION CONTEXT ---\n"
             "This code was revised to address issues "
-            "found during policy validation on the "
-            "digital twin. The validation feedback "
+            "found during policy verification on the "
+            "digital twin. The verification feedback "
             "below describes what went wrong when the "
             "previous version of this MDP code was "
             "used to train an RL policy and execute "
             "it on the digital twin. Focus your "
             "review on verifying that the revised "
-            "code properly addresses these validation "
+            "code properly addresses these verification "
             "issues.\n\n"
-            "## Validation Feedback\n"
-            f"{validation_feedback}\n"
-            "--- END VALIDATION CONTEXT ---"
+            "## Verification Feedback\n"
+            f"{verification_feedback}\n"
+            "--- END VERIFICATION CONTEXT ---"
         )
     conversation_history: list[dict[str, Any]] = []
     review_report = None
@@ -457,7 +457,7 @@ def run_code_reviewer_agent_stream(
         yield {
             "type": "output_chunk",
             "text": (
-                f"[CodeReviewerAgent] Step "
+                f"[CodeVerifierAgent] Step "
                 f"{step_num + 1}...\n"
             ),
         }
@@ -488,7 +488,7 @@ def run_code_reviewer_agent_stream(
                 "compaction_model",
             ),
             "compaction_threshold": context.get(
-                "code_reviewer_compaction", 0.8,
+                "code_verifier_compaction", 0.8,
             ),
             "dt_enabled": context.get(
                 "dt_enabled", True,
@@ -502,7 +502,7 @@ def run_code_reviewer_agent_stream(
         }
         for event in _timeout_step_stream(
             agent, cr_kwargs, step_start,
-            step_num, "CodeReviewerAgent",
+            step_num, "CodeVerifierAgent",
         ):
             etype = event.get("type")
 
@@ -560,7 +560,7 @@ def run_code_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        "[CodeReviewerAgent] Review "
+                        "[CodeVerifierAgent] Review "
                         "report produced.\n"
                     ),
                 }
@@ -602,7 +602,7 @@ def run_code_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[CodeReviewerAgent] Running "
+                        f"[CodeVerifierAgent] Running "
                         f"tool: {tool_name}...\n"
                     ),
                 }
@@ -675,7 +675,7 @@ def run_code_reviewer_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        f"[CodeReviewerAgent] "
+                        f"[CodeVerifierAgent] "
                         f"{tool_name} result: "
                         f"{str(output)[:500]}\n"
                     ),
@@ -687,7 +687,7 @@ def run_code_reviewer_agent_stream(
     if review_report is None:
         review_report = {
             "executive_summary": (
-                "CodeReviewerAgent did not produce a "
+                "CodeVerifierAgent did not produce a "
                 "report within the step limit."
             ),
             "findings": [],
@@ -749,5 +749,5 @@ STREAMING_TOOL_DISPATCH: dict[
     str, Callable[..., Generator[dict[str, Any], None, None]]
 ] = {
     "run_code_agent": run_code_agent_stream,
-    "run_code_reviewer_agent": run_code_reviewer_agent_stream,
+    "run_code_verifier_agent": run_code_verifier_agent_stream,
 }

@@ -9,14 +9,14 @@ const AGENT_ORDER = [
   'orchestrator',
   'report_manager',
   'report_agent',
-  'report_reviewer_agent',
+  'report_verifier_agent',
   'pentest_agent',
   'plan_manager',
   'code_manager',
   'code_agent',
-  'code_reviewer_agent',
+  'code_verifier_agent',
   'planner_agent',
-  'validation_agent'
+  'plan_verifier_agent'
 ]
 
 function formatAgentName(name) {

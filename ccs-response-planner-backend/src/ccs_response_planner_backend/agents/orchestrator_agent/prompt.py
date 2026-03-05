@@ -37,7 +37,7 @@ call `produce_orchestrator_agent_report`.
 ## Sub-agents
 
 1. **ReportManager** — Orchestrates the ReportAgent and \
-ReportReviewerAgent to produce a reviewed incident assessment. \
+ReportVerifierAgent to produce a reviewed incident assessment. \
 Call `run_report_manager` to trigger this phase. The ReportManager \
 handles its own internal generate-review-revise loop.
 
@@ -163,7 +163,7 @@ call `produce_orchestrator_agent_report`.
 ## Sub-agents
 
 1. **ReportManager** — Orchestrates the ReportAgent and \
-ReportReviewerAgent to produce a reviewed incident assessment. \
+ReportVerifierAgent to produce a reviewed incident assessment. \
 Call `run_report_manager` to trigger this phase. The ReportManager \
 handles its own internal generate-review-revise loop.
 

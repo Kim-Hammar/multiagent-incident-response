@@ -40,15 +40,15 @@ RUN_REPORT_AGENT_DECL = genai_types.FunctionDeclaration(
     },
 )
 
-RUN_REPORT_REVIEWER_AGENT_DECL = genai_types.FunctionDeclaration(
-    name="run_report_reviewer_agent",
+RUN_REPORT_VERIFIER_AGENT_DECL = genai_types.FunctionDeclaration(
+    name="run_report_verifier_agent",
     description=(
-        "Run the ReportReviewerAgent to review the "
+        "Run the ReportVerifierAgent to verify the "
         "most recently generated incident assessment. "
         "The assessment is automatically extracted "
         "from the previous run_report_agent result. "
-        "On re-review iterations, provide "
-        "previous_review_summary so the reviewer "
+        "On re-verification iterations, provide "
+        "previous_review_summary so the verifier "
         "knows what was already checked and can "
         "focus on verifying fixes and new issues."
     ),
@@ -130,7 +130,7 @@ PRODUCE_REPORT_MANAGER_REPORT_DECL = (
             "Produce the final orchestration report. "
             "Call this ONLY after at least one review "
             "cycle has completed (both run_report_agent "
-            "and run_report_reviewer_agent)."
+            "and run_report_verifier_agent)."
         ),
         parameters=_PRODUCE_REPORT_PARAMS,  # type: ignore[arg-type]
     )
@@ -150,16 +150,16 @@ PRODUCE_REPORT_NO_REVIEWER_DECL = (
 
 ITERATING_DECLARATIONS = [
     RUN_REPORT_AGENT_DECL,
-    RUN_REPORT_REVIEWER_AGENT_DECL,
+    RUN_REPORT_VERIFIER_AGENT_DECL,
 ]
 
 ALL_DECLARATIONS = [
     RUN_REPORT_AGENT_DECL,
-    RUN_REPORT_REVIEWER_AGENT_DECL,
+    RUN_REPORT_VERIFIER_AGENT_DECL,
     PRODUCE_REPORT_MANAGER_REPORT_DECL,
 ]
 
-ALL_DECLARATIONS_NO_REVIEWER = [
+ALL_DECLARATIONS_NO_VERIFIER = [
     RUN_REPORT_AGENT_DECL,
     PRODUCE_REPORT_NO_REVIEWER_DECL,
 ]

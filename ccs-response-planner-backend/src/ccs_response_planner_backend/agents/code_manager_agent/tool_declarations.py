@@ -40,10 +40,10 @@ RUN_CODE_AGENT_DECL = genai_types.FunctionDeclaration(
     },
 )
 
-RUN_CODE_REVIEWER_AGENT_DECL = genai_types.FunctionDeclaration(
-    name="run_code_reviewer_agent",
+RUN_CODE_VERIFIER_AGENT_DECL = genai_types.FunctionDeclaration(
+    name="run_code_verifier_agent",
     description=(
-        "Run the CodeReviewerAgent to review the "
+        "Run the CodeVerifierAgent to review the "
         "most recently generated MDP environment "
         "code. The code report is automatically "
         "extracted from the previous run_code_agent "
@@ -78,7 +78,7 @@ PRODUCE_ORCHESTRATOR_REPORT_DECL = genai_types.FunctionDeclaration(
         "Produce the final orchestration report. "
         "Call this ONLY after at least one review "
         "cycle has completed (both run_code_agent "
-        "and run_code_reviewer_agent)."
+        "and run_code_verifier_agent)."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",
@@ -135,11 +135,11 @@ PRODUCE_ORCHESTRATOR_REPORT_DECL = genai_types.FunctionDeclaration(
 
 ITERATING_DECLARATIONS = [
     RUN_CODE_AGENT_DECL,
-    RUN_CODE_REVIEWER_AGENT_DECL,
+    RUN_CODE_VERIFIER_AGENT_DECL,
 ]
 
 ALL_DECLARATIONS = [
     RUN_CODE_AGENT_DECL,
-    RUN_CODE_REVIEWER_AGENT_DECL,
+    RUN_CODE_VERIFIER_AGENT_DECL,
     PRODUCE_ORCHESTRATOR_REPORT_DECL,
 ]

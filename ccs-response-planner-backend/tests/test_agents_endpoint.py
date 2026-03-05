@@ -665,15 +665,15 @@ def test_info_tool_dt_exec_streams_ndjson(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.ValidationAgent",
+    ".routes.PlanVerifierAgent",
 )
-def test_validation_tool_dt_exec_streams_ndjson(
+def test_plan_verifier_tool_dt_exec_streams_ndjson(
     mock_agent_cls: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/validation/tool with dt_exec streams NDJSON.
+    POST /api/agents/plan-verifier/tool with dt_exec streams NDJSON.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool_stream.return_value = iter([
@@ -687,7 +687,7 @@ def test_validation_tool_dt_exec_streams_ndjson(
     ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/validation/tool",
+        "/api/agents/plan-verifier/tool",
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
@@ -743,7 +743,7 @@ def test_code_tool_dt_exec_streams_ndjson(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.CodeReviewerAgent",
+    ".routes.CodeVerifierAgent",
 )
 def test_code_review_tool_dt_exec_streams_ndjson(
     mock_agent_cls: MagicMock,
@@ -1158,7 +1158,7 @@ def test_plan_manager_step_streams_report(
         "final_verdict": "pass",
         "code_manager_summary": "Code OK",
         "planner_agent_summary": "RL OK",
-        "validation_summary": "Validation OK",
+        "verification_summary": "Verification OK",
     }
     mock_agent = MagicMock()
     mock_agent.step_stream.return_value = iter([
@@ -1573,7 +1573,7 @@ def test_report_manager_prompt_renders_prompt(
     assert "My feedback" in data["prompt"]
 
 
-# ── ReportReviewerAgent endpoint tests ──
+# ── ReportVerifierAgent endpoint tests ──
 
 
 def test_report_review_step_returns_401_without_token(
@@ -1622,7 +1622,7 @@ def test_report_review_step_returns_400_missing_report(
 )
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.ReportReviewerAgent",
+    ".routes.ReportVerifierAgent",
 )
 def test_report_review_step_streams_tool_proposal(
     mock_agent_cls: MagicMock,
@@ -1675,7 +1675,7 @@ def test_report_review_step_streams_tool_proposal(
 )
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.ReportReviewerAgent",
+    ".routes.ReportVerifierAgent",
 )
 def test_report_review_step_streams_report_review(
     mock_agent_cls: MagicMock,
@@ -1759,7 +1759,7 @@ def test_report_review_tool_returns_400_missing_tool_name(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.ReportReviewerAgent",
+    ".routes.ReportVerifierAgent",
 )
 def test_report_review_tool_dt_exec_streams_ndjson(
     mock_agent_cls: MagicMock,
@@ -2314,17 +2314,17 @@ def test_host_analyzer_prompt_renders_prompt(
     assert "Server 3 SSH host" in data["prompt"]
 
 
-# ── Action Validator Agent ───────────────────────────────────
+# ── Action Verifier Agent ────────────────────────────────────
 
 
-def test_action_validator_step_requires_auth(
+def test_action_verifier_step_requires_auth(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/action-validator/step requires auth.
+    POST /api/agents/action-verifier/step requires auth.
     """
     resp = client.post(
-        "/api/agents/action-validator/step",
+        "/api/agents/action-verifier/step",
         data=json.dumps({
             "system_description": "Test system",
             "action_to_validate": "Block attacker IP",
@@ -2334,16 +2334,16 @@ def test_action_validator_step_requires_auth(
     assert resp.status_code == 401
 
 
-def test_action_validator_step_requires_inputs(
+def test_action_verifier_step_requires_inputs(
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/action-validator/step returns 400
+    POST /api/agents/action-verifier/step returns 400
     without inputs.
     """
     resp = client.post(
-        "/api/agents/action-validator/step",
+        "/api/agents/action-verifier/step",
         data=json.dumps({}),
         content_type="application/json",
         headers=auth_headers,
@@ -2353,15 +2353,15 @@ def test_action_validator_step_requires_inputs(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources"
-    ".agents.routes.ActionValidatorAgent",
+    ".agents.routes.ActionVerifierAgent",
 )
-def test_action_validator_tool_dt_exec_streams_ndjson(
+def test_action_verifier_tool_dt_exec_streams_ndjson(
     mock_agent_cls: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/action-validator/tool with dt_exec
+    POST /api/agents/action-verifier/tool with dt_exec
     streams NDJSON.
     """
     mock_agent = MagicMock()
@@ -2376,7 +2376,7 @@ def test_action_validator_tool_dt_exec_streams_ndjson(
     ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/action-validator/tool",
+        "/api/agents/action-verifier/tool",
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
@@ -2391,14 +2391,14 @@ def test_action_validator_tool_dt_exec_streams_ndjson(
     assert events[-1]["type"] == "done"
 
 
-def test_action_validator_tool_requires_auth(
+def test_action_verifier_tool_requires_auth(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/action-validator/tool requires auth.
+    POST /api/agents/action-verifier/tool requires auth.
     """
     resp = client.post(
-        "/api/agents/action-validator/tool",
+        "/api/agents/action-verifier/tool",
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
@@ -2410,30 +2410,30 @@ def test_action_validator_tool_requires_auth(
     assert resp.status_code == 401
 
 
-def test_action_validator_prompt_requires_auth(
+def test_action_verifier_prompt_requires_auth(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/action-validator/prompt requires auth.
+    POST /api/agents/action-verifier/prompt requires auth.
     """
     resp = client.post(
-        "/api/agents/action-validator/prompt",
+        "/api/agents/action-verifier/prompt",
         data=json.dumps({}),
         content_type="application/json",
     )
     assert resp.status_code == 401
 
 
-def test_action_validator_prompt_renders_prompt(
+def test_action_verifier_prompt_renders_prompt(
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/action-validator/prompt renders the
+    POST /api/agents/action-verifier/prompt renders the
     prompt.
     """
     resp = client.post(
-        "/api/agents/action-validator/prompt",
+        "/api/agents/action-verifier/prompt",
         data=json.dumps({
             "system_description": "My AV system",
             "action_to_validate": (

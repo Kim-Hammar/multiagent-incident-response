@@ -119,7 +119,7 @@ function enrichOrchestratorReport(report, history) {
     pentest_report: ptResult.pentest_report || {},
     code_report: pmResult.code_report || {},
     planner_report: pmResult.planner_report || {},
-    validation_report: pmResult.validation_report || {},
+    plan_verifier_report: pmResult.plan_verifier_report || {},
     response_plan: pmResult.response_plan || ''
   }
 }
@@ -212,33 +212,33 @@ function ResponsePlanner() {
   const [orchestratorModel, setOrchestratorModel] = useState('')
   const [reportManagerModel, setReportManagerModel] = useState('')
   const [reportAgentModel, setReportAgentModel] = useState('')
-  const [reportReviewerModel, setReportReviewerModel] = useState('')
+  const [reportVerifierModel, setReportVerifierModel] = useState('')
   const [planManagerModel, setPlanManagerModel] = useState('')
   const [codeManagerModel, setCodeManagerModel] = useState('')
   const [codeAgentModel, setCodeAgentModel] = useState('')
-  const [codeReviewerModel, setCodeReviewerModel] = useState('')
+  const [codeVerifierModel, setCodeVerifierModel] = useState('')
   const [plannerAgentModel, setPlannerAgentModel] = useState('')
-  const [validationAgentModel, setValidationAgentModel] = useState('')
+  const [planVerifierAgentModel, setPlanVerifierAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [orchestratorCompaction, setOrchestratorCompaction] = useState(80)
   const [reportManagerCompaction, setReportManagerCompaction] = useState(80)
   const [reportAgentCompaction, setReportAgentCompaction] = useState(80)
-  const [reportReviewerCompaction, setReportReviewerCompaction] = useState(80)
+  const [reportVerifierCompaction, setReportVerifierCompaction] = useState(80)
   const [planManagerCompaction, setPlanManagerCompaction] = useState(80)
   const [codeManagerCompaction, setCodeManagerCompaction] = useState(80)
   const [codeAgentCompaction, setCodeAgentCompaction] = useState(80)
-  const [codeReviewerCompaction, setCodeReviewerCompaction] = useState(80)
+  const [codeVerifierCompaction, setCodeVerifierCompaction] = useState(80)
   const [plannerAgentCompaction, setPlannerAgentCompaction] = useState(80)
-  const [validationAgentCompaction, setValidationAgentCompaction] = useState(80)
+  const [planVerifierAgentCompaction, setPlanVerifierAgentCompaction] = useState(80)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
   const [plannerTimeLimitMinutes, setPlannerTimeLimitMinutes] = useState(10)
   const [dtEnabled, setDtEnabled] = useState(true)
   const [infoToolsEnabled, setInfoToolsEnabled] = useState(true)
-  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
-  const [codeReviewerEnabled, setCodeReviewerEnabled] = useState(true)
-  const [validatorEnabled, setValidatorEnabled] = useState(true)
+  const [reportVerifierEnabled, setReportVerifierEnabled] = useState(true)
+  const [codeVerifierEnabled, setCodeVerifierEnabled] = useState(true)
+  const [planVerifierEnabled, setPlanVerifierEnabled] = useState(true)
   const [reportManagerEnabled, setReportManagerEnabled] = useState(true)
   const [pentestEnabled, setPentestEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
@@ -468,24 +468,24 @@ function ResponsePlanner() {
         setOrchestratorModel(config.orchestratorModel || '')
         setReportManagerModel(config.reportManagerModel || '')
         setReportAgentModel(config.reportAgentModel || '')
-        setReportReviewerModel(config.reportReviewerModel || '')
+        setReportVerifierModel(config.reportVerifierModel || '')
         setPlanManagerModel(config.planManagerModel || '')
         setCodeManagerModel(config.codeManagerModel || '')
         setCodeAgentModel(config.codeAgentModel || '')
-        setCodeReviewerModel(config.codeReviewerModel || '')
+        setCodeVerifierModel(config.codeVerifierModel || '')
         setPlannerAgentModel(config.plannerAgentModel || '')
-        setValidationAgentModel(config.validationAgentModel || '')
+        setPlanVerifierAgentModel(config.planVerifierAgentModel || '')
         setCompactionModel(config.compactionModel || '')
         setOrchestratorCompaction(config.orchestratorCompaction || 80)
         setReportManagerCompaction(config.reportManagerCompaction || 80)
         setReportAgentCompaction(config.reportAgentCompaction || 80)
-        setReportReviewerCompaction(config.reportReviewerCompaction || 80)
+        setReportVerifierCompaction(config.reportVerifierCompaction || 80)
         setPlanManagerCompaction(config.planManagerCompaction || 80)
         setCodeManagerCompaction(config.codeManagerCompaction || 80)
         setCodeAgentCompaction(config.codeAgentCompaction || 80)
-        setCodeReviewerCompaction(config.codeReviewerCompaction || 80)
+        setCodeVerifierCompaction(config.codeVerifierCompaction || 80)
         setPlannerAgentCompaction(config.plannerAgentCompaction || 80)
-        setValidationAgentCompaction(config.validationAgentCompaction || 80)
+        setPlanVerifierAgentCompaction(config.planVerifierAgentCompaction || 80)
         setReportManagerIterations(config.reportManagerIterations || 1)
         setPlanManagerIterations(config.planManagerIterations || 1)
         setCodeManagerIterations(config.codeManagerIterations || 1)
@@ -493,9 +493,9 @@ function ResponsePlanner() {
         setAutopilot(config.autopilot ?? true)
         setDtEnabled(config.dtEnabled ?? true)
         setInfoToolsEnabled(config.infoToolsEnabled ?? true)
-        setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
-        setCodeReviewerEnabled(config.codeReviewerEnabled ?? true)
-        setValidatorEnabled(config.validatorEnabled ?? true)
+        setReportVerifierEnabled(config.reportVerifierEnabled ?? true)
+        setCodeVerifierEnabled(config.codeVerifierEnabled ?? true)
+        setPlanVerifierEnabled(config.planVerifierEnabled ?? true)
         setReportManagerEnabled(config.reportManagerEnabled ?? true)
         setPentestEnabled(config.pentestEnabled ?? true)
         setCodeModelEnabled(config.codeModelEnabled ?? true)
@@ -868,9 +868,9 @@ function ResponsePlanner() {
             compaction_threshold: orchestratorCompaction / 100,
             dt_enabled: dtEnabled,
             info_tools_enabled: infoToolsEnabled,
-            report_reviewer_enabled: reportReviewerEnabled,
-            code_reviewer_enabled: codeReviewerEnabled,
-            validator_enabled: validatorEnabled,
+            report_verifier_enabled: reportVerifierEnabled,
+            code_verifier_enabled: codeVerifierEnabled,
+            plan_verifier_enabled: planVerifierEnabled,
             report_manager_enabled: reportManagerEnabled,
             pentest_enabled: pentestEnabled,
             code_model_enabled: codeModelEnabled
@@ -1334,24 +1334,24 @@ function ResponsePlanner() {
             orchestratorModel,
             reportManagerModel,
             reportAgentModel,
-            reportReviewerModel,
+            reportVerifierModel,
             planManagerModel,
             codeManagerModel,
             codeAgentModel,
-            codeReviewerModel,
+            codeVerifierModel,
             plannerAgentModel,
-            validationAgentModel,
+            planVerifierAgentModel,
             compactionModel,
             orchestratorCompaction,
             reportManagerCompaction,
             reportAgentCompaction,
-            reportReviewerCompaction,
+            reportVerifierCompaction,
             planManagerCompaction,
             codeManagerCompaction,
             codeAgentCompaction,
-            codeReviewerCompaction,
+            codeVerifierCompaction,
             plannerAgentCompaction,
-            validationAgentCompaction,
+            planVerifierAgentCompaction,
             reportManagerIterations,
             planManagerIterations,
             codeManagerIterations,
@@ -1359,10 +1359,10 @@ function ResponsePlanner() {
             autopilot,
             dtEnabled,
             infoToolsEnabled,
-            reportReviewerEnabled,
-            codeReviewerEnabled,
+            reportVerifierEnabled,
+            codeVerifierEnabled,
             reportManagerEnabled,
-            validatorEnabled,
+            planVerifierEnabled,
             pentestEnabled,
             codeModelEnabled
           }
@@ -1421,13 +1421,13 @@ function ResponsePlanner() {
           conversation_history: historyForBackend,
           report_manager_model: reportManagerModel || undefined,
           report_agent_model: reportAgentModel || undefined,
-          report_reviewer_model: reportReviewerModel || undefined,
+          report_verifier_model: reportVerifierModel || undefined,
           plan_manager_model: planManagerModel || undefined,
           code_manager_model: codeManagerModel || undefined,
           code_agent_model: codeAgentModel || undefined,
-          code_reviewer_model: codeReviewerModel || undefined,
+          code_verifier_model: codeVerifierModel || undefined,
           planner_agent_model: plannerAgentModel || undefined,
-          validation_agent_model: validationAgentModel || undefined,
+          plan_verifier_agent_model: planVerifierAgentModel || undefined,
           report_manager_iterations: reportManagerIterations,
           plan_manager_iterations: planManagerIterations,
           code_manager_iterations: codeManagerIterations,
@@ -1435,19 +1435,19 @@ function ResponsePlanner() {
           compaction_model: compactionModel || undefined,
           report_manager_compaction: reportManagerCompaction / 100,
           report_agent_compaction: reportAgentCompaction / 100,
-          report_reviewer_compaction: reportReviewerCompaction / 100,
+          report_verifier_compaction: reportVerifierCompaction / 100,
           plan_manager_compaction: planManagerCompaction / 100,
           code_manager_compaction: codeManagerCompaction / 100,
           code_agent_compaction: codeAgentCompaction / 100,
-          code_reviewer_compaction: codeReviewerCompaction / 100,
+          code_verifier_compaction: codeVerifierCompaction / 100,
           planner_agent_compaction: plannerAgentCompaction / 100,
-          validation_agent_compaction: validationAgentCompaction / 100,
+          plan_verifier_agent_compaction: planVerifierAgentCompaction / 100,
           dt_enabled: dtEnabled,
           info_tools_enabled: infoToolsEnabled,
-          report_reviewer_enabled: reportReviewerEnabled,
-          code_reviewer_enabled: codeReviewerEnabled,
+          report_verifier_enabled: reportVerifierEnabled,
+          code_verifier_enabled: codeVerifierEnabled,
           report_manager_enabled: reportManagerEnabled,
-          validator_enabled: validatorEnabled,
+          plan_verifier_enabled: planVerifierEnabled,
           pentest_enabled: pentestEnabled,
           code_model_enabled: codeModelEnabled
         }
@@ -1594,9 +1594,9 @@ function ResponsePlanner() {
           dt_enabled: dtEnabled,
           info_tools_enabled: infoToolsEnabled,
           report_manager_enabled: reportManagerEnabled,
-          report_reviewer_enabled: reportReviewerEnabled,
-          code_reviewer_enabled: codeReviewerEnabled,
-          validator_enabled: validatorEnabled,
+          report_verifier_enabled: reportVerifierEnabled,
+          code_verifier_enabled: codeVerifierEnabled,
+          plan_verifier_enabled: planVerifierEnabled,
           pentest_enabled: pentestEnabled,
           code_model_enabled: codeModelEnabled
         })
@@ -2001,11 +2001,11 @@ function ResponsePlanner() {
               },
               {
                 id: 'rp-report-reviewer',
-                label: 'Report Reviewer',
+                label: 'Report Verifier',
                 description:
                   'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
-                checked: reportReviewerEnabled,
-                onChange: setReportReviewerEnabled,
+                checked: reportVerifierEnabled,
+                onChange: setReportVerifierEnabled,
                 disabled: isAgentBusy
               },
               {
@@ -2028,11 +2028,11 @@ function ResponsePlanner() {
               },
               {
                 id: 'rp-code-reviewer-enabled',
-                label: 'Code Reviewer',
+                label: 'Code Verifier',
                 description:
                   'When disabled, the plan manager invokes the code agent directly, skipping code review',
-                checked: codeReviewerEnabled,
-                onChange: setCodeReviewerEnabled,
+                checked: codeVerifierEnabled,
+                onChange: setCodeVerifierEnabled,
                 disabled: isAgentBusy
               },
               {
@@ -2045,12 +2045,12 @@ function ResponsePlanner() {
                 disabled: isAgentBusy
               },
               {
-                id: 'rp-validator-enabled',
-                label: 'Validator Agent',
+                id: 'rp-plan-verifier-enabled',
+                label: 'Plan Verifier Agent',
                 description:
-                  'When disabled, the plan manager skips validation and returns the plan directly',
-                checked: validatorEnabled,
-                onChange: setValidatorEnabled,
+                  'When disabled, the plan manager skips verification and returns the plan directly',
+                checked: planVerifierEnabled,
+                onChange: setPlanVerifierEnabled,
                 disabled: isAgentBusy
               }
             ]}
@@ -2071,20 +2071,20 @@ function ResponsePlanner() {
             setReportManagerModel={setReportManagerModel}
             reportAgentModel={reportAgentModel}
             setReportAgentModel={setReportAgentModel}
-            reportReviewerModel={reportReviewerModel}
-            setReportReviewerModel={setReportReviewerModel}
+            reportVerifierModel={reportVerifierModel}
+            setReportVerifierModel={setReportVerifierModel}
             planManagerModel={planManagerModel}
             setPlanManagerModel={setPlanManagerModel}
             codeManagerModel={codeManagerModel}
             setCodeManagerModel={setCodeManagerModel}
             codeAgentModel={codeAgentModel}
             setCodeAgentModel={setCodeAgentModel}
-            codeReviewerModel={codeReviewerModel}
-            setCodeReviewerModel={setCodeReviewerModel}
+            codeVerifierModel={codeVerifierModel}
+            setCodeVerifierModel={setCodeVerifierModel}
             plannerAgentModel={plannerAgentModel}
             setPlannerAgentModel={setPlannerAgentModel}
-            validationAgentModel={validationAgentModel}
-            setValidationAgentModel={setValidationAgentModel}
+            planVerifierAgentModel={planVerifierAgentModel}
+            setPlanVerifierAgentModel={setPlanVerifierAgentModel}
             compactionModel={compactionModel}
             setCompactionModel={setCompactionModel}
             reportManagerIterations={reportManagerIterations}
@@ -2101,20 +2101,20 @@ function ResponsePlanner() {
             setReportManagerCompaction={setReportManagerCompaction}
             reportAgentCompaction={reportAgentCompaction}
             setReportAgentCompaction={setReportAgentCompaction}
-            reportReviewerCompaction={reportReviewerCompaction}
-            setReportReviewerCompaction={setReportReviewerCompaction}
+            reportVerifierCompaction={reportVerifierCompaction}
+            setReportVerifierCompaction={setReportVerifierCompaction}
             planManagerCompaction={planManagerCompaction}
             setPlanManagerCompaction={setPlanManagerCompaction}
             codeManagerCompaction={codeManagerCompaction}
             setCodeManagerCompaction={setCodeManagerCompaction}
             codeAgentCompaction={codeAgentCompaction}
             setCodeAgentCompaction={setCodeAgentCompaction}
-            codeReviewerCompaction={codeReviewerCompaction}
-            setCodeReviewerCompaction={setCodeReviewerCompaction}
+            codeVerifierCompaction={codeVerifierCompaction}
+            setCodeVerifierCompaction={setCodeVerifierCompaction}
             plannerAgentCompaction={plannerAgentCompaction}
             setPlannerAgentCompaction={setPlannerAgentCompaction}
-            validationAgentCompaction={validationAgentCompaction}
-            setValidationAgentCompaction={setValidationAgentCompaction}
+            planVerifierAgentCompaction={planVerifierAgentCompaction}
+            setPlanVerifierAgentCompaction={setPlanVerifierAgentCompaction}
           />
         )}
 

@@ -53,7 +53,7 @@ function PlannerAgent() {
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
-  const [reportReviewerEnabled, setReportReviewerEnabled] = useState(true)
+  const [reportVerifierEnabled, setReportVerifierEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [loadingReportHistory, setLoadingReportHistory] = useState(true)
   const [trainingData, setTrainingData] = useState([])
@@ -118,7 +118,7 @@ function PlannerAgent() {
       setCompactionThreshold(config.compactionThreshold || 80)
       setAutopilot(config.autopilot ?? true)
       setDtEnabled(config.dtEnabled ?? true)
-      setReportReviewerEnabled(config.reportReviewerEnabled ?? true)
+      setReportVerifierEnabled(config.reportVerifierEnabled ?? true)
       setContextUsage(session.context_usage || null)
       setPendingProposal(session.pending_proposal || null)
       if (!window.location.hash) setActiveTab('planning')
@@ -309,7 +309,7 @@ function PlannerAgent() {
             time_limit_minutes: timeLimitMinutes,
             session_id: sessionIdRef.current,
             dt_enabled: dtEnabled,
-            report_reviewer_enabled: reportReviewerEnabled
+            report_verifier_enabled: reportVerifierEnabled
           })
         })
         if (res.status === 401) {
@@ -669,7 +669,7 @@ function PlannerAgent() {
         compactionThreshold,
         autopilot,
         dtEnabled,
-        reportReviewerEnabled
+        reportVerifierEnabled
       }
     )
     callStep([])
@@ -1249,11 +1249,11 @@ function PlannerAgent() {
             },
             {
               id: 'pl-report-reviewer',
-              label: 'Report Reviewer',
+              label: 'Report Verifier',
               description:
                 'When disabled, the orchestrator invokes the report agent directly, skipping the review process',
-              checked: reportReviewerEnabled,
-              onChange: setReportReviewerEnabled,
+              checked: reportVerifierEnabled,
+              onChange: setReportVerifierEnabled,
               disabled: isAgentBusy
             }
           ]}

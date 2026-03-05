@@ -2,7 +2,7 @@
 System prompt template for the PlanManagerAgent.
 
 The prompt is assembled dynamically by ``build_system_prompt`` (and
-``build_direct_plan_prompt``) so that digital-twin / validation
+``build_direct_plan_prompt``) so that digital-twin / verification
 sections are omitted when the validator is disabled.
 """
 
@@ -31,8 +31,8 @@ Before producing a solution or invoking a tool, think step-by-step about the bes
 
 To do all of these tasks described above, you can invoke different sub-agents, which are optimized for specific tasks \
 (e.g., generating code or training an RL policy). Your role is to decide which agents to invoke and when. \
-That is, your role is to coordinate the three-stage response pipeline (code generation, RL training, and validation) \
-and iterate when validation reveals problems. The details of the pipeline and the subagents are provided below.
+That is, your role is to coordinate the three-stage response pipeline (code generation, RL training, and verification) \
+and iterate when verification reveals problems. The details of the pipeline and the subagents are provided below.
 """
 
 _INTRO_NO_VALIDATION = """\
@@ -60,11 +60,11 @@ _ITERATIONS_WITH_VALIDATION = """\
 
 You are allowed a maximum of **{max_iterations} iteration(s)** of the full \
 pipeline. One iteration consists of calling `run_code_manager`, then \
-`run_planner_agent`, then `run_validation_agent` — in that order. After the \
-first iteration, if validation reveals problems, you may start a new \
-iteration by calling `run_code_manager` again with `validation_feedback`. \
+`run_planner_agent`, then `run_plan_verifier_agent` — in that order. After the \
+first iteration, if verification reveals problems, you may start a new \
+iteration by calling `run_code_manager` again with `verification_feedback`. \
 Each such cycle counts as one iteration. Once you have used all \
-{max_iterations} iteration(s), or once validation passes, you MUST call \
+{max_iterations} iteration(s), or once verification passes, you MUST call \
 `produce_plan_manager_report` to finalize the pipeline.
 """
 
@@ -89,12 +89,12 @@ Input: An incident report describing a compromised web server with lateral \
 movement, with {max_iterations} iteration(s) allowed. \
 Solution (iteration 1): Call `run_code_manager` to generate the MDP \
 environment \u2192 call `run_planner_agent` to train the response policy \u2192 call \
-`run_validation_agent` to test the plan on the digital twin. \
-If validation passes or {max_iterations} iteration(s) have been used, call \
+`run_plan_verifier_agent` to test the plan on the digital twin. \
+If verification passes or {max_iterations} iteration(s) have been used, call \
 `produce_plan_manager_report`. \
-If validation reveals issues and iterations remain, start a new iteration: \
-call `run_code_manager` with `validation_feedback` describing the problems \
-\u2192 call `run_planner_agent` \u2192 call `run_validation_agent` \u2192 assess again.
+If verification reveals issues and iterations remain, start a new iteration: \
+call `run_code_manager` with `verification_feedback` describing the problems \
+\u2192 call `run_planner_agent` \u2192 call `run_plan_verifier_agent` \u2192 assess again.
 """
 
 _EXAMPLE_NO_VALIDATION = """\
@@ -115,17 +115,17 @@ _SUBAGENTS_WITH_VALIDATION = """\
 ## Subagents
 
 1. CodeManager agent. This agent is specialized for generating the code model (MDP) of the incident. \
-This agent uses two subagents: CodeAgent and CodeReviewerAgent, which are responsible for generating code and \
+This agent uses two subagents: CodeAgent and CodeVerifierAgent, which are responsible for generating code and \
 reviewing it, respectively.
 2. PlannerAgent. This agent trains an optimal response policy on a generated code model using RL.
-3. ValidationAgent. This agent is specialized for validating a trained response policy on the digital twin.
+3. PlanVerifierAgent. This agent is specialized for validating a trained response policy on the digital twin.
 """
 
 _SUBAGENTS_NO_VALIDATION = """\
 ## Subagents
 
 1. CodeManager agent. This agent is specialized for generating the code model (MDP) of the incident. \
-This agent uses two subagents: CodeAgent and CodeReviewerAgent, which are responsible for generating code and \
+This agent uses two subagents: CodeAgent and CodeVerifierAgent, which are responsible for generating code and \
 reviewing it, respectively.
 2. PlannerAgent. This agent trains an optimal response policy on a generated code model using RL.
 """
@@ -138,7 +138,7 @@ _PIPELINE_WITH_VALIDATION = """\
 ## Pipeline Overview
 
 1. **MDP Generation (CodeManager):** Call `run_code_manager` to \
-orchestrate the CodeAgent and CodeReviewerAgent, which together \
+orchestrate the CodeAgent and CodeVerifierAgent, which together \
 produce a Gymnasium MDP environment modeling the security incident. \
 The CodeManager handles the internal generate-review-revise loop \
 and returns the final code report and orchestrator report.
@@ -149,17 +149,17 @@ The Planner Agent writes the environment code to a Python sandbox, trains \
 the policy, and returns the planner report with the computed response \
 plan (a sequence of actions for incident response).
 
-3. **Validation (Validation Agent):** Call `run_validation_agent` to \
+3. **Validation (Plan Verifier Agent):** Call `run_plan_verifier_agent` to \
 test the response plan on the deployed digital twin. The Validation \
 Agent executes the plan's commands on the actual Docker containers, \
 runs the specification commands to verify service-level requirements, \
-and returns a validation report with pass/fail results.
+and returns a verification report with pass/fail results.
 
-4. **Assessment (you):** After validation, assess the results. If \
-the validation reveals significant issues (e.g., commands that fail, \
+4. **Assessment (you):** After verification, assess the results. If \
+the verification reveals significant issues (e.g., commands that fail, \
 specification tests that do not pass, actions that produce incorrect \
 results), you may revise the pipeline by calling `run_code_manager` \
-again with `validation_feedback` describing the problems. This tells \
+again with `verification_feedback` describing the problems. This tells \
 the CodeManager to revise the MDP code to fix the issues.
 """
 
@@ -167,7 +167,7 @@ _PIPELINE_NO_VALIDATION = """\
 ## Pipeline Overview
 
 1. **MDP Generation (CodeManager):** Call `run_code_manager` to \
-orchestrate the CodeAgent and CodeReviewerAgent, which together \
+orchestrate the CodeAgent and CodeVerifierAgent, which together \
 produce a Gymnasium MDP environment modeling the security incident. \
 The CodeManager handles the internal generate-review-revise loop \
 and returns the final code report and orchestrator report.
@@ -183,20 +183,20 @@ pipeline with the computed response plan.
 """
 
 # ------------------------------------------------------------------
-# Revision loop (only with validation)
+# Revision loop (only with verification)
 # ------------------------------------------------------------------
 
 _REVISION_LOOP = """\
 ## Revision Loop
 
-If validation reveals problems and you still have iterations remaining:
-- Call `run_code_manager` with `validation_feedback` summarizing what \
+If verification reveals problems and you still have iterations remaining:
+- Call `run_code_manager` with `verification_feedback` summarizing what \
 went wrong (e.g., "The iptables command on server 3 fails because \
 the container does not have iptables installed. Use nftables instead.")
 - Then call `run_planner_agent` to retrain the policy on the revised MDP.
-- Then call `run_validation_agent` to re-validate.
+- Then call `run_plan_verifier_agent` to re-validate.
 - This counts as one additional iteration.
-- Repeat until validation passes or all {max_iterations} iterations \
+- Repeat until verification passes or all {max_iterations} iterations \
 have been used.
 """
 
@@ -237,9 +237,9 @@ _TOOLS_WITH_VALIDATION = """\
 
 - **run_code_manager**: Run the CodeManager agent to generate (or \
 revise) the MDP environment code. Optionally provide \
-`validation_feedback` to guide revision iterations.
+`verification_feedback` to guide revision iterations.
 - **run_planner_agent**: Run the Planner Agent to train a policy on the MDP.
-- **run_validation_agent**: Run the Validation Agent to test the \
+- **run_plan_verifier_agent**: Run the Plan Verifier Agent to test the \
 response plan on the digital twin.
 - **produce_plan_manager_report**: Produce the final pipeline report \
 after you decide to finalize or the iteration limit is reached.
@@ -265,7 +265,7 @@ _RULES_WITH_VALIDATION = """\
 - Before producing a solution or invoking a tool, think step-by-step \
 about the best approach.
 - You MUST always respond with a tool call. Either call \
-`run_code_manager`, `run_planner_agent`, `run_validation_agent`, or \
+`run_code_manager`, `run_planner_agent`, `run_plan_verifier_agent`, or \
 `produce_plan_manager_report`.
 - NEVER output plain text without also making a tool call.
 - NEVER describe or announce a tool call in text without actually \
@@ -277,17 +277,17 @@ single response, you will only receive the result of the LAST \
 tool call.
 - Follow the pipeline order: CodeManager -> Planner Agent -> Validation \
 Agent. Do NOT call `run_planner_agent` before `run_code_manager` has \
-completed. Do NOT call `run_validation_agent` before `run_planner_agent` \
+completed. Do NOT call `run_plan_verifier_agent` before `run_planner_agent` \
 has completed.
 - Do NOT call `produce_plan_manager_report` until you have run at \
 least one full pipeline cycle (CodeManager + Planner Agent + Validation).
 - Maximum {max_iterations} iteration(s). Each iteration is one full \
-cycle: CodeManager \u2192 Planner Agent \u2192 Validation Agent. Once you have \
+cycle: CodeManager \u2192 Planner Agent \u2192 Plan Verifier Agent. Once you have \
 used all {max_iterations} iteration(s), call \
 `produce_plan_manager_report`.
-- When revising, ALWAYS pass `validation_feedback` to \
+- When revising, ALWAYS pass `verification_feedback` to \
 `run_code_manager` so it can address the issues found during \
-validation.
+verification.
 """
 
 _RULES_NO_VALIDATION = """\
@@ -320,7 +320,7 @@ used all {max_iterations} iteration(s), call \
 
 def build_system_prompt(
     *,
-    validator_enabled: bool,
+    plan_verifier_enabled: bool,
     system_description: str,
     incident_context_section: str,
     specification: str,
@@ -330,10 +330,10 @@ def build_system_prompt(
     """
     Assemble the PlanManagerAgent system prompt (code-model pipeline).
 
-    When *validator_enabled* is ``False`` the digital-twin /
-    validation sections are omitted entirely.
+    When *plan_verifier_enabled* is ``False`` the digital-twin /
+    verification sections are omitted entirely.
 
-    :param validator_enabled: whether the validation agent is available
+    :param plan_verifier_enabled: whether the plan verifier agent is available
     :param system_description: description of the target system
     :param incident_context_section: rendered incident context
     :param specification: specification commands text
@@ -344,35 +344,35 @@ def build_system_prompt(
     parts: list[str] = []
 
     parts.append(
-        _INTRO_WITH_VALIDATION if validator_enabled
+        _INTRO_WITH_VALIDATION if plan_verifier_enabled
         else _INTRO_NO_VALIDATION
     )
 
     parts.append(
-        (_ITERATIONS_WITH_VALIDATION if validator_enabled
+        (_ITERATIONS_WITH_VALIDATION if plan_verifier_enabled
          else _ITERATIONS_NO_VALIDATION).format(
             max_iterations=max_iterations,
         )
     )
 
     parts.append(
-        (_EXAMPLE_WITH_VALIDATION if validator_enabled
+        (_EXAMPLE_WITH_VALIDATION if plan_verifier_enabled
          else _EXAMPLE_NO_VALIDATION).format(
             max_iterations=max_iterations,
         )
     )
 
     parts.append(
-        _SUBAGENTS_WITH_VALIDATION if validator_enabled
+        _SUBAGENTS_WITH_VALIDATION if plan_verifier_enabled
         else _SUBAGENTS_NO_VALIDATION
     )
 
     parts.append(
-        _PIPELINE_WITH_VALIDATION if validator_enabled
+        _PIPELINE_WITH_VALIDATION if plan_verifier_enabled
         else _PIPELINE_NO_VALIDATION
     )
 
-    if validator_enabled:
+    if plan_verifier_enabled:
         parts.append(_REVISION_LOOP.format(
             max_iterations=max_iterations,
         ))
@@ -385,12 +385,12 @@ def build_system_prompt(
     ))
 
     parts.append(
-        _TOOLS_WITH_VALIDATION if validator_enabled
+        _TOOLS_WITH_VALIDATION if plan_verifier_enabled
         else _TOOLS_NO_VALIDATION
     )
 
     parts.append(
-        (_RULES_WITH_VALIDATION if validator_enabled
+        (_RULES_WITH_VALIDATION if plan_verifier_enabled
          else _RULES_NO_VALIDATION).format(
             max_iterations=max_iterations,
         )
@@ -422,8 +422,8 @@ Before producing a solution or invoking a tool, think step-by-step about the bes
 
 To do these tasks, you can invoke different sub-agents, which are optimized for specific tasks. \
 Your role is to decide which agents to invoke and when. \
-That is, your role is to coordinate the two-stage response pipeline (direct planning and validation) \
-and iterate when validation reveals problems. The details of the pipeline and the subagents are provided below.
+That is, your role is to coordinate the two-stage response pipeline (direct planning and verification) \
+and iterate when verification reveals problems. The details of the pipeline and the subagents are provided below.
 """
 
 _DIRECT_INTRO_NO_VALIDATION = """\
@@ -449,12 +449,12 @@ _DIRECT_ITERATIONS_WITH_VALIDATION = """\
 
 You are allowed a maximum of **{max_iterations} iteration(s)** of the full \
 pipeline. One iteration consists of calling `run_planner_agent`, then \
-`run_validation_agent` — in that order. After the \
-first iteration, if validation reveals problems, you may start a new \
-iteration by calling `run_planner_agent` again with the validation feedback \
+`run_plan_verifier_agent` — in that order. After the \
+first iteration, if verification reveals problems, you may start a new \
+iteration by calling `run_planner_agent` again with the verification feedback \
 incorporated into your reasoning. \
 Each such cycle counts as one iteration. Once you have used all \
-{max_iterations} iteration(s), or once validation passes, you MUST call \
+{max_iterations} iteration(s), or once verification passes, you MUST call \
 `produce_plan_manager_report` to finalize the pipeline.
 """
 
@@ -477,12 +477,12 @@ _DIRECT_EXAMPLE_WITH_VALIDATION = """\
 Input: An incident report describing a compromised web server with lateral \
 movement, with {max_iterations} iteration(s) allowed. \
 Solution (iteration 1): Call `run_planner_agent` to produce the response plan \
-\u2192 call `run_validation_agent` to test the plan on the digital twin. \
-If validation passes or {max_iterations} iteration(s) have been used, call \
+\u2192 call `run_plan_verifier_agent` to test the plan on the digital twin. \
+If verification passes or {max_iterations} iteration(s) have been used, call \
 `produce_plan_manager_report`. \
-If validation reveals issues and iterations remain, start a new iteration: \
-call `run_planner_agent` again (providing validation feedback in your reasoning) \
-\u2192 call `run_validation_agent` \u2192 assess again.
+If verification reveals issues and iterations remain, start a new iteration: \
+call `run_planner_agent` again (providing verification feedback in your reasoning) \
+\u2192 call `run_plan_verifier_agent` \u2192 assess again.
 """
 
 _DIRECT_EXAMPLE_NO_VALIDATION = """\
@@ -503,7 +503,7 @@ _DIRECT_SUBAGENTS_WITH_VALIDATION = """\
 
 1. PlannerAgent. This agent directly analyzes the incident report and produces \
 a concrete response plan with a sequence of response actions.
-2. ValidationAgent. This agent is specialized for validating a response plan \
+2. PlanVerifierAgent. This agent is specialized for validating a response plan \
 on the digital twin.
 """
 
@@ -527,17 +527,17 @@ the incident, reasons about recovery phases (containment, assessment, \
 preservation, eviction, hardening, restoration), and produces an actionable \
 plan with concrete shell commands for each step.
 
-2. **Validation (Validation Agent):** Call `run_validation_agent` to \
+2. **Validation (Plan Verifier Agent):** Call `run_plan_verifier_agent` to \
 test the response plan on the deployed digital twin. The Validation \
 Agent executes the plan's commands on the actual Docker containers, \
 runs the specification commands to verify service-level requirements, \
-and returns a validation report with pass/fail results.
+and returns a verification report with pass/fail results.
 
-3. **Assessment (you):** After validation, assess the results. If \
-the validation reveals significant issues (e.g., commands that fail, \
+3. **Assessment (you):** After verification, assess the results. If \
+the verification reveals significant issues (e.g., commands that fail, \
 specification tests that do not pass, actions that produce incorrect \
 results), you may revise the pipeline by calling `run_planner_agent` \
-again. Summarize the validation problems in your reasoning so the \
+again. Summarize the verification problems in your reasoning so the \
 Planner Agent can address them.
 """
 
@@ -555,19 +555,19 @@ pipeline with the computed response plan.
 """
 
 # ------------------------------------------------------------------
-# Revision loop (only with validation)
+# Revision loop (only with verification)
 # ------------------------------------------------------------------
 
 _DIRECT_REVISION_LOOP = """\
 ## Revision Loop
 
-If validation reveals problems and you still have iterations remaining:
-- Call `run_planner_agent` again, summarizing the validation problems \
+If verification reveals problems and you still have iterations remaining:
+- Call `run_planner_agent` again, summarizing the verification problems \
 in your reasoning (e.g., "The iptables command on server 3 fails because \
 the container does not have iptables installed. Use nftables instead.")
-- Then call `run_validation_agent` to re-validate.
+- Then call `run_plan_verifier_agent` to re-validate.
 - This counts as one additional iteration.
-- Repeat until validation passes or all {max_iterations} iterations \
+- Repeat until verification passes or all {max_iterations} iterations \
 have been used.
 """
 
@@ -580,7 +580,7 @@ _DIRECT_TOOLS_WITH_VALIDATION = """\
 
 - **run_planner_agent**: Run the Planner Agent to produce a response \
 plan directly from the incident report.
-- **run_validation_agent**: Run the Validation Agent to test the \
+- **run_plan_verifier_agent**: Run the Plan Verifier Agent to test the \
 response plan on the digital twin.
 - **produce_plan_manager_report**: Produce the final pipeline report \
 after you decide to finalize or the iteration limit is reached.
@@ -605,7 +605,7 @@ _DIRECT_RULES_WITH_VALIDATION = """\
 - Before producing a solution or invoking a tool, think step-by-step \
 about the best approach.
 - You MUST always respond with a tool call. Either call \
-`run_planner_agent`, `run_validation_agent`, or \
+`run_planner_agent`, `run_plan_verifier_agent`, or \
 `produce_plan_manager_report`.
 - NEVER output plain text without also making a tool call.
 - NEVER describe or announce a tool call in text without actually \
@@ -615,13 +615,13 @@ thinking.
 - **One tool call per response.** If you call multiple tools in a \
 single response, you will only receive the result of the LAST \
 tool call.
-- Follow the pipeline order: Planner Agent -> Validation Agent. \
-Do NOT call `run_validation_agent` before `run_planner_agent` \
+- Follow the pipeline order: Planner Agent -> Plan Verifier Agent. \
+Do NOT call `run_plan_verifier_agent` before `run_planner_agent` \
 has completed.
 - Do NOT call `produce_plan_manager_report` until you have run at \
-least one full pipeline cycle (Planner Agent + Validation Agent).
+least one full pipeline cycle (Planner Agent + Plan Verifier Agent).
 - Maximum {max_iterations} iteration(s). Each iteration is one full \
-cycle: Planner Agent \u2192 Validation Agent. Once you have \
+cycle: Planner Agent \u2192 Plan Verifier Agent. Once you have \
 used all {max_iterations} iteration(s), call \
 `produce_plan_manager_report`.
 """
@@ -651,7 +651,7 @@ used all {max_iterations} iteration(s), call \
 
 def build_direct_plan_prompt(
     *,
-    validator_enabled: bool,
+    plan_verifier_enabled: bool,
     system_description: str,
     incident_context_section: str,
     specification: str,
@@ -661,10 +661,10 @@ def build_direct_plan_prompt(
     """
     Assemble the PlanManagerAgent prompt for the direct-plan pipeline.
 
-    When *validator_enabled* is ``False`` the digital-twin /
-    validation sections are omitted entirely.
+    When *plan_verifier_enabled* is ``False`` the digital-twin /
+    verification sections are omitted entirely.
 
-    :param validator_enabled: whether the validation agent is available
+    :param plan_verifier_enabled: whether the plan verifier agent is available
     :param system_description: description of the target system
     :param incident_context_section: rendered incident context
     :param specification: specification commands text
@@ -675,35 +675,35 @@ def build_direct_plan_prompt(
     parts: list[str] = []
 
     parts.append(
-        _DIRECT_INTRO_WITH_VALIDATION if validator_enabled
+        _DIRECT_INTRO_WITH_VALIDATION if plan_verifier_enabled
         else _DIRECT_INTRO_NO_VALIDATION
     )
 
     parts.append(
-        (_DIRECT_ITERATIONS_WITH_VALIDATION if validator_enabled
+        (_DIRECT_ITERATIONS_WITH_VALIDATION if plan_verifier_enabled
          else _DIRECT_ITERATIONS_NO_VALIDATION).format(
             max_iterations=max_iterations,
         )
     )
 
     parts.append(
-        (_DIRECT_EXAMPLE_WITH_VALIDATION if validator_enabled
+        (_DIRECT_EXAMPLE_WITH_VALIDATION if plan_verifier_enabled
          else _DIRECT_EXAMPLE_NO_VALIDATION).format(
             max_iterations=max_iterations,
         )
     )
 
     parts.append(
-        _DIRECT_SUBAGENTS_WITH_VALIDATION if validator_enabled
+        _DIRECT_SUBAGENTS_WITH_VALIDATION if plan_verifier_enabled
         else _DIRECT_SUBAGENTS_NO_VALIDATION
     )
 
     parts.append(
-        _DIRECT_PIPELINE_WITH_VALIDATION if validator_enabled
+        _DIRECT_PIPELINE_WITH_VALIDATION if plan_verifier_enabled
         else _DIRECT_PIPELINE_NO_VALIDATION
     )
 
-    if validator_enabled:
+    if plan_verifier_enabled:
         parts.append(_DIRECT_REVISION_LOOP.format(
             max_iterations=max_iterations,
         ))
@@ -716,12 +716,12 @@ def build_direct_plan_prompt(
     ))
 
     parts.append(
-        _DIRECT_TOOLS_WITH_VALIDATION if validator_enabled
+        _DIRECT_TOOLS_WITH_VALIDATION if plan_verifier_enabled
         else _DIRECT_TOOLS_NO_VALIDATION
     )
 
     parts.append(
-        (_DIRECT_RULES_WITH_VALIDATION if validator_enabled
+        (_DIRECT_RULES_WITH_VALIDATION if plan_verifier_enabled
          else _DIRECT_RULES_NO_VALIDATION).format(
             max_iterations=max_iterations,
         )

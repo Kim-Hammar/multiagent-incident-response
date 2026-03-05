@@ -9,7 +9,7 @@ import {
   API_AGENTS_CODE_PROMPT_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
   API_AGENTS_PLANNER_PROMPT_URL,
-  API_AGENTS_VALIDATION_PROMPT_URL
+  API_AGENTS_PLAN_VERIFIER_PROMPT_URL
 } from '../Common/constants'
 import PromptModal from '../Agents/shared/PromptModal.jsx'
 
@@ -31,20 +31,20 @@ function SubAgentsTab({
   setReportManagerModel,
   reportAgentModel,
   setReportAgentModel,
-  reportReviewerModel,
-  setReportReviewerModel,
+  reportVerifierModel,
+  setReportVerifierModel,
   planManagerModel,
   setPlanManagerModel,
   codeManagerModel,
   setCodeManagerModel,
   codeAgentModel,
   setCodeAgentModel,
-  codeReviewerModel,
-  setCodeReviewerModel,
+  codeVerifierModel,
+  setCodeVerifierModel,
   plannerAgentModel,
   setPlannerAgentModel,
-  validationAgentModel,
-  setValidationAgentModel,
+  planVerifierAgentModel,
+  setPlanVerifierAgentModel,
   compactionModel,
   setCompactionModel,
   reportManagerIterations,
@@ -61,20 +61,20 @@ function SubAgentsTab({
   setReportManagerCompaction,
   reportAgentCompaction,
   setReportAgentCompaction,
-  reportReviewerCompaction,
-  setReportReviewerCompaction,
+  reportVerifierCompaction,
+  setReportVerifierCompaction,
   planManagerCompaction,
   setPlanManagerCompaction,
   codeManagerCompaction,
   setCodeManagerCompaction,
   codeAgentCompaction,
   setCodeAgentCompaction,
-  codeReviewerCompaction,
-  setCodeReviewerCompaction,
+  codeVerifierCompaction,
+  setCodeVerifierCompaction,
   plannerAgentCompaction,
   setPlannerAgentCompaction,
-  validationAgentCompaction,
-  setValidationAgentCompaction
+  planVerifierAgentCompaction,
+  setPlanVerifierAgentCompaction
 }) {
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
@@ -154,13 +154,13 @@ function SubAgentsTab({
       setCompaction: setReportAgentCompaction
     },
     {
-      label: 'Report Reviewer',
-      model: reportReviewerModel,
-      setModel: setReportReviewerModel,
+      label: 'Report Verifier',
+      model: reportVerifierModel,
+      setModel: setReportVerifierModel,
       promptUrl: API_AGENTS_REPORT_REVIEW_PROMPT_URL,
       iteration: null,
-      compaction: reportReviewerCompaction,
-      setCompaction: setReportReviewerCompaction
+      compaction: reportVerifierCompaction,
+      setCompaction: setReportVerifierCompaction
     },
     {
       label: 'Plan Manager',
@@ -202,13 +202,13 @@ function SubAgentsTab({
       setCompaction: setCodeAgentCompaction
     },
     {
-      label: 'Code Reviewer',
-      model: codeReviewerModel,
-      setModel: setCodeReviewerModel,
+      label: 'Code Verifier',
+      model: codeVerifierModel,
+      setModel: setCodeVerifierModel,
       promptUrl: API_AGENTS_CODE_REVIEW_PROMPT_URL,
       iteration: null,
-      compaction: codeReviewerCompaction,
-      setCompaction: setCodeReviewerCompaction
+      compaction: codeVerifierCompaction,
+      setCompaction: setCodeVerifierCompaction
     },
     {
       label: 'Planner Agent',
@@ -226,13 +226,13 @@ function SubAgentsTab({
       setCompaction: setPlannerAgentCompaction
     },
     {
-      label: 'Validation Agent',
-      model: validationAgentModel,
-      setModel: setValidationAgentModel,
-      promptUrl: API_AGENTS_VALIDATION_PROMPT_URL,
+      label: 'Plan Verifier Agent',
+      model: planVerifierAgentModel,
+      setModel: setPlanVerifierAgentModel,
+      promptUrl: API_AGENTS_PLAN_VERIFIER_PROMPT_URL,
       iteration: null,
-      compaction: validationAgentCompaction,
-      setCompaction: setValidationAgentCompaction
+      compaction: planVerifierAgentCompaction,
+      setCompaction: setPlanVerifierAgentCompaction
     },
     {
       label: 'Compaction',
