@@ -10,7 +10,7 @@ function About() {
       <h2>About</h2>
       <hr />
       <p>
-        This is the frontend of a multiagent incident response system that leverages large language
+        This is the frontend of a <b>multiagent incident response system</b> that leverages large language
         models (LLMs) to assist security operators during incident handling. The system consists of
         a collection of agents that work together to automate incident response tasks and provide
         insights to security operators. Each agent is designed to perform a specific role in the
