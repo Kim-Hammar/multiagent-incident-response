@@ -1,25 +1,5 @@
 # Incident Response Planner
 
-<a href="https://github.com/Kim-Hammar/ccs26_incident_response">
-    <img src="https://img.shields.io/badge/-github-teal?logo=github" alt="github">
-</a>
-<a href="https://pypi.org/project/ccs-response-planner-backend/">
-    <img src="https://img.shields.io/pypi/dm/ccs-response-planner-backend" alt="PyPI downloads">
-</a>
-<a href="https://codecov.io/gh/Kim-Hammar/ccs26_incident_response">
-    <img src="https://codecov.io/gh/Kim-Hammar/ccs26_incident_response/graph/badge.svg" alt="codecov">
-</a>
-<a href="https://github.com/Kim-Hammar/ccs26_incident_response/actions/workflows/ci.yml">
-    <img src="https://github.com/Kim-Hammar/ccs26_incident_response/actions/workflows/ci.yml/badge.svg" alt="CI">
-</a>
-
-LLM-based incident response planner for cyber-security. The repository is structured into two sub-projects:
-
-- `ccs-response-planner-backend/` — Python backend (Flask REST API + planner logic)
-- `ccs-response-planner-frontend/` — React frontend (Vite + JSX)
-
-## About
-
 This reposistory includes to code of a **multiagent incident response system** that leverages large language models 
 (LLMs) to assist security operators during incident handling. 
 

@@ -308,20 +308,28 @@ function renderOrchestratorArgs(toolName, args, entries) {
         {args.previous_assessment && (
           <CollapsibleSection label="Previous Assessment" icon="fa-file-text">
             {(() => {
-              try {
-                const parsed =
-                  typeof args.previous_assessment === 'string'
-                    ? JSON.parse(args.previous_assessment)
-                    : args.previous_assessment
-                if (parsed && typeof parsed === 'object') {
-                  return <AssessmentBody report={parsed} />
+              const val = args.previous_assessment
+              // Try to get a parsed object from the value
+              let obj = null
+              if (typeof val === 'object' && val !== null) {
+                obj = val
+              } else if (typeof val === 'string') {
+                try {
+                  const cleaned = val.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+                  const parsed = JSON.parse(cleaned)
+                  if (parsed && typeof parsed === 'object') obj = parsed
+                } catch {
+                  /* not JSON */
                 }
-              } catch {
-                /* not JSON — fall through */
+              }
+              if (obj && obj.incident_summary) {
+                return <AssessmentBody report={obj} />
               }
               return (
                 <div className="ia-arg-markdown">
-                  <ReactMarkdown>{args.previous_assessment}</ReactMarkdown>
+                  <ReactMarkdown>
+                    {typeof val === 'string' ? val : JSON.stringify(val, null, 2)}
+                  </ReactMarkdown>
                 </div>
               )
             })()}
