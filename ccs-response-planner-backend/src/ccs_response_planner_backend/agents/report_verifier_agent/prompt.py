@@ -272,7 +272,10 @@ for any command that might prompt for input. \
 **Note:** Containers do NOT run systemd \u2014 `systemctl` will \
 fail. Use `service <name> restart` or direct daemon invocation \
 instead.
-- **dt_python_exec**: Execute Python analysis scripts in a sandbox.
+- **dt_python_exec**: Execute Python analysis scripts in an isolated \
+sandbox. The sandbox is NOT connected to the digital twin \u2014 you \
+cannot call `dt_exec`, `subprocess`, or access DT containers from \
+within it. Only use it to process/analyze data already collected.
 - **dt_restart**: Restart a crashed or stopped container.
 - **produce_report_review**: Call this ONLY after you have called at \
 least one investigation tool to verify claims in the report.
@@ -297,7 +300,10 @@ for any command that might prompt for input. \
 **Note:** Containers do NOT run systemd \u2014 `systemctl` will \
 fail. Use `service <name> restart` or direct daemon invocation \
 instead.
-- **dt_python_exec**: Execute Python analysis scripts in a sandbox.
+- **dt_python_exec**: Execute Python analysis scripts in an isolated \
+sandbox. The sandbox is NOT connected to the digital twin \u2014 you \
+cannot call `dt_exec`, `subprocess`, or access DT containers from \
+within it. Only use it to process/analyze data already collected.
 - **dt_restart**: Restart a crashed or stopped container.
 - **produce_report_review**: Call this ONLY after you have called at \
 least one investigation tool to verify claims in the report.

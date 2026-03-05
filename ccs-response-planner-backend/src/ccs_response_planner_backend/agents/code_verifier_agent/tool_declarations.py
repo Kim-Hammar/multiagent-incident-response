@@ -6,11 +6,15 @@ from google.genai import types as genai_types  # type: ignore[attr-defined]
 PYTHON_EXEC_DECL = genai_types.FunctionDeclaration(
     name="python_exec",
     description=(
-        "Execute arbitrary Python code in a "
-        "sandbox container. Use this to test "
-        "the MDP — run episodes, check action "
-        "effects, verify state transitions, "
-        "and validate the reward function."
+        "Execute arbitrary Python code in an "
+        "isolated sandbox container. Use this to "
+        "test the MDP — run episodes, check "
+        "action effects, verify state transitions, "
+        "and validate the reward function. The "
+        "sandbox is NOT connected to the digital "
+        "twin — you cannot call dt_exec, "
+        "subprocess, or access DT containers "
+        "from within it."
     ),
     parameters={  # type: ignore[arg-type]
         "type": "object",

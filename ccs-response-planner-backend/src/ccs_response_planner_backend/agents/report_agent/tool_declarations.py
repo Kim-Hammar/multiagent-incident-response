@@ -185,7 +185,13 @@ TOOL_DECLARATIONS = [
             "Execute a Python script in an isolated "
             "sandbox container. Use this for analysis "
             "scripts, data parsing, or computations "
-            "that are easier to express in Python."
+            "that are easier to express in Python. "
+            "The sandbox is NOT connected to the "
+            "digital twin — you cannot call dt_exec, "
+            "subprocess, or access DT containers "
+            "from within this sandbox. Only use it "
+            "to process/analyze data you have already "
+            "collected via dt_exec."
         ),
         parameters={  # type: ignore[arg-type]
             "type": "object",

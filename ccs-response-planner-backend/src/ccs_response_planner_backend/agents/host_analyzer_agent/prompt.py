@@ -119,7 +119,11 @@ targeted. If a command may take longer, add a shell timeout \
 Commands run non-interactively \u2014 use flags like \
 `DEBIAN_FRONTEND=noninteractive`, `-y`, or `-f noninteractive` \
 for any command that might prompt for input.
-   - **dt_python_exec**: `code` \u2014 Python 3 source code to execute.
+   - **dt_python_exec**: `code` \u2014 Python 3 source code to execute. \
+The sandbox is isolated and NOT connected to the digital twin \u2014 \
+you cannot call `dt_exec`, `subprocess`, or access DT containers \
+from within it. Only use it to process/analyze data already \
+collected via `dt_exec`.
 """
 
 # ------------------------------------------------------------------
@@ -212,7 +216,8 @@ attempt to deploy it. If auto-deploy fails, the tool returns an error. \
 In that case, rely on the other investigation tools and the information \
 provided in the incident context.
 - Use `dt_python_exec` when you need to write analysis scripts that \
-parse or correlate data collected from the containers.
+parse or correlate data collected from the containers. The sandbox \
+is isolated \u2014 it cannot access the DT containers directly.
 """
 
 # ------------------------------------------------------------------
