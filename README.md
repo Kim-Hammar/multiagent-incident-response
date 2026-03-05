@@ -1,6 +1,6 @@
-# Incident Response Planner
+# Multiagent Incident Response Planning with Code Models
 
-This reposistory includes to code of a **multiagent incident response system** that leverages large language models 
+This repository includes to code of a **multiagent incident response system** that leverages large language models 
 (LLMs) to assist security operators during incident handling. 
 
 The system consists of a collection of agents that work together to automate incident response tasks and provide 
