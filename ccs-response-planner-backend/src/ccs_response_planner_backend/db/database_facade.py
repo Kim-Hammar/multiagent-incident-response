@@ -87,8 +87,8 @@ class DatabaseFacade:
         if _pool is not None:
             return _pool
         with _pool_lock:
-            if _pool is not None:
-                return _pool
+            if _pool is not None:  # double-checked locking
+                return _pool  # type: ignore[unreachable]
             conninfo = DatabaseFacade._connection_string()
             logger.info("Initializing psycopg connection pool")
             _pool = ConnectionPool(
