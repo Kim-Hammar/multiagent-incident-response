@@ -13,8 +13,14 @@ from ccs_response_planner_backend.agents.report_agent.tool_declarations import (
 )
 
 # Reuse all ReportAgent tool declarations except
-# generate_attack_image and produce_assessment.
-_EXCLUDED = {"generate_attack_image", "produce_assessment"}
+# generate_attack_image, produce_assessment, and
+# run_host_analyzers (orchestration tool that spawns
+# HostAnalyzerAgent sub-agents — must not be recursive).
+_EXCLUDED = {
+    "generate_attack_image",
+    "produce_assessment",
+    "run_host_analyzers",
+}
 _INHERITED_DECLS = [
     d for d in REPORT_TOOL_DECLARATIONS
     if d.name not in _EXCLUDED

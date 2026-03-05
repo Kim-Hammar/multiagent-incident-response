@@ -149,7 +149,7 @@ def format_attacker_info(
     Build a description of the attacker container(s).
 
     Returns the attacker container ID, IPs, and directly
-    reachable hosts so the pentest agent knows its entrypoint.
+    reachable hosts so the attack path verifier agent knows its entrypoint.
 
     :param config: the digital twin configuration dict
     :return: a human-readable attacker info string, or "N/A"

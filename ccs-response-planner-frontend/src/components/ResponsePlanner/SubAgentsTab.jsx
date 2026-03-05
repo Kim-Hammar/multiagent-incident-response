@@ -9,7 +9,8 @@ import {
   API_AGENTS_CODE_PROMPT_URL,
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
   API_AGENTS_PLANNER_PROMPT_URL,
-  API_AGENTS_PLAN_VERIFIER_PROMPT_URL
+  API_AGENTS_PLAN_VERIFIER_PROMPT_URL,
+  API_AGENTS_ATTACK_PATH_VERIFIER_PROMPT_URL
 } from '../Common/constants'
 import PromptModal from '../Agents/shared/PromptModal.jsx'
 
@@ -45,6 +46,8 @@ function SubAgentsTab({
   setPlannerAgentModel,
   planVerifierAgentModel,
   setPlanVerifierAgentModel,
+  attackPathVerifierAgentModel,
+  setAttackPathVerifierAgentModel,
   compactionModel,
   setCompactionModel,
   reportManagerIterations,
@@ -74,7 +77,9 @@ function SubAgentsTab({
   plannerAgentCompaction,
   setPlannerAgentCompaction,
   planVerifierAgentCompaction,
-  setPlanVerifierAgentCompaction
+  setPlanVerifierAgentCompaction,
+  attackPathVerifierAgentCompaction,
+  setAttackPathVerifierAgentCompaction
 }) {
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
@@ -233,6 +238,15 @@ function SubAgentsTab({
       iteration: null,
       compaction: planVerifierAgentCompaction,
       setCompaction: setPlanVerifierAgentCompaction
+    },
+    {
+      label: 'Attack Path Verifier Agent',
+      model: attackPathVerifierAgentModel,
+      setModel: setAttackPathVerifierAgentModel,
+      promptUrl: API_AGENTS_ATTACK_PATH_VERIFIER_PROMPT_URL,
+      iteration: null,
+      compaction: attackPathVerifierAgentCompaction,
+      setCompaction: setAttackPathVerifierAgentCompaction
     },
     {
       label: 'Compaction',

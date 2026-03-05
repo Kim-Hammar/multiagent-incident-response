@@ -2,9 +2,9 @@ import ImageThumbnails from './shared/ImageThumbnails.jsx'
 import ExampleSelector from './shared/ExampleSelector.jsx'
 
 /**
- * Configuration tab for the Pentest Agent.
+ * Configuration tab for the Attack Path Verifier Agent.
  */
-function PentestAgentConfigTab({
+function AttackPathVerifierAgentConfigTab({
   systemDescription,
   setSystemDescription,
   attackPath,
@@ -32,8 +32,8 @@ function PentestAgentConfigTab({
             </li>
             <li>Record commands, outputs, and evidence for each step.</li>
             <li>
-              Produce a structured pentest report with per-step results, reproduction commands, and
-              defensive recommendations.
+              Produce a structured attack path verification report with per-step results,
+              reproduction commands, and defensive recommendations.
             </li>
           </ol>
         </p>
@@ -115,4 +115,4 @@ function PentestAgentConfigTab({
   )
 }
 
-export default PentestAgentConfigTab
+export default AttackPathVerifierAgentConfigTab

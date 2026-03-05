@@ -15,6 +15,7 @@ import {
   API_AGENTS_CODE_REVIEW_PROMPT_URL,
   API_AGENTS_PLANNER_PROMPT_URL,
   API_AGENTS_PLAN_VERIFIER_PROMPT_URL,
+  API_AGENTS_ATTACK_PATH_VERIFIER_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL,
   API_DT_PYTHON_STOP_URL
@@ -37,7 +38,7 @@ import {
   PlanVerifierReportBody,
   PlannerReportInline,
   PlanManagerReportBody,
-  PentestReportBody
+  AttackPathVerifierReportBody
 } from './shared/ReportBodies.jsx'
 import ExecutionStatsView from './shared/ExecutionStatsView.jsx'
 /**
@@ -52,7 +53,8 @@ function enrichOrchestratorReport(report, history) {
   const ptResult =
     [...history]
       .reverse()
-      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_pentest_agent')?.result || {}
+      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_attack_path_verifier_agent')
+      ?.result || {}
   const pmResult =
     [...history]
       .reverse()
@@ -64,7 +66,7 @@ function enrichOrchestratorReport(report, history) {
   return {
     ...report,
     assessment,
-    pentest_report: ptResult.pentest_report || {},
+    attack_path_verifier_report: ptResult.attack_path_verifier_report || {},
     code_report: pmResult.code_report || {},
     planner_report: pmResult.planner_report || {},
     plan_verifier_report: pmResult.plan_verifier_report || {},
@@ -85,17 +87,29 @@ function handleNestedSubEvent(subEvents, innerEvent) {
   }
   if (innerEvent.type === 'thinking_delta') {
     const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'reasoning') {
+    if (last && last.type === 'reasoning' && last.agent_id === innerEvent.agent_id) {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'reasoning', text: innerEvent.text, _startTime: Date.now() })
+      subEvents.push({
+        type: 'reasoning',
+        text: innerEvent.text,
+        agent_id: innerEvent.agent_id,
+        agent_label: innerEvent.agent_label,
+        _startTime: Date.now()
+      })
     }
   } else if (innerEvent.type === 'text_delta') {
     const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'text') {
+    if (last && last.type === 'text' && last.agent_id === innerEvent.agent_id) {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'text', text: innerEvent.text, _startTime: Date.now() })
+      subEvents.push({
+        type: 'text',
+        text: innerEvent.text,
+        agent_id: innerEvent.agent_id,
+        agent_label: innerEvent.agent_label,
+        _startTime: Date.now()
+      })
     }
   } else if (innerEvent.type === 'nested_event') {
     const lastToolCall = [...subEvents]
@@ -120,6 +134,8 @@ function handleNestedSubEvent(subEvents, innerEvent) {
       type: 'tool_result',
       tool_name: innerEvent.tool_name,
       result: innerEvent.result,
+      agent_id: innerEvent.agent_id,
+      agent_label: innerEvent.agent_label,
       subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
       _startTime: Date.now()
     })
@@ -160,12 +176,13 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
                 <AssessmentBody report={report.assessment} />
               </div>
             )}
-            {report.pentest_report && Object.keys(report.pentest_report).length > 0 && (
-              <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Attack Path Validation</div>
-                <PentestReportBody report={report.pentest_report} />
-              </div>
-            )}
+            {report.attack_path_verifier_report &&
+              Object.keys(report.attack_path_verifier_report).length > 0 && (
+                <div className="ia-assessment-section">
+                  <div className="ia-assessment-label">Attack Path Validation</div>
+                  <AttackPathVerifierReportBody report={report.attack_path_verifier_report} />
+                </div>
+              )}
             {report.code_report && Object.keys(report.code_report).length > 0 && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">MDP Code Report</div>
@@ -244,6 +261,7 @@ function OrchestratorAgent() {
   const [codeVerifierModel, setCodeVerifierModel] = useState('')
   const [plannerAgentModel, setPlannerAgentModel] = useState('')
   const [planVerifierAgentModel, setPlanVerifierAgentModel] = useState('')
+  const [attackPathVerifierAgentModel, setAttackPathVerifierAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [compactionThreshold, setCompactionThreshold] = useState(80)
   const [dtEnabled, setDtEnabled] = useState(true)
@@ -252,7 +270,7 @@ function OrchestratorAgent() {
   const [codeVerifierEnabled, setCodeVerifierEnabled] = useState(true)
   const [planVerifierEnabled, setPlanVerifierEnabled] = useState(true)
   const [reportManagerEnabled, setReportManagerEnabled] = useState(true)
-  const [pentestEnabled, setPentestEnabled] = useState(true)
+  const [attackPathVerifierEnabled, setAttackPathVerifierEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
@@ -325,7 +343,7 @@ function OrchestratorAgent() {
       codeVerifierEnabled,
       reportManagerEnabled,
       planVerifierEnabled,
-      pentestEnabled,
+      attackPathVerifierEnabled,
       codeModelEnabled
     },
     onRestore: (session) => {
@@ -365,7 +383,8 @@ function OrchestratorAgent() {
         if (cfg.codeVerifierEnabled != null) setCodeVerifierEnabled(cfg.codeVerifierEnabled)
         if (cfg.planVerifierEnabled != null) setPlanVerifierEnabled(cfg.planVerifierEnabled)
         if (cfg.reportManagerEnabled != null) setReportManagerEnabled(cfg.reportManagerEnabled)
-        if (cfg.pentestEnabled != null) setPentestEnabled(cfg.pentestEnabled)
+        if (cfg.attackPathVerifierEnabled != null)
+          setAttackPathVerifierEnabled(cfg.attackPathVerifierEnabled)
         if (cfg.codeModelEnabled != null) setCodeModelEnabled(cfg.codeModelEnabled)
       }
       if (session.pending_proposal) setPendingProposal(session.pending_proposal)
@@ -382,7 +401,7 @@ function OrchestratorAgent() {
   })
 
   useEffect(() => {
-    if (!reportManagerEnabled) setPentestEnabled(false)
+    if (!reportManagerEnabled) setAttackPathVerifierEnabled(false)
   }, [reportManagerEnabled])
   useEffect(() => {
     setPendingProposalRef(pendingProposal)
@@ -552,7 +571,7 @@ function OrchestratorAgent() {
             code_verifier_enabled: codeVerifierEnabled,
             report_manager_enabled: reportManagerEnabled,
             plan_verifier_enabled: planVerifierEnabled,
-            pentest_enabled: pentestEnabled,
+            attack_path_verifier_enabled: attackPathVerifierEnabled,
             code_model_enabled: codeModelEnabled,
             incident_id: selectedIncidentId
           })
@@ -863,6 +882,7 @@ function OrchestratorAgent() {
           code_verifier_model: codeVerifierModel || undefined,
           planner_agent_model: plannerAgentModel || undefined,
           plan_verifier_agent_model: planVerifierAgentModel || undefined,
+          attack_path_verifier_agent_model: attackPathVerifierAgentModel || undefined,
           report_manager_iterations: reportManagerIterations,
           plan_manager_iterations: planManagerIterations,
           code_manager_iterations: codeManagerIterations,
@@ -874,7 +894,7 @@ function OrchestratorAgent() {
           report_verifier_enabled: reportVerifierEnabled,
           code_verifier_enabled: codeVerifierEnabled,
           plan_verifier_enabled: planVerifierEnabled,
-          pentest_enabled: pentestEnabled,
+          attack_path_verifier_enabled: attackPathVerifierEnabled,
           code_model_enabled: codeModelEnabled
         }
         const { result } = await executeStreamingTool({
@@ -932,6 +952,8 @@ function OrchestratorAgent() {
                   lastToolCall._promptImages = event.event.images || []
                 } else if (event.event.type === 'context_usage') {
                   lastToolCall._contextUsage = event.event
+                } else if (event.event.type === 'parallel_start') {
+                  lastToolCall._parallelHosts = event.event.hosts
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                   handleNestedSubEvent(lastToolCall.subEvents, event.event)
@@ -942,11 +964,13 @@ function OrchestratorAgent() {
                 .reverse()
                 .find((e) => e.type === 'tool_call')
               if (lastCall) lastCall._completed = true
+              const streamSubs = event.subEvents || []
               streamEntry.subEvents.push({
                 type: 'tool_result',
                 tool_name: event.tool_name,
                 result: event.result,
-                subEvents: event.subEvents || [],
+                subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+                _parallelHosts: lastCall?._parallelHosts,
                 _startTime: Date.now()
               })
             } else {
@@ -1132,6 +1156,7 @@ function OrchestratorAgent() {
         code_verifier_model: codeVerifierModel || undefined,
         planner_agent_model: plannerAgentModel || undefined,
         plan_verifier_agent_model: planVerifierAgentModel || undefined,
+        attack_path_verifier_agent_model: attackPathVerifierAgentModel || undefined,
         report_manager_iterations: reportManagerIterations,
         plan_manager_iterations: planManagerIterations,
         code_manager_iterations: codeManagerIterations,
@@ -1143,7 +1168,7 @@ function OrchestratorAgent() {
         report_verifier_enabled: reportVerifierEnabled,
         code_verifier_enabled: codeVerifierEnabled,
         plan_verifier_enabled: planVerifierEnabled,
-        pentest_enabled: pentestEnabled,
+        attack_path_verifier_enabled: attackPathVerifierEnabled,
         code_model_enabled: codeModelEnabled
       }
       const { result } = await executeStreamingTool({
@@ -1202,6 +1227,8 @@ function OrchestratorAgent() {
                 lastToolCall._promptImages = event.event.images || []
               } else if (event.event.type === 'context_usage') {
                 lastToolCall._contextUsage = event.event
+              } else if (event.event.type === 'parallel_start') {
+                lastToolCall._parallelHosts = event.event.hosts
               } else {
                 if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                 handleNestedSubEvent(lastToolCall.subEvents, event.event)
@@ -1212,11 +1239,13 @@ function OrchestratorAgent() {
               .reverse()
               .find((e) => e.type === 'tool_call')
             if (lastCall) lastCall._completed = true
+            const streamSubs = event.subEvents || []
             streamEntry.subEvents.push({
               type: 'tool_result',
               tool_name: event.tool_name,
               result: event.result,
-              subEvents: event.subEvents || [],
+              subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+              _parallelHosts: lastCall?._parallelHosts,
               _startTime: Date.now()
             })
           } else {
@@ -1265,7 +1294,7 @@ function OrchestratorAgent() {
         security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
         report_manager_enabled: reportManagerEnabled,
-        pentest_enabled: pentestEnabled
+        attack_path_verifier_enabled: attackPathVerifierEnabled
       })
     })
     if (res.status === 401) {
@@ -1622,12 +1651,12 @@ function OrchestratorAgent() {
               disabled: isAgentBusy
             },
             {
-              id: 'oa-pentest-enabled',
-              label: 'Pentest Agent',
+              id: 'oa-attack-path-verifier-enabled',
+              label: 'Attack Path Verifier Agent',
               description:
-                'When disabled, the orchestrator skips attack path validation via the pentest agent',
-              checked: pentestEnabled,
-              onChange: setPentestEnabled,
+                'When disabled, the orchestrator skips attack path validation via the attack path verifier agent',
+              checked: attackPathVerifierEnabled,
+              onChange: setAttackPathVerifierEnabled,
               disabled: isAgentBusy || !reportManagerEnabled
             },
             {
@@ -1670,7 +1699,7 @@ function OrchestratorAgent() {
             system_description: systemDescription,
             security_alerts: securityAlerts,
             operator_feedback: operatorFeedback,
-            pentest_enabled: pentestEnabled
+            attack_path_verifier_enabled: attackPathVerifierEnabled
           })}
           rows={[
             {
@@ -1783,6 +1812,15 @@ function OrchestratorAgent() {
               model: planVerifierAgentModel,
               setModel: setPlanVerifierAgentModel,
               promptUrl: API_AGENTS_PLAN_VERIFIER_PROMPT_URL,
+              iteration: null,
+              compaction: null,
+              setCompaction: null
+            },
+            {
+              label: 'Attack Path Verifier Agent',
+              model: attackPathVerifierAgentModel,
+              setModel: setAttackPathVerifierAgentModel,
+              promptUrl: API_AGENTS_ATTACK_PATH_VERIFIER_PROMPT_URL,
               iteration: null,
               compaction: null,
               setCompaction: null

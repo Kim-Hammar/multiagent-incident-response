@@ -19,7 +19,7 @@ from ccs_response_planner_backend.agents.schemas import (
     ReportVerificationReport,
     ReportManagerReport,
     OrchestratorAgentReport,
-    PentestReport,
+    AttackPathVerifierReport,
     HostAnalysisReport,
     ActionVerificationReport,
 )
@@ -56,8 +56,8 @@ from ccs_response_planner_backend.agents.report_manager_agent.tool_declarations 
 from ccs_response_planner_backend.agents.orchestrator_agent.tool_declarations import (  # noqa: E501
     PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL,
 )
-from ccs_response_planner_backend.agents.pentest_agent.tool_declarations import (  # noqa: E501
-    PRODUCE_PENTEST_REPORT_DECL,
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.tool_declarations import (  # noqa: E501
+    PRODUCE_ATTACK_PATH_VERIFIER_REPORT_DECL,
 )
 from ccs_response_planner_backend.agents.host_analyzer_agent.tool_declarations import (  # noqa: E501
     PRODUCE_HOST_ANALYSIS_DECL,
@@ -127,7 +127,7 @@ AGENT_DECL_MODEL = [
     ("report_verifier_agent", PRODUCE_REPORT_REVIEW_DECL, ReportVerificationReport),
     ("report_manager_agent", PRODUCE_REPORT_MANAGER_REPORT_DECL, ReportManagerReport),
     ("orchestrator_agent", PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL, OrchestratorAgentReport),
-    ("pentest_agent", PRODUCE_PENTEST_REPORT_DECL, PentestReport),
+    ("attack_path_verifier_agent", PRODUCE_ATTACK_PATH_VERIFIER_REPORT_DECL, AttackPathVerifierReport),
     ("host_analyzer_agent", PRODUCE_HOST_ANALYSIS_DECL, HostAnalysisReport),
     ("action_verifier_agent", PRODUCE_ACTION_VERIFICATION_DECL, ActionVerificationReport),
 ]
@@ -223,7 +223,7 @@ FALLBACK_DICTS = {
         "assessment_summary": "",
         "response_plan_summary": "",
     },
-    "pentest_agent": {
+    "attack_path_verifier_agent": {
         "executive_summary": "fallback",
         "attack_path_steps": [],
         "overall_verdict": "Attack path not feasible",
@@ -544,17 +544,17 @@ def test_registry_contains_all_agents():
         "plan_manager_agent",
         "report_verifier_agent", "report_manager_agent",
         "orchestrator_agent",
-        "pentest_agent", "host_analyzer_agent",
+        "attack_path_verifier_agent", "host_analyzer_agent",
         "action_verifier_agent",
     }
     assert set(REPORT_MODELS.keys()) == expected
 
 
-def test_sample_pentest_report():
+def test_sample_attack_path_verifier_report():
     """
-    A realistic PentestReport with attack path steps.
+    A realistic AttackPathVerifierReport with attack path steps.
     """
-    report = PentestReport.model_validate({
+    report = AttackPathVerifierReport.model_validate({
         "executive_summary": "SSH brute force successful.",
         "attack_path_steps": [
             {

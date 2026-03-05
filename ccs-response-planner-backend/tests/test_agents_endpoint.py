@@ -2044,17 +2044,17 @@ def test_orchestrator_prompt_renders_prompt(
     assert "My feedback" in data["prompt"]
 
 
-# ── Pentest Agent ─────────────────────────────────────────────
+# ── Attack Path Verifier Agent ────────────────────────────────
 
 
-def test_pentest_step_requires_auth(
+def test_attack_path_verifier_step_requires_auth(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/pentest/step requires auth.
+    POST /api/agents/attack-path-verifier/step requires auth.
     """
     resp = client.post(
-        "/api/agents/pentest/step",
+        "/api/agents/attack-path-verifier/step",
         data=json.dumps({
             "system_description": "Test system",
             "attack_path": "Test path",
@@ -2064,15 +2064,15 @@ def test_pentest_step_requires_auth(
     assert resp.status_code == 401
 
 
-def test_pentest_step_requires_inputs(
+def test_attack_path_verifier_step_requires_inputs(
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/pentest/step returns 400 without inputs.
+    POST /api/agents/attack-path-verifier/step returns 400 without inputs.
     """
     resp = client.post(
-        "/api/agents/pentest/step",
+        "/api/agents/attack-path-verifier/step",
         data=json.dumps({}),
         content_type="application/json",
         headers=auth_headers,
@@ -2082,15 +2082,15 @@ def test_pentest_step_requires_inputs(
 
 @patch(
     "ccs_response_planner_backend.rest_api.resources.agents"
-    ".routes.PentestAgent",
+    ".routes.AttackPathVerifierAgent",
 )
-def test_pentest_tool_dt_exec_streams_ndjson(
+def test_attack_path_verifier_tool_dt_exec_streams_ndjson(
     mock_agent_cls: MagicMock,
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/pentest/tool with dt_exec streams NDJSON.
+    POST /api/agents/attack-path-verifier/tool with dt_exec streams NDJSON.
     """
     mock_agent = MagicMock()
     mock_agent.execute_tool_stream.return_value = iter([
@@ -2104,7 +2104,7 @@ def test_pentest_tool_dt_exec_streams_ndjson(
     ])
     mock_agent_cls.return_value = mock_agent
     resp = client.post(
-        "/api/agents/pentest/tool",
+        "/api/agents/attack-path-verifier/tool",
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
@@ -2119,14 +2119,14 @@ def test_pentest_tool_dt_exec_streams_ndjson(
     assert events[-1]["type"] == "done"
 
 
-def test_pentest_tool_requires_auth(
+def test_attack_path_verifier_tool_requires_auth(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/pentest/tool requires auth.
+    POST /api/agents/attack-path-verifier/tool requires auth.
     """
     resp = client.post(
-        "/api/agents/pentest/tool",
+        "/api/agents/attack-path-verifier/tool",
         data=json.dumps({
             "tool_name": "dt_exec",
             "tool_args": {
@@ -2138,31 +2138,31 @@ def test_pentest_tool_requires_auth(
     assert resp.status_code == 401
 
 
-def test_pentest_prompt_requires_auth(
+def test_attack_path_verifier_prompt_requires_auth(
     client: FlaskClient,
 ) -> None:
     """
-    POST /api/agents/pentest/prompt requires auth.
+    POST /api/agents/attack-path-verifier/prompt requires auth.
     """
     resp = client.post(
-        "/api/agents/pentest/prompt",
+        "/api/agents/attack-path-verifier/prompt",
         data=json.dumps({}),
         content_type="application/json",
     )
     assert resp.status_code == 401
 
 
-def test_pentest_prompt_renders_prompt(
+def test_attack_path_verifier_prompt_renders_prompt(
     client: FlaskClient,
     auth_headers: dict[str, str],
 ) -> None:
     """
-    POST /api/agents/pentest/prompt renders the prompt.
+    POST /api/agents/attack-path-verifier/prompt renders the prompt.
     """
     resp = client.post(
-        "/api/agents/pentest/prompt",
+        "/api/agents/attack-path-verifier/prompt",
         data=json.dumps({
-            "system_description": "My pentest system",
+            "system_description": "My attack path verifier system",
             "attack_path": (
                 "SSH brute force to server_3"
             ),
@@ -2173,7 +2173,7 @@ def test_pentest_prompt_renders_prompt(
     assert resp.status_code == 200
     data = resp.get_json()
     assert "prompt" in data
-    assert "My pentest system" in data["prompt"]
+    assert "My attack path verifier system" in data["prompt"]
     assert (
         "SSH brute force to server_3"
         in data["prompt"]

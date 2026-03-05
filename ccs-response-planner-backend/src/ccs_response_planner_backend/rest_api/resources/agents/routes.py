@@ -118,14 +118,14 @@ from ccs_response_planner_backend.agents.orchestrator_agent.tools import (
 from ccs_response_planner_backend.agents.execution_stats import (
     ExecutionStatsCollector,
 )
-from ccs_response_planner_backend.agents.pentest_agent.agent import (
-    PentestAgent,
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.agent import (
+    AttackPathVerifierAgent,
 )
-from ccs_response_planner_backend.agents.pentest_agent.prompt import (
-    build_system_prompt as build_pentest_prompt,
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.prompt import (
+    build_system_prompt as build_attack_path_verifier_prompt,
 )
-from ccs_response_planner_backend.agents.pentest_agent.tools import (
-    STREAMING_TOOL_DISPATCH as PENTEST_STREAMING_DISPATCH,
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.tools import (
+    STREAMING_TOOL_DISPATCH as ATTACK_PATH_VERIFIER_STREAMING_DISPATCH,
 )
 from ccs_response_planner_backend.agents.host_analyzer_agent.agent import (
     HostAnalyzerAgent,
@@ -537,7 +537,7 @@ def _save_step_result(
                 "orchestrator_report",
                 "plan_manager_report",
                 "report_review",
-                "pentest_report",
+                "attack_path_verifier_report",
                 "host_analysis",
                 "action_verification",
             ):
@@ -3591,11 +3591,11 @@ def agents_orchestrator_step() -> (
             max_iterations = body.get(
                 "orchestrator_iterations", 1,
             )
-            pentest_enabled = body.get(
-                "pentest_enabled", True,
+            attack_path_verifier_enabled = body.get(
+                "attack_path_verifier_enabled", True,
             )
             if not dt_enabled:
-                pentest_enabled = False
+                attack_path_verifier_enabled = False
             report_manager_enabled = body.get(
                 "report_manager_enabled", True,
             )
@@ -3623,7 +3623,7 @@ def agents_orchestrator_step() -> (
                 compaction_threshold=(
                     compaction_threshold
                 ),
-                pentest_enabled=pentest_enabled,
+                attack_path_verifier_enabled=attack_path_verifier_enabled,
                 report_manager_enabled=(
                     report_manager_enabled
                 ),
@@ -3717,8 +3717,8 @@ def agents_orchestrator_prompt() -> (
         max_iterations=body.get(
             "orchestrator_iterations", 1,
         ),
-        pentest_enabled=body.get(
-            "pentest_enabled", True,
+        attack_path_verifier_enabled=body.get(
+            "attack_path_verifier_enabled", True,
         ),
         report_manager_enabled=body.get(
             "report_manager_enabled", True,
@@ -3854,8 +3854,8 @@ def agents_orchestrator_tool() -> (
             "plan_verifier_enabled": body.get(
                 "plan_verifier_enabled", True,
             ),
-            "pentest_enabled": body.get(
-                "pentest_enabled", True,
+            "attack_path_verifier_enabled": body.get(
+                "attack_path_verifier_enabled", True,
             ),
             "code_model_enabled": body.get(
                 "code_model_enabled", True,
@@ -3865,16 +3865,16 @@ def agents_orchestrator_tool() -> (
             ),
         }
         if not context.get("dt_enabled", True):
-            context["pentest_enabled"] = False
+            context["attack_path_verifier_enabled"] = False
             context["plan_verifier_enabled"] = False
         conv_history = body.get(
             "conversation_history", [],
         )
-        context["pentest_agent_model"] = body.get(
-            "pentest_agent_model",
+        context["attack_path_verifier_agent_model"] = body.get(
+            "attack_path_verifier_agent_model",
         )
-        context["pentest_agent_compaction"] = body.get(
-            "pentest_agent_compaction", 0.8,
+        context["attack_path_verifier_agent_compaction"] = body.get(
+            "attack_path_verifier_agent_compaction", 0.8,
         )
 
         if tool_name == "run_report_manager":
@@ -3884,11 +3884,11 @@ def agents_orchestrator_tool() -> (
                     entry.get("type")
                     == "tool_result"
                     and entry.get("tool_name")
-                    == "run_pentest_agent"
+                    == "run_attack_path_verifier_agent"
                 ):
                     pr = entry.get(
                         "result", {},
-                    ).get("pentest_report", {})
+                    ).get("attack_path_verifier_report", {})
                     verdict = pr.get(
                         "overall_verdict", "",
                     )
@@ -3899,18 +3899,18 @@ def agents_orchestrator_tool() -> (
                         "Attack path validated"
                     ):
                         verification_fb = (
-                            f"Pentest verdict: "
+                            f"Attack path verification verdict: "
                             f"{verdict}\n\n"
                             f"{summary}"
                         )
                     break
             if verification_fb:
-                context["verification_feedback"] = (
+                context["validation_feedback"] = (
                     verification_fb
                 )
 
         if tool_name in (
-            "run_pentest_agent",
+            "run_attack_path_verifier_agent",
             "run_plan_manager",
         ):
             assessment: dict[str, Any] = {}
@@ -4292,14 +4292,14 @@ def delete_session(
         return jsonify({"error": str(e)}), 500
 
 
-# ── Pentest Agent ─────────────────────────────────────────────
+# ── Attack Path Verifier Agent ────────────────────────────────
 
 
-@agents_bp.route("/pentest/step", methods=["POST"])
+@agents_bp.route("/attack-path-verifier/step", methods=["POST"])
 @token_required
-def agents_pentest_step() -> tuple[Response, int]:
+def agents_attack_path_verifier_step() -> tuple[Response, int]:
     """
-    Start a PentestAgent step as a background job.
+    Start an AttackPathVerifierAgent step as a background job.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -4356,7 +4356,7 @@ def agents_pentest_step() -> tuple[Response, int]:
         dict[str, Any], None, None
     ]:
         """
-        Run the PentestAgent step in background.
+        Run the AttackPathVerifierAgent step in background.
 
         :return: a generator of event dicts
         """
@@ -4368,8 +4368,9 @@ def agents_pentest_step() -> tuple[Response, int]:
                 yield {
                     "type": "error",
                     "message": (
-                        "The Pentest Agent requires the "
-                        "digital twin to be enabled."
+                        "The Attack Path Verifier Agent "
+                        "requires the digital twin to be "
+                        "enabled."
                     ),
                 }
                 return
@@ -4384,7 +4385,7 @@ def agents_pentest_step() -> tuple[Response, int]:
                 DatabaseFacade.get_digital_twin_config()
                 or DIGITAL_TWIN.DEFAULT_CONFIG
             )
-            agent = PentestAgent()
+            agent = AttackPathVerifierAgent()
             agent._last_prompt_tokens = (
                 last_prompt_tokens
             )
@@ -4412,11 +4413,11 @@ def agents_pentest_step() -> tuple[Response, int]:
     return jsonify({"job_id": job_id}), 202
 
 
-@agents_bp.route("/pentest/prompt", methods=["POST"])
+@agents_bp.route("/attack-path-verifier/prompt", methods=["POST"])
 @token_required
-def agents_pentest_prompt() -> tuple[Response, int]:
+def agents_attack_path_verifier_prompt() -> tuple[Response, int]:
     """
-    Render the PentestAgent system prompt from the given context.
+    Render the AttackPathVerifierAgent system prompt from the given context.
 
     :return: a tuple of (JSON response, HTTP status code)
     """
@@ -4425,7 +4426,7 @@ def agents_pentest_prompt() -> tuple[Response, int]:
         DatabaseFacade.get_digital_twin_config()
         or DIGITAL_TWIN.DEFAULT_CONFIG
     )
-    prompt = build_pentest_prompt(
+    prompt = build_attack_path_verifier_prompt(
         system_description=body.get(
             "system_description", "",
         ) or "N/A",
@@ -4450,11 +4451,11 @@ def agents_pentest_prompt() -> tuple[Response, int]:
     return jsonify({"prompt": prompt}), 200
 
 
-@agents_bp.route("/pentest/tool", methods=["POST"])
+@agents_bp.route("/attack-path-verifier/tool", methods=["POST"])
 @token_required
-def agents_pentest_tool() -> tuple[Response, int]:
+def agents_attack_path_verifier_tool() -> tuple[Response, int]:
     """
-    Execute an approved tool call for PentestAgent.
+    Execute an approved tool call for AttackPathVerifierAgent.
 
     Streaming tools run as background jobs; other tools
     return a single JSON response.
@@ -4472,7 +4473,7 @@ def agents_pentest_tool() -> tuple[Response, int]:
     if tool_name in _DT_TOOLS and incident_id is not None:
         tool_args["incident_id"] = incident_id
 
-    if tool_name in PENTEST_STREAMING_DISPATCH:
+    if tool_name in ATTACK_PATH_VERIFIER_STREAMING_DISPATCH:
         session_id = body.get("session_id")
         username = g.username
         job_id = (
@@ -4505,7 +4506,7 @@ def agents_pentest_tool() -> tuple[Response, int]:
             :return: a generator of event dicts
             """
             try:
-                agent = PentestAgent()
+                agent = AttackPathVerifierAgent()
                 yield from agent.execute_tool_stream(
                     tool_name, tool_args,
                 )
@@ -4520,7 +4521,7 @@ def agents_pentest_tool() -> tuple[Response, int]:
         )
         return jsonify({"job_id": job_id}), 202
 
-    agent = PentestAgent()
+    agent = AttackPathVerifierAgent()
     result = agent.execute_tool(
         tool_name, tool_args,
     )

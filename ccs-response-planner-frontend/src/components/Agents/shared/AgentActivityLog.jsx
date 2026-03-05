@@ -13,7 +13,7 @@ import {
   IncidentReviewBody,
   PlanVerifierReportBody,
   PlanManagerReportBody,
-  PentestReportBody,
+  AttackPathVerifierReportBody,
   HostAnalysisBody,
   ActionVerificationBody,
   ACTION_OUTCOME_STYLES
@@ -35,7 +35,7 @@ const ORCHESTRATOR_TOOLS = new Set([
   'run_report_verifier_agent',
   'produce_report_manager_report',
   'run_report_manager',
-  'run_pentest_agent',
+  'run_attack_path_verifier_agent',
   'run_plan_manager',
   'produce_orchestrator_agent_report',
   'run_host_analyzers',
@@ -53,7 +53,7 @@ const TOOL_LABELS = {
   produce_orchestrator_agent_report: 'orchestrator report',
   produce_report_manager_report: 'report manager report',
   produce_plan_manager_report: 'plan manager report',
-  produce_pentest_report: 'pentest report',
+  produce_attack_path_verifier_report: 'attack path verifier report',
   produce_host_analysis: 'host analysis report',
   produce_action_verification: 'action verification report',
   run_host_analyzers: 'parallel host analysis',
@@ -81,7 +81,7 @@ function CollapsibleSection({ label, icon, children, defaultOpen = false }) {
 /**
  * Render structured, collapsible args for orchestrator sub-agent tools.
  */
-function renderOrchestratorArgs(toolName, args) {
+function renderOrchestratorArgs(toolName, args, entries) {
   if (toolName === 'run_code_agent') {
     if (!args?.previous_code && !args?.review_feedback) {
       return (
@@ -442,17 +442,47 @@ function renderOrchestratorArgs(toolName, args) {
   }
 
   if (toolName === 'run_report_manager') {
+    let verificationFeedback = ''
+    if (entries) {
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const e = entries[i]
+        if (e.type === 'tool_result' && e.tool_name === 'run_attack_path_verifier_agent') {
+          const report = e.result?.attack_path_verifier_report || {}
+          const verdict = report.overall_verdict || ''
+          const summary = report.executive_summary || ''
+          if (verdict && verdict !== 'Attack path validated') {
+            verificationFeedback = `**Verdict:** ${verdict}\n\n${summary}`
+          }
+          break
+        }
+      }
+    }
+    if (!verificationFeedback) {
+      return (
+        <div className="ia-orchestrator-args">
+          <div className="ia-orchestrator-note">
+            <i className="fa fa-info-circle" aria-hidden="true" />
+            <span>Initial assessment generation</span>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="ia-orchestrator-args">
-        <div className="ia-orchestrator-note">
-          <i className="fa fa-info-circle" aria-hidden="true" />
-          <span>Assessment generation — no prior feedback</span>
-        </div>
+        <CollapsibleSection
+          label="Attack Path Verification Feedback"
+          icon="fa-comments"
+          defaultOpen
+        >
+          <div className="ia-arg-markdown">
+            <ReactMarkdown>{verificationFeedback}</ReactMarkdown>
+          </div>
+        </CollapsibleSection>
       </div>
     )
   }
 
-  if (toolName === 'run_pentest_agent') {
+  if (toolName === 'run_attack_path_verifier_agent') {
     return (
       <div className="ia-orchestrator-args">
         <div className="ia-orchestrator-note">
@@ -662,8 +692,8 @@ function renderSubAgentReport(toolName, result) {
       </div>
     )
   }
-  if (toolName === 'run_pentest_agent' && result.pentest_report) {
-    return <PentestReportBody report={result.pentest_report} />
+  if (toolName === 'run_attack_path_verifier_agent' && result.attack_path_verifier_report) {
+    return <AttackPathVerifierReportBody report={result.attack_path_verifier_report} />
   }
   if (toolName === 'run_plan_manager' && result.plan_manager_report) {
     return <PlanManagerReportBody result={result} />
@@ -988,6 +1018,7 @@ function ParallelSubAgentLog({
   active,
   onViewPrompt,
   onViewContext,
+  conversationHistory,
   livenessStatus,
   heartbeatStatus,
   lastHeartbeatTime
@@ -1058,6 +1089,7 @@ function ParallelSubAgentLog({
                 contextUsage={ctxEv}
                 onViewPrompt={onViewPrompt}
                 onViewContext={onViewContext}
+                conversationHistory={conversationHistory}
                 livenessStatus={livenessStatus}
                 heartbeatStatus={heartbeatStatus}
                 lastHeartbeatTime={lastHeartbeatTime}
@@ -1086,6 +1118,7 @@ function SubAgentLog({
   onViewPrompt,
   onViewContext,
   contextUsage,
+  conversationHistory,
   livenessStatus,
   heartbeatStatus,
   lastHeartbeatTime
@@ -1292,7 +1325,7 @@ function SubAgentLog({
                 <>
                   <div className="ia-proposal-details">
                     {isOrchTool
-                      ? renderOrchestratorArgs(ev.tool_name, ev.tool_args)
+                      ? renderOrchestratorArgs(ev.tool_name, ev.tool_args, conversationHistory)
                       : argPairs.map(([label, value, isCode], j) => (
                           <div key={j} className="ia-proposal-arg-row">
                             <span className="ia-proposal-arg-label">{label}:</span>
@@ -1316,6 +1349,7 @@ function SubAgentLog({
                         active={isLast}
                         onViewPrompt={onViewPrompt}
                         onViewContext={onViewContext}
+                        conversationHistory={conversationHistory}
                         livenessStatus={livenessStatus}
                         heartbeatStatus={heartbeatStatus}
                         lastHeartbeatTime={lastHeartbeatTime}
@@ -1328,6 +1362,7 @@ function SubAgentLog({
                         modelName={ev._modelName}
                         onViewPrompt={onViewPrompt}
                         onViewContext={onViewContext}
+                        conversationHistory={conversationHistory}
                         contextUsage={ev._contextUsage}
                         livenessStatus={livenessStatus}
                         heartbeatStatus={heartbeatStatus}
@@ -1434,6 +1469,7 @@ function SubAgentLog({
                         active={false}
                         onViewPrompt={onViewPrompt}
                         onViewContext={onViewContext}
+                        conversationHistory={conversationHistory}
                       />
                     ) : (
                       <SubAgentLog
@@ -1442,6 +1478,7 @@ function SubAgentLog({
                         active={false}
                         onViewPrompt={onViewPrompt}
                         onViewContext={onViewContext}
+                        conversationHistory={conversationHistory}
                       />
                     ))}
                 </>
@@ -1816,7 +1853,11 @@ function AgentActivityLog({
                         {isOrchTool ? 'Agent' : 'Tool'}: {toolLabel(entry.tool_name)}
                       </div>
                       {isOrchTool
-                        ? renderOrchestratorArgs(entry.tool_name, entry.tool_args)
+                        ? renderOrchestratorArgs(
+                            entry.tool_name,
+                            entry.tool_args,
+                            conversationHistory
+                          )
                         : argPairs.map(([label, value, isCode], i) => (
                             <div key={i} className="ia-proposal-arg-row">
                               <span className="ia-proposal-arg-label">{label}:</span>
@@ -1951,6 +1992,7 @@ function AgentActivityLog({
                             setPromptModalImages(images || [])
                           }}
                           onViewContext={(history) => setContextModalHistory(history)}
+                          conversationHistory={conversationHistory}
                           livenessStatus={livenessStatus}
                           heartbeatStatus={heartbeatStatus}
                           lastHeartbeatTime={lastHeartbeatTime}
@@ -1966,6 +2008,7 @@ function AgentActivityLog({
                             setPromptModalImages(images || [])
                           }}
                           onViewContext={(history) => setContextModalHistory(history)}
+                          conversationHistory={conversationHistory}
                           contextUsage={entry.contextUsage}
                           livenessStatus={livenessStatus}
                           heartbeatStatus={heartbeatStatus}
@@ -2083,6 +2126,7 @@ function AgentActivityLog({
                             setPromptModalImages(images || [])
                           }}
                           onViewContext={(history) => setContextModalHistory(history)}
+                          conversationHistory={conversationHistory}
                         />
                       ) : hasSubEvents ? (
                         <SubAgentLog
@@ -2094,6 +2138,7 @@ function AgentActivityLog({
                             setPromptModalImages(images || [])
                           }}
                           onViewContext={(history) => setContextModalHistory(history)}
+                          conversationHistory={conversationHistory}
                         />
                       ) : null}
                       {customRender ||

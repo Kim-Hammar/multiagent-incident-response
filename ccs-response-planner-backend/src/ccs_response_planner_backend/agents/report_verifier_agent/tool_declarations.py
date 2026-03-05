@@ -15,10 +15,16 @@ from ccs_response_planner_backend.agents.report_agent.tool_declarations import (
     TOOL_DECLARATIONS as _REPORT_TOOL_DECLARATIONS,
 )
 
-# All investigation tools (everything except produce_assessment)
+# All investigation tools (everything except produce_assessment,
+# generate_attack_image, and run_host_analyzers which is only
+# available to the ReportAgent)
 _INVESTIGATION_DECLARATIONS = [
     d for d in _REPORT_TOOL_DECLARATIONS
-    if d.name not in ("produce_assessment", "generate_attack_image")
+    if d.name not in (
+        "produce_assessment",
+        "generate_attack_image",
+        "run_host_analyzers",
+    )
 ]
 
 PRODUCE_REPORT_REVIEW_DECL = genai_types.FunctionDeclaration(

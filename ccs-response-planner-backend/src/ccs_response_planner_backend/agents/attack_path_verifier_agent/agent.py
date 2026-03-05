@@ -1,5 +1,5 @@
 """
-PentestAgent — uses Gemini with function calling to validate
+AttackPathVerifierAgent — uses Gemini with function calling to validate
 an attack path against the deployed digital twin.
 """
 import base64
@@ -30,13 +30,13 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_table,
     format_network_connectivity,
 )
-from ccs_response_planner_backend.agents.pentest_agent.prompt import (
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.prompt import (
     build_system_prompt,
 )
-from ccs_response_planner_backend.agents.pentest_agent.tool_declarations import (
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.tool_declarations import (
     TOOL_DECLARATIONS,
 )
-from ccs_response_planner_backend.agents.pentest_agent.tools import (
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.tools import (
     STREAMING_TOOL_DISPATCH,
     TOOL_DISPATCH,
 )
@@ -44,7 +44,7 @@ from ccs_response_planner_backend.agents.pentest_agent.tools import (
 MODEL_NAME = "gemini-3.1-pro-preview"
 CONTEXT_LIMIT = 1_048_576
 
-REPORT_TOOL_NAME = "produce_pentest_report"
+REPORT_TOOL_NAME = "produce_attack_path_verifier_report"
 
 THINKING_BUDGET = 8192
 
@@ -81,11 +81,11 @@ def _build_initial_message(
     return {"role": "user", "parts": parts}
 
 
-class PentestAgent:
+class AttackPathVerifierAgent:
     """
     An agent that uses Gemini function calling to execute
     an attack path against the digital twin and produce
-    a structured pentest report.
+    a structured attack path verifier report.
     """
 
     def _create_client(self) -> Any:
@@ -151,7 +151,7 @@ class PentestAgent:
         - ``{"type": "thinking", "delta": "..."}`` for thinking
         - ``{"type": "text", "delta": "..."}`` for incremental text
         - ``{"type": "tool_proposal", ...}`` for a final tool call
-        - ``{"type": "pentest_report", ...}`` for a final report
+        - ``{"type": "attack_path_verifier_report", ...}`` for a final report
         - ``{"type": "error", "message": "..."}`` on failure
 
         :param system_description: description of the target system
@@ -237,7 +237,7 @@ class PentestAgent:
                     "text": initial_text,
                 }],
                 final_tool_name=REPORT_TOOL_NAME,
-                final_event_type="pentest_report",
+                final_event_type="attack_path_verifier_report",
                 thinking_budget=THINKING_BUDGET,
                 images=(
                     images
@@ -338,8 +338,8 @@ class PentestAgent:
         if function_call:
             if function_call.name == REPORT_TOOL_NAME:
                 event: dict[str, Any] = {
-                    "type": "pentest_report",
-                    "pentest_report": self._normalize_args(
+                    "type": "attack_path_verifier_report",
+                    "attack_path_verifier_report": self._normalize_args(
                         dict(function_call.args)
                         if function_call.args else {},
                     ),
@@ -367,7 +367,7 @@ class PentestAgent:
                     )
                 yield event
         else:
-            yield self._parse_pentest_report(full_text)
+            yield self._parse_attack_path_verifier_report(full_text)
 
     @staticmethod
     def _normalize_args(obj: Any) -> Any:
@@ -382,12 +382,12 @@ class PentestAgent:
             return obj
         if hasattr(obj, "items"):
             return {
-                str(k): PentestAgent._normalize_args(v)
+                str(k): AttackPathVerifierAgent._normalize_args(v)
                 for k, v in obj.items()
             }
         if hasattr(obj, "__iter__"):
             return [
-                PentestAgent._normalize_args(v)
+                AttackPathVerifierAgent._normalize_args(v)
                 for v in obj
             ]
         return obj
@@ -501,17 +501,17 @@ class PentestAgent:
             parts.append(d)
         return parts
 
-    def _parse_pentest_report(
+    def _parse_attack_path_verifier_report(
         self, text: str,
     ) -> dict[str, Any]:
         """
-        Parse LLM text output into a structured pentest report.
+        Parse LLM text output into a structured attack path verifier report.
 
         Strips markdown code fences if present, then attempts
         JSON parsing. Falls back to a default shape on failure.
 
         :param text: raw text from the LLM
-        :return: a dict with type pentest_report and fields
+        :return: a dict with type attack_path_verifier_report and fields
         """
         cleaned = re.sub(
             r"^```(?:json)?\s*\n?", "", text.strip(),
@@ -520,13 +520,13 @@ class PentestAgent:
         try:
             parsed = json.loads(cleaned)
             return {
-                "type": "pentest_report",
-                "pentest_report": parsed,
+                "type": "attack_path_verifier_report",
+                "attack_path_verifier_report": parsed,
             }
         except (json.JSONDecodeError, ValueError):
             return {
-                "type": "pentest_report",
-                "pentest_report": {
+                "type": "attack_path_verifier_report",
+                "attack_path_verifier_report": {
                     "executive_summary": text,
                     "attack_path_steps": [],
                     "overall_verdict": (
@@ -642,9 +642,9 @@ class PentestAgent:
                     "parts": [{"text": summary_text}],
                 })
 
-            elif entry_type == "pentest_report":
+            elif entry_type == "attack_path_verifier_report":
                 report = entry.get(
-                    "pentest_report", {},
+                    "attack_path_verifier_report", {},
                 )
                 content = json.dumps(report, indent=2)
                 contents.append({

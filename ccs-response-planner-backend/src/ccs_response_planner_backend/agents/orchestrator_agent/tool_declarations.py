@@ -20,12 +20,12 @@ RUN_REPORT_MANAGER_DECL = genai_types.FunctionDeclaration(
     },
 )
 
-RUN_PENTEST_AGENT_DECL = genai_types.FunctionDeclaration(
-    name="run_pentest_agent",
+RUN_ATTACK_PATH_VERIFIER_AGENT_DECL = genai_types.FunctionDeclaration(
+    name="run_attack_path_verifier_agent",
     description=(
-        "Run the PentestAgent to validate the attack "
-        "path from the incident assessment against "
-        "the digital twin. Call this after "
+        "Run the AttackPathVerifierAgent to validate "
+        "the attack path from the incident assessment "
+        "against the digital twin. Call this after "
         "run_report_manager completes to check "
         "whether the identified attack path is "
         "actually feasible."
@@ -117,18 +117,18 @@ PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL = (
 
 ITERATING_DECLARATIONS = [
     RUN_REPORT_MANAGER_DECL,
-    RUN_PENTEST_AGENT_DECL,
+    RUN_ATTACK_PATH_VERIFIER_AGENT_DECL,
 ]
 
 MID_DECLARATIONS = [
     RUN_REPORT_MANAGER_DECL,
-    RUN_PENTEST_AGENT_DECL,
+    RUN_ATTACK_PATH_VERIFIER_AGENT_DECL,
     RUN_PLAN_MANAGER_DECL,
 ]
 
 ALL_DECLARATIONS = [
     RUN_REPORT_MANAGER_DECL,
-    RUN_PENTEST_AGENT_DECL,
+    RUN_ATTACK_PATH_VERIFIER_AGENT_DECL,
     RUN_PLAN_MANAGER_DECL,
     PRODUCE_ORCHESTRATOR_AGENT_REPORT_DECL,
 ]

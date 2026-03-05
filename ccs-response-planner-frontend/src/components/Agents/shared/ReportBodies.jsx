@@ -1065,15 +1065,15 @@ function HostAnalysisBody({ report: a }) {
   )
 }
 
-/* ── Pentest report body (from PentestAgent results) ───────── */
+/* ── Attack Path Verifier report body (from AttackPathVerifierAgent results) ───────── */
 
-const PENTEST_VERDICT_MAP = {
+const ATTACK_PATH_VERIFIER_VERDICT_MAP = {
   'Attack path validated': 'success',
   'Attack path partially validated': 'warning',
   'Attack path not feasible': 'danger'
 }
 
-function PentestReportBody({ report: r }) {
+function AttackPathVerifierReportBody({ report: r }) {
   const steps = r.attack_path_steps || []
   const hosts = r.hosts_compromised || []
   const commands = r.reproduction_commands || []
@@ -1084,7 +1084,7 @@ function PentestReportBody({ report: r }) {
         <div className="ia-assessment-section">
           <div className="ia-assessment-label">Overall Verdict</div>
           <span
-            className={`badge badge-${PENTEST_VERDICT_MAP[r.overall_verdict] || 'secondary'}`}
+            className={`badge badge-${ATTACK_PATH_VERIFIER_VERDICT_MAP[r.overall_verdict] || 'secondary'}`}
             style={{ fontSize: '14px', padding: '6px 12px' }}
           >
             {r.overall_verdict}
@@ -1287,7 +1287,7 @@ export {
   PlanVerifierReportBody,
   PlanManagerReportBody,
   PlannerReportInline,
-  PentestReportBody,
+  AttackPathVerifierReportBody,
   HostAnalysisBody,
   ActionVerificationBody,
   ACTION_OUTCOME_STYLES,

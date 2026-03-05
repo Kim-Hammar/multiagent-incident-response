@@ -147,7 +147,7 @@ class OrchestratorAgent:
         max_iterations: int = 1,
         compaction_model: str | None = None,
         compaction_threshold: float = 0.8,
-        pentest_enabled: bool = True,
+        attack_path_verifier_enabled: bool = True,
         report_manager_enabled: bool = True,
     ) -> Generator[dict[str, Any], None, None]:
         """
@@ -166,12 +166,12 @@ class OrchestratorAgent:
         :param conversation_history: the full conversation so far
         :param images: optional list of base64 data-URL images
         :param model_name: optional LLM name override
-        :param max_iterations: max assessment-pentest cycles
+        :param max_iterations: max assessment-verification cycles
         :param compaction_model: optional LLM for compaction
         :param compaction_threshold: context usage fraction that
             triggers compaction (default 0.8)
-        :param pentest_enabled: whether the pentest agent is
-            enabled (default True)
+        :param attack_path_verifier_enabled: whether the attack
+            path verifier agent is enabled (default True)
         :param report_manager_enabled: whether the report manager
             is enabled (default True)
         :return: a generator of event dicts
@@ -183,7 +183,7 @@ class OrchestratorAgent:
             security_alerts=security_alerts,
             operator_feedback=operator_feedback,
             max_iterations=max_iterations,
-            pentest_enabled=pentest_enabled,
+            attack_path_verifier_enabled=attack_path_verifier_enabled,
             report_manager_enabled=report_manager_enabled,
         )
 
@@ -213,22 +213,22 @@ class OrchestratorAgent:
         has_planned = self._has_planned(
             conversation_history,
         )
-        has_pentested = (
-            self._has_pentested(conversation_history)
-            or not pentest_enabled
+        has_verified_attack_path = (
+            self._has_verified_attack_path(conversation_history)
+            or not attack_path_verifier_enabled
             or not report_manager_enabled
         )
         if has_planned:
             declarations = ALL_DECLARATIONS
-        elif has_pentested:
+        elif has_verified_attack_path:
             declarations = MID_DECLARATIONS
         else:
             declarations = ITERATING_DECLARATIONS
 
-        if not pentest_enabled or not report_manager_enabled:
+        if not attack_path_verifier_enabled or not report_manager_enabled:
             declarations = [
                 d for d in declarations
-                if d.name != "run_pentest_agent"
+                if d.name != "run_attack_path_verifier_agent"
             ]
         if not report_manager_enabled:
             declarations = [
@@ -429,22 +429,22 @@ class OrchestratorAgent:
         return False
 
     @staticmethod
-    def _has_pentested(
+    def _has_verified_attack_path(
         history: list[dict[str, Any]],
     ) -> bool:
         """
         Check whether the conversation history contains a
-        run_pentest_agent tool_result (gates the
+        run_attack_path_verifier_agent tool_result (gates the
         run_plan_manager declaration).
 
         :param history: the conversation history list
-        :return: True if a pentest agent result exists
+        :return: True if an attack path verifier result exists
         """
         for entry in history:
             if (
                 entry.get("type") == "tool_result"
                 and entry.get("tool_name")
-                == "run_pentest_agent"
+                == "run_attack_path_verifier_agent"
             ):
                 return True
         return False
@@ -529,7 +529,9 @@ class OrchestratorAgent:
             }
             return
         try:
-            if context is not None:
+            import inspect
+            sig = inspect.signature(fn)
+            if context is not None and "context" in sig.parameters:
                 yield from fn(
                     context=context, **tool_args,
                 )
@@ -702,12 +704,12 @@ class OrchestratorAgent:
                     ),
                 },
             }
-        if tool_name == "run_pentest_agent":
+        if tool_name == "run_attack_path_verifier_agent":
             report = result.get(
-                "pentest_report", {},
+                "attack_path_verifier_report", {},
             )
             return {
-                "pentest_report": {
+                "attack_path_verifier_report": {
                     "overall_verdict": report.get(
                         "overall_verdict", "",
                     ),

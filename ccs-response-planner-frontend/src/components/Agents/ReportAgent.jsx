@@ -33,17 +33,29 @@ function handleNestedSubEvent(subEvents, innerEvent) {
   }
   if (innerEvent.type === 'thinking_delta') {
     const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'reasoning') {
+    if (last && last.type === 'reasoning' && last.agent_id === innerEvent.agent_id) {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'reasoning', text: innerEvent.text, _startTime: Date.now() })
+      subEvents.push({
+        type: 'reasoning',
+        text: innerEvent.text,
+        agent_id: innerEvent.agent_id,
+        agent_label: innerEvent.agent_label,
+        _startTime: Date.now()
+      })
     }
   } else if (innerEvent.type === 'text_delta') {
     const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'text') {
+    if (last && last.type === 'text' && last.agent_id === innerEvent.agent_id) {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'text', text: innerEvent.text, _startTime: Date.now() })
+      subEvents.push({
+        type: 'text',
+        text: innerEvent.text,
+        agent_id: innerEvent.agent_id,
+        agent_label: innerEvent.agent_label,
+        _startTime: Date.now()
+      })
     }
   } else if (innerEvent.type === 'nested_event') {
     const lastToolCall = [...subEvents]
@@ -68,6 +80,8 @@ function handleNestedSubEvent(subEvents, innerEvent) {
       type: 'tool_result',
       tool_name: innerEvent.tool_name,
       result: innerEvent.result,
+      agent_id: innerEvent.agent_id,
+      agent_label: innerEvent.agent_label,
       subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
       _startTime: Date.now()
     })
@@ -675,6 +689,8 @@ function ReportAgent() {
                   lastToolCall._promptImages = event.event.images || []
                 } else if (event.event.type === 'context_usage') {
                   lastToolCall._contextUsage = event.event
+                } else if (event.event.type === 'parallel_start') {
+                  lastToolCall._parallelHosts = event.event.hosts
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                   handleNestedSubEvent(lastToolCall.subEvents, event.event)
@@ -685,11 +701,13 @@ function ReportAgent() {
                 .reverse()
                 .find((e) => e.type === 'tool_call')
               if (lastCall) lastCall._completed = true
+              const streamSubs = event.subEvents || []
               streamEntry.subEvents.push({
                 type: 'tool_result',
                 tool_name: event.tool_name,
                 result: event.result,
-                subEvents: event.subEvents || [],
+                subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+                _parallelHosts: lastCall?._parallelHosts,
                 _startTime: Date.now()
               })
             } else {

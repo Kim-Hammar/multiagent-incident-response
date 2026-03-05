@@ -1,5 +1,5 @@
 """
-Tool dispatch for the PentestAgent.
+Tool dispatch for the AttackPathVerifierAgent.
 
 Provides ``dt_exec`` for running commands on digital-twin containers
 and ``dt_restart`` for restarting crashed containers.

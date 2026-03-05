@@ -29,10 +29,10 @@ from ccs_response_planner_backend.agents.plan_manager_agent.agent import (
 from ccs_response_planner_backend.agents.plan_manager_agent.tools import (
     STREAMING_TOOL_DISPATCH as PM_STREAMING_DISPATCH,
 )
-from ccs_response_planner_backend.agents.pentest_agent.agent import (
-    PentestAgent,
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.agent import (
+    AttackPathVerifierAgent,
 )
-from ccs_response_planner_backend.agents.pentest_agent.tools import (
+from ccs_response_planner_backend.agents.attack_path_verifier_agent.tools import (
     STREAMING_TOOL_DISPATCH as PT_STREAMING_DISPATCH,
 )
 from ccs_response_planner_backend.agents.execution_stats import (
@@ -89,9 +89,9 @@ def _summarize_assessment(
     """
     Build a concise attack-path summary from an assessment dict.
 
-    Extracts only the fields relevant for pentest validation
-    (incident summary, IOCs, affected assets) so the pentest
-    agent's context stays small when ``attack_vector_analysis``
+    Extracts only the fields relevant for attack path verification
+    (incident summary, IOCs, affected assets) so the attack path
+    verifier agent's context stays small when ``attack_vector_analysis``
     is missing.
 
     :param assessment: the assessment dict from the report manager
@@ -392,9 +392,9 @@ def run_report_agent_direct_stream(
             **context,
             "operator_feedback": (
                 f"{existing}\n\n"
-                f"--- PENTEST FEEDBACK ---\n"
+                f"--- ATTACK PATH VERIFICATION FEEDBACK ---\n"
                 f"{validation_fb}\n"
-                f"--- END PENTEST FEEDBACK ---"
+                f"--- END ATTACK PATH VERIFICATION FEEDBACK ---"
                 if existing else validation_fb
             ),
         }
@@ -1080,18 +1080,18 @@ def run_report_manager_stream(
     }
 
 
-def run_pentest_agent_stream(
+def run_attack_path_verifier_agent_stream(
     context: dict[str, Any],
 ) -> Generator[dict[str, Any], None, None]:
     """
-    Run the PentestAgent sub-agent to completion.
+    Run the AttackPathVerifierAgent sub-agent to completion.
 
     Extracts the attack path from the assessment in context
-    and runs the PentestAgent loop, auto-approving tool calls
-    (dt_exec, dt_restart) and streaming progress events.
+    and runs the AttackPathVerifierAgent loop, auto-approving
+    tool calls (dt_exec, dt_restart) and streaming progress events.
 
     :param context: dict with assessment, system_description,
-        dt_config, pentest_agent_model, username
+        dt_config, attack_path_verifier_agent_model, username
     :return: generator yielding event dicts
     """
     stats: ExecutionStatsCollector | None = context.get(
@@ -1099,7 +1099,7 @@ def run_pentest_agent_stream(
     )
     pt_start = time.monotonic()
 
-    agent = PentestAgent()
+    agent = AttackPathVerifierAgent()
     conversation_history: list[dict[str, Any]] = []
 
     assessment = context.get("assessment", {})
@@ -1121,14 +1121,14 @@ def run_pentest_agent_stream(
         "system_description": system_description,
         "attack_path": attack_path,
         "model_name": context.get(
-            "pentest_agent_model",
+            "attack_path_verifier_agent_model",
         ),
         "dt_config": dt_config,
         "compaction_model": context.get(
             "compaction_model",
         ),
         "compaction_threshold": context.get(
-            "pentest_agent_compaction", 0.8,
+            "attack_path_verifier_agent_compaction", 0.8,
         ),
         "conversation_history": conversation_history,
         "dt_enabled": context.get(
@@ -1136,13 +1136,13 @@ def run_pentest_agent_stream(
         ),
     }
 
-    pentest_report: dict[str, Any] = {}
+    attack_path_verifier_report: dict[str, Any] = {}
 
     for step_num in range(MAX_INNER_STEPS):
         yield {
             "type": "output_chunk",
             "text": (
-                f"[PentestAgent] Step "
+                f"[AttackPathVerifierAgent] Step "
                 f"{step_num + 1}...\n"
             ),
         }
@@ -1152,7 +1152,7 @@ def run_pentest_agent_stream(
         step_start = time.monotonic()
         for event in _timeout_step_stream(
             agent, step_kwargs, step_start,
-            step_num, "PentestAgent",
+            step_num, "AttackPathVerifierAgent",
         ):
             etype = event.get("type")
 
@@ -1189,9 +1189,9 @@ def run_pentest_agent_stream(
                 step_reasoning += event.get(
                     "delta", "",
                 )
-            elif etype == "pentest_report":
-                pentest_report = event.get(
-                    "pentest_report", {},
+            elif etype == "attack_path_verifier_report":
+                attack_path_verifier_report = event.get(
+                    "attack_path_verifier_report", {},
                 )
                 yield {
                     "type": "sub_event",
@@ -1200,14 +1200,14 @@ def run_pentest_agent_stream(
                 yield {
                     "type": "output_chunk",
                     "text": (
-                        "[PentestAgent] Report "
+                        "[AttackPathVerifierAgent] Report "
                         "produced.\n"
                     ),
                 }
             elif etype == "context_usage":
                 if stats:
                     stats.record_tokens(
-                        "pentest_agent",
+                        "attack_path_verifier_agent",
                         event.get("prompt_tokens", 0),
                         event.get(
                             "candidates_tokens", 0,
@@ -1240,7 +1240,7 @@ def run_pentest_agent_stream(
             elif etype == "tool_proposal":
                 if stats:
                     stats.record_function_call(
-                        "pentest_agent",
+                        "attack_path_verifier_agent",
                         event.get("tool_name", ""),
                     )
                 pending_tool = event
@@ -1252,7 +1252,7 @@ def run_pentest_agent_stream(
                 "text": step_reasoning,
             })
 
-        if pentest_report:
+        if attack_path_verifier_report:
             break
 
         if pending_tool:
@@ -1273,7 +1273,7 @@ def run_pentest_agent_stream(
             yield {
                 "type": "output_chunk",
                 "text": (
-                    f"[PentestAgent] Running tool: "
+                    f"[AttackPathVerifierAgent] Running tool: "
                     f"{tool_name}...\n"
                 ),
             }
@@ -1441,11 +1441,11 @@ def run_pentest_agent_stream(
                     },
                 }
 
-    if not pentest_report:
-        pentest_report = {
+    if not attack_path_verifier_report:
+        attack_path_verifier_report = {
             "executive_summary": (
-                "PentestAgent did not complete within "
-                "the step limit."
+                "AttackPathVerifierAgent did not complete "
+                "within the step limit."
             ),
             "overall_verdict": "Attack path not feasible",
             "attack_path_steps": [],
@@ -1462,8 +1462,8 @@ def run_pentest_agent_stream(
     ]
     try:
         DatabaseFacade.save_agent_report(
-            agent_type="pentest",
-            report=pentest_report,
+            agent_type="attack_path_verifier",
+            report=attack_path_verifier_report,
             username=context.get(
                 "username", "system",
             ),
@@ -1472,17 +1472,17 @@ def run_pentest_agent_stream(
         )
     except Exception as e:
         logger.warning(
-            "Failed to save pentest report: %s", e,
+            "Failed to save attack path verifier report: %s", e,
         )
 
     if stats:
         stats.record_wall_time(
-            "pentest_agent",
+            "attack_path_verifier_agent",
             time.monotonic() - pt_start,
         )
 
     pt_done: dict[str, Any] = {
-        "pentest_report": pentest_report,
+        "attack_path_verifier_report": attack_path_verifier_report,
     }
     if stats:
         pt_done["_execution_stats"] = stats.to_dict()
@@ -2136,8 +2136,8 @@ STREAMING_TOOL_DISPATCH: dict[
     "run_report_manager": (
         run_report_manager_stream
     ),
-    "run_pentest_agent": (
-        run_pentest_agent_stream
+    "run_attack_path_verifier_agent": (
+        run_attack_path_verifier_agent_stream
     ),
     "run_plan_manager": run_plan_manager_stream,
 }

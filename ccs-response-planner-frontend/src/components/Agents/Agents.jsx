@@ -9,7 +9,7 @@ import PlannerAgent from './PlannerAgent.jsx'
 import ReportVerifierAgent from './ReportVerifierAgent.jsx'
 import ReportManagerAgent from './ReportManagerAgent.jsx'
 import OrchestratorAgent from './OrchestratorAgent.jsx'
-import PentestAgent from './PentestAgent.jsx'
+import AttackPathVerifierAgent from './AttackPathVerifierAgent.jsx'
 import HostAnalyzerAgent from './HostAnalyzerAgent.jsx'
 import ActionVerifierAgent from './ActionVerifierAgent.jsx'
 import './Agents.css'
@@ -51,7 +51,7 @@ function Agents() {
           <option value="code-manager">Code Manager Agent</option>
           <option value="plan-manager">Plan Manager Agent</option>
           <option value="planner">Planner Agent</option>
-          <option value="pentest">Pentest Agent</option>
+          <option value="attack-path-verifier">Attack Path Verifier Agent</option>
           <option value="host-analyzer">Host Analyzer Agent</option>
           <option value="action-verifier">Action Verifier Agent</option>
         </select>
@@ -67,7 +67,7 @@ function Agents() {
       {selectedAgent === 'code-manager' && <CodeManagerAgent />}
       {selectedAgent === 'plan-manager' && <PlanManagerAgent />}
       {selectedAgent === 'planner' && <PlannerAgent />}
-      {selectedAgent === 'pentest' && <PentestAgent />}
+      {selectedAgent === 'attack-path-verifier' && <AttackPathVerifierAgent />}
       {selectedAgent === 'host-analyzer' && <HostAnalyzerAgent />}
       {selectedAgent === 'action-verifier' && <ActionVerifierAgent />}
     </div>

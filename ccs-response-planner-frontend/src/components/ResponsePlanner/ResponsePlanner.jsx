@@ -26,7 +26,7 @@ import {
   CodeReportBody,
   PlannerReportInline,
   PlanManagerReportBody,
-  PentestReportBody
+  AttackPathVerifierReportBody
 } from '../Agents/shared/ReportBodies.jsx'
 import ExecutionStatsView from '../Agents/shared/ExecutionStatsView.jsx'
 import JobsTab from '../Agents/shared/JobsTab.jsx'
@@ -50,17 +50,29 @@ function handleNestedSubEvent(subEvents, innerEvent, ts) {
   }
   if (innerEvent.type === 'thinking_delta') {
     const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'reasoning') {
+    if (last && last.type === 'reasoning' && last.agent_id === innerEvent.agent_id) {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'reasoning', text: innerEvent.text, _startTime: now })
+      subEvents.push({
+        type: 'reasoning',
+        text: innerEvent.text,
+        agent_id: innerEvent.agent_id,
+        agent_label: innerEvent.agent_label,
+        _startTime: now
+      })
     }
   } else if (innerEvent.type === 'text_delta') {
     const last = subEvents[subEvents.length - 1]
-    if (last && last.type === 'text') {
+    if (last && last.type === 'text' && last.agent_id === innerEvent.agent_id) {
       last.text += innerEvent.text
     } else {
-      subEvents.push({ type: 'text', text: innerEvent.text, _startTime: now })
+      subEvents.push({
+        type: 'text',
+        text: innerEvent.text,
+        agent_id: innerEvent.agent_id,
+        agent_label: innerEvent.agent_label,
+        _startTime: now
+      })
     }
   } else if (innerEvent.type === 'nested_event') {
     const lastToolCall = [...subEvents]
@@ -72,6 +84,8 @@ function handleNestedSubEvent(subEvents, innerEvent, ts) {
         lastToolCall._promptImages = innerEvent.event.images || []
       } else if (innerEvent.event.type === 'context_usage') {
         lastToolCall._contextUsage = innerEvent.event
+      } else if (innerEvent.event.type === 'parallel_start') {
+        lastToolCall._parallelHosts = innerEvent.event.hosts
       } else {
         if (!lastToolCall.subEvents) lastToolCall.subEvents = []
         handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event, now)
@@ -85,7 +99,11 @@ function handleNestedSubEvent(subEvents, innerEvent, ts) {
       type: 'tool_result',
       tool_name: innerEvent.tool_name,
       result: innerEvent.result,
-      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || []
+      agent_id: innerEvent.agent_id,
+      agent_label: innerEvent.agent_label,
+      subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+      _parallelHosts: lastCall?._parallelHosts,
+      _startTime: now
     })
   } else {
     if (!innerEvent._startTime) innerEvent._startTime = now
@@ -104,7 +122,8 @@ function enrichOrchestratorReport(report, history) {
   const ptResult =
     [...history]
       .reverse()
-      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_pentest_agent')?.result || {}
+      .find((e) => e.type === 'tool_result' && e.tool_name === 'run_attack_path_verifier_agent')
+      ?.result || {}
   const pmResult =
     [...history]
       .reverse()
@@ -116,7 +135,7 @@ function enrichOrchestratorReport(report, history) {
   return {
     ...report,
     assessment,
-    pentest_report: ptResult.pentest_report || {},
+    attack_path_verifier_report: ptResult.attack_path_verifier_report || {},
     code_report: pmResult.code_report || {},
     planner_report: pmResult.planner_report || {},
     plan_verifier_report: pmResult.plan_verifier_report || {},
@@ -152,12 +171,13 @@ function OrchestratorAgentReportView({ entry, index, isExpanded, toggleEntry }) 
                 <AssessmentBody report={report.assessment} />
               </div>
             )}
-            {report.pentest_report && Object.keys(report.pentest_report).length > 0 && (
-              <div className="ia-assessment-section">
-                <div className="ia-assessment-label">Attack Path Validation</div>
-                <PentestReportBody report={report.pentest_report} />
-              </div>
-            )}
+            {report.attack_path_verifier_report &&
+              Object.keys(report.attack_path_verifier_report).length > 0 && (
+                <div className="ia-assessment-section">
+                  <div className="ia-assessment-label">Attack Path Validation</div>
+                  <AttackPathVerifierReportBody report={report.attack_path_verifier_report} />
+                </div>
+              )}
             {report.code_report && Object.keys(report.code_report).length > 0 && (
               <div className="ia-assessment-section">
                 <div className="ia-assessment-label">Code Report</div>
@@ -219,6 +239,7 @@ function ResponsePlanner() {
   const [codeVerifierModel, setCodeVerifierModel] = useState('')
   const [plannerAgentModel, setPlannerAgentModel] = useState('')
   const [planVerifierAgentModel, setPlanVerifierAgentModel] = useState('')
+  const [attackPathVerifierAgentModel, setAttackPathVerifierAgentModel] = useState('')
   const [compactionModel, setCompactionModel] = useState('')
   const [orchestratorCompaction, setOrchestratorCompaction] = useState(80)
   const [reportManagerCompaction, setReportManagerCompaction] = useState(80)
@@ -230,6 +251,7 @@ function ResponsePlanner() {
   const [codeVerifierCompaction, setCodeVerifierCompaction] = useState(80)
   const [plannerAgentCompaction, setPlannerAgentCompaction] = useState(80)
   const [planVerifierAgentCompaction, setPlanVerifierAgentCompaction] = useState(80)
+  const [attackPathVerifierAgentCompaction, setAttackPathVerifierAgentCompaction] = useState(80)
   const [reportManagerIterations, setReportManagerIterations] = useState(1)
   const [planManagerIterations, setPlanManagerIterations] = useState(1)
   const [codeManagerIterations, setCodeManagerIterations] = useState(1)
@@ -240,7 +262,7 @@ function ResponsePlanner() {
   const [codeVerifierEnabled, setCodeVerifierEnabled] = useState(true)
   const [planVerifierEnabled, setPlanVerifierEnabled] = useState(true)
   const [reportManagerEnabled, setReportManagerEnabled] = useState(true)
-  const [pentestEnabled, setPentestEnabled] = useState(true)
+  const [attackPathVerifierEnabled, setAttackPathVerifierEnabled] = useState(true)
   const [codeModelEnabled, setCodeModelEnabled] = useState(true)
   const [reportHistory, setReportHistory] = useState([])
   const [loadingReportHistory, setLoadingReportHistory] = useState(true)
@@ -361,7 +383,7 @@ function ResponsePlanner() {
   }, [autopilot, pendingProposal])
 
   useEffect(() => {
-    if (!reportManagerEnabled) setPentestEnabled(false)
+    if (!reportManagerEnabled) setAttackPathVerifierEnabled(false)
   }, [reportManagerEnabled])
 
   useEffect(() => {
@@ -497,7 +519,7 @@ function ResponsePlanner() {
         setCodeVerifierEnabled(config.codeVerifierEnabled ?? true)
         setPlanVerifierEnabled(config.planVerifierEnabled ?? true)
         setReportManagerEnabled(config.reportManagerEnabled ?? true)
-        setPentestEnabled(config.pentestEnabled ?? true)
+        setAttackPathVerifierEnabled(config.attackPathVerifierEnabled ?? true)
         setCodeModelEnabled(config.codeModelEnabled ?? true)
         const uiState = session.ui_state || {}
         let jobRunning = false
@@ -872,7 +894,7 @@ function ResponsePlanner() {
             code_verifier_enabled: codeVerifierEnabled,
             plan_verifier_enabled: planVerifierEnabled,
             report_manager_enabled: reportManagerEnabled,
-            pentest_enabled: pentestEnabled,
+            attack_path_verifier_enabled: attackPathVerifierEnabled,
             code_model_enabled: codeModelEnabled
           })
         })
@@ -1204,6 +1226,8 @@ function ResponsePlanner() {
                   lastToolCall._promptImages = inner.event.images || []
                 } else if (inner.event.type === 'context_usage') {
                   lastToolCall._contextUsage = inner.event
+                } else if (inner.event.type === 'parallel_start') {
+                  lastToolCall._parallelHosts = inner.event.hosts
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                   handleNestedSubEvent(lastToolCall.subEvents, inner.event, evTs)
@@ -1214,11 +1238,14 @@ function ResponsePlanner() {
                 .reverse()
                 .find((e) => e.type === 'tool_call')
               if (lastCall) lastCall._completed = true
+              const streamSubs = inner.subEvents || []
               streamEntry.subEvents.push({
                 type: 'tool_result',
                 tool_name: inner.tool_name,
                 result: inner.result,
-                subEvents: inner.subEvents || []
+                subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+                _parallelHosts: lastCall?._parallelHosts,
+                _startTime: evTs
               })
             } else {
               if (!inner._startTime) inner._startTime = evTs
@@ -1363,7 +1390,7 @@ function ResponsePlanner() {
             codeVerifierEnabled,
             reportManagerEnabled,
             planVerifierEnabled,
-            pentestEnabled,
+            attackPathVerifierEnabled,
             codeModelEnabled
           }
         })
@@ -1428,6 +1455,7 @@ function ResponsePlanner() {
           code_verifier_model: codeVerifierModel || undefined,
           planner_agent_model: plannerAgentModel || undefined,
           plan_verifier_agent_model: planVerifierAgentModel || undefined,
+          attack_path_verifier_agent_model: attackPathVerifierAgentModel || undefined,
           report_manager_iterations: reportManagerIterations,
           plan_manager_iterations: planManagerIterations,
           code_manager_iterations: codeManagerIterations,
@@ -1442,13 +1470,14 @@ function ResponsePlanner() {
           code_verifier_compaction: codeVerifierCompaction / 100,
           planner_agent_compaction: plannerAgentCompaction / 100,
           plan_verifier_agent_compaction: planVerifierAgentCompaction / 100,
+          attack_path_verifier_agent_compaction: attackPathVerifierAgentCompaction / 100,
           dt_enabled: dtEnabled,
           info_tools_enabled: infoToolsEnabled,
           report_verifier_enabled: reportVerifierEnabled,
           code_verifier_enabled: codeVerifierEnabled,
           report_manager_enabled: reportManagerEnabled,
           plan_verifier_enabled: planVerifierEnabled,
-          pentest_enabled: pentestEnabled,
+          attack_path_verifier_enabled: attackPathVerifierEnabled,
           code_model_enabled: codeModelEnabled
         }
         const { result } = await executeStreamingTool({
@@ -1507,6 +1536,8 @@ function ResponsePlanner() {
                   lastToolCall._promptImages = event.event.images || []
                 } else if (event.event.type === 'context_usage') {
                   lastToolCall._contextUsage = event.event
+                } else if (event.event.type === 'parallel_start') {
+                  lastToolCall._parallelHosts = event.event.hosts
                 } else {
                   if (!lastToolCall.subEvents) lastToolCall.subEvents = []
                   handleNestedSubEvent(lastToolCall.subEvents, event.event, evTs)
@@ -1517,11 +1548,14 @@ function ResponsePlanner() {
                 .reverse()
                 .find((e) => e.type === 'tool_call')
               if (lastCall) lastCall._completed = true
+              const streamSubs = event.subEvents || []
               streamEntry.subEvents.push({
                 type: 'tool_result',
                 tool_name: event.tool_name,
                 result: event.result,
-                subEvents: event.subEvents || []
+                subEvents: streamSubs.length > 0 ? streamSubs : lastCall?.subEvents || [],
+                _parallelHosts: lastCall?._parallelHosts,
+                _startTime: evTs
               })
             } else {
               if (!event._startTime) event._startTime = evTs
@@ -1597,7 +1631,7 @@ function ResponsePlanner() {
           report_verifier_enabled: reportVerifierEnabled,
           code_verifier_enabled: codeVerifierEnabled,
           plan_verifier_enabled: planVerifierEnabled,
-          pentest_enabled: pentestEnabled,
+          attack_path_verifier_enabled: attackPathVerifierEnabled,
           code_model_enabled: codeModelEnabled
         })
       })
@@ -1720,7 +1754,7 @@ function ResponsePlanner() {
         security_alerts: securityAlerts,
         operator_feedback: operatorFeedback,
         report_manager_enabled: reportManagerEnabled,
-        pentest_enabled: pentestEnabled
+        attack_path_verifier_enabled: attackPathVerifierEnabled
       })
     })
     if (res.status === 401) {
@@ -1862,8 +1896,11 @@ function ResponsePlanner() {
         </div>
       )
     }
-    if (entry.tool_name === 'run_pentest_agent' && entry.result?.pentest_report) {
-      return <PentestReportBody report={entry.result.pentest_report} />
+    if (
+      entry.tool_name === 'run_attack_path_verifier_agent' &&
+      entry.result?.attack_path_verifier_report
+    ) {
+      return <AttackPathVerifierReportBody report={entry.result.attack_path_verifier_report} />
     }
     if (entry.tool_name === 'run_plan_manager' && entry.result) {
       return <PlanManagerReportBody result={entry.result} />
@@ -2018,12 +2055,12 @@ function ResponsePlanner() {
                 disabled: isAgentBusy
               },
               {
-                id: 'rp-pentest-enabled',
-                label: 'Pentest Agent',
+                id: 'rp-attack-path-verifier-enabled',
+                label: 'Attack Path Verifier Agent',
                 description:
-                  'When disabled, the orchestrator skips attack path validation via the pentest agent',
-                checked: pentestEnabled,
-                onChange: setPentestEnabled,
+                  'When disabled, the orchestrator skips attack path validation via the attack path verifier agent',
+                checked: attackPathVerifierEnabled,
+                onChange: setAttackPathVerifierEnabled,
                 disabled: isAgentBusy || !reportManagerEnabled
               },
               {
@@ -2085,6 +2122,8 @@ function ResponsePlanner() {
             setPlannerAgentModel={setPlannerAgentModel}
             planVerifierAgentModel={planVerifierAgentModel}
             setPlanVerifierAgentModel={setPlanVerifierAgentModel}
+            attackPathVerifierAgentModel={attackPathVerifierAgentModel}
+            setAttackPathVerifierAgentModel={setAttackPathVerifierAgentModel}
             compactionModel={compactionModel}
             setCompactionModel={setCompactionModel}
             reportManagerIterations={reportManagerIterations}
@@ -2115,6 +2154,8 @@ function ResponsePlanner() {
             setPlannerAgentCompaction={setPlannerAgentCompaction}
             planVerifierAgentCompaction={planVerifierAgentCompaction}
             setPlanVerifierAgentCompaction={setPlanVerifierAgentCompaction}
+            attackPathVerifierAgentCompaction={attackPathVerifierAgentCompaction}
+            setAttackPathVerifierAgentCompaction={setAttackPathVerifierAgentCompaction}
           />
         )}
 

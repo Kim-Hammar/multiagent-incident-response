@@ -1,8 +1,8 @@
 """
-System prompt template for the PentestAgent.
+System prompt template for the AttackPathVerifierAgent.
 
-The PentestAgent is a white-box penetration tester that validates
-attack paths against the digital twin.
+The AttackPathVerifierAgent is a white-box penetration tester that
+validates attack paths against the digital twin.
 
 The prompt is assembled dynamically by ``build_system_prompt`` so that
 DT-specific sections are omitted when the digital twin is disabled.
@@ -25,6 +25,17 @@ can reproduce the exact steps the better, but demonstrating that each \
 stage of the attack is feasible (e.g., the vulnerability is \
 exploitable, credentials work, lateral movement is possible) is \
 sufficient for validation.
+
+**Important context:** In the actual incident, the attacker operated \
+from a single attacker machine and reached internal servers through \
+network tunnels, pivots, and port forwards. You do NOT need to \
+replicate that tunneling infrastructure. Since `dt_exec` gives you a \
+direct shell on any container, you can validate each attack step by \
+executing commands directly on the relevant containers. Also, do NOT \
+expect to find attacker tools (Metasploit, Hydra, exploit frameworks, \
+etc.) installed on the target/victim servers \u2014 those tools exist \
+only on the attacker container. The target servers are victim machines \
+with only their legitimate services installed.
 
 Before producing a solution or invoking a tool, think step-by-step \
 about the best approach.
@@ -75,13 +86,16 @@ _INSTRUCTIONS_DT = """\
 
 ## Instructions
 
-1. Carefully read the attack path description above. Identify each \
-step of the attack (e.g., initial access, lateral movement, privilege \
-escalation, data exfiltration).
+1. Carefully read the attack path description above. It describes \
+**specific steps** the attacker took (e.g., brute-forced SSH on \
+Server 3 with password X, exploited CVE-YYYY-NNNN on Server 6). \
+Your job is to execute **those exact steps** and verify they work \
+\u2014 NOT to do your own reconnaissance or discover new attack \
+vectors.
 2. Start from the **attacker container** listed above. All initial \
 commands should target this container.
 3. For **each step** of the attack path, in order:
-   a. Execute the necessary commands on the appropriate container \
+   a. Execute the specific commands described in the attack path \
 using `dt_exec`. For initial access attempts (e.g., brute-force, \
 exploiting a vulnerability), run commands FROM the attacker container \
 targeting the remote host. Once you have **demonstrated that access to \
@@ -92,25 +106,27 @@ SOCKS proxies, or port forwards. The `dt_exec` tool gives you a shell \
 on any container.
    b. Record the commands, their outputs, and whether the step \
 succeeded.
-   c. Gather evidence (screenshots of output, captured credentials, \
+   c. Gather evidence (command output, captured credentials, \
 proof of access, etc.).
    d. If the attack path references a known CVE, prefer using the \
 corresponding Metasploit module rather than writing a manual exploit \
 script.
-   e. Before exploiting a service, **enumerate it first** to discover \
-configuration details (share names, local paths, endpoints, \
-credentials). For example, use `smbclient -L //<ip> -N` to list Samba \
-shares and `cat /etc/samba/smb.conf` on the target (via `dt_exec`) to \
-find the share\u2019s local filesystem path. Do not guess file paths \
-\u2014 discover them.
-4. After attempting all steps, call `produce_pentest_report` with the \
+   e. If the attack path mentions a service but not the exact \
+configuration (e.g., share names, local paths), do a **brief, \
+targeted** check (e.g., `smbclient -L //<ip> -N` or \
+`cat /etc/samba/smb.conf`). Do NOT run broad scans or recursive \
+searches across the filesystem \u2014 stick to the attack path.
+4. After attempting all steps, call `produce_attack_path_verifier_report` with the \
 complete results.
 
 ## Lateral Movement Strategy
 
 The `dt_exec` tool gives you a root shell on **any container** by \
 name. This is a testing environment, so you do not need real network \
-pivoting infrastructure. Lateral movement works as follows:
+pivoting infrastructure (no SSH tunnels, SOCKS proxies, or port \
+forwards). Even if the original attacker used tunnels to reach \
+internal servers, you can skip that and interact with containers \
+directly. Lateral movement works as follows:
 
 1. **Prove access first.** From the attacker container (or a \
 previously compromised container), run an exploit or credential attack \
@@ -144,7 +160,7 @@ for any command that might prompt for input.
 - **dt_restart**: Restart a container that has crashed or stopped. \
 Pass a specific container name to restart just that host, or pass \
 \u2018all\u2019 to redeploy the entire digital twin.
-- **produce_pentest_report**: Call this ONLY after attempting all \
+- **produce_attack_path_verifier_report**: Call this ONLY after attempting all \
 steps of the attack path and gathering all evidence.
 
 ## Digital Twin Environment
@@ -193,7 +209,7 @@ _CRITICAL_RULES_DT = """\
 - Before producing a solution or invoking a tool, think step-by-step \
 about the best approach.
 - You MUST always respond with a tool call. Either call `dt_exec` to \
-run a command, or call `produce_pentest_report` to deliver the final \
+run a command, or call `produce_attack_path_verifier_report` to deliver the final \
 report.
 - NEVER output plain text without also making a tool call.
 - NEVER describe or announce a tool call in text without actually \
@@ -206,7 +222,7 @@ response. Do NOT re-execute earlier tool calls \u2014 they executed \
 successfully, you simply did not receive their output because a later \
 call in the same response overwrote it.
 - Do not exceed 40 total tool calls. If you have attempted all steps \
-or exhausted your budget, call `produce_pentest_report` with the \
+or exhausted your budget, call `produce_attack_path_verifier_report` with the \
 results so far. Do not retry failed steps endlessly.
 - **Start from the attacker container.** Do NOT use `dt_exec` on an \
 internal host until you have demonstrated that access is possible. \
@@ -219,10 +235,12 @@ against Host B\u2019s IP. Do NOT create SSH tunnels, SOCKS proxies, \
 Metasploit reverse listeners, or port forwards between containers \
 \u2014 this is a testing environment and `dt_exec` provides direct \
 container access.
-- **Enumerate before exploiting.** Before targeting a service, \
-discover its configuration (share names, file paths, endpoints). Do \
-not guess file paths \u2014 use service enumeration tools or read \
-config files on the target via `dt_exec`.
+- **Follow the attack path, do not freelance.** Execute the specific \
+steps described in the attack path. Do NOT run broad reconnaissance \
+(e.g., `grep -R` across filesystems, full port scans, directory \
+enumeration) unless the attack path explicitly describes that step. \
+If you need a specific configuration detail (e.g., a share name), do \
+a brief targeted check \u2014 not a broad search.
 - Always attempt to demonstrate exploitation \u2014 do not merely \
 theorize about what could happen. An exact replication is ideal, but \
 proving feasibility of each stage is sufficient.
@@ -241,7 +259,7 @@ The digital twin is not available for this session. Produce a \
 description and your security expertise. For each step of the attack \
 path, analyze whether the described technique is plausible given the \
 target architecture, services, and known vulnerabilities. Call \
-`produce_pentest_report` with your assessment when done.
+`produce_attack_path_verifier_report` with your assessment when done.
 """
 
 _CRITICAL_RULES_NO_DT = """\
@@ -251,7 +269,7 @@ _CRITICAL_RULES_NO_DT = """\
 - Before producing a solution or invoking a tool, think step-by-step \
 about the best approach.
 - You MUST always respond with a tool call: call \
-`produce_pentest_report` to deliver the final report.
+`produce_attack_path_verifier_report` to deliver the final report.
 - NEVER output plain text without also making a tool call.
 - NEVER describe or announce a tool call in text without actually \
 calling it.
@@ -264,9 +282,9 @@ calling it.
 
 _REPORT_RULES = """\
 
-## Pentest Report Rules
+## Attack Path Verifier Report Rules
 
-When calling `produce_pentest_report`:
+When calling `produce_attack_path_verifier_report`:
 - `overall_verdict` MUST be one of: \u201cAttack path validated\u201d, \
 \u201cAttack path partially validated\u201d, \u201cAttack path not \
 feasible\u201d.
@@ -290,7 +308,7 @@ def build_system_prompt(
     dt_network_connectivity: str = "",
 ) -> str:
     """
-    Assemble the PentestAgent system prompt.
+    Assemble the AttackPathVerifierAgent system prompt.
 
     When the digital twin is disabled the DT-specific sections
     (attacker entrypoint, tooling, lateral movement, available tools,

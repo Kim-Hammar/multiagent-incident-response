@@ -1,8 +1,8 @@
 """
-Gemini function-calling declarations for the PentestAgent tools.
+Gemini function-calling declarations for the AttackPathVerifierAgent tools.
 
 Provides ``TOOL_DECLARATIONS`` containing dt_exec, dt_restart,
-and produce_pentest_report.
+and produce_attack_path_verifier_report.
 """
 from google.genai import types as genai_types  # type: ignore[attr-defined]
 
@@ -65,10 +65,10 @@ DT_RESTART_DECL = genai_types.FunctionDeclaration(
     },
 )
 
-PRODUCE_PENTEST_REPORT_DECL = genai_types.FunctionDeclaration(
-    name="produce_pentest_report",
+PRODUCE_ATTACK_PATH_VERIFIER_REPORT_DECL = genai_types.FunctionDeclaration(
+    name="produce_attack_path_verifier_report",
     description=(
-        "Produce the final structured pentest report. "
+        "Produce the final structured attack path verifier report. "
         "Call this ONLY after attempting all steps of "
         "the attack path and gathering evidence."
     ),
@@ -202,5 +202,5 @@ PRODUCE_PENTEST_REPORT_DECL = genai_types.FunctionDeclaration(
 )
 
 TOOL_DECLARATIONS = [
-    DT_EXEC_DECL, DT_RESTART_DECL, PRODUCE_PENTEST_REPORT_DECL,
+    DT_EXEC_DECL, DT_RESTART_DECL, PRODUCE_ATTACK_PATH_VERIFIER_REPORT_DECL,
 ]

@@ -121,14 +121,14 @@ class API:
     AGENTS_ORCHESTRATOR_PROMPT_ROUTE = (
         "/api/agents/orchestrator/prompt"
     )
-    AGENTS_PENTEST_STEP_ROUTE = (
-        "/api/agents/pentest/step"
+    AGENTS_ATTACK_PATH_VERIFIER_STEP_ROUTE = (
+        "/api/agents/attack-path-verifier/step"
     )
-    AGENTS_PENTEST_TOOL_ROUTE = (
-        "/api/agents/pentest/tool"
+    AGENTS_ATTACK_PATH_VERIFIER_TOOL_ROUTE = (
+        "/api/agents/attack-path-verifier/tool"
     )
-    AGENTS_PENTEST_PROMPT_ROUTE = (
-        "/api/agents/pentest/prompt"
+    AGENTS_ATTACK_PATH_VERIFIER_PROMPT_ROUTE = (
+        "/api/agents/attack-path-verifier/prompt"
     )
     AGENTS_HOST_ANALYZER_STEP_ROUTE = (
         "/api/agents/host-analyzer/step"

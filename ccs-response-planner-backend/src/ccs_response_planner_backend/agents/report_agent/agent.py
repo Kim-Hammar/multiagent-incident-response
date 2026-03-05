@@ -596,7 +596,9 @@ class ReportAgent:
             }
             return
         try:
-            if context is not None:
+            import inspect
+            sig = inspect.signature(fn)
+            if context is not None and "context" in sig.parameters:
                 yield from fn(
                     context=context, **tool_args,
                 )

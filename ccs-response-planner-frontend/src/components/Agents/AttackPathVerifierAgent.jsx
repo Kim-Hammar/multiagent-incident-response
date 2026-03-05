@@ -3,14 +3,14 @@ import useTabWithHash from '../../hooks/useTabWithHash.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import {
   API_EXAMPLES_URL,
-  API_AGENTS_PENTEST_STEP_URL,
-  API_AGENTS_PENTEST_TOOL_URL,
-  API_AGENTS_PENTEST_PROMPT_URL,
+  API_AGENTS_ATTACK_PATH_VERIFIER_STEP_URL,
+  API_AGENTS_ATTACK_PATH_VERIFIER_TOOL_URL,
+  API_AGENTS_ATTACK_PATH_VERIFIER_PROMPT_URL,
   API_LLM_URL,
   API_AGENTS_REPORTS_URL
 } from '../Common/constants'
-import PentestAgentConfigTab from './PentestAgentConfigTab.jsx'
-import PentestAgentReport from './PentestAgentReport.jsx'
+import AttackPathVerifierAgentConfigTab from './AttackPathVerifierAgentConfigTab.jsx'
+import AttackPathVerifierAgentReport from './AttackPathVerifierAgentReport.jsx'
 import AgentConfigTable from './shared/AgentConfigTable.jsx'
 import ConfigurationTable from './shared/ConfigurationTable.jsx'
 import AgentPlanningTab from './shared/AgentPlanningTab.jsx'
@@ -23,10 +23,10 @@ import { STREAMING_TOOLS, executeStreamingTool } from './shared/streamingToolExe
 import { pollJobEvents } from './shared/pollJobEvents.js'
 
 /**
- * PentestAgent component — drives the pentest agent loop with
+ * AttackPathVerifierAgent component — drives the attack path verifier agent loop with
  * human-in-the-loop tool approval.
  */
-function PentestAgent() {
+function AttackPathVerifierAgent() {
   const { token, logout } = useAuth()
   const [activeTab, setActiveTab] = useTabWithHash('config')
   const [systemDescription, setSystemDescription] = useState('')
@@ -79,7 +79,7 @@ function PentestAgent() {
     pollingRef,
     restoredSession
   } = useAgentSession({
-    agentType: 'pentest',
+    agentType: 'attack_path_verifier',
     token,
     logout,
     activeTab,
@@ -238,7 +238,7 @@ function PentestAgent() {
     try {
       let job_id = resumeJobId
       if (!job_id) {
-        const res = await fetch(API_AGENTS_PENTEST_STEP_URL, {
+        const res = await fetch(API_AGENTS_ATTACK_PATH_VERIFIER_STEP_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -335,11 +335,11 @@ function PentestAgent() {
               _tool_use_id: event._tool_use_id,
               _vendor: event._vendor
             }
-          } else if (event.type === 'pentest_report') {
+          } else if (event.type === 'attack_path_verifier_report') {
             finalEntry = {
               role: 'model',
-              type: 'pentest_report',
-              pentest_report: event.pentest_report,
+              type: 'attack_path_verifier_report',
+              attack_path_verifier_report: event.attack_path_verifier_report,
               thinking_trace: event.thinking_trace || ''
             }
           } else if (
@@ -384,8 +384,8 @@ function PentestAgent() {
         if (finalEntry.type === 'tool_proposal') {
           setPendingProposal(finalEntry)
         }
-        if (finalEntry.type === 'pentest_report') {
-          saveReport(finalEntry.pentest_report, updated)
+        if (finalEntry.type === 'attack_path_verifier_report') {
+          saveReport(finalEntry.attack_path_verifier_report, updated)
         }
       } else if (accumulated) {
         let report
@@ -405,7 +405,11 @@ function PentestAgent() {
           ...history,
           ...compactionEntries,
           ...dtEntries,
-          { role: 'model', type: 'pentest_report', pentest_report: report }
+          {
+            role: 'model',
+            type: 'attack_path_verifier_report',
+            attack_path_verifier_report: report
+          }
         ]
         setConversationHistory(fallbackHistory)
         saveReport(report, fallbackHistory)
@@ -491,7 +495,7 @@ function PentestAgent() {
       setConversationHistory(base)
       try {
         const { result } = await executeStreamingTool({
-          url: API_AGENTS_PENTEST_TOOL_URL,
+          url: API_AGENTS_ATTACK_PATH_VERIFIER_TOOL_URL,
           toolName: proposal.tool_name,
           toolArgs: proposal.tool_args,
           incidentId: selectedIncidentId,
@@ -551,7 +555,7 @@ function PentestAgent() {
     }
 
     try {
-      const res = await fetch(API_AGENTS_PENTEST_TOOL_URL, {
+      const res = await fetch(API_AGENTS_ATTACK_PATH_VERIFIER_TOOL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -658,7 +662,7 @@ function PentestAgent() {
     abortControllerRef.current = controller
     try {
       const { result } = await executeStreamingTool({
-        url: API_AGENTS_PENTEST_TOOL_URL,
+        url: API_AGENTS_ATTACK_PATH_VERIFIER_TOOL_URL,
         toolName,
         toolArgs: {},
         incidentId: selectedIncidentId,
@@ -718,7 +722,7 @@ function PentestAgent() {
   }
 
   const getPromptText = async () => {
-    const res = await fetch(API_AGENTS_PENTEST_PROMPT_URL, {
+    const res = await fetch(API_AGENTS_ATTACK_PATH_VERIFIER_PROMPT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -743,7 +747,7 @@ function PentestAgent() {
   const fetchHistory = async () => {
     setLoadingReportHistory(true)
     try {
-      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=pentest`, {
+      const res = await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=attack_path_verifier`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
@@ -765,7 +769,7 @@ function PentestAgent() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          agent_type: 'pentest',
+          agent_type: 'attack_path_verifier',
           report,
           incident_id: selectedIncidentId,
           conversation_history: cleanConversationHistory(historyToSave),
@@ -792,7 +796,7 @@ function PentestAgent() {
 
   const deleteAllReports = async () => {
     try {
-      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=pentest`, {
+      await fetch(`${API_AGENTS_REPORTS_URL}?agent_type=attack_path_verifier`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -813,7 +817,7 @@ function PentestAgent() {
   const isAgentBusy = running || executingTool
 
   const renderFinalReport = (entry, index, isExpanded) => (
-    <PentestAgentReport
+    <AttackPathVerifierAgentReport
       key={index}
       entry={entry}
       index={index}
@@ -911,7 +915,7 @@ function PentestAgent() {
       </ul>
 
       {activeTab === 'config' && (
-        <PentestAgentConfigTab
+        <AttackPathVerifierAgentConfigTab
           systemDescription={systemDescription}
           setSystemDescription={setSystemDescription}
           attackPath={attackPath}
@@ -963,10 +967,10 @@ function PentestAgent() {
           })}
           rows={[
             {
-              label: 'Pentest Agent',
+              label: 'Attack Path Verifier Agent',
               model: selectedModel,
               setModel: setSelectedModel,
-              promptUrl: API_AGENTS_PENTEST_PROMPT_URL,
+              promptUrl: API_AGENTS_ATTACK_PATH_VERIFIER_PROMPT_URL,
               iteration: null,
               compaction: compactionThreshold,
               setCompaction: setCompactionThreshold
@@ -1018,8 +1022,8 @@ function PentestAgent() {
           deleteReport={deleteReport}
           deleteAllReports={deleteAllReports}
           renderReport={(report) => (
-            <PentestAgentReport
-              entry={{ type: 'pentest_report', pentest_report: report }}
+            <AttackPathVerifierAgentReport
+              entry={{ type: 'attack_path_verifier_report', attack_path_verifier_report: report }}
               index="history"
               isExpanded={true}
               toggleEntry={() => {}}
@@ -1043,4 +1047,4 @@ function PentestAgent() {
   )
 }
 
-export default PentestAgent
+export default AttackPathVerifierAgent

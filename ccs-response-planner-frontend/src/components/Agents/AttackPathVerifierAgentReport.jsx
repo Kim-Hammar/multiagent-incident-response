@@ -1,10 +1,10 @@
 /**
- * Renders the final pentest report for the Pentest Agent.
+ * Renders the final attack path verifier report for the Attack Path Verifier Agent.
  */
-function PentestAgentReport({ entry, index, isExpanded, toggleEntry }) {
-  if (entry.type !== 'pentest_report') return null
+function AttackPathVerifierAgentReport({ entry, index, isExpanded, toggleEntry }) {
+  if (entry.type !== 'attack_path_verifier_report') return null
 
-  const r = entry.pentest_report || {}
+  const r = entry.attack_path_verifier_report || {}
   const verdictClass = {
     'Attack path validated': 'danger',
     'Attack path partially validated': 'warning',
@@ -15,7 +15,7 @@ function PentestAgentReport({ entry, index, isExpanded, toggleEntry }) {
     <div key={index} className="card ia-entry border-dark">
       <div className="card-body">
         <div className="ia-result-header" onClick={() => toggleEntry(index)}>
-          <span className="badge badge-dark">Pentest Report</span>
+          <span className="badge badge-dark">Attack Path Verifier Report</span>
           <span className="ia-tool-name">Attack Path Validation</span>
           <span className="ia-toggle-hint">{isExpanded ? 'collapse' : 'expand'}</span>
         </div>
@@ -187,4 +187,4 @@ function PentestAgentReport({ entry, index, isExpanded, toggleEntry }) {
   )
 }
 
-export default PentestAgentReport
+export default AttackPathVerifierAgentReport

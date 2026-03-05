@@ -361,10 +361,12 @@ def _exec_stream_on_container(
 
     yield {
         "type": "done",
-        "container": container_label,
-        "command": command,
-        "exit_code": exit_code,
-        "output": full_output,
+        "result": {
+            "container": container_label,
+            "command": command,
+            "exit_code": exit_code,
+            "output": full_output,
+        },
     }
 
 
@@ -407,13 +409,16 @@ def dt_exec_stream(
         except Exception as exc:
             yield {
                 "type": "done",
-                "container": container,
-                "command": command,
-                "exit_code": -1,
-                "output": (
-                    f"Container '{container_name}' not "
-                    f"found and auto-deploy failed: {exc}"
-                ),
+                "result": {
+                    "container": container,
+                    "command": command,
+                    "exit_code": -1,
+                    "output": (
+                        f"Container '{container_name}' not "
+                        f"found and auto-deploy "
+                        f"failed: {exc}"
+                    ),
+                },
             }
             return
 
@@ -543,23 +548,29 @@ def dt_restart_stream(
         )
         yield {
             "type": "done",
-            "container": "all",
-            "status": "redeployed",
-            "output": (
-                "Digital twin stopped and redeployed."
-            ),
+            "result": {
+                "container": "all",
+                "status": "redeployed",
+                "output": (
+                    "Digital twin stopped and "
+                    "redeployed."
+                ),
+            },
         }
         return
 
     if container not in _VALID_DT_CONTAINERS:
         yield {
             "type": "done",
-            "container": container,
-            "status": "error",
-            "output": (
-                f"Unknown container '{container}'. "
-                f"Valid: {', '.join(_VALID_DT_CONTAINERS)}"
-            ),
+            "result": {
+                "container": container,
+                "status": "error",
+                "output": (
+                    f"Unknown container "
+                    f"'{container}'. Valid: "
+                    f"{', '.join(_VALID_DT_CONTAINERS)}"
+                ),
+            },
         }
         return
 
@@ -589,19 +600,26 @@ def dt_restart_stream(
         except Exception as exc:
             yield {
                 "type": "done",
-                "container": container,
-                "status": "error",
-                "output": (
-                    f"Container '{container_name}' not "
-                    f"found and auto-deploy failed: "
-                    f"{exc}"
-                ),
+                "result": {
+                    "container": container,
+                    "status": "error",
+                    "output": (
+                        f"Container "
+                        f"'{container_name}' not "
+                        f"found and auto-deploy "
+                        f"failed: {exc}"
+                    ),
+                },
             }
             return
 
     yield {
         "type": "done",
-        "container": container,
-        "status": "restarted",
-        "output": f"Container {container} restarted.",
+        "result": {
+            "container": container,
+            "status": "restarted",
+            "output": (
+                f"Container {container} restarted."
+            ),
+        },
     }

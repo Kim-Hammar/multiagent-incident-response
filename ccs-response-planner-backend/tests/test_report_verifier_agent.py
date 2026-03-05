@@ -34,7 +34,7 @@ def test_streaming_tool_dispatch_has_streaming_tools() -> None:
     """
     STREAMING_TOOL_DISPATCH must contain the streaming tools.
     """
-    expected = {"dt_exec", "dt_restart", "run_host_analyzers"}
+    expected = {"dt_exec", "dt_restart"}
     assert set(STREAMING_TOOL_DISPATCH.keys()) == expected
 
 

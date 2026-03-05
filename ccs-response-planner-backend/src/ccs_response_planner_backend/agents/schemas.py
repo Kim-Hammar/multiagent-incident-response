@@ -338,10 +338,10 @@ class OrchestratorAgentReport(BaseModel):
     response_plan_summary: str
 
 
-# ── Pentest Agent ─────────────────────────────────────────────
+# ── Attack Path Verifier Agent ────────────────────────────────
 
 
-class PentestStepResult(BaseModel):
+class AttackPathVerifierStepResult(BaseModel):
     """
     Result of executing a single attack path step on the DT.
     """
@@ -356,13 +356,13 @@ class PentestStepResult(BaseModel):
     notes: str = ""
 
 
-class PentestReport(BaseModel):
+class AttackPathVerifierReport(BaseModel):
     """
-    Report produced by the pentest_agent.
+    Report produced by the attack_path_verifier_agent.
     """
 
     executive_summary: str
-    attack_path_steps: list[PentestStepResult]
+    attack_path_steps: list[AttackPathVerifierStepResult]
     overall_verdict: str
     hosts_compromised: list[str]
     reproduction_commands: list[str]
@@ -463,7 +463,7 @@ REPORT_MODELS: dict[str, type[BaseModel]] = {
     "report_verifier_agent": ReportVerificationReport,
     "report_manager_agent": ReportManagerReport,
     "orchestrator_agent": OrchestratorAgentReport,
-    "pentest_agent": PentestReport,
+    "attack_path_verifier_agent": AttackPathVerifierReport,
     "host_analyzer_agent": HostAnalysisReport,
     "action_verifier_agent": ActionVerificationReport,
 }

@@ -10,7 +10,7 @@ const AGENT_ORDER = [
   'report_manager',
   'report_agent',
   'report_verifier_agent',
-  'pentest_agent',
+  'attack_path_verifier_agent',
   'plan_manager',
   'code_manager',
   'code_agent',

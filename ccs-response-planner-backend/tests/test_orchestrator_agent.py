@@ -31,7 +31,7 @@ def test_streaming_dispatch_has_three_tools() -> None:
     """
     expected = {
         "run_report_manager",
-        "run_pentest_agent",
+        "run_attack_path_verifier_agent",
         "run_plan_manager",
     }
     assert set(STREAMING_TOOL_DISPATCH.keys()) == expected
@@ -43,26 +43,26 @@ def test_streaming_dispatch_has_three_tools() -> None:
 def test_iterating_declarations_count() -> None:
     """
     ITERATING_DECLARATIONS has exactly 2 tools
-    (report_manager + pentest_agent).
+    (report_manager + attack_path_verifier_agent).
     """
     assert len(ITERATING_DECLARATIONS) == 2
     names = {d.name for d in ITERATING_DECLARATIONS}
     assert names == {
         "run_report_manager",
-        "run_pentest_agent",
+        "run_attack_path_verifier_agent",
     }
 
 
 def test_mid_declarations_count() -> None:
     """
     MID_DECLARATIONS has exactly 3 tools
-    (report_manager + pentest_agent + plan_manager).
+    (report_manager + attack_path_verifier_agent + plan_manager).
     """
     assert len(MID_DECLARATIONS) == 3
     names = {d.name for d in MID_DECLARATIONS}
     assert names == {
         "run_report_manager",
-        "run_pentest_agent",
+        "run_attack_path_verifier_agent",
         "run_plan_manager",
     }
 
@@ -75,7 +75,7 @@ def test_all_declarations_count() -> None:
     names = {d.name for d in ALL_DECLARATIONS}
     assert names == {
         "run_report_manager",
-        "run_pentest_agent",
+        "run_attack_path_verifier_agent",
         "run_plan_manager",
         "produce_orchestrator_agent_report",
     }
@@ -124,21 +124,21 @@ def test_has_planned_true_with_plan_manager_result() -> None:
     assert OrchestratorAgent._has_planned(history) is True
 
 
-# ── _has_pentested gating ────────────────────────────────────
+# ── _has_verified_attack_path gating ──────────────────────────
 
 
-def test_has_pentested_false_when_empty() -> None:
+def test_has_verified_attack_path_false_when_empty() -> None:
     """
-    _has_pentested returns False when history is empty.
+    _has_verified_attack_path returns False when history is empty.
     """
     assert (
-        OrchestratorAgent._has_pentested([]) is False
+        OrchestratorAgent._has_verified_attack_path([]) is False
     )
 
 
-def test_has_pentested_false_without_pentest_result() -> None:
+def test_has_verified_attack_path_false_without_attack_path_verifier_result() -> None:
     """
-    _has_pentested returns False when no pentest result exists.
+    _has_verified_attack_path returns False when no attack path verifier result exists.
     """
     history = [
         {
@@ -148,14 +148,14 @@ def test_has_pentested_false_without_pentest_result() -> None:
         },
     ]
     assert (
-        OrchestratorAgent._has_pentested(history)
+        OrchestratorAgent._has_verified_attack_path(history)
         is False
     )
 
 
-def test_has_pentested_true_with_pentest_result() -> None:
+def test_has_verified_attack_path_true_with_attack_path_verifier_result() -> None:
     """
-    _has_pentested returns True when pentest result exists.
+    _has_verified_attack_path returns True when attack path verifier result exists.
     """
     history = [
         {
@@ -165,12 +165,12 @@ def test_has_pentested_true_with_pentest_result() -> None:
         },
         {
             "type": "tool_result",
-            "tool_name": "run_pentest_agent",
+            "tool_name": "run_attack_path_verifier_agent",
             "result": {},
         },
     ]
     assert (
-        OrchestratorAgent._has_pentested(history)
+        OrchestratorAgent._has_verified_attack_path(history)
         is True
     )
 
@@ -525,13 +525,13 @@ def test_summarize_plan_manager_result() -> None:
     assert report["final_verdict"] == "pass"
 
 
-def test_summarize_pentest_agent_result() -> None:
+def test_summarize_attack_path_verifier_agent_result() -> None:
     """
     _summarize_tool_result keeps only verdict and
-    executive_summary for pentest results.
+    executive_summary for attack path verifier results.
     """
     result = {
-        "pentest_report": {
+        "attack_path_verifier_report": {
             "overall_verdict": "Attack path validated",
             "executive_summary": "All steps succeeded",
             "attack_path_steps": [
@@ -548,12 +548,12 @@ def test_summarize_pentest_agent_result() -> None:
         },
     }
     summary = OrchestratorAgent._summarize_tool_result(
-        "run_pentest_agent", result,
+        "run_attack_path_verifier_agent", result,
     )
     assert "attack_path_steps" not in summary.get(
-        "pentest_report", {},
+        "attack_path_verifier_report", {},
     )
-    report = summary["pentest_report"]
+    report = summary["attack_path_verifier_report"]
     assert report["overall_verdict"] == (
         "Attack path validated"
     )
