@@ -81,6 +81,7 @@ function SubAgentsTab({
   attackPathVerifierAgentCompaction,
   setAttackPathVerifierAgentCompaction
 }) {
+  const [allModel, setAllModel] = useState('')
   const [showPromptModal, setShowPromptModal] = useState(false)
   const [promptText, setPromptText] = useState('')
   const [promptImages, setPromptImages] = useState([])
@@ -124,7 +125,36 @@ function SubAgentsTab({
     </>
   )
 
+  const allModelSetters = [
+    setOrchestratorModel,
+    setReportManagerModel,
+    setReportAgentModel,
+    setReportVerifierModel,
+    setPlanManagerModel,
+    setCodeManagerModel,
+    setCodeAgentModel,
+    setCodeVerifierModel,
+    setPlannerAgentModel,
+    setPlanVerifierAgentModel,
+    setAttackPathVerifierAgentModel
+  ]
+
+  const handleAllModelChange = (value) => {
+    setAllModel(value)
+    allModelSetters.forEach((setter) => setter(value))
+  }
+
   const rows = [
+    {
+      label: 'All',
+      model: allModel,
+      setModel: handleAllModelChange,
+      promptUrl: null,
+      iteration: null,
+      compaction: null,
+      setCompaction: null,
+      isAllRow: true
+    },
     {
       label: 'Orchestrator',
       model: orchestratorModel,
