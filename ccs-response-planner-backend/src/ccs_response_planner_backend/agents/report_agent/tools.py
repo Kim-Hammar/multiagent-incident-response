@@ -510,7 +510,7 @@ def generate_attack_image(
         return {"error": str(exc), "prompt": prompt}
 
 
-_MAX_INNER_STEPS = 50
+_MAX_INNER_STEPS = 15
 _CONCURRENCY_LIMIT = 3
 _OUTPUT_LIMIT = 2000
 
@@ -777,28 +777,49 @@ def _run_single_host_analyzer(
                                 "tool_name": tool_name,
                                 "approved": True,
                             })
-                            try:
-                                result = (
-                                    agent.execute_tool(
-                                        tool_name,
-                                        tool_args,
-                                    )
-                                )
-                                tool_result = result.get(
-                                    "result", {},
-                                )
-                                if result.get("error"):
-                                    tool_result = {
-                                        "error": (
-                                            result[
-                                                "error"
-                                            ]
-                                        ),
-                                    }
-                            except Exception as e:
+                            # Block dt_exec on containers
+                            # other than the assigned host
+                            if (
+                                tool_name == "dt_exec"
+                                and tool_args.get(
+                                    "container", "",
+                                ) != agent_id
+                            ):
                                 tool_result = {
-                                    "error": str(e),
+                                    "error": (
+                                        "You can only run "
+                                        "dt_exec on your "
+                                        "assigned container "
+                                        f"'{agent_id}'. "
+                                        "Do NOT investigate "
+                                        "other hosts."
+                                    ),
                                 }
+                            else:
+                                try:
+                                    result = (
+                                        agent.execute_tool(
+                                            tool_name,
+                                            tool_args,
+                                        )
+                                    )
+                                    tool_result = (
+                                        result.get(
+                                            "result", {},
+                                        )
+                                    )
+                                    if result.get("error"):
+                                        tool_result = {
+                                            "error": (
+                                                result[
+                                                    "error"
+                                                ]
+                                            ),
+                                        }
+                                except Exception as e:
+                                    tool_result = {
+                                        "error": str(e),
+                                    }
                             conversation_history.append({
                                 "role": "tool",
                                 "type": "tool_result",

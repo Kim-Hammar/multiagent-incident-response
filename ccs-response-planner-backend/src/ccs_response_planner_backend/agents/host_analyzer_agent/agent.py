@@ -576,18 +576,6 @@ class HostAnalyzerAgent:
         :param history: the conversation history list
         :return: a list of Gemini-compatible content dicts
         """
-        nudge = (
-            "Tool result received. "
-            "Analyze this result, then "
-            "continue your investigation "
-            "by calling additional tools "
-            "if you need more information."
-            " Only produce the final host "
-            "analysis when you have "
-            "gathered enough evidence from "
-            "multiple sources."
-        )
-
         contents: list[Any] = []
         _last_tr_idx = max(
             (i for i, e in enumerate(history)
@@ -654,6 +642,39 @@ class HostAnalyzerAgent:
                 if isinstance(compact, dict):
                     result_data = json.dumps(
                         compact, default=str,
+                    )
+                tool_call_num = sum(
+                    1 for e in history[:_idx + 1]
+                    if e.get("type") == "tool_result"
+                )
+                if tool_call_num >= 8:
+                    nudge = (
+                        f"Tool result received. You "
+                        f"have used {tool_call_num} "
+                        f"tool calls and reached your "
+                        f"budget. Produce your final "
+                        f"host analysis NOW using "
+                        f"produce_host_analysis."
+                    )
+                elif tool_call_num >= 5:
+                    nudge = (
+                        f"Tool result received (call "
+                        f"{tool_call_num} of ~6 "
+                        f"budget). You should have "
+                        f"enough evidence \u2014 strongly "
+                        f"consider producing your "
+                        f"final analysis now."
+                    )
+                else:
+                    nudge = (
+                        f"Tool result received (call "
+                        f"{tool_call_num}). Analyze "
+                        f"this result. If you have "
+                        f"enough evidence to determine "
+                        f"compromise status, produce "
+                        f"the final analysis. "
+                        f"Otherwise, make one more "
+                        f"targeted check."
                     )
                 contents.append({
                     "role": "user",

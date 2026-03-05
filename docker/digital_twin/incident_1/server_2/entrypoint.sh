@@ -22,6 +22,11 @@ Thu Feb  6 02:00:03 2026 [pid 1318] [ftpuser] OK UPLOAD: Client "10.0.2.1", "/sr
 Thu Feb  6 02:00:03 2026 [pid 1318] [ftpuser] OK LOGOUT: Client "10.0.2.1"
 VSFTPLOG
 
+# Create dummy backup files matching the seeded log entries
+dd if=/dev/urandom bs=1k count=1448 2>/dev/null | gzip > /srv/backups/db-backup-20260205.tar.gz
+dd if=/dev/urandom bs=1k count=1462 2>/dev/null | gzip > /srv/backups/db-backup-20260206.tar.gz
+chown ftpuser:ftpuser /srv/backups/db-backup-2026020*.tar.gz
+
 # Seed matching xferlog entries (standard wu-ftpd format)
 cat >> /var/log/xferlog << 'XFERLOG'
 Thu Feb  5 02:00:04 2026 1 10.0.2.1 1482956 /srv/backups/db-backup-20260205.tar.gz b _ i r ftpuser ftp 0 * c

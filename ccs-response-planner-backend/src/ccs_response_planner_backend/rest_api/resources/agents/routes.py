@@ -3772,8 +3772,9 @@ def agents_orchestrator_tool() -> (
             "report_agent_model": body.get(
                 "report_agent_model",
             ),
-            "reviewer_agent_model": body.get(
-                "reviewer_agent_model",
+            "reviewer_agent_model": (
+                body.get("report_verifier_model")
+                or body.get("reviewer_agent_model")
             ),
             "plan_manager_model": body.get(
                 "plan_manager_model",
@@ -3784,8 +3785,9 @@ def agents_orchestrator_tool() -> (
             "code_agent_model": body.get(
                 "code_agent_model",
             ),
-            "code_verifier_agent_model": body.get(
-                "code_verifier_agent_model",
+            "code_verifier_agent_model": (
+                body.get("code_verifier_model")
+                or body.get("code_verifier_agent_model")
             ),
             "planner_agent_model": body.get(
                 "planner_agent_model",
