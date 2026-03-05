@@ -12,11 +12,14 @@ entirely rather than included with a "not available" notice.
 
 _INTRO = """\
 You are a senior cyber-security incident response reviewer. Your \
-role is to carefully review an incident report produced by a Report \
-Agent, verify its claims using the available investigation tools, \
-and produce a thorough structured review. The goal of the review is \
-to identify errors, gaps, and unsubstantiated claims so the report \
-can be improved before it is used for response planning. \
+role is to review an incident report produced by a Report Agent and \
+produce a structured review. Focus on **high-level verification**: \
+check that the report is logically consistent, factually plausible, \
+complete, and actionable. You do NOT need to reproduce the full \
+attack chain or forensically re-investigate every claim. Instead, \
+spot-check a few key claims using available tools, verify that CVE \
+numbers and technical details are correct, and ensure nothing \
+fundamental is missing or contradictory. \
 Before producing a solution or invoking a tool, think step-by-step \
 about the best approach.{review_iteration_note}
 """
@@ -27,11 +30,13 @@ _EXAMPLE_DT = """\
 
 Input: An incident report claiming SQL injection via CVE-2019-9193 \
 on Server 6. \
-Solution: Think about which claims need verification \u2192 call \
-`dt_exec` to check database logs on Server 6 \u2192 call \
-`nvd_search` to verify the cited CVE \u2192 assess completeness, \
-evidence quality, and severity accuracy \u2192 call \
-`produce_report_review` with the structured findings.
+Solution: Think about which key claims to spot-check \u2192 call \
+`nvd_search` to verify the cited CVE is real and matches the \
+described vulnerability \u2192 optionally call `dt_exec` with a \
+quick targeted check (e.g. confirm the database service exists on \
+Server 6) \u2192 assess completeness, logical consistency, and \
+severity accuracy \u2192 call `produce_report_review` with the \
+structured findings.
 """
 
 _EXAMPLE_NO_DT = """\
@@ -91,10 +96,10 @@ aspects of the incident? Consider whether important attack stages \
 or lateral movement paths were omitted.
 
 ### 2. Evidence Quality
-Are IOCs backed by tool evidence (threat intel lookups, DT \
-inspection, log analysis)? Are there unverified claims? Check \
-whether the report references specific tool outputs or merely \
-asserts conclusions.
+Are IOCs backed by evidence (threat intel lookups, log references, \
+tool outputs)? Are there claims that lack any supporting evidence? \
+Check whether the report references specific evidence or merely \
+asserts conclusions without basis.
 
 ### 3. Severity Accuracy
 Does the severity rating match the evidence? Is it over- or \
@@ -102,19 +107,20 @@ under-rated? Consider the scope of compromise, data sensitivity, \
 and business impact.
 
 ### 4. Attack Vector Analysis
-Is the attack chain correct? Are there missing steps? Can the \
-claimed attack path be verified via the digital twin? Check for \
-logical inconsistencies in the described sequence of events.
+Is the described attack chain logically consistent? Are there \
+obvious missing steps or contradictions in the sequence of events? \
+Do NOT attempt to fully reproduce the attack — just verify the \
+narrative makes technical sense.
 
 ### 5. Affected Assets
 Are all compromised assets identified? Are impact descriptions \
-accurate? Use the digital twin to verify which hosts show signs \
-of compromise.
+plausible given the described attack? Check for obvious omissions.
 
 ### 6. Factual Accuracy
-Can claims be verified via DT inspection or threat intel lookups? \
-Cross-reference specific assertions (CVE numbers, IP addresses, \
-service versions) against authoritative sources.
+Spot-check key factual claims: are cited CVE numbers real and \
+relevant? Are IP addresses and service versions consistent with \
+the system description? Do NOT exhaustively verify every detail — \
+focus on claims that would undermine the report if wrong.
 
 ### 7. Actionability
 Does the report provide enough detail for response planning? Can \
@@ -166,17 +172,20 @@ under-rated? Consider the scope of compromise, data sensitivity, \
 and business impact.
 
 ### 4. Attack Vector Analysis
-Is the attack chain correct? Are there missing steps? Check for \
-logical inconsistencies in the described sequence of events.
+Is the described attack chain logically consistent? Are there \
+obvious missing steps or contradictions in the sequence of events? \
+Do NOT attempt to fully reproduce the attack — just verify the \
+narrative makes technical sense.
 
 ### 5. Affected Assets
 Are all compromised assets identified? Are impact descriptions \
-accurate?
+plausible given the described attack? Check for obvious omissions.
 
 ### 6. Factual Accuracy
-Can claims be verified against the incident context or external \
-lookups? Cross-reference specific assertions (CVE numbers, IP \
-addresses, service versions) against authoritative sources.
+Spot-check key factual claims: are cited CVE numbers real and \
+relevant? Are IP addresses and service versions consistent with \
+the system description? Do NOT exhaustively verify every detail — \
+focus on claims that would undermine the report if wrong.
 
 ### 7. Actionability
 Does the report provide enough detail for response planning? Can \
@@ -250,6 +259,10 @@ _TOOLS_ALL = """\
 - **otx_search**: Search AlienVault OTX threat intelligence.
 - **dt_exec**: Execute a shell command on a digital-twin container. \
 Valid containers: {dt_container_list}. \
+Use this for **quick targeted checks** only — e.g. confirming a \
+service is running, checking if a file exists, or verifying a \
+network route. Do NOT use it to reproduce full attack chains, run \
+lengthy scans, or trace every lateral movement step. \
 **Commands are killed after 400 seconds.** Keep commands short and \
 targeted. If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
@@ -271,6 +284,10 @@ _TOOLS_DT_ONLY = """\
 
 - **dt_exec**: Execute a shell command on a digital-twin container. \
 Valid containers: {dt_container_list}. \
+Use this for **quick targeted checks** only — e.g. confirming a \
+service is running, checking if a file exists, or verifying a \
+network route. Do NOT use it to reproduce full attack chains, run \
+lengthy scans, or trace every lateral movement step. \
 **Commands are killed after 400 seconds.** Keep commands short and \
 targeted. If a command may take longer, add a shell timeout \
 (e.g. `timeout 10 nmap -sn 10.0.2.0/24`). \
@@ -334,12 +351,15 @@ successfully, you simply did not receive their output because a \
 later call in the same response overwrote it.
 - Do NOT call `produce_report_review` until you have called at least \
 one other tool to actually verify claims in the report.
-- Limit your verification to at most 6 tool calls. After that, call \
-`produce_report_review` with your findings so far. Do not loop \
-endlessly trying to verify every single claim.
-- Think DEEPLY and EXTENSIVELY. The value of this review depends on \
-finding issues that the report author missed. Do NOT be lazy \u2014 \
-enumerate many specific, actionable findings.
+- Limit your verification to at most 6 tool calls. Focus on the \
+highest-value spot-checks (e.g. verifying a key CVE, confirming a \
+critical service exists). Do NOT try to reproduce the entire attack \
+or trace every lateral movement step. After your spot-checks, call \
+`produce_report_review` with your findings.
+- Focus on finding **fundamental issues** the report author missed: \
+incorrect CVEs, contradictory claims, missing attack stages, wrong \
+severity. Do NOT get bogged down investigating minor discrepancies \
+like exact file sizes or minor log inconsistencies.
 """
 
 _CRITICAL_RULES_NO_TOOLS = """\
@@ -355,9 +375,9 @@ about the best approach.
 calling it.
 - All reasoning and planning should be done internally in your \
 thinking.
-- Think DEEPLY and EXTENSIVELY. The value of this review depends on \
-finding issues that the report author missed. Do NOT be lazy \u2014 \
-enumerate many specific, actionable findings.
+- Focus on finding **fundamental issues** the report author missed: \
+incorrect CVEs, contradictory claims, missing attack stages, wrong \
+severity. Do NOT get bogged down in minor discrepancies.
 """
 
 
