@@ -57,7 +57,7 @@ _INTERNAL_KEYS = {
 }
 
 
-_SKIP_TYPES = {"prompt", "context_usage", "nested_event"}
+_SKIP_TYPES = {"prompt", "context_usage"}
 
 
 def _timeout_step_stream(
@@ -120,8 +120,9 @@ def _process_collected_events(
     for DB persistence and history display.
 
     Accumulates thinking_delta/text_delta into reasoning/text,
-    filters prompts/context_usage/nested_events, recursively
-    processes subEvents on tool_results, strips internal keys.
+    filters prompts/context_usage, unwraps nested_events into
+    parent tool_call subEvents, recursively processes subEvents
+    on tool_results, strips internal keys.
 
     :param collected: raw events from streaming tool execution
     :return: processed events for history storage
@@ -130,6 +131,18 @@ def _process_collected_events(
     for ev in collected:
         ev_type = ev.get("type")
         if ev_type in _SKIP_TYPES:
+            continue
+        if ev_type == "nested_event":
+            inner = ev.get("event", {})
+            for item in reversed(result):
+                if (
+                    item.get("type") == "tool_call"
+                    and not item.get("_completed")
+                ):
+                    if "subEvents" not in item:
+                        item["subEvents"] = []
+                    item["subEvents"].append(inner)
+                    break
             continue
         if ev_type == "thinking_delta":
             text = ev.get("text", "")
@@ -159,14 +172,26 @@ def _process_collected_events(
             k: v for k, v in ev.items()
             if k not in _INTERNAL_KEYS
         }
-        if ev_type == "tool_result" and cleaned.get(
-            "subEvents"
-        ):
-            cleaned["subEvents"] = (
-                _process_collected_events(
-                    cleaned["subEvents"]
+        if ev_type == "tool_result":
+            for item in reversed(result):
+                if (
+                    item.get("type") == "tool_call"
+                    and not item.get("_completed")
+                ):
+                    item["_completed"] = True
+                    if item.get("subEvents"):
+                        item["subEvents"] = (
+                            _process_collected_events(
+                                item["subEvents"]
+                            )
+                        )
+                    break
+            if cleaned.get("subEvents"):
+                cleaned["subEvents"] = (
+                    _process_collected_events(
+                        cleaned["subEvents"]
+                    )
                 )
-            )
         result.append(cleaned)
     return result
 
@@ -809,14 +834,21 @@ def run_code_manager_stream(
             review_count = cm_context.get(
                 "review_count", 0,
             )
-            _budget_tools = {
-                "run_code_agent",
-                "run_code_verifier_agent",
-            }
+            code_agent_count = cm_context.get(
+                "code_agent_count", 0,
+            )
+            budget_blocked = False
             if (
                 review_count >= max_iters
-                and tool_name in _budget_tools
+                and tool_name == "run_code_verifier_agent"
             ):
+                budget_blocked = True
+            elif (
+                code_agent_count > max_iters
+                and tool_name == "run_code_agent"
+            ):
+                budget_blocked = True
+            if budget_blocked:
                 conversation_history.append({
                     "role": "tool",
                     "type": "tool_result",
@@ -836,7 +868,13 @@ def run_code_manager_stream(
             if tool_name in CM_STREAMING_DISPATCH:
                 collected: list[dict[str, Any]] = []
                 tool_result: dict[str, Any] = {}
-                if tool_name == "run_code_verifier_agent":
+                if tool_name == "run_code_agent":
+                    cm_context["code_agent_count"] = (
+                        cm_context.get(
+                            "code_agent_count", 0,
+                        ) + 1
+                    )
+                elif tool_name == "run_code_verifier_agent":
                     cm_context["review_count"] = (
                         cm_context.get("review_count", 0)
                         + 1

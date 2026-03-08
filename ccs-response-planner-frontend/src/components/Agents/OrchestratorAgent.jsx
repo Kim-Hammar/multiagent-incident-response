@@ -121,6 +121,8 @@ function handleNestedSubEvent(subEvents, innerEvent) {
         lastToolCall._promptImages = innerEvent.event.images || []
       } else if (innerEvent.event.type === 'context_usage') {
         lastToolCall._contextUsage = innerEvent.event
+      } else if (innerEvent.event.type === 'parallel_start') {
+        lastToolCall._parallelHosts = innerEvent.event.hosts
       } else {
         if (!lastToolCall.subEvents) lastToolCall.subEvents = []
         handleNestedSubEvent(lastToolCall.subEvents, innerEvent.event)

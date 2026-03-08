@@ -61,7 +61,7 @@ _INTERNAL_KEYS = {
 }
 
 
-_SKIP_TYPES = {"prompt", "context_usage", "nested_event"}
+_SKIP_TYPES = {"prompt", "context_usage"}
 
 # Maps tool names to canonical agent names for stats.
 _RM_TOOL_TO_AGENT = {
@@ -198,8 +198,9 @@ def _process_collected_events(
     for DB persistence and history display.
 
     Accumulates thinking_delta/text_delta into reasoning/text,
-    filters prompts/context_usage/nested_events, recursively
-    processes subEvents on tool_results, strips internal keys.
+    filters prompts/context_usage, unwraps nested_events into
+    parent tool_call subEvents, recursively processes subEvents
+    on tool_results, strips internal keys.
 
     :param collected: raw events from streaming tool execution
     :return: processed events for history storage
@@ -208,6 +209,18 @@ def _process_collected_events(
     for ev in collected:
         ev_type = ev.get("type")
         if ev_type in _SKIP_TYPES:
+            continue
+        if ev_type == "nested_event":
+            inner = ev.get("event", {})
+            for item in reversed(result):
+                if (
+                    item.get("type") == "tool_call"
+                    and not item.get("_completed")
+                ):
+                    if "subEvents" not in item:
+                        item["subEvents"] = []
+                    item["subEvents"].append(inner)
+                    break
             continue
         if ev_type == "thinking_delta":
             text = ev.get("text", "")
@@ -237,14 +250,26 @@ def _process_collected_events(
             k: v for k, v in ev.items()
             if k not in _INTERNAL_KEYS
         }
-        if ev_type == "tool_result" and cleaned.get(
-            "subEvents"
-        ):
-            cleaned["subEvents"] = (
-                _process_collected_events(
-                    cleaned["subEvents"]
+        if ev_type == "tool_result":
+            for item in reversed(result):
+                if (
+                    item.get("type") == "tool_call"
+                    and not item.get("_completed")
+                ):
+                    item["_completed"] = True
+                    if item.get("subEvents"):
+                        item["subEvents"] = (
+                            _process_collected_events(
+                                item["subEvents"]
+                            )
+                        )
+                    break
+            if cleaned.get("subEvents"):
+                cleaned["subEvents"] = (
+                    _process_collected_events(
+                        cleaned["subEvents"]
+                    )
                 )
-            )
         result.append(cleaned)
     return result
 
