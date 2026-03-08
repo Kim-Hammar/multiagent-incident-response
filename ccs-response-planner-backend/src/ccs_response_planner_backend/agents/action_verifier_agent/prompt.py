@@ -69,6 +69,8 @@ restart daemons directly.
 
 {dt_network_connectivity}
 
+{dt_attacker_note}
+
 **Internet access:** All servers have outbound internet connectivity \
 through NAT masquerading on the firewall.
 

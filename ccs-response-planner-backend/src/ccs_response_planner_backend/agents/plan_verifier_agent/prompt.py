@@ -169,6 +169,8 @@ To restart a service, use the SysVinit wrapper `service <name> restart` \
 
 {{dt_network_connectivity}}
 
+{{dt_attacker_note}}
+
 When running specification commands, a ping test between non-adjacent \
 servers is expected to fail \u2014 this is correct segmentation, not a broken \
 service.

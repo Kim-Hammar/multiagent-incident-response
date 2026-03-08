@@ -28,6 +28,7 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     filter_dt_declarations,
     format_container_list,
     format_container_table,
+    format_dt_attacker_note,
     format_network_connectivity,
 )
 from ccs_response_planner_backend.agents.action_verifier_agent.prompt import (
@@ -181,10 +182,14 @@ class ActionVerifierAgent:
             dt_network_connectivity = (
                 format_network_connectivity(cfg)
             )
+            dt_attacker_note = (
+                format_dt_attacker_note(cfg)
+            )
         else:
             dt_container_list = DT_DISABLED_NOTICE
             dt_container_table = DT_DISABLED_NOTICE
             dt_network_connectivity = DT_DISABLED_NOTICE
+            dt_attacker_note = ""
 
         system_prompt = build_system_prompt(
             system_description=(
@@ -199,6 +204,7 @@ class ActionVerifierAgent:
             dt_container_list=dt_container_list,
             dt_container_table=dt_container_table,
             dt_network_connectivity=dt_network_connectivity,
+            dt_attacker_note=dt_attacker_note,
         )
         yield {
             "type": "system_prompt",

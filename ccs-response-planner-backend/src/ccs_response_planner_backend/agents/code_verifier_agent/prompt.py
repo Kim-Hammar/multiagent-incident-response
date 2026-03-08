@@ -345,6 +345,8 @@ direct daemon invocation instead.
 - **produce_review_report**: Call this ONLY after you have thoroughly \
 reviewed the code. You must have called at least one tool (python_exec \
 or dt_exec) before producing the review report.
+
+{dt_attacker_note}\
 """
 
 _TOOLS_NO_DT = """\
@@ -427,6 +429,7 @@ def build_system_prompt(
     code_report_formatted: str,
     review_iteration_note: str,
     dt_container_list: str,
+    dt_attacker_note: str = "",
 ) -> str:
     """
     Assemble the CodeVerifierAgent system prompt.
@@ -444,6 +447,8 @@ def build_system_prompt(
     :param review_iteration_note: iteration note or ``""``
     :param dt_container_list: formatted container list (used
         only when *dt_enabled* is True)
+    :param dt_attacker_note: note about attacker container IP
+        mapping (empty string if no attacker containers)
     :return: the fully rendered system prompt string
     """
     parts: list[str] = [
@@ -476,6 +481,7 @@ def build_system_prompt(
     if dt_enabled:
         parts.append(_TOOLS_DT.format(
             dt_container_list=dt_container_list,
+            dt_attacker_note=dt_attacker_note,
         ))
     else:
         parts.append(_TOOLS_NO_DT)

@@ -227,6 +227,8 @@ the report.
 
 {dt_network_connectivity}
 
+{dt_attacker_note}
+
 ### Internet access
 
 All servers have outbound internet connectivity through NAT \
@@ -399,6 +401,7 @@ def build_system_prompt(
     dt_container_list: str = "",
     dt_container_table: str = "",
     dt_network_connectivity: str = "",
+    dt_attacker_note: str = "",
 ) -> str:
     """
     Assemble the ReportVerifierAgent system prompt.
@@ -416,6 +419,8 @@ def build_system_prompt(
     :param dt_container_list: comma-separated container IDs
     :param dt_container_table: markdown table of containers
     :param dt_network_connectivity: connectivity description
+    :param dt_attacker_note: note about attacker container IP
+        mapping (empty string if no attacker containers)
     :return: the fully rendered system prompt string
     """
     parts: list[str] = []
@@ -456,6 +461,7 @@ def build_system_prompt(
             dt_network_connectivity=(
                 dt_network_connectivity
             ),
+            dt_attacker_note=dt_attacker_note,
         ))
 
     # Tools

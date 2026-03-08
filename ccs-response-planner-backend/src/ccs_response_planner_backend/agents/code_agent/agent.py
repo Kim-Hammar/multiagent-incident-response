@@ -27,6 +27,7 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     DT_DISABLED_NOTICE,
     filter_dt_declarations,
     format_container_list,
+    format_dt_attacker_note,
 )
 from ccs_response_planner_backend.agents.incident_context import (
     build_incident_context_section,
@@ -203,8 +204,12 @@ class CodeAgent:
         if dt_enabled:
             cfg = dt_config or {}
             dt_container_list = format_container_list(cfg)
+            dt_attacker_note = (
+                format_dt_attacker_note(cfg)
+            )
         else:
             dt_container_list = DT_DISABLED_NOTICE
+            dt_attacker_note = ""
 
         incident_context_section = (
             build_incident_context_section(
@@ -223,6 +228,7 @@ class CodeAgent:
             operator_feedback=operator_feedback or "N/A",
             revision_notice=revision_notice,
             dt_container_list=dt_container_list,
+            dt_attacker_note=dt_attacker_note,
         )
         yield {
             "type": "system_prompt",

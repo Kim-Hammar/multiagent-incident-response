@@ -221,6 +221,59 @@ def format_attacker_info(
     return "\n".join(parts)
 
 
+def format_dt_attacker_note(
+    config: dict[str, Any],
+) -> str:
+    """
+    Build a concise note explaining the attacker container's
+    role and IP mapping in the digital twin.
+
+    The DT includes a special attacker container for testing
+    attack paths. Its IP will not match the attacker IP from
+    the incident logs. This note helps agents understand
+    that distinction.
+
+    :param config: the digital twin configuration dict
+    :return: a note string, or empty string if no attacker
+        containers exist
+    """
+    hosts = config.get("hosts", [])
+    attackers = [
+        h for h in hosts
+        if "attacker" in h.get("id", "")
+    ]
+    if not attackers:
+        return ""
+
+    atk_parts: list[str] = []
+    for atk in attackers:
+        aid = atk["id"]
+        ips = ", ".join(
+            atk.get("ip_addresses", {}).values(),
+        )
+        atk_parts.append(f"`{aid}` (IP: {ips})")
+    atk_summary = "; ".join(atk_parts)
+
+    return (
+        "### Attacker container IP mapping\n\n"
+        "The digital twin includes a special **attacker "
+        "container** for testing and validating attack "
+        "paths: "
+        f"{atk_summary}. "
+        "This container is **not** the real attacker \u2014 "
+        "it is a simulation tool pre-loaded with pentest "
+        "utilities. Its IP address in the DT will **not** "
+        "match the attacker IP from the incident "
+        "logs/alerts. The other container IPs (gateway, "
+        "firewall, servers, etc.) **do** match the "
+        "incident topology. When evaluating containment "
+        "actions that target the attacker IP from the "
+        "logs, understand that those IPs refer to the "
+        "external attacker, which is represented by the "
+        "attacker container in the DT."
+    )
+
+
 def format_container_list_with_attacker(
     config: dict[str, Any],
 ) -> str:

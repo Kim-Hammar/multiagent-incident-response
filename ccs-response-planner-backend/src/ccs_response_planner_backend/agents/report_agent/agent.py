@@ -28,6 +28,7 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     filter_info_tool_declarations,
     format_container_list,
     format_container_table,
+    format_dt_attacker_note,
     format_network_connectivity,
 )
 from ccs_response_planner_backend.agents.report_agent.prompt import (
@@ -351,6 +352,9 @@ class ReportAgent:
                 ),
                 dt_network_connectivity=(
                     format_network_connectivity(cfg)
+                ),
+                dt_attacker_note=(
+                    format_dt_attacker_note(cfg)
                 ),
             )
         system_prompt = build_system_prompt(

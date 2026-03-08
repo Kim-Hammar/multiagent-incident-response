@@ -550,6 +550,8 @@ Commands run non-interactively — use flags like \
 for any command that might prompt for input.
 - **produce_code_report**: Call this ONLY after `gym_verify` passes. \
 Provide the final code and metadata.
+
+{dt_attacker_note}\
 """
 
 _TOOLS_NO_DT = """\
@@ -638,6 +640,7 @@ def build_system_prompt(
     operator_feedback: str,
     revision_notice: str,
     dt_container_list: str,
+    dt_attacker_note: str = "",
 ) -> str:
     """
     Assemble the CodeAgent system prompt.
@@ -654,6 +657,8 @@ def build_system_prompt(
     :param revision_notice: revision iteration notice or ``""``
     :param dt_container_list: formatted container list (used
         only when *dt_enabled* is True)
+    :param dt_attacker_note: note about attacker container IP
+        mapping (empty string if no attacker containers)
     :return: the fully rendered system prompt string
     """
     parts: list[str] = [
@@ -685,6 +690,7 @@ def build_system_prompt(
     if dt_enabled:
         parts.append(_TOOLS_DT.format(
             dt_container_list=dt_container_list,
+            dt_attacker_note=dt_attacker_note,
         ))
     else:
         parts.append(_TOOLS_NO_DT)

@@ -220,6 +220,8 @@ shell history, or delete operations in audit trails).
 
 {dt_network_connectivity}
 
+{dt_attacker_note}
+
 ### Internet access
 
 All servers have outbound internet connectivity through NAT \
@@ -303,6 +305,7 @@ def build_system_prompt(
     dt_container_table: str = "",
     dt_network_connectivity: str = "",
     assigned_container: str = "N/A",
+    dt_attacker_note: str = "",
 ) -> str:
     """
     Assemble the HostAnalyzerAgent system prompt.
@@ -321,6 +324,8 @@ def build_system_prompt(
     :param dt_network_connectivity: connectivity description
     :param assigned_container: the container ID this agent must
         use for all dt_exec calls
+    :param dt_attacker_note: note about attacker container IP
+        mapping (empty string if no attacker containers)
     :return: the fully rendered system prompt string
     """
     parts: list[str] = []
@@ -378,6 +383,7 @@ def build_system_prompt(
         parts.append(_DT_ENVIRONMENT.format(
             dt_container_table=dt_container_table,
             dt_network_connectivity=dt_network_connectivity,
+            dt_attacker_note=dt_attacker_note,
         ))
 
     # Critical rules

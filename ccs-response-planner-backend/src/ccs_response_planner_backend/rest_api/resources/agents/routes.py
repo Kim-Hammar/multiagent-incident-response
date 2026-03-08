@@ -150,6 +150,7 @@ from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
     format_container_list_with_attacker,
     format_container_table,
+    format_dt_attacker_note,
     format_network_connectivity,
 )
 from ccs_response_planner_backend.agents.incident_context import (
@@ -938,6 +939,9 @@ def agents_report_prompt() -> tuple[Response, int]:
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
         ),
+        dt_attacker_note=(
+            format_dt_attacker_note(dt_config)
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -1300,6 +1304,9 @@ def agents_plan_verifier_prompt() -> tuple[Response, int]:
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
         ),
+        dt_attacker_note=(
+            format_dt_attacker_note(dt_config)
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -1561,6 +1568,10 @@ def agents_code_prompt() -> tuple[Response, int]:
             dt_config,
         ),
         revision_notice="",
+        dt_attacker_note=(
+            format_dt_attacker_note(dt_config)
+            if dt_enabled else ""
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -1820,6 +1831,10 @@ def agents_code_review_prompt() -> tuple[Response, int]:
             dt_config,
         ),
         review_iteration_note="",
+        dt_attacker_note=(
+            format_dt_attacker_note(dt_config)
+            if dt_enabled else ""
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -2090,6 +2105,9 @@ def agents_report_review_prompt() -> (
         ),
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
+        ),
+        dt_attacker_note=(
+            format_dt_attacker_note(dt_config)
         ),
     )
     return jsonify({"prompt": prompt}), 200
@@ -4700,6 +4718,9 @@ def agents_host_analyzer_prompt() -> tuple[
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
         ),
+        dt_attacker_note=(
+            format_dt_attacker_note(dt_config)
+        ),
     )
     return jsonify({"prompt": prompt}), 200
 
@@ -4963,6 +4984,9 @@ def agents_action_verifier_prompt() -> tuple[
         ),
         dt_network_connectivity=(
             format_network_connectivity(dt_config)
+        ),
+        dt_attacker_note=(
+            format_dt_attacker_note(dt_config)
         ),
     )
     return jsonify({"prompt": prompt}), 200
