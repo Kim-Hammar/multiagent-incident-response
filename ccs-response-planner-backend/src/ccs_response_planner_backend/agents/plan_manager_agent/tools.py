@@ -803,6 +803,36 @@ def run_code_manager_stream(
                 "approved": True,
             })
 
+            max_iters = step_kwargs.get(
+                "max_iterations", 3,
+            )
+            review_count = cm_context.get(
+                "review_count", 0,
+            )
+            _budget_tools = {
+                "run_code_agent",
+                "run_code_verifier_agent",
+            }
+            if (
+                review_count >= max_iters
+                and tool_name in _budget_tools
+            ):
+                conversation_history.append({
+                    "role": "tool",
+                    "type": "tool_result",
+                    "tool_name": tool_name,
+                    "result": {
+                        "error": (
+                            f"Iteration budget exhausted "
+                            f"({review_count}/{max_iters}"
+                            f"). You MUST call "
+                            f"produce_orchestrator_report"
+                            f" NOW."
+                        ),
+                    },
+                })
+                continue
+
             if tool_name in CM_STREAMING_DISPATCH:
                 collected: list[dict[str, Any]] = []
                 tool_result: dict[str, Any] = {}
@@ -1247,7 +1277,7 @@ def run_plan_verifier_agent_stream(
             "plan_verifier_agent_model",
         ),
         "dt_config": context.get("dt_config"),
-        "verification_feedback": context.get(
+        "validation_feedback": context.get(
             "plan_verifier_report",
         ),
         "compaction_model": context.get(

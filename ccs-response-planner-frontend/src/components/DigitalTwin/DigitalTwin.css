@@ -18,6 +18,17 @@
   margin: 16px 0 24px;
 }
 
+.dt-topology-section {
+  margin-bottom: 20px;
+}
+
+.dt-topology-section h6 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #495057;
+}
+
 .DigitalTwin .section-header {
   display: flex;
   justify-content: space-between;

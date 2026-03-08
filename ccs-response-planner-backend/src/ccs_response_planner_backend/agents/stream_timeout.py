@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-DEFAULT_IDLE_TIMEOUT = 300.0  # 5 minutes
+DEFAULT_IDLE_TIMEOUT = 400.0
 
 
 class AgentTimeoutError(TimeoutError):

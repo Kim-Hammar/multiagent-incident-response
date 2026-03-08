@@ -23,6 +23,7 @@ function DeployTab({ token, logout, savedConfigs }) {
           key={cfg.id}
           configId={cfg.id}
           configName={cfg.name}
+          exampleIncidentId={cfg.example_incident_id}
           token={token}
           logout={logout}
         />

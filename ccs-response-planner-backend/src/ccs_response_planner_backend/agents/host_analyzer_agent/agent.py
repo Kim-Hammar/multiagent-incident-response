@@ -150,6 +150,7 @@ class HostAnalyzerAgent:
         compaction_threshold: float = 0.8,
         dt_enabled: bool = True,
         info_tools_enabled: bool = True,
+        assigned_container: str = "N/A",
     ) -> Generator[dict[str, Any], None, None]:
         """
         Advance the agent loop by one step, streaming the response.
@@ -175,6 +176,8 @@ class HostAnalyzerAgent:
         :param dt_enabled: whether the digital twin is enabled
         :param info_tools_enabled: whether external info tools
             are enabled
+        :param assigned_container: the container ID this agent
+            must use for all dt_exec calls
         :return: a generator of event dicts
         """
         effective_model = model_name or MODEL_NAME
@@ -205,6 +208,7 @@ class HostAnalyzerAgent:
                 dt_network_connectivity=(
                     format_network_connectivity(cfg)
                 ),
+                assigned_container=assigned_container,
             )
         system_prompt = build_system_prompt(
             **prompt_kwargs,
@@ -647,8 +651,19 @@ class HostAnalyzerAgent:
                     1 for e in history[:_idx + 1]
                     if e.get("type") == "tool_result"
                 )
+                is_error = (
+                    isinstance(result, dict)
+                    and "error" in result
+                )
+                error_prefix = (
+                    "The previous tool call FAILED "
+                    "\u2014 read the error message above "
+                    "and adjust your approach. "
+                    "Continue investigating your "
+                    "assigned host. "
+                ) if is_error else ""
                 if tool_call_num >= 8:
-                    nudge = (
+                    nudge = error_prefix + (
                         f"Tool result received. You "
                         f"have used {tool_call_num} "
                         f"tool calls and reached your "
@@ -657,7 +672,7 @@ class HostAnalyzerAgent:
                         f"produce_host_analysis."
                     )
                 elif tool_call_num >= 5:
-                    nudge = (
+                    nudge = error_prefix + (
                         f"Tool result received (call "
                         f"{tool_call_num} of ~6 "
                         f"budget). You should have "
@@ -666,7 +681,7 @@ class HostAnalyzerAgent:
                         f"final analysis now."
                     )
                 else:
-                    nudge = (
+                    nudge = error_prefix + (
                         f"Tool result received (call "
                         f"{tool_call_num}). Analyze "
                         f"this result. If you have "

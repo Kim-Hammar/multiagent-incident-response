@@ -23,6 +23,9 @@ import CopyablePre from './CopyablePre.jsx'
 
 const RL_STREAMING_TYPES = new Set(['progress', 'eval_progress', 'started', 'result', 'timeout'])
 
+/** Return true when a tool-arg value is meaningfully present (not null / "null" / "None" / empty). */
+const hasValue = (v) => v != null && v !== '' && !/^(null|none)$/i.test(String(v))
+
 const ORCHESTRATOR_TOOLS = new Set([
   'run_code_agent',
   'run_code_verifier_agent',
@@ -83,7 +86,7 @@ function CollapsibleSection({ label, icon, children, defaultOpen = false }) {
  */
 function renderOrchestratorArgs(toolName, args, entries) {
   if (toolName === 'run_code_agent') {
-    if (!args?.previous_code && !args?.review_feedback) {
+    if (!hasValue(args?.previous_code) && !hasValue(args?.review_feedback)) {
       return (
         <div className="ia-orchestrator-args">
           <div className="ia-orchestrator-note">
@@ -95,7 +98,7 @@ function renderOrchestratorArgs(toolName, args, entries) {
     }
     return (
       <div className="ia-orchestrator-args">
-        {args.review_feedback && (
+        {hasValue(args.review_feedback) && (
           <CollapsibleSection label="Review Feedback" icon="fa-comments">
             {(() => {
               try {
@@ -117,7 +120,7 @@ function renderOrchestratorArgs(toolName, args, entries) {
             })()}
           </CollapsibleSection>
         )}
-        {args.previous_code && (
+        {hasValue(args.previous_code) && (
           <CollapsibleSection
             label={`Previous Code (${args.previous_code.split('\n').length} lines)`}
             icon="fa-code"
@@ -271,7 +274,7 @@ function renderOrchestratorArgs(toolName, args, entries) {
   }
 
   if (toolName === 'run_report_agent') {
-    if (!args?.previous_assessment && !args?.review_feedback) {
+    if (!hasValue(args?.previous_assessment) && !hasValue(args?.review_feedback)) {
       return (
         <div className="ia-orchestrator-args">
           <div className="ia-orchestrator-note">
@@ -283,7 +286,7 @@ function renderOrchestratorArgs(toolName, args, entries) {
     }
     return (
       <div className="ia-orchestrator-args">
-        {args.review_feedback && (
+        {hasValue(args.review_feedback) && (
           <CollapsibleSection label="Review Feedback" icon="fa-comments">
             {(() => {
               try {
@@ -305,7 +308,7 @@ function renderOrchestratorArgs(toolName, args, entries) {
             })()}
           </CollapsibleSection>
         )}
-        {args.previous_assessment && (
+        {hasValue(args.previous_assessment) && (
           <CollapsibleSection label="Previous Assessment" icon="fa-file-text">
             {(() => {
               const val = args.previous_assessment
@@ -346,7 +349,7 @@ function renderOrchestratorArgs(toolName, args, entries) {
           <i className="fa fa-info-circle" aria-hidden="true" />
           <span>Incident report and images extracted from conversation history</span>
         </div>
-        {args.previous_review_summary && (
+        {hasValue(args.previous_review_summary) && (
           <CollapsibleSection label="Previous Review Summary" icon="fa-search">
             <div className="ia-arg-markdown">
               <ReactMarkdown>{args.previous_review_summary}</ReactMarkdown>

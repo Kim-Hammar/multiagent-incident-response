@@ -603,6 +603,7 @@ def _run_single_host_analyzer(
                 "info_tools_enabled": context.get(
                     "info_tools_enabled", True,
                 ),
+                "assigned_container": agent_id,
             }
 
             with semaphore:
@@ -787,12 +788,18 @@ def _run_single_host_analyzer(
                             ):
                                 tool_result = {
                                     "error": (
-                                        "You can only run "
-                                        "dt_exec on your "
-                                        "assigned container "
+                                        "BLOCKED: You can "
+                                        "only run dt_exec "
+                                        "on your assigned "
+                                        "container "
                                         f"'{agent_id}'. "
-                                        "Do NOT investigate "
-                                        "other hosts."
+                                        "Pivot back to "
+                                        f"'{agent_id}' and "
+                                        "continue your "
+                                        "investigation "
+                                        "there. Do NOT "
+                                        "attempt to access "
+                                        "other containers."
                                     ),
                                 }
                             else:
@@ -889,6 +896,15 @@ def _run_single_host_analyzer(
                     "limit."
                 ),
             }
+            event_queue.put({
+                "type": "sub_event",
+                "agent_id": agent_id,
+                "agent_label": agent_label,
+                "event": {
+                    "type": "report",
+                    "host_analysis": host_analysis,
+                },
+            })
 
         filtered_history = [
             {k: v for k, v in e.items()

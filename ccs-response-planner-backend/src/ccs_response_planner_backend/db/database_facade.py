@@ -69,7 +69,10 @@ class DatabaseFacade:
         password = os.environ.get("POSTGRES_PASSWORD", "")
         return (
             f"host={host} port={port} dbname={db_name} "
-            f"user={user} password={password}"
+            f"user={user} password={password} "
+            f"connect_timeout=5 "
+            f"keepalives=1 keepalives_idle=30 "
+            f"keepalives_interval=10 keepalives_count=3"
         )
 
     @staticmethod
@@ -94,9 +97,12 @@ class DatabaseFacade:
             _pool = ConnectionPool(
                 conninfo=conninfo,
                 min_size=2,
-                max_size=20,
-                max_idle=300.0,
-                check=ConnectionPool.check_connection,
+                max_size=50,
+                max_idle=120.0,
+                max_lifetime=1800.0,
+                reconnect_timeout=60.0,
+                timeout=30.0,
+                kwargs={"autocommit": True},
             )
             return _pool
 
@@ -106,148 +112,188 @@ class DatabaseFacade:
         Create all application tables if they do not exist.
         """
         with DatabaseFacade._get_pool().connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(f"""
-                    CREATE TABLE IF NOT EXISTS {DB.MANAGEMENT_USERS_TABLE} (
-                        id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) UNIQUE NOT NULL,
-                        password VARCHAR(255) NOT NULL,
-                        salt VARCHAR(255) NOT NULL
-                    )
-                """)
-                cur.execute(f"""
-                    CREATE TABLE IF NOT EXISTS {DB.SESSION_TOKENS_TABLE} (
-                        token VARCHAR(255) PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL
-                            REFERENCES {DB.MANAGEMENT_USERS_TABLE}(username),
-                        timestamp TIMESTAMP NOT NULL DEFAULT NOW()
-                    )
-                """)
-                cur.execute(f"""
-                    CREATE TABLE IF NOT EXISTS
+            with conn.transaction():
+                with conn.cursor() as cur:
+                    cur.execute(f"""
+                        CREATE TABLE IF NOT EXISTS
+                        {DB.MANAGEMENT_USERS_TABLE} (
+                            id SERIAL PRIMARY KEY,
+                            username VARCHAR(255)
+                                UNIQUE NOT NULL,
+                            password VARCHAR(255) NOT NULL,
+                            salt VARCHAR(255) NOT NULL
+                        )
+                    """)
+                    cur.execute(f"""
+                        CREATE TABLE IF NOT EXISTS
+                        {DB.SESSION_TOKENS_TABLE} (
+                            token VARCHAR(255)
+                                PRIMARY KEY,
+                            username VARCHAR(255) NOT NULL
+                                REFERENCES
+                                {DB.MANAGEMENT_USERS_TABLE}
+                                (username),
+                            timestamp TIMESTAMP
+                                NOT NULL DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute(f"""
+                        CREATE TABLE IF NOT EXISTS
                         {DB.EXAMPLE_INCIDENTS_TABLE} (
-                        id SERIAL PRIMARY KEY,
-                        name VARCHAR(255) UNIQUE NOT NULL,
-                        system_description TEXT NOT NULL DEFAULT '',
-                        system_description_image TEXT NOT NULL DEFAULT '',
-                        security_alerts TEXT NOT NULL DEFAULT '',
-                        operator_feedback TEXT NOT NULL DEFAULT '',
-                        specification TEXT NOT NULL DEFAULT '',
-                        incident_report TEXT NOT NULL DEFAULT '',
-                        response_plan TEXT NOT NULL DEFAULT '',
-                        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-                    )
-                """)
-                cur.execute(f"""
-                    CREATE TABLE IF NOT EXISTS
+                            id SERIAL PRIMARY KEY,
+                            name VARCHAR(255)
+                                UNIQUE NOT NULL,
+                            system_description TEXT
+                                NOT NULL DEFAULT '',
+                            system_description_image TEXT
+                                NOT NULL DEFAULT '',
+                            security_alerts TEXT
+                                NOT NULL DEFAULT '',
+                            operator_feedback TEXT
+                                NOT NULL DEFAULT '',
+                            specification TEXT
+                                NOT NULL DEFAULT '',
+                            incident_report TEXT
+                                NOT NULL DEFAULT '',
+                            response_plan TEXT
+                                NOT NULL DEFAULT '',
+                            created_at TIMESTAMP
+                                NOT NULL DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute(f"""
+                        CREATE TABLE IF NOT EXISTS
                         {DB.DIGITAL_TWIN_CONFIGS_TABLE} (
-                        id SERIAL PRIMARY KEY,
-                        name VARCHAR(255) UNIQUE NOT NULL DEFAULT 'default',
-                        config JSONB NOT NULL,
-                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-                    )
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.DIGITAL_TWIN_CONFIGS_TABLE}
-                    ADD COLUMN IF NOT EXISTS example_incident_id INTEGER
-                        REFERENCES {DB.EXAMPLE_INCIDENTS_TABLE}(id)
-                        ON DELETE SET NULL
-                """)
-                cur.execute(f"""
-                    CREATE TABLE IF NOT EXISTS
+                            id SERIAL PRIMARY KEY,
+                            name VARCHAR(255)
+                                UNIQUE NOT NULL
+                                DEFAULT 'default',
+                            config JSONB NOT NULL,
+                            created_at TIMESTAMP
+                                NOT NULL DEFAULT NOW(),
+                            updated_at TIMESTAMP
+                                NOT NULL DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.DIGITAL_TWIN_CONFIGS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            example_incident_id INTEGER
+                            REFERENCES
+                            {DB.EXAMPLE_INCIDENTS_TABLE}(id)
+                            ON DELETE SET NULL
+                    """)
+                    cur.execute(f"""
+                        CREATE TABLE IF NOT EXISTS
                         {DB.AGENT_REPORTS_TABLE} (
-                        id SERIAL PRIMARY KEY,
-                        agent_type VARCHAR(50) NOT NULL,
-                        username VARCHAR(255) NOT NULL,
-                        report JSONB NOT NULL,
-                        created_at TIMESTAMP DEFAULT NOW()
+                            id SERIAL PRIMARY KEY,
+                            agent_type VARCHAR(50)
+                                NOT NULL,
+                            username VARCHAR(255)
+                                NOT NULL,
+                            report JSONB NOT NULL,
+                            created_at TIMESTAMP
+                                DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.AGENT_REPORTS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            incident_id INTEGER
+                            REFERENCES
+                            {DB.EXAMPLE_INCIDENTS_TABLE}(id)
+                            ON DELETE SET NULL
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.DIGITAL_TWIN_CONFIGS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            validation_results JSONB
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.AGENT_REPORTS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            conversation_history JSONB
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.AGENT_REPORTS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            policy_data BYTEA
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.AGENT_REPORTS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            model_name VARCHAR(255)
+                    """)
+                    cur.execute(
+                        f"UPDATE {DB.AGENT_REPORTS_TABLE}"
+                        f" SET agent_type = 'planner' "
+                        f"WHERE agent_type = 'mdp_planner'"
                     )
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
-                    ADD COLUMN IF NOT EXISTS incident_id INTEGER
-                        REFERENCES {DB.EXAMPLE_INCIDENTS_TABLE}(id)
-                        ON DELETE SET NULL
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.DIGITAL_TWIN_CONFIGS_TABLE}
-                    ADD COLUMN IF NOT EXISTS
-                        validation_results JSONB
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
-                    ADD COLUMN IF NOT EXISTS
-                        conversation_history JSONB
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
-                    ADD COLUMN IF NOT EXISTS
-                        policy_data BYTEA
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.AGENT_REPORTS_TABLE}
-                    ADD COLUMN IF NOT EXISTS
-                        model_name VARCHAR(255)
-                """)
-                cur.execute(
-                    f"UPDATE {DB.AGENT_REPORTS_TABLE} "
-                    f"SET agent_type = 'planner' "
-                    f"WHERE agent_type = 'mdp_planner'"
-                )
-                cur.execute(
-                    f"UPDATE {DB.AGENT_REPORTS_TABLE} "
-                    f"SET agent_type = 'planner' "
-                    f"WHERE agent_type = 'rl'"
-                )
-                cur.execute(f"""
-                    CREATE TABLE IF NOT EXISTS
+                    cur.execute(
+                        f"UPDATE {DB.AGENT_REPORTS_TABLE}"
+                        f" SET agent_type = 'planner' "
+                        f"WHERE agent_type = 'rl'"
+                    )
+                    cur.execute(f"""
+                        CREATE TABLE IF NOT EXISTS
                         {DB.PLANNING_SESSIONS_TABLE} (
-                        id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL,
-                        status VARCHAR(20) NOT NULL
-                            DEFAULT 'active',
-                        conversation_history JSONB
-                            NOT NULL DEFAULT '[]'::jsonb,
-                        pending_proposal JSONB,
-                        incident_inputs JSONB NOT NULL,
-                        agent_config JSONB NOT NULL,
-                        context_usage JSONB,
-                        ui_state JSONB,
-                        created_at TIMESTAMP NOT NULL
-                            DEFAULT NOW(),
-                        updated_at TIMESTAMP NOT NULL
-                            DEFAULT NOW()
-                    )
-                """)
-                cur.execute(f"""
-                    CREATE INDEX IF NOT EXISTS
+                            id SERIAL PRIMARY KEY,
+                            username VARCHAR(255)
+                                NOT NULL,
+                            status VARCHAR(20)
+                                NOT NULL
+                                DEFAULT 'active',
+                            conversation_history JSONB
+                                NOT NULL
+                                DEFAULT '[]'::jsonb,
+                            pending_proposal JSONB,
+                            incident_inputs JSONB
+                                NOT NULL,
+                            agent_config JSONB NOT NULL,
+                            context_usage JSONB,
+                            ui_state JSONB,
+                            created_at TIMESTAMP
+                                NOT NULL DEFAULT NOW(),
+                            updated_at TIMESTAMP
+                                NOT NULL DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute(f"""
+                        CREATE INDEX IF NOT EXISTS
                         idx_planning_sessions_username_status
-                    ON {DB.PLANNING_SESSIONS_TABLE}
-                        (username, status)
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.PLANNING_SESSIONS_TABLE}
-                    ADD COLUMN IF NOT EXISTS
-                        agent_type VARCHAR(50)
-                """)
-                cur.execute(
-                    f"UPDATE {DB.PLANNING_SESSIONS_TABLE} "
-                    f"SET agent_type = 'planner' "
-                    f"WHERE agent_type = 'rl'"
-                )
-                cur.execute(f"""
-                    CREATE INDEX IF NOT EXISTS
+                        ON {DB.PLANNING_SESSIONS_TABLE}
+                            (username, status)
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.PLANNING_SESSIONS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            agent_type VARCHAR(50)
+                    """)
+                    cur.execute(
+                        f"UPDATE "
+                        f"{DB.PLANNING_SESSIONS_TABLE} "
+                        f"SET agent_type = 'planner' "
+                        f"WHERE agent_type = 'rl'"
+                    )
+                    cur.execute(f"""
+                        CREATE INDEX IF NOT EXISTS
                         idx_planning_sessions_agent_type
-                    ON {DB.PLANNING_SESSIONS_TABLE}
-                        (username, agent_type, status)
-                """)
-                cur.execute(f"""
-                    ALTER TABLE {DB.PLANNING_SESSIONS_TABLE}
-                    ADD COLUMN IF NOT EXISTS
-                        execution_stats JSONB
-                """)
-            conn.commit()
+                        ON {DB.PLANNING_SESSIONS_TABLE}
+                            (username, agent_type, status)
+                    """)
+                    cur.execute(f"""
+                        ALTER TABLE
+                        {DB.PLANNING_SESSIONS_TABLE}
+                        ADD COLUMN IF NOT EXISTS
+                            execution_stats JSONB
+                    """)
 
     @staticmethod
     def get_user_by_username(username: str) -> Optional[dict[str, Any]]:
@@ -281,14 +327,16 @@ class DatabaseFacade:
         Delete all session tokens and users.
         """
         with DatabaseFacade._get_pool().connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"DELETE FROM {DB.SESSION_TOKENS_TABLE}"
-                )
-                cur.execute(
-                    f"DELETE FROM {DB.MANAGEMENT_USERS_TABLE}"
-                )
-            conn.commit()
+            with conn.transaction():
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"DELETE FROM "
+                        f"{DB.SESSION_TOKENS_TABLE}"
+                    )
+                    cur.execute(
+                        f"DELETE FROM "
+                        f"{DB.MANAGEMENT_USERS_TABLE}"
+                    )
 
     @staticmethod
     def save_user(username: str, password: str) -> None:
@@ -310,7 +358,6 @@ class DatabaseFacade:
                     f"VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
                     (username, hashed.decode("utf-8"), salt.decode("utf-8")),
                 )
-            conn.commit()
 
     @staticmethod
     def get_session_token_by_token(token: str) -> Optional[dict[str, Any]]:
@@ -355,7 +402,6 @@ class DatabaseFacade:
                     f"(token, username) VALUES (%s, %s)",
                     (new_token, username),
                 )
-            conn.commit()
 
     @staticmethod
     def get_digital_twin_config() -> Optional[dict[str, Any]]:
@@ -393,7 +439,6 @@ class DatabaseFacade:
                     f"updated_at = NOW()",
                     (_sanitize_json(config),),
                 )
-            conn.commit()
 
     @staticmethod
     def delete_digital_twin_config() -> None:
@@ -405,7 +450,6 @@ class DatabaseFacade:
                 cur.execute(
                     f"DELETE FROM {DB.DIGITAL_TWIN_CONFIGS_TABLE}"
                 )
-            conn.commit()
 
     @staticmethod
     def _get_incident_name(
@@ -453,6 +497,7 @@ class DatabaseFacade:
             _sanitize_json(conversation_history)
             if conversation_history is not None else None
         )
+        report_json = _sanitize_json(report)
         with DatabaseFacade._get_pool().connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -463,28 +508,27 @@ class DatabaseFacade:
                     f"VALUES (%s, %s, %s, %s, %s, %s, %s) "
                     f"RETURNING id, agent_type, username, "
                     f"report, created_at, incident_id",
-                    (agent_type, username, _sanitize_json(report),
+                    (agent_type, username, report_json,
                      incident_id, ch_json, policy_data,
                      model_name),
                 )
                 row = cur.fetchone()
-            conn.commit()
-            if row is None:
-                return {}
-            incident_name = None
-            if row[5] is not None:
-                incident_name = DatabaseFacade._get_incident_name(
-                    row[5]
-                )
-            return {
-                "id": row[0],
-                "agent_type": row[1],
-                "username": row[2],
-                "report": row[3],
-                "created_at": str(row[4]),
-                "incident_id": row[5],
-                "incident_name": incident_name,
-            }
+        if row is None:
+            return {}
+        incident_name = None
+        if row[5] is not None:
+            incident_name = DatabaseFacade._get_incident_name(
+                row[5]
+            )
+        return {
+            "id": row[0],
+            "agent_type": row[1],
+            "username": row[2],
+            "report": row[3],
+            "created_at": str(row[4]),
+            "incident_id": row[5],
+            "incident_name": incident_name,
+        }
 
     @staticmethod
     def list_agent_reports(
@@ -596,7 +640,6 @@ class DatabaseFacade:
                     (report_id,),
                 )
                 deleted = cur.rowcount > 0
-            conn.commit()
             return deleted
 
     @staticmethod
@@ -615,7 +658,6 @@ class DatabaseFacade:
                     (agent_type,),
                 )
                 deleted_count = cur.rowcount
-            conn.commit()
             return deleted_count
 
     @staticmethod
@@ -654,44 +696,62 @@ class DatabaseFacade:
         :param dt_config: optional digital twin config to link
         """
         with DatabaseFacade._get_pool().connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"INSERT INTO {DB.EXAMPLE_INCIDENTS_TABLE} "
-                    f"(name, system_description, "
-                    f"system_description_image, security_alerts, "
-                    f"operator_feedback, specification, "
-                    f"incident_report, response_plan) "
-                    f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-                    f"ON CONFLICT (name) DO NOTHING "
-                    f"RETURNING id",
-                    (
-                        name,
-                        data.get("system_description", ""),
-                        data.get("system_description_image", ""),
-                        data.get("security_alerts", ""),
-                        data.get("operator_feedback", ""),
-                        data.get("specification", ""),
-                        data.get("incident_report", ""),
-                        data.get("response_plan", ""),
-                    ),
-                )
-                row = cur.fetchone()
-                if row is not None and dt_config is not None:
-                    incident_id = row[0]
+            with conn.transaction():
+                with conn.cursor() as cur:
                     cur.execute(
                         f"INSERT INTO "
-                        f"{DB.DIGITAL_TWIN_CONFIGS_TABLE} "
-                        f"(name, config, example_incident_id) "
-                        f"VALUES (%s, %s, %s) "
-                        f"ON CONFLICT (name) DO UPDATE "
-                        f"SET config = EXCLUDED.config",
+                        f"{DB.EXAMPLE_INCIDENTS_TABLE} "
+                        f"(name, system_description, "
+                        f"system_description_image, "
+                        f"security_alerts, "
+                        f"operator_feedback, specification, "
+                        f"incident_report, response_plan) "
+                        f"VALUES "
+                        f"(%s, %s, %s, %s, %s, %s, %s, %s) "
+                        f"ON CONFLICT (name) DO NOTHING "
+                        f"RETURNING id",
                         (
                             name,
-                            _sanitize_json(dt_config),
-                            incident_id,
+                            data.get(
+                                "system_description", "",
+                            ),
+                            data.get(
+                                "system_description_image",
+                                "",
+                            ),
+                            data.get(
+                                "security_alerts", "",
+                            ),
+                            data.get(
+                                "operator_feedback", "",
+                            ),
+                            data.get("specification", ""),
+                            data.get(
+                                "incident_report", "",
+                            ),
+                            data.get("response_plan", ""),
                         ),
                     )
-            conn.commit()
+                    row = cur.fetchone()
+                    if (
+                        row is not None
+                        and dt_config is not None
+                    ):
+                        incident_id = row[0]
+                        cur.execute(
+                            f"INSERT INTO "
+                            f"{DB.DIGITAL_TWIN_CONFIGS_TABLE}"
+                            f" (name, config, "
+                            f"example_incident_id) "
+                            f"VALUES (%s, %s, %s) "
+                            f"ON CONFLICT (name) DO UPDATE "
+                            f"SET config = EXCLUDED.config",
+                            (
+                                name,
+                                _sanitize_json(dt_config),
+                                incident_id,
+                            ),
+                        )
 
     @staticmethod
     def list_example_incidents() -> list[dict[str, Any]]:
@@ -848,7 +908,6 @@ class DatabaseFacade:
                     f"WHERE id = %s",
                     (_sanitize_json(payload), config_id),
                 )
-            conn.commit()
 
     @staticmethod
     def get_validation_results(
@@ -1015,56 +1074,61 @@ class DatabaseFacade:
         :return: the created session dict
         """
         with DatabaseFacade._get_pool().connection() as conn:
-            with conn.cursor() as cur:
-                if agent_type is not None:
+            with conn.transaction():
+                with conn.cursor() as cur:
+                    if agent_type is not None:
+                        cur.execute(
+                            f"UPDATE "
+                            f"{DB.PLANNING_SESSIONS_TABLE} "
+                            f"SET status = 'cancelled', "
+                            f"updated_at = NOW() "
+                            f"WHERE username = %s "
+                            f"AND status = 'active' "
+                            f"AND agent_type = %s",
+                            (username, agent_type),
+                        )
+                    else:
+                        cur.execute(
+                            f"UPDATE "
+                            f"{DB.PLANNING_SESSIONS_TABLE} "
+                            f"SET status = 'cancelled', "
+                            f"updated_at = NOW() "
+                            f"WHERE username = %s "
+                            f"AND status = 'active' "
+                            f"AND agent_type IS NULL",
+                            (username,),
+                        )
                     cur.execute(
-                        f"UPDATE "
+                        f"INSERT INTO "
                         f"{DB.PLANNING_SESSIONS_TABLE} "
-                        f"SET status = 'cancelled', "
-                        f"updated_at = NOW() "
-                        f"WHERE username = %s "
-                        f"AND status = 'active' "
-                        f"AND agent_type = %s",
-                        (username, agent_type),
+                        f"(username, status, "
+                        f"conversation_history, "
+                        f"incident_inputs, "
+                        f"agent_config, "
+                        f"agent_type) "
+                        f"VALUES (%s, 'active', "
+                        f"'[]'::jsonb, %s, %s, %s) "
+                        f"RETURNING id, username, "
+                        f"status, "
+                        f"conversation_history, "
+                        f"pending_proposal, "
+                        f"incident_inputs, "
+                        f"agent_config, "
+                        f"context_usage, "
+                        f"ui_state, "
+                        f"created_at, updated_at, "
+                        f"agent_type, "
+                        f"execution_stats",
+                        (
+                            username,
+                            _sanitize_json(
+                                incident_inputs,
+                            ),
+                            _sanitize_json(agent_config),
+                            agent_type,
+                        ),
                     )
-                else:
-                    cur.execute(
-                        f"UPDATE "
-                        f"{DB.PLANNING_SESSIONS_TABLE} "
-                        f"SET status = 'cancelled', "
-                        f"updated_at = NOW() "
-                        f"WHERE username = %s "
-                        f"AND status = 'active' "
-                        f"AND agent_type IS NULL",
-                        (username,),
-                    )
-                cur.execute(
-                    f"INSERT INTO "
-                    f"{DB.PLANNING_SESSIONS_TABLE} "
-                    f"(username, status, "
-                    f"conversation_history, "
-                    f"incident_inputs, agent_config, "
-                    f"agent_type) "
-                    f"VALUES (%s, 'active', "
-                    f"'[]'::jsonb, %s, %s, %s) "
-                    f"RETURNING id, username, status, "
-                    f"conversation_history, "
-                    f"pending_proposal, "
-                    f"incident_inputs, "
-                    f"agent_config, context_usage, "
-                    f"ui_state, "
-                    f"created_at, updated_at, "
-                    f"agent_type, "
-                    f"execution_stats",
-                    (
-                        username,
-                        _sanitize_json(incident_inputs),
-                        _sanitize_json(agent_config),
-                        agent_type,
-                    ),
-                )
-                row = cur.fetchone()
-            conn.commit()
+                    row = cur.fetchone()
             if row is None:
                 return {}
             return {
@@ -1110,53 +1174,53 @@ class DatabaseFacade:
         :param execution_stats: optional execution statistics
         :return: True if the session was updated
         """
+        updates: list[str] = []
+        params: list[Any] = []
+        if conversation_history is not None:
+            updates.append(
+                "conversation_history = %s"
+            )
+            params.append(
+                _sanitize_json(conversation_history)
+            )
+        if pending_proposal is not None:
+            if pending_proposal is False:
+                updates.append(
+                    "pending_proposal = NULL"
+                )
+            else:
+                updates.append(
+                    "pending_proposal = %s"
+                )
+                params.append(
+                    _sanitize_json(pending_proposal)
+                )
+        if context_usage is not None:
+            updates.append("context_usage = %s")
+            params.append(
+                _sanitize_json(context_usage)
+            )
+        if status is not None:
+            updates.append("status = %s")
+            params.append(status)
+        if ui_state is not None:
+            updates.append("ui_state = %s")
+            params.append(
+                _sanitize_json(ui_state)
+            )
+        if execution_stats is not None:
+            updates.append(
+                "execution_stats = %s"
+            )
+            params.append(
+                _sanitize_json(execution_stats)
+            )
+        if not updates:
+            return False
+        updates.append("updated_at = NOW()")
+        params.extend([session_id, username])
         with DatabaseFacade._get_pool().connection() as conn:
             with conn.cursor() as cur:
-                updates: list[str] = []
-                params: list[Any] = []
-                if conversation_history is not None:
-                    updates.append(
-                        "conversation_history = %s"
-                    )
-                    params.append(
-                        _sanitize_json(conversation_history)
-                    )
-                if pending_proposal is not None:
-                    if pending_proposal is False:
-                        updates.append(
-                            "pending_proposal = NULL"
-                        )
-                    else:
-                        updates.append(
-                            "pending_proposal = %s"
-                        )
-                        params.append(
-                            _sanitize_json(pending_proposal)
-                        )
-                if context_usage is not None:
-                    updates.append("context_usage = %s")
-                    params.append(
-                        _sanitize_json(context_usage)
-                    )
-                if status is not None:
-                    updates.append("status = %s")
-                    params.append(status)
-                if ui_state is not None:
-                    updates.append("ui_state = %s")
-                    params.append(
-                        _sanitize_json(ui_state)
-                    )
-                if execution_stats is not None:
-                    updates.append(
-                        "execution_stats = %s"
-                    )
-                    params.append(
-                        _sanitize_json(execution_stats)
-                    )
-                if not updates:
-                    return False
-                updates.append("updated_at = NOW()")
-                params.extend([session_id, username])
                 cur.execute(
                     f"UPDATE "
                     f"{DB.PLANNING_SESSIONS_TABLE} "
@@ -1166,7 +1230,6 @@ class DatabaseFacade:
                     tuple(params),
                 )
                 updated = cur.rowcount > 0
-            conn.commit()
             return updated
 
     @staticmethod
@@ -1191,5 +1254,4 @@ class DatabaseFacade:
                     (session_id, username),
                 )
                 deleted = cur.rowcount > 0
-            conn.commit()
             return deleted

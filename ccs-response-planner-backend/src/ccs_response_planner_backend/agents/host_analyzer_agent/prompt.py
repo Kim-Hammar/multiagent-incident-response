@@ -42,6 +42,18 @@ Treat all feedback here as actionable context for your task.
 """
 
 # ------------------------------------------------------------------
+# Assigned container (only when DT is enabled)
+# ------------------------------------------------------------------
+
+_ASSIGNED_CONTAINER = """\
+
+**Your assigned digital-twin container is `{assigned_container}`.** \
+You MUST use this exact container name for ALL `dt_exec` calls. \
+Do NOT run commands on any other container — other host analyzer \
+agents are handling those hosts in parallel.
+"""
+
+# ------------------------------------------------------------------
 # Instructions — step 3 intro varies by DT availability
 # ------------------------------------------------------------------
 
@@ -112,7 +124,8 @@ _INFO_TOOL_ARG_ITEMS = """\
 """
 
 _DT_TOOL_ARG_ITEMS = """\
-   - **dt_exec**: `container` MUST be your assigned host only. \
+   - **dt_exec**: `container` MUST be exactly \
+`{assigned_container}` — your assigned host. \
 `command` is the shell command to run. \
 **Commands are killed after 400 seconds.** Keep commands short and \
 targeted. If a command may take longer, add a shell timeout \
@@ -262,9 +275,10 @@ for evidence that isn\u2019t there leads to speculative false \
 positives. When in doubt, use a lower confidence level (e.g., \
 \u201cPossibly Compromised\u201d) rather than escalating through \
 speculation.
-- **Stay on your assigned host.** Only use `dt_exec` on the container \
-specified in the \u201cHost to Analyze\u201d section. Do NOT pivot to \
-or execute commands on other containers.
+- **Stay on your assigned host.** Only use `dt_exec` with \
+`container` set to your assigned container (stated in the \
+\u201cHost to Analyze\u201d section). Do NOT pivot to or execute \
+commands on other containers.
 
 ## Host Analysis Rules
 
@@ -288,6 +302,7 @@ def build_system_prompt(
     dt_container_list: str = "",
     dt_container_table: str = "",
     dt_network_connectivity: str = "",
+    assigned_container: str = "N/A",
 ) -> str:
     """
     Assemble the HostAnalyzerAgent system prompt.
@@ -304,6 +319,8 @@ def build_system_prompt(
     :param dt_container_list: comma-separated container IDs
     :param dt_container_table: markdown table of containers
     :param dt_network_connectivity: connectivity description
+    :param assigned_container: the container ID this agent must
+        use for all dt_exec calls
     :return: the fully rendered system prompt string
     """
     parts: list[str] = []
@@ -315,6 +332,12 @@ def build_system_prompt(
         operator_feedback=operator_feedback,
         host_description=host_description,
     ))
+
+    # Assigned container (only when DT is enabled)
+    if dt_enabled:
+        parts.append(_ASSIGNED_CONTAINER.format(
+            assigned_container=assigned_container,
+        ))
 
     # Instructions steps 1-2
     parts.append(_INSTRUCTIONS_STEPS_1_2)
@@ -340,6 +363,7 @@ def build_system_prompt(
         arg_items.append(
             _DT_TOOL_ARG_ITEMS.format(
                 dt_container_list=dt_container_list,
+                assigned_container=assigned_container,
             ),
         )
     if arg_items:

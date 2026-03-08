@@ -24,7 +24,6 @@ function DigitalTwin() {
   const [activeTab, setActiveTab] = useTabWithHash('config')
   const [savedConfigs, setSavedConfigs] = useState([])
   const [selectedConfigId, setSelectedConfigId] = useState('')
-
   const loadConfig = useCallback(async () => {
     try {
       const response = await fetch(API_DIGITAL_TWIN_URL, {

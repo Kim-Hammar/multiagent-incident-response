@@ -2,19 +2,22 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   apiDigitalTwinConfigDeployUrl,
   apiDigitalTwinConfigStopUrl,
-  apiDigitalTwinConfigStatusUrl
+  apiDigitalTwinConfigStatusUrl,
+  API_EXAMPLES_URL
 } from '../Common/constants'
+import ImageThumbnails from '../Agents/shared/ImageThumbnails.jsx'
 import Terminal from './Terminal.jsx'
 
 /**
  * Per-incident deploy/stop/status card with container table and terminal access.
  */
-function IncidentDeployCard({ configId, configName, token, logout }) {
+function IncidentDeployCard({ configId, configName, exampleIncidentId, token, logout }) {
   const [status, setStatus] = useState(null)
   const [deploying, setDeploying] = useState(false)
   const [stopping, setStopping] = useState(false)
   const [logLines, setLogLines] = useState([])
   const [terminalContainer, setTerminalContainer] = useState(null)
+  const [topologyImages, setTopologyImages] = useState([])
   const intervalRef = useRef(null)
   const logEndRef = useRef(null)
 
@@ -45,6 +48,23 @@ function IncidentDeployCard({ configId, configName, token, logout }) {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [logLines])
+
+  useEffect(() => {
+    if (!exampleIncidentId) return
+    let cancelled = false
+    fetch(`${API_EXAMPLES_URL}/${exampleIncidentId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        setTopologyImages(data.system_description_images || [])
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [exampleIncidentId, token])
 
   const readNdjsonStream = async (url) => {
     setLogLines([])
@@ -157,6 +177,13 @@ function IncidentDeployCard({ configId, configName, token, logout }) {
           )}
         </button>
       </div>
+
+      {topologyImages.length > 0 && (
+        <div className="dt-topology-section">
+          <h6>System / Network Topology</h6>
+          <ImageThumbnails images={topologyImages} setImages={() => {}} disabled />
+        </div>
+      )}
 
       {containers.length > 0 && (
         <table className="table table-striped table-sm">
