@@ -88,8 +88,8 @@ class DatabaseFacade:
             if _pool is None:
                 _pool = psycopg_pool.ConnectionPool(
                     conninfo=DatabaseFacade._connection_string(),
-                    min_size=2,
-                    max_size=20,
+                    min_size=20,
+                    max_size=60,
                     kwargs={"autocommit": True},
                 )
             return _pool
