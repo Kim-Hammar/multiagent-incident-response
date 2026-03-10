@@ -10,13 +10,13 @@ from typing import Any, Iterator, Optional
 
 import bcrypt
 import psycopg
-from psycopg_pool import ConnectionPool, PoolTimeout
+import psycopg_pool
 
 from ccs_response_planner_backend.constants.constants import DB
 
 logger = logging.getLogger(__name__)
 
-_pool: Optional[ConnectionPool[Any]] = None
+_pool: Optional[psycopg_pool.ConnectionPool] = None
 _pool_lock = threading.Lock()
 
 
@@ -71,97 +71,43 @@ class DatabaseFacade:
         password = os.environ.get("POSTGRES_PASSWORD", "")
         return (
             f"host={host} port={port} dbname={db_name} "
-            f"user={user} password={password} "
-            f"connect_timeout=5 "
-            f"keepalives=1 keepalives_idle=30 "
-            f"keepalives_interval=10 keepalives_count=3"
+            f"user={user} password={password} sslmode=disable"
         )
 
     @staticmethod
-    def _get_pool() -> ConnectionPool[Any]:
+    def _get_pool() -> psycopg_pool.ConnectionPool:
         """
-        Return the shared connection pool, creating it on first call.
+        Lazily initialize and return the shared connection pool.
 
-        The pool is thread-safe and avoids the overhead (and potential
-        SIGILL on ARM macOS) of opening a new libpq/SSL connection on
-        every database call under high concurrency.
-
-        :return: a thread-safe ConnectionPool instance
+        :return: the shared ConnectionPool instance
         """
         global _pool
         if _pool is not None:
             return _pool
         with _pool_lock:
-            if _pool is not None:  # double-checked locking
-                return _pool  # type: ignore[unreachable]
-            conninfo = DatabaseFacade._connection_string()
-            logger.info("Initializing psycopg connection pool")
-            _pool = ConnectionPool(
-                conninfo=conninfo,
-                min_size=4,
-                max_size=40,
-                max_idle=30.0,
-                max_lifetime=600.0,
-                reconnect_timeout=60.0,
-                timeout=3.0,
-                kwargs={"autocommit": True},
-            )
+            if _pool is None:
+                _pool = psycopg_pool.ConnectionPool(
+                    conninfo=DatabaseFacade._connection_string(),
+                    min_size=2,
+                    max_size=20,
+                    kwargs={"autocommit": True},
+                )
             return _pool
 
     @staticmethod
     @contextmanager
     def _conn() -> Iterator[psycopg.Connection[Any]]:
         """
-        Check out a connection from the pool.
-
-        Validates each pooled connection with a lightweight ping
-        before handing it to the caller.  If the connection is
-        stale, it is discarded and one retry is attempted from
-        the pool.  Falls back to a direct (non-pooled) connection
-        when the pool is exhausted or all pooled connections are
-        stale, preventing cascading failures under burst load.
+        Borrow a connection from the pool.
 
         :return: a context-managed psycopg connection
         """
         pool = DatabaseFacade._get_pool()
-        conn: Optional[psycopg.Connection[Any]] = None
-        from_pool = False
+        conn = pool.getconn()
         try:
-            for _attempt in range(2):
-                try:
-                    conn = pool.getconn(timeout=3.0)
-                    from_pool = True
-                except PoolTimeout:
-                    break
-                try:
-                    assert conn is not None
-                    conn.execute("SELECT 1")
-                    break
-                except Exception:
-                    logger.warning(
-                        "Discarding stale pooled "
-                        "connection"
-                    )
-                    pool.putconn(conn)
-                    conn = None
-                    from_pool = False
-            if conn is None:
-                from_pool = False
-                logger.warning(
-                    "Connection pool unavailable, "
-                    "using direct connection"
-                )
-                conn = psycopg.connect(
-                    DatabaseFacade._connection_string(),
-                    autocommit=True,
-                )
             yield conn
         finally:
-            if conn is not None:
-                if from_pool:
-                    pool.putconn(conn)
-                else:
-                    conn.close()
+            pool.putconn(conn)
 
     @staticmethod
     def create_tables() -> None:

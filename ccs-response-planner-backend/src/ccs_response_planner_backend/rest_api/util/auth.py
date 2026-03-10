@@ -7,7 +7,6 @@ from functools import wraps
 from typing import Any, Callable, Optional
 
 from flask import g, jsonify, request
-from psycopg_pool import PoolTimeout
 
 from ccs_response_planner_backend.constants.constants import AUTH
 from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -79,19 +78,7 @@ def token_required(f: Callable[..., Any]) -> Callable[..., Any]:
                 "error": "Missing or invalid token",
             }), 401
         token = auth_header[len(AUTH.TOKEN_PREFIX):]
-        try:
-            username = _lookup_token(token)
-        except PoolTimeout:
-            logger.error(
-                "Database connection pool exhausted "
-                "during token validation"
-            )
-            return jsonify({
-                "error": (
-                    "Database temporarily unavailable, "
-                    "please try again"
-                ),
-            }), 503
+        username = _lookup_token(token)
         if username is None:
             return jsonify({
                 "error": "Missing or invalid token",
