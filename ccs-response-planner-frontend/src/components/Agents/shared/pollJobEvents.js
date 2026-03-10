@@ -32,7 +32,7 @@ export async function pollJobEvents({
   onHeartbeat,
   onStale,
   startIndex = 0,
-  pollInterval = 100
+  pollInterval = 500
 }) {
   let nextIndex = startIndex
   let retries = 0

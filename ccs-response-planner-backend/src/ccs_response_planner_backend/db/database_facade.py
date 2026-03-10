@@ -5,16 +5,18 @@ import json
 import logging
 import os
 import threading
-from typing import Any, Optional
+from contextlib import contextmanager
+from typing import Any, Iterator, Optional
 
 import bcrypt
-from psycopg_pool import ConnectionPool
+import psycopg
+from psycopg_pool import ConnectionPool, PoolTimeout
 
 from ccs_response_planner_backend.constants.constants import DB
 
 logger = logging.getLogger(__name__)
 
-_pool: Optional[ConnectionPool] = None
+_pool: Optional[ConnectionPool[Any]] = None
 _pool_lock = threading.Lock()
 
 
@@ -76,7 +78,7 @@ class DatabaseFacade:
         )
 
     @staticmethod
-    def _get_pool() -> ConnectionPool:
+    def _get_pool() -> ConnectionPool[Any]:
         """
         Return the shared connection pool, creating it on first call.
 
@@ -96,22 +98,77 @@ class DatabaseFacade:
             logger.info("Initializing psycopg connection pool")
             _pool = ConnectionPool(
                 conninfo=conninfo,
-                min_size=2,
-                max_size=50,
-                max_idle=120.0,
-                max_lifetime=1800.0,
+                min_size=4,
+                max_size=40,
+                max_idle=30.0,
+                max_lifetime=600.0,
                 reconnect_timeout=60.0,
-                timeout=30.0,
+                timeout=3.0,
                 kwargs={"autocommit": True},
             )
             return _pool
+
+    @staticmethod
+    @contextmanager
+    def _conn() -> Iterator[psycopg.Connection[Any]]:
+        """
+        Check out a connection from the pool.
+
+        Validates each pooled connection with a lightweight ping
+        before handing it to the caller.  If the connection is
+        stale, it is discarded and one retry is attempted from
+        the pool.  Falls back to a direct (non-pooled) connection
+        when the pool is exhausted or all pooled connections are
+        stale, preventing cascading failures under burst load.
+
+        :return: a context-managed psycopg connection
+        """
+        pool = DatabaseFacade._get_pool()
+        conn: Optional[psycopg.Connection[Any]] = None
+        from_pool = False
+        try:
+            for _attempt in range(2):
+                try:
+                    conn = pool.getconn(timeout=3.0)
+                    from_pool = True
+                except PoolTimeout:
+                    break
+                try:
+                    assert conn is not None
+                    conn.execute("SELECT 1")
+                    break
+                except Exception:
+                    logger.warning(
+                        "Discarding stale pooled "
+                        "connection"
+                    )
+                    pool.putconn(conn)
+                    conn = None
+                    from_pool = False
+            if conn is None:
+                from_pool = False
+                logger.warning(
+                    "Connection pool unavailable, "
+                    "using direct connection"
+                )
+                conn = psycopg.connect(
+                    DatabaseFacade._connection_string(),
+                    autocommit=True,
+                )
+            yield conn
+        finally:
+            if conn is not None:
+                if from_pool:
+                    pool.putconn(conn)
+                else:
+                    conn.close()
 
     @staticmethod
     def create_tables() -> None:
         """
         Create all application tables if they do not exist.
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.transaction():
                 with conn.cursor() as cur:
                     cur.execute(f"""
@@ -303,7 +360,7 @@ class DatabaseFacade:
         :param username: the username to search for
         :return: a dict with id, username, password, salt or None
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT id, username, password, salt "
@@ -326,7 +383,7 @@ class DatabaseFacade:
         """
         Delete all session tokens and users.
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.transaction():
                 with conn.cursor() as cur:
                     cur.execute(
@@ -350,7 +407,7 @@ class DatabaseFacade:
         """
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"INSERT INTO {DB.MANAGEMENT_USERS_TABLE} "
@@ -367,7 +424,7 @@ class DatabaseFacade:
         :param token: the token string to search for
         :return: a dict with token, username, timestamp or None
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT token, username, timestamp "
@@ -395,7 +452,7 @@ class DatabaseFacade:
         :param username: the username to create a token for
         :param new_token: the new token string
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"INSERT INTO {DB.SESSION_TOKENS_TABLE} "
@@ -410,7 +467,7 @@ class DatabaseFacade:
 
         :return: the config dict or None if no config is saved
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT config FROM "
@@ -429,7 +486,7 @@ class DatabaseFacade:
 
         :param config: the config dict to save
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"INSERT INTO {DB.DIGITAL_TWIN_CONFIGS_TABLE} "
@@ -445,7 +502,7 @@ class DatabaseFacade:
         """
         Delete all saved digital twin configurations.
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"DELETE FROM {DB.DIGITAL_TWIN_CONFIGS_TABLE}"
@@ -461,7 +518,7 @@ class DatabaseFacade:
         :param incident_id: the example incident id
         :return: the incident name or None
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT name FROM "
@@ -498,7 +555,7 @@ class DatabaseFacade:
             if conversation_history is not None else None
         )
         report_json = _sanitize_json(report)
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"INSERT INTO {DB.AGENT_REPORTS_TABLE} "
@@ -545,7 +602,7 @@ class DatabaseFacade:
         :param limit: maximum number of reports to return
         :return: a list of report dicts ordered by created_at DESC
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 base = (
                     f"SELECT ar.id, ar.agent_type, ar.username, "
@@ -598,7 +655,7 @@ class DatabaseFacade:
         :param report_id: the report id
         :return: a report dict or None if not found
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT ar.id, ar.agent_type, ar.username, "
@@ -632,7 +689,7 @@ class DatabaseFacade:
         :param report_id: the report id to delete
         :return: True if a row was deleted, False otherwise
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"DELETE FROM {DB.AGENT_REPORTS_TABLE} "
@@ -650,7 +707,7 @@ class DatabaseFacade:
         :param agent_type: the agent type to delete reports for
         :return: the number of deleted rows
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"DELETE FROM {DB.AGENT_REPORTS_TABLE} "
@@ -668,7 +725,7 @@ class DatabaseFacade:
         :param report_id: the agent report id
         :return: the policy bytes or None if not found
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT policy_data FROM "
@@ -695,7 +752,7 @@ class DatabaseFacade:
         :param data: dict with keys matching example_incidents columns
         :param dt_config: optional digital twin config to link
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.transaction():
                 with conn.cursor() as cur:
                     cur.execute(
@@ -760,7 +817,7 @@ class DatabaseFacade:
 
         :return: a list of dicts with id and name
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT id, name FROM "
@@ -782,7 +839,7 @@ class DatabaseFacade:
         :param incident_id: the example incident id
         :return: a dict with all fields or None if not found
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT id, name, system_description, "
@@ -815,7 +872,7 @@ class DatabaseFacade:
 
         :return: a list of dicts with id, name, example_incident_id
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT id, name, example_incident_id "
@@ -841,7 +898,7 @@ class DatabaseFacade:
         :param incident_id: the example incident id
         :return: the config id or None
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT id FROM "
@@ -864,7 +921,7 @@ class DatabaseFacade:
         :return: a dict with id, name, config, example_incident_id
                  or None if not found
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT id, name, config, "
@@ -900,7 +957,7 @@ class DatabaseFacade:
             "results": results,
             "tested_at": datetime.now(timezone.utc).isoformat(),
         }
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"UPDATE {DB.DIGITAL_TWIN_CONFIGS_TABLE} "
@@ -919,7 +976,7 @@ class DatabaseFacade:
         :param config_id: the config id
         :return: a dict with results and tested_at, or None
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT validation_results FROM "
@@ -944,7 +1001,7 @@ class DatabaseFacade:
         :param agent_type: optional agent type filter
         :return: a dict with session data or None
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 if agent_type is not None:
                     cur.execute(
@@ -1017,7 +1074,7 @@ class DatabaseFacade:
         :param username: the username (ownership check)
         :return: a dict with session data or None
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"SELECT id, username, status, "
@@ -1073,7 +1130,7 @@ class DatabaseFacade:
         :param agent_type: optional agent type tag
         :return: the created session dict
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.transaction():
                 with conn.cursor() as cur:
                     if agent_type is not None:
@@ -1152,6 +1209,7 @@ class DatabaseFacade:
         session_id: int,
         username: str,
         conversation_history: Optional[list[Any]] = None,
+        append_history: Optional[list[Any]] = None,
         pending_proposal: Any = None,
         context_usage: Optional[dict[str, Any]] = None,
         status: Optional[str] = None,
@@ -1166,7 +1224,8 @@ class DatabaseFacade:
 
         :param session_id: the session id to update
         :param username: the username (ownership check)
-        :param conversation_history: optional updated history
+        :param conversation_history: optional full replacement
+        :param append_history: optional entries to append
         :param pending_proposal: optional pending proposal
         :param context_usage: optional context usage stats
         :param status: optional new status
@@ -1176,7 +1235,18 @@ class DatabaseFacade:
         """
         updates: list[str] = []
         params: list[Any] = []
-        if conversation_history is not None:
+        if append_history is not None and len(
+            append_history
+        ) > 0:
+            updates.append(
+                "conversation_history = "
+                "COALESCE(conversation_history, "
+                "'[]'::jsonb) || %s::jsonb"
+            )
+            params.append(
+                _sanitize_json(append_history)
+            )
+        elif conversation_history is not None:
             updates.append(
                 "conversation_history = %s"
             )
@@ -1219,7 +1289,7 @@ class DatabaseFacade:
             return False
         updates.append("updated_at = NOW()")
         params.extend([session_id, username])
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"UPDATE "
@@ -1244,7 +1314,7 @@ class DatabaseFacade:
         :param username: the username (ownership check)
         :return: True if the session was deleted
         """
-        with DatabaseFacade._get_pool().connection() as conn:
+        with DatabaseFacade._conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     f"DELETE FROM "

@@ -266,6 +266,21 @@ class CodeManagerAgent:
                 d for d in declarations
                 if d.name != "run_code_verifier_agent"
             ]
+        elif code_verifier_enabled:
+            review_count = sum(
+                1 for e in conversation_history
+                if (
+                    e.get("type") == "tool_result"
+                    and e.get("tool_name")
+                    == "run_code_verifier_agent"
+                )
+            )
+            if review_count >= max_iterations:
+                declarations = [
+                    d for d in declarations
+                    if d.name
+                    != "run_code_verifier_agent"
+                ]
 
         if is_anthropic_model(effective_model):
             for ev in anthropic_stream_step(

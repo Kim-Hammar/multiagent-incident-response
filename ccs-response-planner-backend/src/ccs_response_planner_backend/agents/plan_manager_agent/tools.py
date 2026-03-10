@@ -120,9 +120,10 @@ def _process_collected_events(
     for DB persistence and history display.
 
     Accumulates thinking_delta/text_delta into reasoning/text,
-    filters prompts/context_usage, unwraps nested_events into
-    parent tool_call subEvents, recursively processes subEvents
-    on tool_results, strips internal keys.
+    filters prompts/context_usage, keeps only structural
+    nested_events (tool_call/tool_result/parallel_start/
+    agent_done), recursively processes subEvents on
+    tool_results, strips internal keys.
 
     :param collected: raw events from streaming tool execution
     :return: processed events for history storage

@@ -1180,6 +1180,20 @@
   margin-bottom: 0;
 }
 
+.ia-json-block {
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow: auto;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
+  margin: 0;
+}
+
 /* Liveness indicator */
 .ia-liveness-dot {
   display: inline-block;

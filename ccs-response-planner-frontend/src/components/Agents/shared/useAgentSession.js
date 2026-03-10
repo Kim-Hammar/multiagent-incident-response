@@ -41,6 +41,7 @@ export function useAgentSession({
   const [restoredSession, setRestoredSession] = useState(false)
   const [jobs, setJobs] = useState(null)
   const lastSaveRef = useRef(0)
+  const savedCountRef = useRef(0)
   const saveAbortRef = useRef(null)
   const pollingRef = useRef(null)
   const pendingProposalRef = useRef(null)
@@ -61,11 +62,22 @@ export function useAgentSession({
     uiStateRef.current = v
   }
 
+  const saveBackoffRef = useRef(0)
+
   // Auto-save effect
   useEffect(() => {
     if (!isSourceTabRef.current) return
     const sid = sessionIdRef.current
     if (!sid) return
+
+    const SAVE_INTERVAL = 5000
+    const now = Date.now()
+
+    // Back off after save errors to avoid hammering the server
+    if (saveBackoffRef.current > now) {
+      const timer = setTimeout(() => {}, saveBackoffRef.current - now)
+      return () => clearTimeout(timer)
+    }
 
     const save = () => {
       lastSaveRef.current = Date.now()
@@ -74,32 +86,47 @@ export function useAgentSession({
       if (saveAbortRef.current) saveAbortRef.current.abort()
       const ac = new AbortController()
       saveAbortRef.current = ac
+      const history = conversationHistoryRef.current
+      const saveFrom = savedCountRef.current
+      const newEntries = history.slice(saveFrom)
+      const payload = {
+        pending_proposal: pendingProposalRef.current,
+        context_usage: contextUsageRef.current,
+        ui_state: uiStateRef.current
+      }
+      if (saveFrom === 0) {
+        payload.conversation_history = history
+      } else if (newEntries.length > 0) {
+        payload.append_history = newEntries
+      }
+      const snapshotLen = history.length
       fetch(`${API_AGENTS_SESSIONS_URL}/${sid}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          conversation_history: conversationHistoryRef.current,
-          pending_proposal: pendingProposalRef.current,
-          context_usage: contextUsageRef.current,
-          ui_state: uiStateRef.current
-        }),
+        body: JSON.stringify(payload),
         signal: ac.signal
-      }).catch((err) => {
-        if (err.name !== 'AbortError') {
-          console.warn('Session auto-save failed:', err.message)
-        }
       })
+        .then((res) => {
+          if (res.ok) savedCountRef.current = snapshotLen
+          else saveBackoffRef.current = Date.now() + 15000
+        })
+        .catch((err) => {
+          if (err.name !== 'AbortError') {
+            console.warn('Session auto-save failed:', err.message)
+            saveBackoffRef.current = Date.now() + 15000
+          }
+        })
     }
 
-    const elapsed = Date.now() - lastSaveRef.current
-    if (elapsed >= 1000) {
+    const elapsed = now - lastSaveRef.current
+    if (elapsed >= SAVE_INTERVAL) {
       save()
       return
     }
-    const timer = setTimeout(save, 1000 - elapsed)
+    const timer = setTimeout(save, SAVE_INTERVAL - elapsed)
     return () => clearTimeout(timer)
   }, [conversationHistory])
 
@@ -174,6 +201,7 @@ export function useAgentSession({
             (e) => e.type !== 'streaming' && !(e.type === 'tool_streaming' && !e.stopped)
           )
           setConversationHistory(history)
+          savedCountRef.current = history.length
           setRestoredSession(true)
           isSourceTabRef.current = true
           if (pollingRef.current) {
@@ -410,6 +438,7 @@ export function useAgentSession({
       if (session) {
         sessionIdRef.current = session.id
         isSourceTabRef.current = true
+        savedCountRef.current = 0
         return session.id
       }
       return null
@@ -432,6 +461,7 @@ export function useAgentSession({
     }
     sessionIdRef.current = null
     isSourceTabRef.current = false
+    savedCountRef.current = 0
     setConversationHistory([])
     pendingProposalRef.current = null
     contextUsageRef.current = null

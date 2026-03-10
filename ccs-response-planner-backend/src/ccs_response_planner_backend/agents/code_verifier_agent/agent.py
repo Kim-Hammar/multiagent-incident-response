@@ -211,7 +211,15 @@ class CodeVerifierAgent:
                 f"### Generated Code\n\n```python\n"
                 f"{code}\n```"
             )
-        return "\n\n".join(sections) if sections else "N/A"
+        if sections:
+            return "\n\n".join(sections)
+        if report:
+            return (
+                "*(Report keys did not match expected "
+                "schema — raw dump below)*\n\n"
+                + json.dumps(report, indent=2, default=str)
+            )
+        return "N/A"
 
     @staticmethod
     def _format_iteration_note(

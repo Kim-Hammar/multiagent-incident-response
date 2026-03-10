@@ -9,6 +9,7 @@ from flask.testing import FlaskClient
 from ccs_response_planner_backend.agents.dt_prompt_utils import (
     format_container_list,
     format_container_table,
+    format_dt_attacker_note,
     format_network_connectivity,
 )
 from ccs_response_planner_backend.agents.report_agent.prompt import (
@@ -511,6 +512,9 @@ def test_prompt_uses_na_for_empty_fields(
         dt_container_list=format_container_list(dt_config),
         dt_container_table=format_container_table(dt_config),
         dt_network_connectivity=format_network_connectivity(
+            dt_config,
+        ),
+        dt_attacker_note=format_dt_attacker_note(
             dt_config,
         ),
     )

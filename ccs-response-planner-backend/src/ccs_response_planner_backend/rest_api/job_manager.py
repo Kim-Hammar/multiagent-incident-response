@@ -198,7 +198,6 @@ class JobManager:
                         "elapsed_seconds": elapsed,
                     }
             finally:
-                job.done = True
                 if on_complete is not None and not job.cancelled:
                     try:
                         with job.lock:
@@ -209,6 +208,7 @@ class JobManager:
                             "Job %s on_complete error",
                             job_id, exc_info=True,
                         )
+                job.done = True
 
         def _heartbeat() -> None:
             while not job.done and not job.cancelled:

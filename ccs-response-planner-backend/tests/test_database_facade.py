@@ -1,20 +1,17 @@
-"""Unit tests for the DatabaseFacade (with connection pool mocked)."""
+"""Unit tests for the DatabaseFacade (with _conn mocked)."""
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 
-def _mock_pool_with(mock_conn: MagicMock) -> MagicMock:
+def _mock_conn(mock_connection: MagicMock):
     """
-    Build a mock pool whose .connection() context manager yields mock_conn.
+    Build a mock for DatabaseFacade._conn that yields mock_connection.
     """
-    pool = MagicMock()
-
     @contextmanager
-    def _connection():
-        yield mock_conn
+    def _ctx():
+        yield mock_connection
 
-    pool.connection = _connection
-    return pool
+    return _ctx
 
 
 def _make_conn_and_cur():
@@ -28,17 +25,17 @@ def _make_conn_and_cur():
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_create_tables_executes_eighteen_statements(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify create_tables issues nineteen SQL statements (six CREATE TABLE,
     two CREATE INDEX, eight ALTER TABLE, and three UPDATE).
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.create_tables()
@@ -48,16 +45,16 @@ def test_create_tables_executes_eighteen_statements(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_user_by_username_returns_dict(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_user_by_username returns a dict when a row is found.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = (1, "admin", "hashed", "salt")
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -70,16 +67,16 @@ def test_get_user_by_username_returns_dict(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_user_by_username_returns_none(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_user_by_username returns None when no row is found.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = None
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -91,16 +88,16 @@ def test_get_user_by_username_returns_none(
 @patch("ccs_response_planner_backend.db.database_facade.bcrypt")
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_save_user_calls_execute(
-    mock_get_pool: MagicMock, mock_bcrypt: MagicMock
+    mock_conn_method: MagicMock, mock_bcrypt: MagicMock
 ) -> None:
     """
     Verify save_user hashes the password and inserts a row.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_bcrypt.gensalt.return_value = b"$2b$12$saltsaltsaltsaltsaltsa"
     mock_bcrypt.hashpw.return_value = b"$2b$12$hashedpassword"
 
@@ -114,16 +111,16 @@ def test_save_user_calls_execute(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_digital_twin_config_returns_none(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_digital_twin_config returns None when no row exists.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = None
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -134,16 +131,16 @@ def test_get_digital_twin_config_returns_none(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_save_digital_twin_config_calls_execute(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify save_digital_twin_config issues an INSERT statement.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.save_digital_twin_config({"hosts": [], "links": []})
@@ -153,16 +150,16 @@ def test_save_digital_twin_config_calls_execute(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_delete_digital_twin_config_calls_execute(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify delete_digital_twin_config issues a DELETE statement.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
     DatabaseFacade.delete_digital_twin_config()
@@ -172,16 +169,16 @@ def test_delete_digital_twin_config_calls_execute(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_config_id_by_incident_returns_id(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_config_id_by_incident returns config id when found.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = (42,)
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -193,16 +190,16 @@ def test_get_config_id_by_incident_returns_id(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_config_id_by_incident_returns_none(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_config_id_by_incident returns None when not found.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = None
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -213,16 +210,16 @@ def test_get_config_id_by_incident_returns_none(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_policy_data_returns_bytes(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_policy_data returns bytes when policy exists.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = (b"\x50\x4b\x03\x04",)
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -234,16 +231,16 @@ def test_get_policy_data_returns_bytes(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_policy_data_returns_none(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_policy_data returns None when no policy exists.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = (None,)
 
     from ccs_response_planner_backend.db.database_facade import DatabaseFacade
@@ -254,17 +251,17 @@ def test_get_policy_data_returns_none(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_active_planning_session_with_agent_type(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_active_planning_session filters by agent_type
     when provided.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = (
         1, "admin", "active", [], None,
         {}, {}, None, None,
@@ -286,17 +283,17 @@ def test_get_active_planning_session_with_agent_type(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_active_planning_session_without_agent_type(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_active_planning_session filters by agent_type IS NULL
     when agent_type is not provided.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = None
 
     from ccs_response_planner_backend.db.database_facade import (
@@ -311,16 +308,16 @@ def test_get_active_planning_session_without_agent_type(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_planning_session_returns_dict(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_planning_session returns a dict when a row is found.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = (
         42, "admin", "active", [], None,
         {}, {}, None, None,
@@ -341,16 +338,16 @@ def test_get_planning_session_returns_dict(
 
 @patch(
     "ccs_response_planner_backend.db.database_facade"
-    ".DatabaseFacade._get_pool",
+    ".DatabaseFacade._conn",
 )
 def test_get_planning_session_returns_none(
-    mock_get_pool: MagicMock,
+    mock_conn_method: MagicMock,
 ) -> None:
     """
     Verify get_planning_session returns None when not found.
     """
     mock_conn, mock_cur = _make_conn_and_cur()
-    mock_get_pool.return_value = _mock_pool_with(mock_conn)
+    mock_conn_method.side_effect = _mock_conn(mock_conn)
     mock_cur.fetchone.return_value = None
 
     from ccs_response_planner_backend.db.database_facade import (

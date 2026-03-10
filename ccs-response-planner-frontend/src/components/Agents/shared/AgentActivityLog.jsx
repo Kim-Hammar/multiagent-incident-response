@@ -328,6 +328,9 @@ function renderOrchestratorArgs(toolName, args, entries) {
               if (obj && obj.incident_summary) {
                 return <AssessmentBody report={obj} />
               }
+              if (obj) {
+                return <pre className="ia-json-block">{JSON.stringify(obj, null, 2)}</pre>
+              }
               return (
                 <div className="ia-arg-markdown">
                   <ReactMarkdown>

@@ -50,6 +50,12 @@ RUN sed -i 's/^user = .*/user = root/' /etc/php/*/fpm/pool.d/www.conf && \
     sed -i 's/^group = .*/group = root/' /etc/php/*/fpm/pool.d/www.conf && \
     sed -i 's|^listen = .*|listen = 127.0.0.1:9000|' /etc/php/*/fpm/pool.d/www.conf
 
+# Ensure 'service php7.4-fpm restart' works with root user config:
+# 1. /etc/default/ file adds -R flag via the standard Debian override mechanism
+# 2. Fix init.d mkdir to use -p (directory may already exist from entrypoint)
+COPY php-fpm-defaults /etc/default/php-fpm7.4
+RUN sed -i 's/mkdir --mode=07500 \/run\/php/mkdir -p --mode=07500 \/run\/php/' /etc/init.d/php7.4-fpm
+
 COPY artifacts/ /opt/artifacts/
 RUN chmod +x /opt/artifacts/plant_artifacts.sh /opt/artifacts/backdoor.sh \
     /opt/artifacts/plant_static.sh && \

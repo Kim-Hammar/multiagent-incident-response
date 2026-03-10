@@ -229,18 +229,6 @@ def _run_single_action_verifier(
         action_verification = None
 
         for step_num in range(_MAX_INNER_STEPS):
-            event_queue.put({
-                "type": "sub_event",
-                "agent_id": agent_id,
-                "agent_label": agent_label,
-                "event": {
-                    "type": "text_delta",
-                    "text": (
-                        f"Step {step_num + 1}...\n"
-                    ),
-                },
-            })
-
             step_reasoning = ""
             step_start = time.monotonic()
 

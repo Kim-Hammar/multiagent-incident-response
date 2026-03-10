@@ -2747,10 +2747,50 @@ def agents_code_manager_tool() -> (
                 "code_verifier_enabled", True,
             ),
         }
+        conv_history = body.get(
+            "conversation_history", [],
+        )
+        if tool_name == "run_code_agent":
+            if not tool_args.get("previous_code"):
+                for entry in reversed(conv_history):
+                    if (
+                        entry.get("type")
+                        == "tool_result"
+                        and entry.get("tool_name")
+                        == "run_code_agent"
+                    ):
+                        prev_code = (
+                            entry.get("result", {})
+                            .get("code_report", {})
+                            .get("generated_code", "")
+                        )
+                        if prev_code:
+                            tool_args[
+                                "previous_code"
+                            ] = prev_code
+                        break
+            if not tool_args.get("review_feedback"):
+                for entry in reversed(conv_history):
+                    if (
+                        entry.get("type")
+                        == "tool_result"
+                        and entry.get("tool_name")
+                        == "run_code_verifier_agent"
+                    ):
+                        summary = (
+                            entry.get("result", {})
+                            .get("review_report", {})
+                            .get(
+                                "executive_summary",
+                                "",
+                            )
+                        )
+                        if summary:
+                            tool_args[
+                                "review_feedback"
+                            ] = summary
+                        break
         if tool_name == "run_code_verifier_agent":
-            conv_history = body.get(
-                "conversation_history", [],
-            )
             last_code_report: dict[str, Any] = {}
             for entry in reversed(conv_history):
                 if (
@@ -4235,6 +4275,7 @@ def update_session(
     conversation_history = body.get(
         "conversation_history",
     )
+    append_history = body.get("append_history")
     pending_proposal = body.get("pending_proposal")
     context_usage = body.get("context_usage")
     status = body.get("status")
@@ -4246,6 +4287,7 @@ def update_session(
         pending_proposal = False
     has_fields = (
         conversation_history is not None
+        or append_history is not None
         or pending_proposal is not None
         or context_usage is not None
         or status is not None
@@ -4257,6 +4299,7 @@ def update_session(
         updated = DatabaseFacade.update_planning_session(
             session_id, g.username,
             conversation_history=conversation_history,
+            append_history=append_history,
             pending_proposal=pending_proposal,
             context_usage=context_usage,
             status=status,
@@ -4271,10 +4314,22 @@ def update_session(
             }), 404
         return jsonify({"success": True}), 200
     except Exception as e:
-        logger.error(
-            "Failed to update session %d: %s",
-            session_id, e,
-        )
+        try:
+            stats = DatabaseFacade._get_pool().get_stats()
+            logger.error(
+                "Failed to update session %d: %s "
+                "| pool: size=%s avail=%s "
+                "waiting=%s",
+                session_id, e,
+                stats.get("pool_size"),
+                stats.get("pool_available"),
+                stats.get("requests_waiting"),
+            )
+        except Exception:
+            logger.error(
+                "Failed to update session %d: %s",
+                session_id, e,
+            )
         return jsonify({"error": str(e)}), 500
 
 

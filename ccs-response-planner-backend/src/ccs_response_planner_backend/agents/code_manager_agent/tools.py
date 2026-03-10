@@ -212,6 +212,10 @@ def run_code_agent_stream(
                 )
             elif etype == "code_report":
                 code_report = event.get("code_report", {})
+                logger.info(
+                    "CodeAgent produce_code_report keys: %s",
+                    list(code_report.keys()),
+                )
                 if step_reasoning:
                     conversation_history.append({
                         "role": "model",

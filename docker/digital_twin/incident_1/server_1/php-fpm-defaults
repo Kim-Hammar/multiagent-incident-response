@@ -1,0 +1,2 @@
+# Allow PHP-FPM to run as root (CTF misconfiguration)
+DAEMON_ARGS="--daemonize --fpm-config /etc/php/7.4/fpm/php-fpm.conf -R"
