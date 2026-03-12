@@ -170,3 +170,6 @@ test_dir_*
 integration_tests/node_modules/
 integration_tests/test-results/
 integration_tests/playwright-report/
+
+# Anonymization backup
+.CLAUDE.md.bak
