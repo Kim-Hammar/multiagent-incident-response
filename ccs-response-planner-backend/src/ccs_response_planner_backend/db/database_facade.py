@@ -100,10 +100,20 @@ class DatabaseFacade:
         """
         Borrow a connection from the pool.
 
+        Pings the connection after checkout to detect stale
+        connections closed by PostgreSQL.  On failure, the broken
+        connection is returned (the pool discards it) and a fresh
+        one is obtained.
+
         :return: a context-managed psycopg connection
         """
         pool = DatabaseFacade._get_pool()
         conn = pool.getconn()
+        try:
+            conn.execute("SELECT 1")
+        except psycopg.OperationalError:
+            pool.putconn(conn)
+            conn = pool.getconn()
         try:
             yield conn
         finally:
