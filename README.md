@@ -37,6 +37,10 @@ The multiagent system includes **12 different types of agents** organized in a h
 <img src="ccs-response-planner-frontend/src/components/About/method.png" alt="Method overview" width="600" />
 </p>
 
+## Demo
+
+<video src="docs/multiagent_incident_response_demo_10_mar_short_version_anonymized.mp4" controls width="800"></video>
+
 ## Configuration
 
 Before building or deploying, copy the example environment file and edit it with your credentials:
