@@ -48,7 +48,7 @@ make help     # Show all available targets
 
 ## Author & Maintainer
 
-Kim Hammar <kimham@kth.se>
+Author A <authorA@anonymous.org>
 
 ## Copyright and license
 
@@ -56,4 +56,4 @@ Kim Hammar <kimham@kth.se>
 
 Creative Commons
 
-(C) 2026, Kim Hammar, Tansu Alpcan, Emil Lupu
+(C) 2026, Author A, Author B, Author C

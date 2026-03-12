@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-DOCKERHUB_USER="kimham"
+DOCKERHUB_USER="anonymous"
 DOCKER_IMAGE="ccs_incident_response_planner"
 PYPI_PACKAGE_DIR="ccs-response-planner-backend"
 

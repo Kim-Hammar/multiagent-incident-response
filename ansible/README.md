@@ -24,7 +24,7 @@ Defined in `vars.yml`:
 
 | Variable      | Default                                                                  | Description                |
 |---------------|--------------------------------------------------------------------------|----------------------------|
-| `repo_url`    | `https://github.com/Kim-Hammar/ccs26_incident_response.git`             | GitHub repository URL      |
+| `repo_url`    | `https://github.com/anonymous/anonymous-repo.git`             | GitHub repository URL      |
 | `repo_branch` | `main`                                                                   | Branch to clone            |
 | `app_dir`     | `/opt/ccs26_incident_response`                                           | Clone destination on host  |
 

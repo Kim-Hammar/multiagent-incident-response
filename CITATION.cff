@@ -1,17 +1,17 @@
 authors:
-- affiliation: "The University of Melbourne"
-  family-names: Hammar
-  given-names: Kim
-- affiliation: "The University of Melbourne"
-  family-names: Alpcan
-  given-names: Tansu
-- affiliation: "Imperial College London"
-  family-names: Lupu
-  given-names: Emil
+- affiliation: "Anonymous University 1"
+  family-names: AuthorA
+  given-names: A
+- affiliation: "Anonymous University 1"
+  family-names: AuthorB
+  given-names: B
+- affiliation: "Anonymous University 2"
+  family-names: AuthorC
+  given-names: C
 cff-version: 1.2.0
 keywords:
   - "cyber security"
   - "LLM"
 message: "If you use this software, please cite it using these metadata."
-repository-code: "https://github.com/Kim-Hammar/ccs26_incident_response"
+repository-code: "https://github.com/anonymous/anonymous-repo"
 title: "Incident Response Planning with Code-Generated Models"

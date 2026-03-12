@@ -167,14 +167,14 @@ This will:
 
 1. Update the Python package version in `__version__.py`
 2. Run backend and frontend tests
-3. Build and push the Docker image to DockerHub (`kimham/ccs_incident_response_planner:<version>`)
+3. Build and push the Docker image to DockerHub (`anonymous/ccs_incident_response_planner:<version>`)
 4. Build and upload the Python package to PyPI
 
 Ensure you are logged in to DockerHub (`docker login`) and have a PyPI token configured (`~/.pypirc`) before running the script.
 
 ## Author & Maintainer
 
-Kim Hammar <kimham@kth.se>
+Author A <authorA@anonymous.org>
 
 ## Copyright and license
 
@@ -182,4 +182,4 @@ Kim Hammar <kimham@kth.se>
 
 Creative Commons
 
-(C) 2026, Kim Hammar, Tansu Alpcan, Emil Lupu
+(C) 2026, Author A, Author B, Author C
