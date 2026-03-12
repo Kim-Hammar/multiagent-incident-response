@@ -39,7 +39,7 @@ The multiagent system includes **12 different types of agents** organized in a h
 
 ## Demo
 
-<video src="docs/multiagent_incident_response_demo_10_mar_short_version_anonymized.mp4" controls width="800"></video>
+[Watch the demo video](docs/multiagent_incident_response_demo_10_mar_short_version_anonymized.mp4)
 
 ## Configuration
 
