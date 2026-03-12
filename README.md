@@ -14,7 +14,7 @@ with theoretical performance guarantees.
 
 ## Demo
 
-[Download the demo video](https://github.com/Kim-Hammar/ccs26_incident_response/releases/download/v0.0.3/multiagent_incident_response_demo_10_mar_short_version_anonymized.mp4)
+[Download the demo video](docs/multiagent_incident_response_demo_10_mar_short_version_anonymized.mp4)
 
 ## Configuration
 
