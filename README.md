@@ -14,7 +14,7 @@ with theoretical performance guarantees.
 
 ## Demo
 
-[Download the demo video](docs/multiagent_incident_response_demo_10_mar_short_version_anonymized.mp4)
+[Download the demo video](docs/multiagent_incident_response_demo_10_mar_short_version_anonymized_compressed.mp4)
 
 ## Configuration
 
