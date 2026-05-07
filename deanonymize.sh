@@ -36,13 +36,13 @@ TARGET_FILES=(
   "$SCRIPT_DIR/LICENSE.md"
   "$SCRIPT_DIR/CITATION.cff"
   "$SCRIPT_DIR/release.sh"
-  "$SCRIPT_DIR/ccs-response-planner-backend/pyproject.toml"
-  "$SCRIPT_DIR/ccs-response-planner-backend/setup.cfg"
-  "$SCRIPT_DIR/ccs-response-planner-backend/README.md"
-  "$SCRIPT_DIR/ccs-response-planner-backend/LICENSE.md"
-  "$SCRIPT_DIR/ccs-response-planner-frontend/README.md"
+  "$SCRIPT_DIR/response-planner-backend/pyproject.toml"
+  "$SCRIPT_DIR/response-planner-backend/setup.cfg"
+  "$SCRIPT_DIR/response-planner-backend/README.md"
+  "$SCRIPT_DIR/response-planner-backend/LICENSE.md"
+  "$SCRIPT_DIR/response-planner-frontend/README.md"
   "$SCRIPT_DIR/docker/README.md"
-  "$SCRIPT_DIR/ccs-response-planner-frontend/src/components/Footer/Footer.jsx"
+  "$SCRIPT_DIR/response-planner-frontend/src/components/Footer/Footer.jsx"
   "$SCRIPT_DIR/ansible/vars.yml"
   "$SCRIPT_DIR/ansible/README.md"
 )
@@ -90,15 +90,15 @@ fi
 for f in "${TARGET_FILES[@]}"; do
   if [[ -f "$f" ]]; then
     sed -i '' "s|DOCKERHUB_USER=\"${ANON_USERNAME}\"|DOCKERHUB_USER=\"$(sed_replace_escape "$DOCKERHUB_USER_REAL")\"|g" "$f"
-    sed -i '' "s|${ANON_USERNAME}/ccs|$(sed_replace_escape "$DOCKERHUB_USER_REAL")/ccs|g" "$f"
+    sed -i '' "s|${ANON_USERNAME}/incident_response|$(sed_replace_escape "$DOCKERHUB_USER_REAL")/incident_response|g" "$f"
   fi
 done
 
 # --- Restore replacements (reverse order of anonymize.sh, longest first) ---
 
 # GitHub username (before URLs, so URL restoration picks up the real username)
-replace_in_files "$ANON_USERNAME/anonymous-repo.git" "$GITHUB_USERNAME/ccs26_incident_response.git"
-replace_in_files "$ANON_USERNAME/anonymous-repo" "$GITHUB_USERNAME/ccs26_incident_response"
+replace_in_files "$ANON_USERNAME/anonymous-repo.git" "$GITHUB_USERNAME/incident_response.git"
+replace_in_files "$ANON_USERNAME/anonymous-repo" "$GITHUB_USERNAME/incident_response"
 
 # URLs
 replace_in_files "$ANON_REPO_URL_GIT" "$GITHUB_REPO_URL_GIT"
@@ -119,8 +119,8 @@ replace_in_files "$ANON_AUTHOR_C" "$AUTHOR_C_FULL"
 # The anonymize step replaced both with the same placeholder, so we need targeted restoration.
 
 # First restore the personal email in pyproject.toml and setup.cfg (they have "Author A" nearby)
-PYPROJECT="$SCRIPT_DIR/ccs-response-planner-backend/pyproject.toml"
-SETUPCFG="$SCRIPT_DIR/ccs-response-planner-backend/setup.cfg"
+PYPROJECT="$SCRIPT_DIR/response-planner-backend/pyproject.toml"
+SETUPCFG="$SCRIPT_DIR/response-planner-backend/setup.cfg"
 if [[ -f "$PYPROJECT" ]]; then
   sed -i '' "s|$(sed_escape "$ANON_EMAIL")|$(sed_replace_escape "$AUTHOR_A_EMAIL_PERSONAL")|g" "$PYPROJECT"
 fi

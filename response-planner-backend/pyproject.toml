@@ -1,0 +1,88 @@
+[project]
+name = "response-planner-backend"
+description = "Backend for an LLM-based incident response planner"
+dynamic = ["version", "authors", "requires-python"]
+license = { file = "LICENSE.md" }
+readme = "README.md"
+keywords = ["Cyber-Security", "Large-Language-Model", "Markov-Decision-Processes"]
+maintainers = [
+    { name = "Author A", email = "authorA@anonymous.org" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Science/Research"
+]
+dependencies = [
+    "numpy==1.23.5",
+    "flask==3.1.0",
+    "psycopg[binary]==3.2.4",
+    "psycopg_pool==3.3.0",
+    "bcrypt==4.2.1",
+    "google-genai==1.50.0",
+    "docker==7.1.0",
+    "flask-sock==0.7.0",
+    "tavily-python==0.7.21",
+    "nvdlib==0.8.3",
+    "mitreattack-python==5.4.0",
+    "vt-py==0.22.0",
+    "requests==2.32.3",
+    "OTXv2==1.5.12",
+    "anthropic==0.79.0",
+    "pydantic==2.10.6",
+    "gunicorn==21.2.0",
+    "paramiko==3.5.1",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "pytest-mock>=3.6.0",
+    "mypy>=1.7.0",
+    "mypy-extensions>=1.0.0",
+    "mypy-protobuf>=3.5.0",
+    "types-requests>=2.31.0",
+    "flake8>=6.1.0",
+    "flake8-rst-docstrings>=0.3.0",
+    "tox>=4.24.1",
+    "twine>=6.1.0",
+    "build>=0.10.0"
+]
+
+[project.urls]
+"Homepage" = "https://example.com"
+"Source" = "https://github.com/anonymous/anonymous-repo"
+
+[build-system]
+requires = ["setuptools==75.7.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "--cov=response_planner_backend -p no:warnings"
+testpaths = [
+    "tests",
+]
+log_cli = 1
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.mypy]
+mypy_path = "src"
+check_untyped_defs = true
+disallow_any_generics = true
+ignore_missing_imports = true
+no_implicit_optional = true
+show_error_codes = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+no_implicit_reexport = true
+
+[[tool.mypy.overrides]]
+follow_imports = "skip"
+module = ["transformers.*"]

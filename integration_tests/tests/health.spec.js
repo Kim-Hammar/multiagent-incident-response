@@ -35,7 +35,7 @@ test.describe('API health checks', () => {
     expect(response.status()).toBe(200)
     const body = await response.json()
     expect(body.status).toBe('ok')
-    expect(body.app).toBe('CCS Incident Response Planner')
+    expect(body.app).toBe('Incident Response Planner')
   })
 
   test('GET /api/example returns 11 fields', async ({ request }) => {

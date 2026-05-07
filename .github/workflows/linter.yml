@@ -24,8 +24,8 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - name: Install backend dependencies
-        run: cd ccs-response-planner-backend && pip install -e ".[test]"
+        run: cd response-planner-backend && pip install -e ".[test]"
       - name: Install frontend dependencies
-        run: cd ccs-response-planner-frontend && npm install
+        run: cd response-planner-frontend && npm install
       - name: Run all linters
         run: chmod +x linter.sh python_linter.sh js_linter.sh && ./linter.sh

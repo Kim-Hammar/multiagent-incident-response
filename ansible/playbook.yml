@@ -1,5 +1,5 @@
 ---
-- name: Deploy CCS Incident Response Planner
+- name: Deploy Incident Response Planner
   hosts: all
   become: true
   vars_files:

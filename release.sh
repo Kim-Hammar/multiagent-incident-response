@@ -2,8 +2,8 @@
 set -euo pipefail
 
 DOCKERHUB_USER="anonymous"
-DOCKER_IMAGE="ccs_incident_response_planner"
-PYPI_PACKAGE_DIR="ccs-response-planner-backend"
+DOCKER_IMAGE="incident_response_planner"
+PYPI_PACKAGE_DIR="response-planner-backend"
 
 usage() {
     echo "Usage: $0 <version>"
@@ -34,7 +34,7 @@ echo "=== Releasing version ${VERSION} ==="
 # ---------- Update Python package version ----------
 echo ""
 echo "=== Updating Python package version to ${VERSION} ==="
-VERSION_FILE="$DIR/$PYPI_PACKAGE_DIR/src/ccs_response_planner_backend/__version__.py"
+VERSION_FILE="$DIR/$PYPI_PACKAGE_DIR/src/response_planner_backend/__version__.py"
 echo "__version__ = '${VERSION}'" > "$VERSION_FILE"
 echo "Updated $VERSION_FILE"
 
@@ -46,7 +46,7 @@ pytest -q
 
 echo ""
 echo "=== Running frontend tests ==="
-cd "$DIR/ccs-response-planner-frontend"
+cd "$DIR/response-planner-frontend"
 npm test
 
 # ---------- Build and push Docker image ----------
@@ -70,8 +70,8 @@ echo ""
 echo "=== Pushing digital twin images to DockerHub ==="
 DT_I1_IMAGES=(gateway firewall ids server_1 server_2 server_3 server_4 server_5 server_6)
 for img in "${DT_I1_IMAGES[@]}"; do
-    local_tag="ccs-dt-i1-${img//_/}:latest"
-    remote_name="ccs_incident_response_dt_i1_${img}"
+    local_tag="dt-i1-${img//_/}:latest"
+    remote_name="incident_response_dt_i1_${img}"
     remote_ver="$DOCKERHUB_USER/$remote_name:$VERSION"
     remote_lat="$DOCKERHUB_USER/$remote_name:latest"
     docker tag "$local_tag" "$remote_ver"
@@ -83,8 +83,8 @@ done
 
 DT_I2_IMAGES=(server_1 server_2 server_3 server_4 server_5 server_6)
 for img in "${DT_I2_IMAGES[@]}"; do
-    local_tag="ccs-dt-i2-${img//_/}:latest"
-    remote_name="ccs_incident_response_dt_i2_${img}"
+    local_tag="dt-i2-${img//_/}:latest"
+    remote_name="incident_response_dt_i2_${img}"
     remote_ver="$DOCKERHUB_USER/$remote_name:$VERSION"
     remote_lat="$DOCKERHUB_USER/$remote_name:latest"
     docker tag "$local_tag" "$remote_ver"
@@ -110,9 +110,9 @@ echo ""
 echo "=== Release ${VERSION} complete ==="
 echo "  Docker: $DOCKERHUB_USER/$DOCKER_IMAGE:$VERSION"
 for img in "${DT_I1_IMAGES[@]}"; do
-    echo "  Docker: $DOCKERHUB_USER/ccs_incident_response_dt_i1_${img}:$VERSION"
+    echo "  Docker: $DOCKERHUB_USER/incident_response_dt_i1_${img}:$VERSION"
 done
 for img in "${DT_I2_IMAGES[@]}"; do
-    echo "  Docker: $DOCKERHUB_USER/ccs_incident_response_dt_i2_${img}:$VERSION"
+    echo "  Docker: $DOCKERHUB_USER/incident_response_dt_i2_${img}:$VERSION"
 done
-echo "  PyPI:   ccs-response-planner-backend $VERSION"
+echo "  PyPI:   response-planner-backend $VERSION"

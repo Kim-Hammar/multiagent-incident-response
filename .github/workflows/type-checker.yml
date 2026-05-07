@@ -22,6 +22,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          cd ccs-response-planner-backend && pip install -e ".[test]"
+          cd response-planner-backend && pip install -e ".[test]"
       - name: Run mypy
         run: chmod +x type-checker.sh && ./type-checker.sh

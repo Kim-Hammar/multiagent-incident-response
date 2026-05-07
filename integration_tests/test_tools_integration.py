@@ -40,12 +40,12 @@ def _docker_available() -> bool:
 
 def _sandbox_image_exists() -> bool:
     """
-    Return True when the ``ccs-dt-python-sandbox`` image is available.
+    Return True when the ``dt-python-sandbox`` image is available.
     """
     try:
         import docker
         client = docker.from_env()
-        client.images.get("ccs-dt-python-sandbox:latest")
+        client.images.get("dt-python-sandbox:latest")
         return True
     except Exception:
         return False

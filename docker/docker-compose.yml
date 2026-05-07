@@ -33,9 +33,9 @@ services:
       - TAVILY_API_KEY=${TAVILY_API_KEY}
     volumes:
       - ..:/app
-      - /app/ccs-response-planner-frontend/node_modules
-      - /app/ccs-response-planner-frontend/build
-      - /app/ccs-response-planner-backend/ccs_response_planner_backend.egg-info
+      - /app/response-planner-frontend/node_modules
+      - /app/response-planner-frontend/build
+      - /app/response-planner-backend/response_planner_backend.egg-info
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - backend
@@ -43,7 +43,7 @@ services:
       db:
         condition: service_healthy
     command: >
-      bash -c "pip install -e 'ccs-response-planner-backend/.[test]' && exec python ccs-response-planner-frontend/server/server.py"
+      bash -c "pip install -e 'response-planner-backend/.[test]' && exec python response-planner-frontend/server/server.py"
 
 volumes:
   pgdata:

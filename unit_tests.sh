@@ -4,13 +4,13 @@ export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 echo "=== Backend tests (pytest) ==="
-cd "$DIR/ccs-response-planner-backend" || exit 1
-pytest --cov=ccs_response_planner_backend --ignore=tests/test_agent_integration.py
+cd "$DIR/response-planner-backend" || exit 1
+pytest --cov=response_planner_backend --ignore=tests/test_agent_integration.py
 backend_status=$?
 
 echo ""
 echo "=== Frontend tests (vitest) ==="
-cd "$DIR/ccs-response-planner-frontend" || exit 1
+cd "$DIR/response-planner-frontend" || exit 1
 npx vitest run
 frontend_status=$?
 

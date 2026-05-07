@@ -145,12 +145,12 @@ esac
 
 echo ""
 echo "=== Installing backend ==="
-cd "$DIR/ccs-response-planner-backend"
+cd "$DIR/response-planner-backend"
 pip install -e ".[test]"
 
 echo ""
 echo "=== Installing frontend ==="
-cd "$DIR/ccs-response-planner-frontend"
+cd "$DIR/response-planner-frontend"
 # Load nvm if available (needed when running under non-interactive bash)
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"

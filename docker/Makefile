@@ -27,7 +27,7 @@ lint: ## Run all linters inside the container
 	docker compose -f docker-compose.yml --env-file ../.env exec app ./linter.sh
 
 format: ## Run Prettier formatter inside the container
-	docker compose -f docker-compose.yml --env-file ../.env exec app bash -c "cd ccs-response-planner-frontend && npm run format"
+	docker compose -f docker-compose.yml --env-file ../.env exec app bash -c "cd response-planner-frontend && npm run format"
 
 rebuild: ## Full rebuild (remove volumes, rebuild images, start)
 	docker compose -f docker-compose.yml --env-file ../.env down -v
@@ -37,12 +37,12 @@ dt-build: ## Build all digital twin images
 	bash digital_twin/build.sh
 
 dt-clean: ## Remove all digital twin images
-	docker rmi ccs-dt-i1-gateway ccs-dt-i1-firewall ccs-dt-i1-logcollector \
-	    ccs-dt-i1-server1 ccs-dt-i1-server2 ccs-dt-i1-server3 \
-	    ccs-dt-i1-server4 ccs-dt-i1-server5 ccs-dt-i1-server6 \
-	    ccs-dt-i2-server1 ccs-dt-i2-server2 ccs-dt-i2-server3 \
-	    ccs-dt-i2-server4 ccs-dt-i2-server5 ccs-dt-i2-server6 \
-	    ccs-dt-attacker ccs-dt-python-sandbox 2>/dev/null || true
+	docker rmi dt-i1-gateway dt-i1-firewall dt-i1-logcollector \
+	    dt-i1-server1 dt-i1-server2 dt-i1-server3 \
+	    dt-i1-server4 dt-i1-server5 dt-i1-server6 \
+	    dt-i2-server1 dt-i2-server2 dt-i2-server3 \
+	    dt-i2-server4 dt-i2-server5 dt-i2-server6 \
+	    dt-attacker dt-python-sandbox 2>/dev/null || true
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \

@@ -1,4 +1,4 @@
-# Ansible Playbook — CCS Incident Response Planner
+# Ansible Playbook — Incident Response Planner
 
 Ansible playbook that installs Docker on a target host, clones the repository, and starts the application via `docker compose up`.
 
@@ -26,7 +26,7 @@ Defined in `vars.yml`:
 |---------------|--------------------------------------------------------------------------|----------------------------|
 | `repo_url`    | `https://github.com/anonymous/anonymous-repo.git`             | GitHub repository URL      |
 | `repo_branch` | `main`                                                                   | Branch to clone            |
-| `app_dir`     | `/opt/ccs26_incident_response`                                           | Clone destination on host  |
+| `app_dir`     | `/opt/incident_response`                                           | Clone destination on host  |
 
 Override variables on the command line with `-e`:
 

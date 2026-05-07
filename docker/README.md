@@ -1,6 +1,6 @@
 # Docker
 
-This directory contains the Docker configuration for the CCS Incident Response Planner. It defines two services: the application (Python backend + React frontend) and a PostgreSQL database.
+This directory contains the Docker configuration for the Incident Response Planner. It defines two services: the application (Python backend + React frontend) and a PostgreSQL database.
 
 ## Services
 

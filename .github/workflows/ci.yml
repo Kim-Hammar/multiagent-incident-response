@@ -18,24 +18,24 @@ jobs:
 
       - name: Install backend dependencies
         run: pip install -e ".[test]"
-        working-directory: ccs-response-planner-backend
+        working-directory: response-planner-backend
 
       - name: Run backend tests with coverage
-        run: pytest --cov=ccs_response_planner_backend --cov-report=xml -q
-        working-directory: ccs-response-planner-backend
+        run: pytest --cov=response_planner_backend --cov-report=xml -q
+        working-directory: response-planner-backend
 
       - name: Lint (flake8)
         run: flake8 src tests
-        working-directory: ccs-response-planner-backend
+        working-directory: response-planner-backend
 
       - name: Type check (mypy)
         run: mypy src
-        working-directory: ccs-response-planner-backend
+        working-directory: response-planner-backend
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: ccs-response-planner-backend/coverage.xml
+          files: response-planner-backend/coverage.xml
           flags: backend
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -50,12 +50,12 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm install
-        working-directory: ccs-response-planner-frontend
+        working-directory: response-planner-frontend
 
       - name: Run frontend tests
         run: npm test
-        working-directory: ccs-response-planner-frontend
+        working-directory: response-planner-frontend
 
       - name: Lint (eslint)
         run: npx eslint . --quiet
-        working-directory: ccs-response-planner-frontend
+        working-directory: response-planner-frontend

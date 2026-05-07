@@ -6,14 +6,14 @@ EXIT_CODE=0
 
 cleanup() {
     echo ">>> Stopping Docker containers..."
-    docker rm -f ccs_python_sandbox 2>/dev/null || true
+    docker rm -f python_sandbox 2>/dev/null || true
     docker compose -f "$SCRIPT_DIR/docker/docker-compose.yml" --env-file "$SCRIPT_DIR/.env" down
 }
 trap cleanup EXIT
 
 echo ">>> Cleaning up stale containers..."
-docker rm -f ccs_dt_python_sandbox 2>/dev/null || true
-docker rm -f ccs_python_sandbox 2>/dev/null || true
+docker rm -f dt_python_sandbox 2>/dev/null || true
+docker rm -f python_sandbox 2>/dev/null || true
 
 echo ">>> Building digital twin images..."
 bash "$SCRIPT_DIR/docker/digital_twin/build.sh"

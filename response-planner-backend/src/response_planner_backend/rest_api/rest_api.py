@@ -1,0 +1,240 @@
+"""
+REST API server for the Response Planner.
+"""
+import gzip
+import os
+from typing import Any, Optional
+
+from flask import Flask, jsonify, request, send_from_directory
+from flask_sock import Sock
+
+from response_planner_backend.constants.constants import API
+from response_planner_backend.rest_api.resources.digital_twin.routes import (
+    digital_twin_bp,
+)
+from response_planner_backend.rest_api.resources.digital_twin.terminal import (
+    register_terminal_ws,
+)
+from response_planner_backend.rest_api.resources.example.routes import (
+    example_bp,
+    examples_bp,
+)
+from response_planner_backend.rest_api.resources.health.routes import (
+    health_bp,
+)
+from response_planner_backend.rest_api.resources.llm.routes import (
+    llm_bp,
+)
+from response_planner_backend.rest_api.resources.login.routes import (
+    login_bp,
+)
+from response_planner_backend.rest_api.resources.plan.routes import (
+    plan_bp,
+)
+from response_planner_backend.rest_api.resources.tavily.routes import (
+    tavily_bp,
+)
+from response_planner_backend.rest_api.resources.nvd.routes import (
+    nvd_bp,
+)
+from response_planner_backend.rest_api.resources.mitre.routes import (
+    mitre_bp,
+)
+from response_planner_backend.rest_api.resources.virustotal.routes import (
+    virustotal_bp,
+)
+from response_planner_backend.rest_api.resources.abuseipdb.routes import (
+    abuseipdb_bp,
+)
+from response_planner_backend.rest_api.resources.otx.routes import (
+    otx_bp,
+)
+from response_planner_backend.rest_api.resources.dt_exec.routes import (
+    dt_exec_bp,
+)
+from response_planner_backend.rest_api.resources.dt_logs.routes import (
+    dt_logs_bp,
+)
+from response_planner_backend.rest_api.resources.dt_python.routes import (
+    dt_python_bp,
+)
+from response_planner_backend.rest_api.resources.agents.routes import (
+    agents_bp,
+)
+
+
+def create_app(static_folder: str) -> Flask:
+    """
+    Create and configure the Flask application.
+
+    :param static_folder: path to the static frontend build directory
+    :return: a configured Flask app instance
+    """
+    app = Flask(
+        __name__,
+        static_folder=os.path.abspath(static_folder),
+        static_url_path="",
+    )
+
+    app.register_blueprint(health_bp)
+    app.register_blueprint(example_bp)
+    app.register_blueprint(examples_bp)
+    app.register_blueprint(plan_bp)
+    app.register_blueprint(login_bp)
+    app.register_blueprint(llm_bp)
+    app.register_blueprint(tavily_bp)
+    app.register_blueprint(nvd_bp)
+    app.register_blueprint(mitre_bp)
+    app.register_blueprint(virustotal_bp)
+    app.register_blueprint(abuseipdb_bp)
+    app.register_blueprint(otx_bp)
+    app.register_blueprint(digital_twin_bp)
+    app.register_blueprint(dt_exec_bp)
+    app.register_blueprint(dt_logs_bp)
+    app.register_blueprint(dt_python_bp)
+    app.register_blueprint(agents_bp)
+
+    sock = Sock(app)
+    register_terminal_ws(sock)
+
+    @app.after_request
+    def compress_response(response: Any) -> Any:
+        """
+        Gzip-compress JSON API responses larger than 500 bytes.
+
+        :param response: the Flask response object
+        :return: the response, possibly gzip-compressed
+        """
+        if (
+            response.status_code < 200
+            or response.status_code >= 300
+        ):
+            return response
+        if "Content-Encoding" in response.headers:
+            return response
+        if response.direct_passthrough:
+            return response
+        accept = request.headers.get(
+            "Accept-Encoding", "",
+        )
+        if "gzip" not in accept.lower():
+            return response
+        ct = response.content_type or ""
+        if not ct.startswith("application/json"):
+            return response
+        data = response.get_data()
+        if len(data) < 500:
+            return response
+        compressed = gzip.compress(data)
+        response.set_data(compressed)
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Content-Length"] = len(compressed)
+        response.headers["Vary"] = "Accept-Encoding"
+        return response
+
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def serve(path: str) -> Any:
+        """
+        Serve static frontend files with SPA fallback to index.html.
+
+        :param path: the requested URL path
+        :return: the static file or index.html
+        """
+        if path and os.path.exists(
+            os.path.join(app.static_folder, path)  # type: ignore[arg-type]
+        ):
+            return send_from_directory(
+                app.static_folder, path  # type: ignore[arg-type]
+            )
+        return send_from_directory(
+            app.static_folder, "index.html"  # type: ignore[arg-type]
+        )
+
+    @app.errorhandler(404)
+    def not_found(e: Any) -> Any:
+        """
+        Handle 404 errors with SPA fallback for client-side routes.
+
+        API paths and requests for files (with extensions) return a JSON 404.
+        All other paths serve index.html so React Router can handle routing.
+
+        :param e: the original 404 exception
+        :return: index.html for SPA routes or a JSON 404
+        """
+        if request.path.startswith(API.PREFIX + "/"):
+            return jsonify({"error": "Not found"}), 404
+        last_segment = request.path.rsplit("/", 1)[-1]
+        if "." in last_segment:
+            return jsonify({"error": "Not found"}), 404
+        return send_from_directory(
+            app.static_folder, "index.html"  # type: ignore[arg-type]
+        )
+
+    return app
+
+
+def start_server(
+    static_folder: str,
+    port: int = 8888,
+    num_threads: int = 100,
+    host: str = "127.0.0.1",
+    https: Optional[bool] = False,
+) -> None:
+    """
+    Start the Flask server using Gunicorn with gthread workers.
+
+    :param static_folder: path to the static frontend build directory
+    :param port: port number to listen on
+    :param num_threads: number of threads for the server
+    :param host: host address to bind to
+    :param https: whether to enable HTTPS (not yet implemented)
+    """
+    from gunicorn.app.base import (  # type: ignore[import-untyped]
+        BaseApplication,
+    )
+
+    app = create_app(static_folder)
+
+    class _GunicornApp(BaseApplication):  # type: ignore[misc]
+        """
+        Thin wrapper to run a Flask app inside Gunicorn.
+        """
+
+        def __init__(
+            self, flask_app: Any, options: dict[str, Any],
+        ) -> None:
+            self.flask_app = flask_app
+            self.options = options
+            super().__init__()
+
+        def load_config(self) -> None:
+            """
+            Apply options to the Gunicorn config.
+            """
+            for key, value in self.options.items():
+                if (
+                    key in self.cfg.settings
+                    and value is not None
+                ):
+                    self.cfg.set(key, value)
+
+        def load(self) -> Any:
+            """
+            Return the WSGI application.
+
+            :return: the Flask app
+            """
+            return self.flask_app
+
+    options: dict[str, Any] = {
+        "bind": f"{host}:{port}",
+        "workers": 1,
+        "worker_class": "gthread",
+        "threads": num_threads,
+        "accesslog": "-",
+        "errorlog": "-",
+        "loglevel": "info",
+        "timeout": 600,
+    }
+    _GunicornApp(app, options).run()

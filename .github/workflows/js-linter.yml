@@ -16,6 +16,6 @@ jobs:
         with:
           node-version: '22'
       - name: Install dependencies
-        run: cd ccs-response-planner-frontend && npm install
+        run: cd response-planner-frontend && npm install
       - name: Run eslint
         run: chmod +x js_linter.sh && ./js_linter.sh

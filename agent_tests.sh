@@ -33,7 +33,7 @@ if [ "${1:-}" = "--no-docker" ]; then
 fi
 
 echo ">>> Running agent integration tests..."
-cd "$SCRIPT_DIR/ccs-response-planner-backend"
+cd "$SCRIPT_DIR/response-planner-backend"
 
 # shellcheck disable=SC2086
 pytest tests/test_agent_integration.py -v $MARKER_EXPR
