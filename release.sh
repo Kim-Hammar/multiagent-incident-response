@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-DOCKERHUB_USER="anonymous"
+DOCKERHUB_USER="kimham"
 DOCKER_IMAGE="incident_response_planner"
 PYPI_PACKAGE_DIR="response-planner-backend"
 

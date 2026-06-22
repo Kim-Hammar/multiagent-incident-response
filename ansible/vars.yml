@@ -1,4 +1,4 @@
 ---
-repo_url: "https://github.com/anonymous/anonymous-repo.git"
+repo_url: "https://github.com/Kim-Hammar/multiagent_incident_response.git"
 repo_branch: "main"
 app_dir: "/opt/incident_response"

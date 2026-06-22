@@ -1,6 +1,6 @@
 # Multiagent Incident Response Planning with Code Models
 
-This repository includes to code of a **multiagent incident response system** that autonomously investigates 
+This repository includes the code of a **multiagent incident response system** that autonomously investigates 
 security incidents and recommends optimized response actions. The system decomposes incident response into subtasks 
 that are managed by a hierarchy of agents, each of which uses a large language model as the processing engine. 
 At the top of the hierarchy is an orchestrator that manages the execution of subagents who investigate the incident 
@@ -14,7 +14,7 @@ with theoretical performance guarantees.
 
 ## Demo
 
-<video src="docs/multiagent_incident_response_demo_10_mar_short_version_anonymized_compressed.mp4" controls width="800"></video>
+<video src="docs/multiagent_incident_response_demo_10_mar_short_version_compressed.mp4" controls width="800"></video>
 
 ## Configuration
 
@@ -146,14 +146,14 @@ This will:
 
 1. Update the Python package version in `__version__.py`
 2. Run backend and frontend tests
-3. Build and push the Docker image to DockerHub (`anonymous/incident_response_planner:<version>`)
+3. Build and push the Docker image to DockerHub (`kimham/incident_response_planner:<version>`)
 4. Build and upload the Python package to PyPI
 
 Ensure you are logged in to DockerHub (`docker login`) and have a PyPI token configured (`~/.pypirc`) before running the script.
 
 ## Author & Maintainer
 
-Author A <authorA@anonymous.org>
+Kim Hammar <kimham@kth.se>
 
 ## Copyright and license
 
@@ -161,4 +161,4 @@ Author A <authorA@anonymous.org>
 
 Creative Commons
 
-(C) 2026, Author A, Author B, Author C
+(C) 2026, Kim Hammar, Tansu Alpcan, Emil C. Lupu
